@@ -304,24 +304,56 @@ shade_pixels (const guchar *src,
               const guchar *col,
               guchar        blend,
               guint         w,
-              guint         bytes,
-              gboolean      has_alpha)
+              guint         bytes)
 {
-  const guchar blend2 = (255 - blend);
-  const guint  alpha = (has_alpha) ? bytes - 1 : bytes;
-
-  while (w--)
+  if (HAS_ALPHA (bytes))
     {
-      guint b;
+      const guint blend1 = 255 - blend;
+      const guint blend2 = blend + 1;
+      const guint c      = bytes - 1;
+      const gint  a2 = blend2 * col[c];
+      gint  cola[MAX_CHANNELS];
+      guint       b;
+	  
+      for (b = 0; b < c; b++)
+	cola[b] = col[b] * a2;
 
-      for (b = 0; b < alpha; b++)
-        dest[b] = (src[b] * blend2 + col[b] * blend) / 255;
+      while (w--)
+        {
+          const gint  a1 = blend1 * src[c];
+          const gint  a  = a1 + a2;
 
-      if (has_alpha)
-        dest[alpha] = src[alpha];  /* alpha channel */
+          if (!a)
+            {
+              for (b = 0; b < bytes; b++)
+                dest[b] = 0;
+            }
+          else
+            {
+              for (b = 0; b < c; b++)
+                dest[b] =
+                  src[b] + (src[b] * a1 + cola[b] - a * src[b]) / a;
 
-      src += bytes;
-      dest += bytes;
+              dest[c] = a >> 8;
+            }
+
+          src += bytes;
+          dest += bytes;
+        }
+    }
+  else
+    {
+      const guchar blend1 = 255 - blend;
+
+      while (w--)
+        {
+          guint b;
+          for (b = 0; b < bytes; b++)
+            dest[b] =
+              (src[b] * blend1 + col[b] * blend) / 255;
+          src += bytes;
+          dest += bytes;
+        }
     }
 }
 

@@ -27,12 +27,14 @@
 
 
 #define SMUDGE_DEFAULT_RATE 50.0
+#define DEFAULT_USE_COLOR_BLENDING FALSE
 
 
 enum
 {
   PROP_0,
-  PROP_RATE
+  PROP_RATE,
+  PROP_USE_COLOR_BLENDING
 };
 
 
@@ -62,6 +64,11 @@ gimp_smudge_options_class_init (GimpSmudgeOptionsClass *klass)
                                    "rate", NULL,
                                    0.0, 100.0, SMUDGE_DEFAULT_RATE,
                                    GIMP_PARAM_STATIC_STRINGS);
+                                   
+  GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_USE_COLOR_BLENDING,
+                                    "use-color-blending", NULL,
+                                    DEFAULT_USE_COLOR_BLENDING,
+                                    GIMP_PARAM_STATIC_STRINGS);
 }
 
 static void
@@ -82,6 +89,11 @@ gimp_smudge_options_set_property (GObject      *object,
     case PROP_RATE:
       options->rate = g_value_get_double (value);
       break;
+      
+    case PROP_USE_COLOR_BLENDING:
+      options->use_color_blending = g_value_get_boolean (value);
+      break;
+    
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -101,6 +113,11 @@ gimp_smudge_options_get_property (GObject    *object,
     case PROP_RATE:
       g_value_set_double (value, options->rate);
       break;
+ 
+    case PROP_USE_COLOR_BLENDING:
+      g_value_set_boolean (value, options->use_color_blending);
+      break;
+ 
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;

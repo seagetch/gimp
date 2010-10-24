@@ -1946,16 +1946,23 @@ shade_region (PixelRegion *src,
               guchar      *color,
               guchar       blend)
 {
-  const guchar *s = src->data;
-  guchar       *d = dest->data;
-  gint          h = src->h;
-
-  while (h --)
+  gpointer pr;
+  
+  for (pr = pixel_regions_register (2, src, dest);
+       pr != NULL;
+       pr = pixel_regions_process (pr))
     {
-      blend_pixels (s, d, color, blend, src->w, src->bytes);
+      const guchar *s = src->data;
+      guchar       *d  = dest->data;
+      gint          h  = src->h;
 
-      s += src->rowstride;
-      d += dest->rowstride;
+      while (h --)
+        {
+          shade_pixels (s, d, color, blend, src->w, src->bytes);
+
+          s += src->rowstride;
+          d += dest->rowstride;
+        }
     }
 }
 

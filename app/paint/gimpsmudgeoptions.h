@@ -37,6 +37,7 @@ struct _GimpSmudgeOptions
   GimpPaintOptions  parent_instance;
 
   gdouble           rate;
+  gboolean          use_color_blending;
 };
 
 struct _GimpSmudgeOptionsClass

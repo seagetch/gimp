@@ -60,6 +60,7 @@ static void       gimp_smudge_motion       (GimpPaintCore    *paint_core,
                                             const GimpCoords *coords);
 
 static void       gimp_smudge_brush_coords (GimpPaintCore    *paint_core,
+                                            GimpPaintOptions  *options,
                                             const GimpCoords *coords,
                                             gint             *x,
                                             gint             *y,
@@ -96,7 +97,8 @@ gimp_smudge_class_init (GimpSmudgeClass *klass)
   paint_core_class->paint = gimp_smudge_paint;
 
   brush_core_class->handles_transforming_brush = TRUE;
-  brush_core_class->handles_dynamic_transforming_brush = FALSE;
+//  brush_core_class->handles_dynamic_transforming_brush = FALSE;
+  brush_core_class->handles_dynamic_transforming_brush = TRUE; // test
 }
 
 static void
@@ -104,6 +106,7 @@ gimp_smudge_init (GimpSmudge *smudge)
 {
   smudge->initialized = FALSE;
   smudge->accum_data  = NULL;
+  smudge->blending_data = NULL;
 }
 
 static void
@@ -116,6 +119,13 @@ gimp_smudge_finalize (GObject *object)
       g_free (smudge->accum_data);
       smudge->accum_data = NULL;
     }
+  
+  if (smudge->blending_data)
+    {
+      g_free (smudge->blending_data);
+      smudge->blending_data = NULL;
+    }
+  
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -148,6 +158,11 @@ gimp_smudge_paint (GimpPaintCore    *paint_core,
           g_free (smudge->accum_data);
           smudge->accum_data = NULL;
         }
+      if (smudge->blending_data)
+        {
+          g_free (smudge->blending_data);
+          smudge->blending_data = NULL;
+        }
       smudge->initialized = FALSE;
       break;
 
@@ -163,6 +178,7 @@ gimp_smudge_start (GimpPaintCore    *paint_core,
                    const GimpCoords *coords)
 {
   GimpSmudge  *smudge = GIMP_SMUDGE (paint_core);
+  GimpSmudgeOptions *options  = GIMP_SMUDGE_OPTIONS (paint_options);
   GimpImage   *image;
   TempBuf     *area;
   PixelRegion  srcPR;
@@ -180,11 +196,13 @@ gimp_smudge_start (GimpPaintCore    *paint_core,
     return FALSE;
 
   /*  adjust the x and y coordinates to the upper left corner of the brush  */
-  gimp_smudge_brush_coords (paint_core, coords, &x, &y, &w, &h);
+  gimp_smudge_brush_coords (paint_core, paint_options, coords, &x, &y, &w, &h);
 
   /*  Allocate the accumulation buffer */
   bytes = gimp_drawable_bytes (drawable);
   smudge->accum_data = g_malloc (w * h * bytes);
+  if (options->use_color_blending)
+    smudge->blending_data = g_malloc (w * h * bytes);
 
   /*  If clipped, prefill the smudge buffer with the color at the
    *  brush position.
@@ -273,7 +291,7 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
     return;
 
   /*  Get the unclipped brush coordinates  */
-  gimp_smudge_brush_coords (paint_core, coords, &x, &y, &w, &h);
+  gimp_smudge_brush_coords (paint_core, paint_options, coords, &x, &y, &w, &h);
 
   /* srcPR will be the pixels under the current painthit from the drawable */
   pixel_region_init (&srcPR, gimp_drawable_get_tiles (drawable),
@@ -299,7 +317,7 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
   /* The dest will be the paint area we got above (= canvas_buf) */
   pixel_region_init_temp_buf (&destPR, area,
                               0, 0, area->width, area->height);
-
+ 
   /*  Smudge uses the buffer Accum.
    *  For each successive painthit Accum is built like this
    *    Accum =  rate*Accum  + (1-rate)*I.
@@ -319,11 +337,44 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
                           area->width,
                           area->height);
 
+  if (options->use_color_blending)
+    {
+      guchar col[MAX_CHANNELS];
+      gdouble blending_rate = 1.0;
+      PixelRegion        blendPR;
+      
+      pixel_region_init_data (&blendPR, smudge->blending_data,
+                              smudge->accumPR.bytes,
+                              smudge->accumPR.rowstride,
+                              area->x - x,
+                              area->y - y,
+                              area->width,
+                              area->height);
+
+      blending_rate *= gimp_dynamics_output_get_linear_value (dynamics->blending_output,
+                                                              coords,
+                                                              paint_options,
+                                                              fade_point);
+
+      gimp_image_get_foreground (image, context, gimp_drawable_type (drawable), col);
+      col[area->bytes - 1] = OPAQUE_OPACITY;
+      shade_region (&tempPR, &blendPR, col, ROUND (blending_rate * 255.0));
+
+      /* re-init the tempPR */
+      pixel_region_init_data (&tempPR, smudge->blending_data,
+                              smudge->accumPR.bytes,
+                              smudge->accumPR.rowstride,
+                              area->x - x,
+                              area->y - y,
+                              area->width,
+                              area->height);
+    }
+
   if (! gimp_drawable_has_alpha (drawable))
     add_alpha_region (&tempPR, &destPR);
   else
     copy_region (&tempPR, &destPR);
-
+  
   hardness = gimp_dynamics_output_get_linear_value (dynamics->hardness_output,
                                                     coords,
                                                     paint_options,
@@ -340,6 +391,7 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
 
 static void
 gimp_smudge_brush_coords (GimpPaintCore    *paint_core,
+                          GimpPaintOptions *paint_options,
                           const GimpCoords *coords,
                           gint             *x,
                           gint             *y,
@@ -349,12 +401,16 @@ gimp_smudge_brush_coords (GimpPaintCore    *paint_core,
   GimpBrushCore *brush_core = GIMP_BRUSH_CORE (paint_core);
   gint           width;
   gint           height;
+  gdouble        max_radius;
 
   gimp_brush_transform_size (brush_core->brush,
-                             brush_core->scale,
+                             paint_options->brush_scale,
                              brush_core->aspect_ratio,
                              brush_core->angle,
                              &width, &height);
+
+  max_radius = ceil(sqrt(width * width + height * height));
+  width = height = (gint)max_radius;
 
   /* Note: these are the brush mask size plus a border of 1 pixel */
   *x = (gint) coords->x - width  / 2 - 1;

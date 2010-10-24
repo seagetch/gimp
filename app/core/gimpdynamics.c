@@ -51,7 +51,8 @@ enum
   PROP_SPACING_OUTPUT,
   PROP_RATE_OUTPUT,
   PROP_FLOW_OUTPUT,
-  PROP_JITTER_OUTPUT
+  PROP_JITTER_OUTPUT,
+  PROP_BLENDING_OUTPUT
 };
 
 
@@ -159,6 +160,11 @@ gimp_dynamics_class_init (GimpDynamicsClass *klass)
                                    "spacing-output", NULL,
                                    GIMP_TYPE_DYNAMICS_OUTPUT,
                                    GIMP_CONFIG_PARAM_AGGREGATE);
+
+  GIMP_CONFIG_INSTALL_PROP_OBJECT (object_class, PROP_BLENDING_OUTPUT,
+                                   "blending-output", NULL,
+                                   GIMP_TYPE_DYNAMICS_OUTPUT,
+                                   GIMP_CONFIG_PARAM_AGGREGATE);
 }
 
 static void
@@ -199,6 +205,9 @@ gimp_dynamics_init (GimpDynamics *dynamics)
   dynamics->spacing_output      = gimp_dynamics_create_output (dynamics,
                                                                "spacing-output",
                                                                GIMP_DYNAMICS_OUTPUT_SPACING);
+  dynamics->blending_output     = gimp_dynamics_create_output (dynamics,
+                                                               "blending-output",
+                                                               GIMP_DYNAMICS_OUTPUT_BLENDING);
 }
 
 static void
@@ -292,6 +301,11 @@ gimp_dynamics_set_property (GObject      *object,
       dest_output = dynamics->spacing_output;
       break;
 
+    case PROP_BLENDING_OUTPUT:
+      src_output  = g_value_get_object (value);
+      dest_output = dynamics->blending_output;
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -361,6 +375,10 @@ gimp_dynamics_get_property (GObject    *object,
 
     case PROP_SPACING_OUTPUT:
       g_value_set_object (value, dynamics->spacing_output);
+      break;
+
+    case PROP_BLENDING_OUTPUT:
+      g_value_set_object (value, dynamics->blending_output);
       break;
 
     default:
@@ -479,6 +497,10 @@ gimp_dynamics_get_output (GimpDynamics           *dynamics,
 
     case GIMP_DYNAMICS_OUTPUT_SPACING:
       return dynamics->spacing_output;
+      break;
+
+    case GIMP_DYNAMICS_OUTPUT_BLENDING:
+      return dynamics->blending_output;
       break;
 
     default:

@@ -195,6 +195,13 @@ gimp_paint_options_gui (GimpToolOptions *tool_options)
       gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
       gtk_widget_show (frame);
     }
+    
+  if (tool_type == GIMP_TYPE_SMUDGE_TOOL)
+    {
+      button = gimp_prop_check_button_new (config, "use-color-blending", _("Color Blending"));
+      gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
+      gtk_widget_show (button);
+    }
 
   return vbox;
 }
