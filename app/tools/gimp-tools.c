@@ -88,6 +88,7 @@
 static void   gimp_tools_register (GType                   tool_type,
                                    GType                   tool_options_type,
                                    GimpToolOptionsGUIFunc  options_gui_func,
+                                   GimpToolOptionsGUIFunc  options_gui_horizontal_func,
                                    GimpContextPropMask     context_props,
                                    const gchar            *identifier,
                                    const gchar            *blurb,
@@ -231,14 +232,21 @@ gimp_tools_exit (Gimp *gimp)
     {
       GimpToolInfo *tool_info = list->data;
       GtkWidget    *options_gui;
+      GtkWidget    *toolbar_gui;
 
       options_gui = g_object_get_data (G_OBJECT (tool_info->tool_options),
                                        "gimp-tool-options-gui");
+      toolbar_gui = g_object_get_data (G_OBJECT (tool_info->tool_options),
+                                       "gimp-tool-options-toolbar-gui");
 
       gtk_widget_destroy (options_gui);
+      gtk_widget_destroy (toolbar_gui);
 
       g_object_set_data (G_OBJECT (tool_info->tool_options),
                          "gimp-tool-options-gui", NULL);
+
+      g_object_set_data (G_OBJECT (tool_info->tool_options),
+                         "gimp-tool-options-toolbar-gui", NULL);
     }
 
   tool_manager_exit (gimp);
@@ -318,7 +326,9 @@ gimp_tools_restore (Gimp *gimp)
     {
       GimpToolInfo           *tool_info = GIMP_TOOL_INFO (list->data);
       GimpToolOptionsGUIFunc  options_gui_func;
+      GimpToolOptionsGUIFunc  toolbar_gui_func;
       GtkWidget              *options_gui;
+      GtkWidget              *toolbar_gui;
 
       /*  copy all context properties except those the tool actually
        *  uses, because the subsequent deserialize() on the tool
@@ -361,6 +371,32 @@ gimp_tools_restore (Gimp *gimp)
       g_object_set_data_full (G_OBJECT (tool_info->tool_options),
                               "gimp-tool-options-gui",
                               g_object_ref_sink (options_gui),
+                              (GDestroyNotify) g_object_unref);
+
+      toolbar_gui_func = g_object_get_data (G_OBJECT (tool_info),
+                                            "gimp-tool-options-gui-horizontal-func");
+      if (toolbar_gui_func)
+        {
+          toolbar_gui = (* toolbar_gui_func) (tool_info->tool_options);
+        }
+      else
+        {
+          GtkWidget *label;
+
+          toolbar_gui = gimp_tool_options_gui_full (tool_info->tool_options, TRUE);
+
+          label = gtk_label_new (_("This tool has\nno options."));
+          gtk_label_set_justify (GTK_LABEL (label), GTK_JUSTIFY_CENTER);
+          gimp_label_set_attributes (GTK_LABEL (label),
+                                     PANGO_ATTR_STYLE, PANGO_STYLE_ITALIC,
+                                     -1);
+          gtk_box_pack_start (GTK_BOX (toolbar_gui), label, FALSE, FALSE, 6);
+          gtk_widget_show (label);
+        }
+
+      g_object_set_data_full (G_OBJECT (tool_info->tool_options),
+                              "gimp-tool-options-toolbar-gui",
+                              g_object_ref_sink (toolbar_gui),
                               (GDestroyNotify) g_object_unref);
 
       if (tool_info->presets)
@@ -457,6 +493,7 @@ static void
 gimp_tools_register (GType                   tool_type,
                      GType                   tool_options_type,
                      GimpToolOptionsGUIFunc  options_gui_func,
+                     GimpToolOptionsGUIFunc  options_gui_horizontal_func,
                      GimpContextPropMask     context_props,
                      const gchar            *identifier,
                      const gchar            *blurb,
@@ -552,6 +589,9 @@ gimp_tools_register (GType                   tool_type,
 
   g_object_set_data (G_OBJECT (tool_info), "gimp-tool-options-gui-func",
                      options_gui_func);
+
+  g_object_set_data (G_OBJECT (tool_info), "gimp-tool-options-gui-horizontal-func",
+                     options_gui_horizontal_func);
 
   gimp_container_add (gimp->tool_info_list, GIMP_OBJECT (tool_info));
   g_object_unref (tool_info);

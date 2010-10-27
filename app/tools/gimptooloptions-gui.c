@@ -27,15 +27,75 @@
 
 
 /*  public functions  */
-
 GtkWidget *
 gimp_tool_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_tool_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_tool_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GtkWidget *vbox;
 
   g_return_val_if_fail (GIMP_IS_TOOL_OPTIONS (tool_options), NULL);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  if (horizontal)
+    {
+      vbox = gtk_hbox_new (FALSE, 6);
+    }
+  else
+    {
+      vbox = gtk_vbox_new (FALSE, 6);
+    }
 
   return vbox;
 }
+
+GtkWidget * gimp_tool_options_table (gint num_items, gboolean horizontal)
+{
+  GtkWidget *table;
+  
+  g_return_val_if_fail (num_items > 0, NULL);
+  
+  if (horizontal)
+    {
+      table = gtk_table_new (1, num_items * 3, FALSE);
+    }
+  else
+    {
+      table = gtk_table_new (num_items, 3, FALSE);
+    }
+  
+  return table;
+}
+
+GimpToolOptionsTableIncrement gimp_tool_options_table_increment (gboolean horizontal)
+{
+  GimpToolOptionsTableIncrement result;
+  result.table_col = result.table_row = 0;
+  result.horizontal = horizontal;
+  return result;
+}
+
+inline 
+gint gimp_tool_options_table_increment_get_col (GimpToolOptionsTableIncrement* inc)
+{
+  return inc->table_col;
+}
+
+inline 
+gint gimp_tool_options_table_increment_get_row (GimpToolOptionsTableIncrement* inc)
+{
+  return inc->table_row;
+}
+
+inline
+void gimp_tool_options_table_increment_next (GimpToolOptionsTableIncrement* inc)
+{
+  if (inc->horizontal)
+    inc->table_col += 3;
+  else
+    inc->table_row ++;
+}
+

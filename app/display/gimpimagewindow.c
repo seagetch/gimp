@@ -40,6 +40,7 @@
 #include "widgets/gimpsessioninfo.h"
 #include "widgets/gimpuimanager.h"
 #include "widgets/gimpview.h"
+#include "widgets/gimptooloptionstoolbar.h"
 
 #include "gimpdisplay.h"
 #include "gimpdisplay-foreach.h"
@@ -87,6 +88,7 @@ struct _GimpImageWindowPrivate
   GtkWidget         *right_hpane;
   GtkWidget         *notebook;
   GtkWidget         *right_docks;
+  GtkWidget         *toolbar;
 
   GdkWindowState     window_state;
 
@@ -286,7 +288,7 @@ gimp_image_window_constructor (GType                  type,
   private->main_vbox = gtk_vbox_new (FALSE, 0);
   gtk_container_add (GTK_CONTAINER (window), private->main_vbox);
   gtk_widget_show (private->main_vbox);
-
+  
   /* Create the menubar */
 #ifndef GDK_WINDOWING_QUARTZ
   private->menubar =
@@ -316,6 +318,14 @@ gimp_image_window_constructor (GType                  type,
                         G_CALLBACK (gimp_image_window_shell_events),
                         window);
     }
+  
+  /* Create toolbar */
+  private->toolbar = gimp_tool_options_toolbar_new (private->gimp,
+                                                   gimp_dialog_factory_get_menu_factory (private->dialog_factory));
+  gtk_box_pack_start (GTK_BOX (private->main_vbox), private->toolbar,
+                      FALSE, TRUE, 0);
+  gtk_widget_show (private->toolbar);
+  
 
   /* Create the hbox that contains docks and images */
   private->hbox = gtk_hbox_new (FALSE, 0);

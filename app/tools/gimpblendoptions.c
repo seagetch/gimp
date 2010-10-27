@@ -31,6 +31,7 @@
 
 #include "gimpblendoptions.h"
 #include "gimppaintoptions-gui.h"
+#include "gimptooloptions-gui.h"
 
 #include "gimp-intl.h"
 
@@ -60,6 +61,8 @@ static void   gimp_blend_options_get_property    (GObject          *object,
 static void   blend_options_gradient_type_notify (GimpBlendOptions *options,
                                                   GParamSpec       *pspec,
                                                   GtkWidget        *repeat_combo);
+
+static GtkWidget * gimp_blend_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal);
 
 
 G_DEFINE_TYPE (GimpBlendOptions, gimp_blend_options, GIMP_TYPE_PAINT_OPTIONS)
@@ -197,46 +200,74 @@ gimp_blend_options_get_property (GObject    *object,
 GtkWidget *
 gimp_blend_options_gui (GimpToolOptions *tool_options)
 {
+  return gimp_blend_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_blend_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_blend_options_gui_full (tool_options, TRUE);
+}
+
+static GtkWidget *
+gimp_blend_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
+{
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_paint_options_gui (tool_options);
+  GtkWidget *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
   GtkWidget *table;
   GtkWidget *frame;
   GtkWidget *combo;
   GtkWidget *button;
+  GimpToolOptionsTableIncrement inc = gimp_tool_options_table_increment (horizontal);
 
   table = g_object_get_data (G_OBJECT (vbox), GIMP_PAINT_OPTIONS_TABLE_KEY);
+  
+  gimp_tool_options_table_increment_next (&inc);
+  gimp_tool_options_table_increment_next (&inc);
 
   /*  the gradient  */
   button = gimp_prop_gradient_box_new (NULL, GIMP_CONTEXT (tool_options), 2,
                                        "gradient-view-type",
                                        "gradient-view-size",
                                        "gradient-reverse");
-  gimp_table_attach_aligned (GTK_TABLE (table), 0, 2,
+  gimp_table_attach_aligned (GTK_TABLE (table),
+                             gimp_tool_options_table_increment_get_col (&inc),
+                             gimp_tool_options_table_increment_get_row (&inc),
                              _("Gradient:"), 0.0, 0.5,
                              button, 2, TRUE);
+  gimp_tool_options_table_increment_next (&inc);
 
   /*  the offset scale  */
   gimp_prop_scale_entry_new (config, "offset",
-                             GTK_TABLE (table), 0, 3,
+                             GTK_TABLE (table),
+                             gimp_tool_options_table_increment_get_col (&inc),
+                             gimp_tool_options_table_increment_get_row (&inc),
                              _("Offset:"),
                              1.0, 10.0, 1,
                              FALSE, 0.0, 0.0);
+  gimp_tool_options_table_increment_next (&inc);
 
   /*  the gradient type menu  */
   combo = gimp_prop_enum_combo_box_new (config, "gradient-type", 0, 0);
   g_object_set (combo, "ellipsize", PANGO_ELLIPSIZE_END, NULL);
   gimp_enum_combo_box_set_stock_prefix (GIMP_ENUM_COMBO_BOX (combo),
                                         "gimp-gradient");
-  gimp_table_attach_aligned (GTK_TABLE (table), 0, 4,
+  gimp_table_attach_aligned (GTK_TABLE (table),
+                             gimp_tool_options_table_increment_get_col (&inc),
+                             gimp_tool_options_table_increment_get_row (&inc),
                              _("Shape:"), 0.0, 0.5,
                              combo, 2, FALSE);
+  gimp_tool_options_table_increment_next (&inc);
 
   /*  the repeat option  */
   combo = gimp_prop_enum_combo_box_new (config, "gradient-repeat", 0, 0);
   g_object_set (combo, "ellipsize", PANGO_ELLIPSIZE_END, NULL);
-  gimp_table_attach_aligned (GTK_TABLE (table), 0, 5,
+  gimp_table_attach_aligned (GTK_TABLE (table),
+                             gimp_tool_options_table_increment_get_col (&inc),
+                             gimp_tool_options_table_increment_get_row (&inc),
                              _("Repeat:"), 0.0, 0.5,
                              combo, 2, FALSE);
+  gimp_tool_options_table_increment_next (&inc);
 
   g_signal_connect (config, "notify::gradient-type",
                     G_CALLBACK (blend_options_gradient_type_notify),
@@ -248,9 +279,11 @@ gimp_blend_options_gui (GimpToolOptions *tool_options)
   gtk_widget_show (button);
 
   /*  supersampling options  */
-  table = gtk_table_new (2, 3, FALSE);
+  table = gimp_tool_options_table (2, horizontal);
   gtk_table_set_col_spacings (GTK_TABLE (table), 2);
   gtk_table_set_row_spacings (GTK_TABLE (table), 1);
+  
+  inc = gimp_tool_options_table_increment (horizontal);
 
   frame = gimp_prop_expanding_frame_new (config, "supersample",
                                          _("Adaptive supersampling"),
@@ -260,17 +293,23 @@ gimp_blend_options_gui (GimpToolOptions *tool_options)
 
   /*  max depth scale  */
   gimp_prop_scale_entry_new (config, "supersample-depth",
-                             GTK_TABLE (table), 0, 0,
+                             GTK_TABLE (table),
+                             gimp_tool_options_table_increment_get_col (&inc),
+                             gimp_tool_options_table_increment_get_row (&inc),
                              _("Max depth:"),
                              1.0, 1.0, 0,
                              FALSE, 0.0, 0.0);
+  gimp_tool_options_table_increment_next (&inc);
 
   /*  threshold scale  */
   gimp_prop_scale_entry_new (config, "supersample-threshold",
-                             GTK_TABLE (table), 0, 1,
+                             GTK_TABLE (table),
+                             gimp_tool_options_table_increment_get_col (&inc),
+                             gimp_tool_options_table_increment_get_row (&inc),
                              _("Threshold:"),
                              0.01, 0.1, 2,
                              FALSE, 0.0, 0.0);
+  gimp_tool_options_table_increment_next (&inc);
 
   return vbox;
 }

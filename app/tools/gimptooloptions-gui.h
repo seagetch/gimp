@@ -18,8 +18,21 @@
 #ifndef __GIMP_TOOL_OPTIONS_GUI_H__
 #define __GIMP_TOOL_OPTIONS_GUI_H__
 
+typedef struct _GimpToolOptionsTableIncrement GimpToolOptionsTableIncrement;
 
-GtkWidget * gimp_tool_options_gui (GimpToolOptions *tool_options);
+struct _GimpToolOptionsTableIncrement
+{
+  gint table_col;
+  gint table_row;
+  gboolean horizontal;
+};
 
+GtkWidget * gimp_tool_options_gui        (GimpToolOptions *tool_options);
+GtkWidget * gimp_tool_options_gui_full   (GimpToolOptions *tool_options, gboolean horizontal);
+GtkWidget * gimp_tool_options_table (gint num_items, gboolean horizontal);
+GimpToolOptionsTableIncrement gimp_tool_options_table_increment (gboolean horizontal);
+gint gimp_tool_options_table_increment_get_col (GimpToolOptionsTableIncrement* inc);
+gint gimp_tool_options_table_increment_get_row (GimpToolOptionsTableIncrement* inc);
+void gimp_tool_options_table_increment_next (GimpToolOptionsTableIncrement* inc);
 
 #endif  /*  __GIMP_TOOL_OPTIONS_GUI_H__  */

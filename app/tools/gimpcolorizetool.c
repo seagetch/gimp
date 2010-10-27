@@ -84,7 +84,7 @@ gimp_colorize_tool_register (GimpToolRegisterCallback  callback,
                              gpointer                  data)
 {
   (* callback) (GIMP_TYPE_COLORIZE_TOOL,
-                GIMP_TYPE_IMAGE_MAP_OPTIONS, NULL,
+                GIMP_TYPE_IMAGE_MAP_OPTIONS, NULL, NULL,
                 0,
                 "gimp-colorize-tool",
                 _("Colorize"),

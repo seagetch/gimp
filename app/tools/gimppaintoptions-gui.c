@@ -63,22 +63,34 @@ static GtkWidget * smoothing_options_gui (GimpPaintOptions *paint_options,
 GtkWidget *
 gimp_paint_options_gui (GimpToolOptions *tool_options)
 {
+  return gimp_paint_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_paint_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_paint_options_gui_full (tool_options, TRUE);
+}
+
+GtkWidget *
+gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
+{
   GObject          *config  = G_OBJECT (tool_options);
   GimpPaintOptions *options = GIMP_PAINT_OPTIONS (tool_options);
-  GtkWidget        *vbox    = gimp_tool_options_gui (tool_options);
+  GtkWidget        *vbox    = gimp_tool_options_gui_full (tool_options, horizontal);
   GtkWidget        *frame;
   GtkWidget        *table;
   GtkWidget        *menu;
   GtkWidget        *label;
   GtkWidget        *button;
   GtkWidget        *incremental_toggle = NULL;
-  gint              table_row          = 0;
   GType             tool_type;
+  GimpToolOptionsTableIncrement inc = gimp_tool_options_table_increment (horizontal);  
 
   tool_type = tool_options->tool_info->tool_type;
 
   /*  the main table  */
-  table = gtk_table_new (3, 3, FALSE);
+  table = gimp_tool_options_table (3, horizontal);
   gtk_table_set_col_spacings (GTK_TABLE (table), 2);
   gtk_table_set_row_spacings (GTK_TABLE (table), 2);
   gtk_box_pack_start (GTK_BOX (vbox), table, FALSE, FALSE, 0);
@@ -88,9 +100,12 @@ gimp_paint_options_gui (GimpToolOptions *tool_options)
 
   /*  the paint mode menu  */
   menu  = gimp_prop_paint_mode_menu_new (config, "paint-mode", TRUE, FALSE);
-  label = gimp_table_attach_aligned (GTK_TABLE (table), 0, table_row++,
+  label = gimp_table_attach_aligned (GTK_TABLE (table), 
+                                     gimp_tool_options_table_increment_get_col (&inc),
+                                     gimp_tool_options_table_increment_get_row (&inc),
                                      _("Mode:"), 0.0, 0.5,
                                      menu, 2, FALSE);
+  gimp_tool_options_table_increment_next (&inc);
 
   if (tool_type == GIMP_TYPE_ERASER_TOOL     ||
       tool_type == GIMP_TYPE_CONVOLVE_TOOL   ||
@@ -103,8 +118,11 @@ gimp_paint_options_gui (GimpToolOptions *tool_options)
 
   /*  the opacity scale  */
   gimp_prop_opacity_entry_new (config, "opacity",
-                               GTK_TABLE (table), 0, table_row++,
+                               GTK_TABLE (table),
+                               gimp_tool_options_table_increment_get_col (&inc),
+                               gimp_tool_options_table_increment_get_row (&inc),
                                _("Opacity:"));
+  gimp_tool_options_table_increment_next (&inc);
 
   /*  the brush  */
   if (g_type_is_a (tool_type, GIMP_TYPE_BRUSH_TOOL))
@@ -116,31 +134,43 @@ gimp_paint_options_gui (GimpToolOptions *tool_options)
 
       button = gimp_prop_brush_box_new (NULL, GIMP_CONTEXT (tool_options), 2,
                                         "brush-view-type", "brush-view-size");
-      gimp_table_attach_aligned (GTK_TABLE (table), 0, table_row++,
+      gimp_table_attach_aligned (GTK_TABLE (table),
+                                 gimp_tool_options_table_increment_get_col (&inc),
+                                 gimp_tool_options_table_increment_get_row (&inc),
                                  _("Brush:"), 0.0, 0.5,
                                  button, 2, FALSE);
+      gimp_tool_options_table_increment_next (&inc);
 
       adj_scale = gimp_prop_scale_entry_new (config, "brush-scale",
-                                             GTK_TABLE (table), 0, table_row++,
+                                             GTK_TABLE (table), 
+                                             gimp_tool_options_table_increment_get_col (&inc),
+                                             gimp_tool_options_table_increment_get_row (&inc),
                                              _("Scale:"),
                                              0.01, 0.1, 2,
                                              FALSE, 0.0, 0.0);
+      gimp_tool_options_table_increment_next (&inc);
       gimp_scale_entry_set_logarithmic (adj_scale, TRUE);
 
       adj_aspect_ratio = gimp_prop_scale_entry_new (config, "brush-aspect-ratio",
-                                                    GTK_TABLE (table), 0, table_row++,
+                                                    GTK_TABLE (table),
+                                                    gimp_tool_options_table_increment_get_col (&inc),
+                                                    gimp_tool_options_table_increment_get_row (&inc),
                                                     /* Label for a slider that affects
                                                        aspect ratio for brushes */
                                                     _("Aspect:"),
                                                     0.01, 0.1, 2,
                                                     FALSE, 0.0, 0.0);
+      gimp_tool_options_table_increment_next (&inc);
       gimp_scale_entry_set_logarithmic (adj_aspect_ratio, TRUE);
 
       adj_angle = gimp_prop_scale_entry_new (config, "brush-angle",
-                                             GTK_TABLE (table), 0, table_row++,
+                                             GTK_TABLE (table),
+                                             gimp_tool_options_table_increment_get_col (&inc),
+                                             gimp_tool_options_table_increment_get_row (&inc),
                                              _("Angle:"),
                                              1.0, 5.0, 2,
                                              FALSE, 0.0, 0.0);
+      gimp_tool_options_table_increment_next (&inc);
     }
 
 

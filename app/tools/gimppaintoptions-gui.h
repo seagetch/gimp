@@ -23,6 +23,8 @@
 
 
 GtkWidget * gimp_paint_options_gui (GimpToolOptions *tool_options);
+GtkWidget * gimp_paint_options_gui_horizontal (GimpToolOptions *tool_options);
+GtkWidget * gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal);
 
 
 #endif /* __GIMP_PAINT_OPTIONS_GUI_H__ */

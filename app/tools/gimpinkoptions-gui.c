@@ -30,48 +30,68 @@
 #include "widgets/gimpblobeditor.h"
 
 #include "gimpinkoptions-gui.h"
+#include "gimptooloptions-gui.h"
 #include "gimppaintoptions-gui.h"
 
 #include "gimp-intl.h"
 
 
 static GtkWidget * blob_image_new (GimpInkBlobType blob_type);
-
+static GtkWidget * gimp_ink_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal);
 
 GtkWidget *
 gimp_ink_options_gui (GimpToolOptions *tool_options)
 {
+  return gimp_ink_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_ink_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_ink_options_gui_full (tool_options, TRUE);
+}
+
+GtkWidget *
+gimp_ink_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
+{
   GObject        *config      = G_OBJECT (tool_options);
   GimpInkOptions *ink_options = GIMP_INK_OPTIONS (tool_options);
-  GtkWidget      *vbox        = gimp_paint_options_gui (tool_options);
+  GtkWidget      *vbox        = gimp_paint_options_gui_full (tool_options, horizontal);
   GtkWidget      *frame;
   GtkWidget      *table;
   GtkWidget      *blob_vbox;
   GtkWidget      *hbox;
   GtkWidget      *editor;
   GtkObject      *adj;
+  GimpToolOptionsTableIncrement inc = gimp_tool_options_table_increment (horizontal);
 
   /* adjust sliders */
   frame = gimp_frame_new (_("Adjustment"));
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, TRUE, 0);
   gtk_widget_show (frame);
 
-  table = gtk_table_new (2, 3, FALSE);
+  table = gimp_tool_options_table (2, horizontal);
   gtk_table_set_col_spacings (GTK_TABLE (table), 2);
   gtk_container_add (GTK_CONTAINER (frame), table);
   gtk_widget_show (table);
 
   /*  size slider  */
   adj = gimp_prop_scale_entry_new (config, "size",
-                                   GTK_TABLE (table), 0, 0,
+                                   GTK_TABLE (table),
+                                   gimp_tool_options_table_increment_get_col (&inc),
+                                   gimp_tool_options_table_increment_get_row (&inc),
                                    _("Size:"),
                                    1.0, 2.0, 1,
                                    FALSE, 0.0, 0.0);
   gimp_scale_entry_set_logarithmic (adj, TRUE);
+  
+  gimp_tool_options_table_increment_next (&inc);
 
   /* angle adjust slider */
   gimp_prop_scale_entry_new (config, "tilt-angle",
-                             GTK_TABLE (table), 0, 1,
+                             GTK_TABLE (table),
+                             gimp_tool_options_table_increment_get_col (&inc),
+                             gimp_tool_options_table_increment_get_row (&inc),
                              _("Angle:"),
                              1.0, 10.0, 1,
                              FALSE, 0.0, 0.0);
@@ -81,31 +101,41 @@ gimp_ink_options_gui (GimpToolOptions *tool_options)
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, TRUE, 0);
   gtk_widget_show (frame);
 
-  table = gtk_table_new (3, 3, FALSE);
+  inc = gimp_tool_options_table_increment (horizontal);
+  table = gimp_tool_options_table (3, horizontal);
   gtk_table_set_col_spacings (GTK_TABLE (table), 2);
   gtk_container_add (GTK_CONTAINER (frame), table);
   gtk_widget_show (table);
 
   /* size sens slider */
   gimp_prop_scale_entry_new (config, "size-sensitivity",
-                             GTK_TABLE (table), 0, 0,
+                             GTK_TABLE (table),
+                             gimp_tool_options_table_increment_get_col (&inc),
+                             gimp_tool_options_table_increment_get_row (&inc),
                              _("Size:"),
                              0.01, 0.1, 1,
                              FALSE, 0.0, 0.0);
+  gimp_tool_options_table_increment_next (&inc);
 
   /* tilt sens slider */
   gimp_prop_scale_entry_new (config, "tilt-sensitivity",
-                             GTK_TABLE (table), 0, 1,
+                             GTK_TABLE (table),
+                             gimp_tool_options_table_increment_get_col (&inc),
+                             gimp_tool_options_table_increment_get_row (&inc),
                              _("Tilt:"),
                              0.01, 0.1, 1,
                              FALSE, 0.0, 0.0);
+  gimp_tool_options_table_increment_next (&inc);
 
   /* velocity sens slider */
   gimp_prop_scale_entry_new (config, "vel-sensitivity",
-                             GTK_TABLE (table), 0, 2,
+                             GTK_TABLE (table),
+                             gimp_tool_options_table_increment_get_col (&inc),
+                             gimp_tool_options_table_increment_get_row (&inc),
                              _("Speed:"),
                              0.01, 0.1, 1,
                              FALSE, 0.0, 0.0);
+  gimp_tool_options_table_increment_next (&inc);
 
   /*  bottom hbox */
   hbox = gtk_hbox_new (FALSE, 2);

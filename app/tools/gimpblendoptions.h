@@ -50,7 +50,8 @@ struct _GimpBlendOptions
 
 GType       gimp_blend_options_get_type (void) G_GNUC_CONST;
 
-GtkWidget * gimp_blend_options_gui      (GimpToolOptions *tool_options);
+GtkWidget * gimp_blend_options_gui            (GimpToolOptions *tool_options);
+GtkWidget * gimp_blend_options_gui_horizontal (GimpToolOptions *tool_options);
 
 
 #endif  /*  __GIMP_BLEND_OPTIONS_H__  */

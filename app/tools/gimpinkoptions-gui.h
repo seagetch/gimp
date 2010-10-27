@@ -20,6 +20,7 @@
 
 
 GtkWidget * gimp_ink_options_gui      (GimpToolOptions *tool_options);
+GtkWidget * gimp_ink_options_gui_horizontal      (GimpToolOptions *tool_options);
 
 
 #endif  /*  __GIMP_INK_OPTIONS_GUI_H__  */
