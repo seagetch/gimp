@@ -41,6 +41,7 @@
 #include "widgets/gimpuimanager.h"
 #include "widgets/gimpview.h"
 #include "widgets/gimptooloptionstoolbar.h"
+#include "widgets/gimppopupbutton.h"
 
 #include "gimpdisplay.h"
 #include "gimpdisplay-foreach.h"
@@ -324,8 +325,7 @@ gimp_image_window_constructor (GType                  type,
                                                    gimp_dialog_factory_get_menu_factory (private->dialog_factory));
   gtk_box_pack_start (GTK_BOX (private->main_vbox), private->toolbar,
                       FALSE, TRUE, 0);
-  gtk_widget_show (private->toolbar);
-  
+  gtk_widget_show (private->toolbar);  
 
   /* Create the hbox that contains docks and images */
   private->hbox = gtk_hbox_new (FALSE, 0);
