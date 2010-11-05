@@ -150,7 +150,7 @@ gimp_popup_grab_notify (GtkWidget *widget,
   if (gtk_widget_is_ancestor (gtk_grab_get_current (), widget))
     return;
 
-  g_signal_emit (widget, popup_signals[CANCEL], 0);
+/*  g_signal_emit (widget, popup_signals[CANCEL], 0); */
 }
 
 static gboolean
@@ -227,15 +227,16 @@ gimp_popup_button_press (GtkWidget      *widget,
           bevent->y > allocation.height)
         {
           /*  the event was outsde gimp  */
-
           cancel = TRUE;
         }
     }
   else if (gtk_widget_get_toplevel (event_widget) != widget)
     {
+      GtkWidget *parent;
       /*  the event was on a gimp widget, but not inside the popup  */
 
       cancel = TRUE;
+      
     }
 
   if (cancel)
@@ -282,8 +283,8 @@ static void
 gimp_popup_real_confirm (GimpPopup *popup)
 {
   GtkWidget  *widget = GTK_WIDGET (popup);
-  GimpObject *object;
 /*
+  GimpObject *object;
   object = gimp_context_get_by_type (popup->context,
                                      gimp_get_children_type (popup->container));
   gimp_context_set_by_type (popup->orig_context,

@@ -314,7 +314,7 @@ popup_options_gui (GimpPaintOptions           *paint_options,
       GtkBox     *hbox;
       
       hbox          = GTK_BOX (gtk_hbox_new (FALSE, 0));
-      button_label  = gtk_label_new ("+");
+      button_label  = gtk_arrow_new (GTK_ARROW_DOWN, GTK_SHADOW_ETCHED_IN);
       
       button        = gimp_prop_check_button_new (config, property_name, short_label);
       gtk_box_pack_start (GTK_BOX (hbox), button, FALSE, FALSE, 0);

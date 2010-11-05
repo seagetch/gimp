@@ -58,6 +58,14 @@ enum
 };
 
 
+typedef struct _GimpDockTitlebar GimpDockTitlebar;
+struct _GimpDockTitlebar
+{
+  GtkWidget *box;
+  GtkWidget *label;
+  GtkWidget *button;
+};
+
 struct _GimpDockPrivate
 {
   GtkWidget         *temp_vbox;
@@ -67,6 +75,13 @@ struct _GimpDockPrivate
   GList             *dockbooks;
 
   gint               ID;
+  gchar             *name;
+  GimpDockTitlebar  titlebar;
+  GimpDockTitlebar  shaded_titlebar;
+  GtkWidget         *content_hbox;
+  
+  gboolean           shaded;
+  gint               orig_w, orig_h;
 };
 
 
@@ -85,6 +100,7 @@ static gboolean          gimp_dock_dropped_cb             (GtkWidget    *source,
                                                            gint          insert_index,
                                                            gpointer      data);
 static GimpDockColumns * gimp_dock_get_dock_columns       (GimpDock     *dock);
+static void              gimp_dock_titlebar_button_clicked (GtkWidget   *source, GimpDock *data);
 
 
 G_DEFINE_TYPE (GimpDock, gimp_dock, GTK_TYPE_VBOX)
@@ -165,11 +181,13 @@ gimp_dock_init (GimpDock *dock)
 {
   static gint  dock_ID = 1;
   gchar       *name    = NULL;
+  GtkWidget    *box;
 
   dock->p = G_TYPE_INSTANCE_GET_PRIVATE (dock,
                                          GIMP_TYPE_DOCK,
                                          GimpDockPrivate);
   dock->p->ID             = dock_ID++;
+  dock->p->shaded         = FALSE;
 
   name = g_strdup_printf ("gimp-internal-dock-%d", dock->p->ID);
   gtk_widget_set_name (GTK_WIDGET (dock), name);
@@ -183,11 +201,68 @@ gimp_dock_init (GimpDock *dock)
   gtk_container_add (GTK_CONTAINER (dock), dock->p->main_vbox);
   gtk_widget_show (dock->p->main_vbox);
 
+  /* Titlebar */
+  dock->p->titlebar.box = gtk_frame_new (NULL);
+  box                   = gtk_hbox_new (FALSE, 3);
+  gtk_container_add (GTK_CONTAINER(dock->p->titlebar.box), box);
+  gtk_widget_show (box);
+  gtk_box_pack_start (GTK_BOX (dock->p->main_vbox), dock->p->titlebar.box, FALSE, TRUE, 0);
+  gtk_widget_show (dock->p->titlebar.box);
+  gtk_frame_set_shadow_type (GTK_FRAME (dock->p->titlebar.box), GTK_SHADOW_ETCHED_OUT);
+  
+  dock->p->titlebar.label    = gtk_label_new (gtk_widget_get_name (GTK_WIDGET (dock)));
+  gtk_box_pack_start (GTK_BOX (box), dock->p->titlebar.label, TRUE, TRUE, 0);
+  gtk_misc_set_alignment (GTK_MISC (dock->p->titlebar.label), 0.0, 0.0);
+  gtk_widget_show (dock->p->titlebar.label);
+  
+  dock->p->titlebar.button = gtk_button_new ();
+  gtk_button_set_label (GTK_BUTTON (dock->p->titlebar.button), "-");
+  gtk_button_set_relief (GTK_BUTTON (dock->p->titlebar.button), GTK_RELIEF_HALF);
+  gtk_box_pack_end (GTK_BOX (box), dock->p->titlebar.button, FALSE, FALSE, 0);
+  g_signal_connect_object (G_OBJECT (dock->p->titlebar.button), "clicked", 
+                           G_CALLBACK(gimp_dock_titlebar_button_clicked), 
+                           G_OBJECT (dock), 0);
+  gtk_widget_show (dock->p->titlebar.button);
+
+  /* Contents holder */
+  dock->p->content_hbox = gtk_hbox_new (FALSE, 0);
+  gtk_box_pack_start (GTK_BOX (dock->p->main_vbox), dock->p->content_hbox, TRUE, TRUE, 0);
+  gtk_widget_show (dock->p->content_hbox);
+
+  /* shaded titlebar */
+  dock->p->shaded_titlebar.box = gtk_frame_new (NULL);
+  box                          = gtk_vbox_new (FALSE, 3);
+  gtk_container_add (GTK_CONTAINER(dock->p->shaded_titlebar.box), box);
+  gtk_widget_show (box);
+  gtk_box_pack_start (GTK_BOX (dock->p->content_hbox), dock->p->shaded_titlebar.box, FALSE, TRUE, 0);
+  gtk_widget_hide (dock->p->shaded_titlebar.box);
+  gtk_frame_set_shadow_type (GTK_FRAME (dock->p->shaded_titlebar.box), GTK_SHADOW_ETCHED_OUT);
+  
+  dock->p->shaded_titlebar.button = gtk_button_new ();
+  gtk_button_set_label (GTK_BUTTON (dock->p->shaded_titlebar.button), "+");
+  gtk_button_set_relief (GTK_BUTTON (dock->p->shaded_titlebar.button), GTK_RELIEF_HALF);
+  gtk_box_pack_start (GTK_BOX (box), dock->p->shaded_titlebar.button, FALSE, TRUE, 0);
+  g_signal_connect_object (G_OBJECT (dock->p->shaded_titlebar.button), "clicked", 
+                           G_CALLBACK(gimp_dock_titlebar_button_clicked), 
+                           G_OBJECT (dock), 0);
+  gtk_widget_show (dock->p->shaded_titlebar.button);
+
+  dock->p->shaded_titlebar.label    = gtk_label_new (gtk_widget_get_name (GTK_WIDGET (dock)));
+  gtk_box_pack_start (GTK_BOX (box), dock->p->shaded_titlebar.label, TRUE, TRUE, 0);
+  gtk_widget_show (dock->p->shaded_titlebar.label);
+  gtk_misc_set_alignment (GTK_MISC (dock->p->shaded_titlebar.label), 0.0, 0.0);
+  gtk_label_set_angle (GTK_LABEL (dock->p->shaded_titlebar.label), 270);
+  
+  dock->p->orig_w = -1;
+  dock->p->orig_h = -1;
+
+  /* Contents */
+
   dock->p->paned_vbox = gimp_paned_box_new (FALSE, 0, GTK_ORIENTATION_VERTICAL);
   gimp_paned_box_set_dropped_cb (GIMP_PANED_BOX (dock->p->paned_vbox),
                                  gimp_dock_dropped_cb,
                                  dock);
-  gtk_container_add (GTK_CONTAINER (dock->p->main_vbox), dock->p->paned_vbox);
+  gtk_container_add (GTK_CONTAINER (dock->p->content_hbox), dock->p->paned_vbox);
   gtk_widget_show (dock->p->paned_vbox);
 }
 
@@ -742,3 +817,92 @@ gimp_dock_temp_remove (GimpDock  *dock,
 
   gtk_container_remove (GTK_CONTAINER (dock->p->temp_vbox), child);
 }
+
+/**
+ * gimp_dock_minimize_button_clicked:
+ */
+static void
+gimp_dock_titlebar_button_clicked (GtkWidget   *source, 
+                                   GimpDock *dock)
+{
+  gint w, h;
+  GtkWidget *parent_paned = NULL;
+  GtkWidget *paned_child  = NULL;
+  gboolean   resize;
+  g_return_if_fail (GIMP_IS_DOCK (dock));
+  
+  parent_paned = gtk_widget_get_parent (GTK_WIDGET (dock));
+  paned_child  = GTK_WIDGET (dock);
+  while (parent_paned && !GTK_IS_PANED (parent_paned))
+    {
+      paned_child  = parent_paned;
+      parent_paned = gtk_widget_get_parent (parent_paned);
+    }
+ 
+  if (dock->p->shaded)
+    {
+      dock->p->shaded = FALSE;
+      if (parent_paned)
+        {
+          gtk_container_child_get (GTK_CONTAINER (parent_paned),
+                                   paned_child, "resize", &resize, NULL);
+          gtk_container_child_set (GTK_CONTAINER (parent_paned),
+                                   paned_child,
+                                   "resize", TRUE, NULL);
+        }
+      gtk_widget_show (dock->p->paned_vbox);
+      gtk_widget_hide (dock->p->shaded_titlebar.box);
+      gtk_widget_show (dock->p->titlebar.box);
+      gtk_widget_set_size_request (GTK_WIDGET (dock), dock->p->orig_w, dock->p->orig_h);
+      gtk_widget_queue_resize (GTK_WIDGET (dock));
+    }
+  else
+    {
+      dock->p->shaded = TRUE;
+      if (parent_paned)
+        {
+          gtk_container_child_get (GTK_CONTAINER (parent_paned),
+                                   paned_child, "resize", &resize, NULL);
+          gtk_container_child_set (GTK_CONTAINER (parent_paned),
+                                   paned_child,
+                                   "resize", FALSE, NULL);
+          g_object_set (G_OBJECT (parent_paned), "position-set", FALSE, NULL);
+          
+/*
+          paned_child = NULL;
+          while (parent_paned)
+            {
+              if (GTK_IS_PANED (parent_paned))
+                {
+                  paned_child = parent_paned;
+                }
+              parent_paned = gtk_widget_get_parent (parent_paned);
+            }
+  
+          if (paned_child)
+            g_object_set (G_OBJECT (paned_child), "position-set", FALSE, NULL);
+*/
+      }
+
+      parent_paned = GTK_WIDGET (dock);
+      while (parent_paned)
+        {
+          g_print ("class=%s\n", G_OBJECT_TYPE_NAME (parent_paned));
+          if (GIMP_IS_DOCK_WINDOW (parent_paned))
+            {
+              g_print ("resize to minimum size! class=%s\n", G_OBJECT_TYPE_NAME (parent_paned));
+              gtk_window_resize (GTK_WINDOW (parent_paned), 1, 1);
+            }
+          parent_paned = gtk_widget_get_parent (parent_paned);
+        }
+
+      gtk_widget_hide (dock->p->paned_vbox);
+      gtk_widget_show (dock->p->shaded_titlebar.box);
+      gtk_widget_hide (dock->p->titlebar.box);
+      gtk_widget_get_size_request (GTK_WIDGET (dock), &dock->p->orig_w, &dock->p->orig_h);
+      gtk_widget_get_size_request (dock->p->shaded_titlebar.box, &w, &h);
+      gtk_widget_set_size_request (GTK_WIDGET (dock), w, h);
+      gtk_widget_queue_resize (GTK_WIDGET (dock));
+    }
+}
+
