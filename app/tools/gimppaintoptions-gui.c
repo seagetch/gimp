@@ -18,7 +18,6 @@
 #include "config.h"
 
 #include <gtk/gtk.h>
-#include <glib/gprintf.h>
 
 #include "libgimpwidgets/gimpwidgets.h"
 
@@ -48,7 +47,6 @@
 
 #include "gimp-intl.h"
 
-typedef void (*GimpPopupCreateViewCallback) (GtkWidget *button, GtkWidget** result, GObject *config);
 typedef void (*GimpContextNotifyCallback)   (GObject *config, GParamSpec *param_spec, GtkWidget *label);
 
 static GtkWidget * fade_options_gui      (GimpPaintOptions *paint_options,
@@ -75,45 +73,15 @@ static void       smoothing_options_create_view (GtkWidget *button,
                                              GtkWidget **result, GObject *config);
 
 static void       aspect_entry_create_view (GtkWidget *button, 
-                                             GtkWidget **result, GObject *config);
+                                             gint column, gint row, GObject *config);
 static void       scale_entry_create_view  (GtkWidget *button, 
-                                             GtkWidget **result, GObject *config);
+                                             gint column, gint row, GObject *config);
 static void       angle_entry_create_view  (GtkWidget *button, 
-                                             GtkWidget **result, GObject *config);
+                                             gint column, gint row, GObject *config);
 static void       opacity_entry_create_view  (GtkWidget *button, 
-                                             GtkWidget **result, GObject *config);
+                                             gint column, gint row, GObject *config);
 
-static GtkWidget * popup_options_gui       (GimpPaintOptions           *paint_options,
-                                             GType                       tool_type, 
-                                             gchar                      *property_name,
-                                             gchar                      *short_label,
-                                             gchar                      *long_label,
-                                             gboolean                    horizontal,
-                                             GimpPopupCreateViewCallback create_view);
-static void       scale_entry_gui          (GObject     *config,
-                                             const gchar *property_name,
-                                             GtkTable    *table,
-                                             gint         column,
-                                             gint         row,
-                                             const gchar *label,
-                                             gdouble      step_increment,
-                                             gdouble      page_increment,
-                                             gint         digits,
-                                             gboolean     limit_scale,
-                                             gdouble      lower_limit,
-                                             gdouble      upper_limit,
-                                             gboolean     logarithmic,
-                                             gboolean     percentage,
-                                             gboolean     horizontal,
-                                             GimpPopupCreateViewCallback create_view);
-static void opacity_entry_gui             (GObject     *config,
-                                            const gchar *property_name,
-                                            GtkTable    *table,
-                                            gint         column,
-                                            gint         row,
-                                            const gchar *text,
-                                            gboolean     horizontal,
-                                            GimpPopupCreateViewCallback create_view);
+
 /*  public functions  */
 
 GtkWidget *
@@ -173,12 +141,12 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
     }
 
   /*  the opacity scale  */
-  opacity_entry_gui (config, "opacity",
-                               GTK_TABLE (table),
-                               gimp_tool_options_table_increment_get_col (&inc),
-                               gimp_tool_options_table_increment_get_row (&inc),
-                               _("Opacity:"),
-                               horizontal, opacity_entry_create_view);
+  gimp_tool_options_opacity_entry_new (config, "opacity",
+                                       GTK_TABLE (table),
+                                       gimp_tool_options_table_increment_get_col (&inc),
+                                       gimp_tool_options_table_increment_get_row (&inc),
+                                       _("Opacity:"),
+                                       horizontal);
   gimp_tool_options_table_increment_next (&inc);
 
   /*  the brush  */
@@ -196,36 +164,31 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
                                  button, 2, FALSE);
       gimp_tool_options_table_increment_next (&inc);
 
-      scale_entry_gui (config, "brush-scale",
-                       GTK_TABLE (table), 
-                       gimp_tool_options_table_increment_get_col (&inc),
-                       gimp_tool_options_table_increment_get_row (&inc),
-                       _("Scale:"),
-                       0.01, 0.1, 2,
-                       FALSE, 0.0, 0.0,
-                       TRUE, FALSE, horizontal, scale_entry_create_view);
+      gimp_tool_options_scale_entry_new (config, "brush-scale",
+                                         GTK_TABLE (table),
+                                         gimp_tool_options_table_increment_get_col (&inc),
+                                         gimp_tool_options_table_increment_get_row (&inc),
+                                         _("Scale:"),
+                                         0.01, 0.1, 2,
+                                         FALSE, 0.0, 0.0, TRUE, horizontal);
       gimp_tool_options_table_increment_next (&inc);
 
-      scale_entry_gui (config, "brush-aspect-ratio",
-                       GTK_TABLE (table),
-                       gimp_tool_options_table_increment_get_col (&inc),
-                       gimp_tool_options_table_increment_get_row (&inc),
-                       /* Label for a slider that affects
-                          aspect ratio for brushes */
-                       _("Aspect:"),
-                       0.01, 0.1, 2,
-                       FALSE, 0.0, 0.0,
-                       TRUE, FALSE, horizontal, aspect_entry_create_view);
+      gimp_tool_options_scale_entry_new (config, "brush-aspect-ratio",
+                                         GTK_TABLE (table),
+                                         gimp_tool_options_table_increment_get_col (&inc),
+                                         gimp_tool_options_table_increment_get_row (&inc),
+                                         _("Aspect ratio:"),
+                                         0.01, 0.1, 2,
+                                         FALSE, 0.0, 0.0, FALSE, horizontal);
       gimp_tool_options_table_increment_next (&inc);
 
-      scale_entry_gui (config, "brush-angle",
-                       GTK_TABLE (table),
-                       gimp_tool_options_table_increment_get_col (&inc),
-                       gimp_tool_options_table_increment_get_row (&inc),
-                       _("Angle:"),
-                       1.0, 5.0, 2,
-                       FALSE, 0.0, 0.0,
-                       FALSE, FALSE, horizontal, angle_entry_create_view);
+      gimp_tool_options_scale_entry_new (config, "brush-angle",
+                                         GTK_TABLE (table),
+                                         gimp_tool_options_table_increment_get_col (&inc),
+                                         gimp_tool_options_table_increment_get_row (&inc),
+                                         _("Angle:"),
+                                         1.0, 5.0, 2,
+                                         FALSE, 0.0, 0.0, FALSE, horizontal);
       gimp_tool_options_table_increment_next (&inc);
     }
 
@@ -295,62 +258,14 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 
 /*  private functions  */
 
-static GtkWidget *
-popup_options_gui (GimpPaintOptions           *paint_options,
-                   GType                       tool_type, 
-                   gchar                      *property_name,
-                   gchar                      *short_label,
-                   gchar                      *long_label,
-                   gboolean                    horizontal,
-                   GimpPopupCreateViewCallback create_view)
-{
-  GtkWidget *result;
-  GObject   *config = G_OBJECT (paint_options);
 
-  if (horizontal)
-    {
-      GtkWidget  *button_label;
-      GtkWidget  *button;
-      GtkBox     *hbox;
-      
-      hbox          = GTK_BOX (gtk_hbox_new (FALSE, 0));
-      button_label  = gtk_arrow_new (GTK_ARROW_DOWN, GTK_SHADOW_ETCHED_IN);
-      
-      button        = gimp_prop_check_button_new (config, property_name, short_label);
-      gtk_box_pack_start (GTK_BOX (hbox), button, FALSE, FALSE, 0);
-      gtk_widget_show (button);
-
-      button        = gimp_popup_button_new (button_label);
-      gtk_button_set_relief (GTK_BUTTON (button), GTK_RELIEF_NONE);
-      gtk_box_pack_start (hbox, button, FALSE, TRUE, 0);
-      gtk_widget_show (button);
-      
-      g_signal_connect_object (button, "create-view", G_CALLBACK (create_view), config, 0);
-      
-      result = GTK_WIDGET (hbox);
-    }
-  else
-    {
-      GtkWidget *frame;
-      GtkWidget *table;
-      if (create_view)
-        (*create_view)(NULL, &table, config);
-
-      frame = gimp_prop_expanding_frame_new (config, property_name,
-                                             long_label,
-                                             table, NULL);
-      result = frame;
-    }
-
-  return result;
-}
 
 static GtkWidget *
 fade_options_gui (GimpPaintOptions            *paint_options,
                   GType                        tool_type, 
                   gboolean                     horizontal)
 {
-  return popup_options_gui (paint_options, tool_type, 
+  return gimp_tool_options_toggle_gui_with_popup (G_OBJECT (paint_options), tool_type, 
                              "use-fade", _("Fade"), _("Fade out"),
                              horizontal, fade_options_create_view);
 }
@@ -404,15 +319,7 @@ fade_options_create_view (GtkWidget *button, GtkWidget **result, GObject *config
   
 
   children = gtk_container_get_children (GTK_CONTAINER (table));  
-  while (children)
-    {
-      GtkWidget *widget = GTK_WIDGET (children->data);
-      GList *next = g_list_next (children);
-      if (GTK_IS_HSCALE (widget))
-        gtk_widget_set_size_request (widget, 100, -1);
-        
-      children = next;
-    }
+  gimp_tool_options_setup_popup_layout (children, FALSE);
 
   *result = table;
 }
@@ -422,7 +329,7 @@ jitter_options_gui (GimpPaintOptions           *paint_options,
                     GType                       tool_type,
                     gboolean                    horizontal)
 {
-  return popup_options_gui (paint_options, tool_type,
+  return gimp_tool_options_toggle_gui_with_popup (G_OBJECT (paint_options), tool_type,
                              "use-jitter", _("Jitter"), _("Apply Jitter"),
                              horizontal, jitter_options_create_view);
 }
@@ -443,22 +350,7 @@ jitter_options_create_view (GtkWidget *button, GtkWidget **result, GObject *conf
                              TRUE, 0.0, 5.0);
 
   children = gtk_container_get_children (GTK_CONTAINER (table));
-  
-  while (children)
-    {
-      GtkWidget *widget = GTK_WIDGET (children->data);
-      GList *next = g_list_next (children);
-      if (GTK_IS_LABEL (widget))
-        {
-          gtk_widget_destroy (widget);
-        }
-      else if (GTK_IS_HSCALE (widget))
-        {
-          gtk_widget_set_size_request (widget, 100, -1);
-        }
-        
-      children = next;
-    }
+  gimp_tool_options_setup_popup_layout (children, FALSE);
 
   *result = table;
 }
@@ -469,7 +361,7 @@ gradient_options_gui (GimpPaintOptions         *paint_options,
                     GtkWidget                  *incremental_toggle,
                     gboolean                    horizontal)
 {
-  return popup_options_gui (paint_options, tool_type,
+  return gimp_tool_options_toggle_gui_with_popup (G_OBJECT (paint_options), tool_type,
                              "use-gradient", _("Gradient"), _("Use color from gradient"),
                              horizontal, gradient_options_create_view);
 }
@@ -511,7 +403,7 @@ smoothing_options_gui (GimpPaintOptions         *paint_options,
                     GType                       tool_type,
                     gboolean                    horizontal)
 {
-  return popup_options_gui (paint_options, tool_type,
+  return gimp_tool_options_toggle_gui_with_popup (G_OBJECT (paint_options), tool_type,
                              "use-smoothing", _("Smoothing"), _("Apply Smoothing"),
                              horizontal, smoothing_options_create_view);
 }
@@ -540,378 +432,61 @@ smoothing_options_create_view (GtkWidget *button, GtkWidget **result, GObject *c
   gimp_scale_entry_set_logarithmic (factor, TRUE);
   
   children = gtk_container_get_children (GTK_CONTAINER (table));
-  while (children)
-    {
-      GtkWidget *widget = GTK_WIDGET (children->data);
-      GList *next = g_list_next (children);
-      if (GTK_IS_HSCALE (widget))
-        {
-          gtk_widget_set_size_request (widget, 100, -1);
-        }
-        
-      children = next;
-    }
+  gimp_tool_options_setup_popup_layout (children, FALSE);
 
   *result = table;
 }
 
 static void
-config_notify_label (GObject *config, 
-                     GParamSpec *param_spec,
-                     GtkWidget  *label)
+opacity_entry_create_view (GtkWidget *table, 
+                           gint column, gint row,
+                           GObject *config)
 {
-  gdouble value;
-  gchar str[40];
-  gint digits = 1;
-
-  if (G_IS_PARAM_SPEC_INT (param_spec))
-    {
-      gint int_value;
-
-      g_object_get (config, param_spec->name, &int_value, NULL);
-
-      value = int_value;
-    }
-  else if (G_IS_PARAM_SPEC_UINT (param_spec))
-    {
-      guint uint_value;
-
-      g_object_get (config, param_spec->name, &uint_value, NULL);
-
-      value = uint_value;
-    }
-  else if (G_IS_PARAM_SPEC_LONG (param_spec))
-    {
-      glong long_value;
-
-      g_object_get (config, param_spec->name, &long_value, NULL);
-
-      value = long_value;
-    }
-  else if (G_IS_PARAM_SPEC_ULONG (param_spec))
-    {
-      gulong ulong_value;
-
-      g_object_get (config, param_spec->name, &ulong_value, NULL);
-
-      value = ulong_value;
-    }
-  else if (G_IS_PARAM_SPEC_INT64 (param_spec))
-    {
-      gint64 int64_value;
-
-      g_object_get (config, param_spec->name, &int64_value, NULL);
-
-      value = int64_value;
-    }
-  else if (G_IS_PARAM_SPEC_UINT64 (param_spec))
-    {
-      guint64 uint64_value;
-
-      g_object_get (config, param_spec->name, &uint64_value, NULL);
-
-#if defined _MSC_VER && (_MSC_VER < 1300)
-      value = (gint64) uint64_value;
-#else
-      value = uint64_value;
-#endif
-    }
-  else if (G_IS_PARAM_SPEC_DOUBLE (param_spec))
-    {
-      g_object_get (config, param_spec->name, &value, NULL);
-
-      if (GPOINTER_TO_INT (g_object_get_data (G_OBJECT (label),
-                                              "percentage")))
-        value *= 100.0;
-
-    }
-  else
-    {
-      g_warning ("%s: unhandled param spec of type %s",
-                 G_STRFUNC, G_PARAM_SPEC_TYPE_NAME (param_spec));
-      return;
-    }
-    
-    digits = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (label), "digits"));
-    g_sprintf (str, "%1.*f", digits, value);
-    gtk_label_set_text (GTK_LABEL (label), str);
-}
-
-static void
-scale_entry_gui (GObject     *config,
-                 const gchar *property_name,
-                 GtkTable    *table,
-                 gint         column,
-                 gint         row,
-                 const gchar *text,
-                 gdouble      step_increment,
-                 gdouble      page_increment,
-                 gint         digits,
-                 gboolean     limit_scale,
-                 gdouble      lower_limit,
-                 gdouble      upper_limit,
-                 gboolean     logarithmic,
-                 gboolean     percentage,
-                 gboolean     horizontal,
-                 GimpPopupCreateViewCallback create_view)
-{
-  if (horizontal)
-    {
-      gchar      *signal_detail;
-      GtkWidget  *button_label;
-      GtkWidget  *label;
-      GtkWidget  *button;
-      GParamSpec *param_spec;
-      
-      button_label  = gtk_label_new ("");
-      button        = gimp_popup_button_new (button_label);
-      param_spec    = g_object_class_find_property (G_OBJECT_GET_CLASS (config),
-                                                    property_name);
-      label         = gtk_label_new (text);
-
-      if (percentage)
-        g_object_set_data (G_OBJECT (button_label), "percentage", GINT_TO_POINTER (FALSE));
-
-      g_object_set_data (G_OBJECT (button_label), "digits", GINT_TO_POINTER (digits));
-      
-      if (param_spec)
-        config_notify_label (config, param_spec, button_label);
-
-      gtk_widget_show (button);
-      gtk_widget_show (label);
-      
-      gtk_table_attach (GTK_TABLE (table), label,
-	                      column    , column + 1, row, row + 1,
-	                      GTK_FILL, GTK_FILL, 0, 0);
-	    
-      gtk_table_attach (GTK_TABLE (table), button,
-	                      column + 1, column + 3, row, row + 1,
-	                      GTK_FILL, GTK_FILL, 0, 0);
-
-      signal_detail = g_strconcat ("notify::", property_name, NULL);
-      g_signal_connect_object (config, signal_detail, 
-	                             G_CALLBACK (config_notify_label), button_label, 0);
-	    g_free (signal_detail);
-
-      g_signal_connect_object (button, "create-view", G_CALLBACK (create_view), config, 0);
-    }
-  else
-    {
-      GtkObject *adj;
-    
-      adj = gimp_prop_scale_entry_new (config, property_name,
-                                       GTK_TABLE (table), 
-                                       column, row,
-                                       text,
-                                       step_increment, page_increment, digits,
-                                       limit_scale, lower_limit, upper_limit);
-      gimp_scale_entry_set_logarithmic (adj, logarithmic);
-    }
-}
-
-static void
-opacity_entry_gui (GObject     *config,
-                   const gchar *property_name,
-                   GtkTable    *table,
-                   gint         column,
-                   gint         row,
-                   const gchar *text,
-                   gboolean     horizontal,
-                   GimpPopupCreateViewCallback create_view)
-{
-  if (horizontal)
-    {
-      gchar      *signal_detail;
-      GtkWidget  *button_label;
-      GtkWidget  *label;
-      GtkWidget  *button;
-      GParamSpec *param_spec;
-      
-      button_label  = gtk_label_new ("");
-      button        = gimp_popup_button_new (button_label);
-      param_spec    = g_object_class_find_property (G_OBJECT_GET_CLASS (config),
-                                                    property_name);
-      label         = gtk_label_new (text);
-
-      g_object_set_data (G_OBJECT (button_label), "percentage", GINT_TO_POINTER (TRUE));
-      g_object_set_data (G_OBJECT (button_label), "digits", GINT_TO_POINTER (1));
-      
-      if (param_spec)
-        config_notify_label (config, param_spec, button_label);
-
-      gtk_widget_show (button);
-      gtk_widget_show (label);
-      
-      gtk_table_attach (GTK_TABLE (table), label,
-	                      column    , column + 1, row, row + 1,
-	                      GTK_FILL, GTK_FILL, 0, 0);
-	    
-      gtk_table_attach (GTK_TABLE (table), button,
-	                      column + 1, column + 3, row, row + 1,
-	                      GTK_FILL, GTK_FILL, 0, 0);
-
-      signal_detail = g_strconcat ("notify::", property_name, NULL);
-      g_signal_connect_object (config, signal_detail, 
-	                             G_CALLBACK (config_notify_label), button_label, 0);
-	    g_free (signal_detail);
-
-      g_signal_connect_object (button, "create-view", G_CALLBACK (create_view), config, 0);
-    }
-  else
-    {
-      GtkObject *adj;
-    
-      adj = gimp_prop_opacity_entry_new (config,
-                                         property_name,
-                                         GTK_TABLE (table),
-                                         column,
-                                         row,
-                                         text);
-    }
-}
-
-static void       
-opacity_entry_create_view (GtkWidget *button, 
-                         GtkWidget **result, GObject *config)
-{
-  GtkWidget *table;
   GtkObject *adj;
-  GList     *children;
-
-  table = gtk_table_new (1, 3, FALSE);
   adj   = gimp_prop_opacity_entry_new (config, "opacity",
-                                       GTK_TABLE (table), 0, 0,
-                                       "");
-
-  children = gtk_container_get_children (GTK_CONTAINER (table));
-  
-  while (children)
-    {
-      GtkWidget *widget = GTK_WIDGET (children->data);
-      GList *next = g_list_next (children);
-      if (GTK_IS_LABEL (widget))
-        {
-          gtk_widget_destroy (widget);
-        }
-      else if (GTK_IS_HSCALE (widget))
-        {
-          gtk_widget_set_size_request (widget, 100, -1);
-        }
-        
-      children = next;
-    }
-
-  *result = table;
+                                       GTK_TABLE (table), column, row,
+                                       _("Opacity"));
 }
 
 static void       
-aspect_entry_create_view (GtkWidget *button, 
-                         GtkWidget **result, GObject *config)
+aspect_entry_create_view (GtkWidget *table, 
+                         gint column, gint row,
+                         GObject *config)
 {
-  GtkWidget *table;
   GtkObject *adj;
-  GList     *children;
-
-  table = gtk_table_new (1, 3, FALSE);
   adj   = gimp_prop_scale_entry_new (config, "brush-aspect-ratio",
                                      GTK_TABLE (table),
-                                     0, 0,
-                                     "",
+                                     column, row,
+                                     _("Aspect ratio:"),
                                      0.01, 0.1, 2,
                                      FALSE, 0.0, 0.0);
-
-  children = gtk_container_get_children (GTK_CONTAINER (table));
-  
-  while (children)
-    {
-      GtkWidget *widget = GTK_WIDGET (children->data);
-      GList *next = g_list_next (children);
-      if (GTK_IS_LABEL (widget))
-        {
-          gtk_widget_destroy (widget);
-        }
-      else if (GTK_IS_HSCALE (widget))
-        {
-          gtk_widget_set_size_request (widget, 100, -1);
-        }
-        
-      children = next;
-    }
-  *result = table;
 }
 
 static void       
-scale_entry_create_view (GtkWidget *button, 
-                         GtkWidget **result, GObject *config)
+scale_entry_create_view (GtkWidget *table,
+                         gint column, gint row,
+                         GObject *config)
 {
-  GtkWidget *table;
   GtkObject *adj;
-  GList     *children;
-
-  table = gtk_table_new (1, 3, FALSE);
   adj = gimp_prop_scale_entry_new (config, "brush-scale",
                                    GTK_TABLE (table), 
-                                   0, 0,
-                                   "",
+                                   column, row,
+                                   _("Scale:"),
                                    0.01, 0.1, 2,
                                    FALSE, 0.0, 0.0);
-
-  children = gtk_container_get_children (GTK_CONTAINER (table));
-  
-  while (children)
-    {
-      GtkWidget *widget = GTK_WIDGET (children->data);
-      GList *next = g_list_next (children);
-      if (GTK_IS_LABEL (widget))
-        {
-          gtk_widget_destroy (widget);
-        }
-      else if (GTK_IS_HSCALE (widget))
-        {
-          gtk_widget_set_size_request (widget, 100, -1);
-        }
-        
-      children = next;
-    }
-
   gimp_scale_entry_set_logarithmic (GTK_OBJECT (adj), TRUE);
-  *result = table;
 }
 
 
 static void       
-angle_entry_create_view (GtkWidget *button, 
-                         GtkWidget **result, GObject *config)
+angle_entry_create_view (GtkWidget *table,
+                         gint column, gint row,
+                         GObject *config)
 {
-  GtkWidget *table;
   GtkObject *adj;
-  GList     *children;
-
-  table = gtk_table_new (1, 3, FALSE);
   adj   = gimp_prop_scale_entry_new (config, "brush-angle",
-                                     GTK_TABLE (table), 0, 0,
-                                     "",
+                                     GTK_TABLE (table), column, row,
+                                     _("Angle:"),
                                      1.0, 5.0, 2,
                                      FALSE, 0.0, 0.0);
-
-  children = gtk_container_get_children (GTK_CONTAINER (table));
-  
-  while (children)
-    {
-      GtkWidget *widget = GTK_WIDGET (children->data);
-      GList *next = g_list_next (children);
-      if (GTK_IS_LABEL (widget))
-        {
-          gtk_widget_destroy (widget);
-        }
-      else if (GTK_IS_HSCALE (widget))
-        {
-          gtk_widget_set_size_request (widget, 100, -1);
-        }
-        
-      children = next;
-    }
-
-  *result = table;
 }
-

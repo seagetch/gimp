@@ -107,11 +107,11 @@ gimp_smudge_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal
   gtk_box_pack_start (GTK_BOX (vbox), table, FALSE, FALSE, 0);
   gtk_widget_show (table);
 
-  gimp_prop_scale_entry_new (config, "rate",
-                             GTK_TABLE (table), 0, 0,
-                             _("Rate:"),
-                             1.0, 10.0, 1,
-                             FALSE, 0.0, 0.0);
+  gimp_tool_options_scale_entry_new (config, "rate",
+                                     GTK_TABLE (table), 0, 0,
+                                     _("Rate:"),
+                                     1.0, 10.0, 1,
+                                     FALSE, 0.0, 0.0, FALSE, horizontal);
 
   return vbox;
 }

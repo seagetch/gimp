@@ -358,6 +358,7 @@ gimp_image_window_constructor (GType                  type,
   private->notebook = gtk_notebook_new ();
   gtk_notebook_set_show_border (GTK_NOTEBOOK (private->notebook), FALSE);
   gtk_notebook_set_show_tabs (GTK_NOTEBOOK (private->notebook), FALSE);
+  gtk_notebook_set_tab_pos (GTK_NOTEBOOK (private->notebook), GTK_POS_LEFT);
   gtk_paned_pack1 (GTK_PANED (private->right_hpane), private->notebook,
                    TRUE, TRUE);
   g_signal_connect (private->notebook, "switch-page",

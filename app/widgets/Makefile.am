@@ -322,6 +322,7 @@ libappwidgets_a_sources = \
 	gimptexttag.h			\
 	gimpthumbbox.c			\
 	gimpthumbbox.h			\
+  gimptitlebaricon-pixbuf.h \
 	gimptoggleaction.c		\
 	gimptoggleaction.h		\
 	gimptoolbox.c			\

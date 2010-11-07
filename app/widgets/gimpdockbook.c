@@ -270,7 +270,7 @@ gimp_dockbook_init (GimpDockbook *dockbook)
   gtk_notebook_set_scrollable (notebook, TRUE);
   gtk_notebook_set_show_border (notebook, FALSE);
   gtk_notebook_set_show_tabs (notebook, TRUE);
-
+  
   gtk_drag_dest_set (GTK_WIDGET (dockbook),
                      0,
                      dialog_target_table, G_N_ELEMENTS (dialog_target_table),
@@ -298,6 +298,8 @@ gimp_dockbook_init (GimpDockbook *dockbook)
                                   dockbook->p->menu_button,
                                   GTK_PACK_END);
   gtk_widget_show (dockbook->p->menu_button);
+
+  gtk_notebook_set_tab_pos (notebook, GTK_POS_LEFT);
 }
 
 static void

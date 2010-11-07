@@ -478,6 +478,9 @@ gimp_dockable_new_tab_widget_internal (GimpDockable *dockable,
                                PANGO_ATTR_WEIGHT, PANGO_WEIGHT_SEMIBOLD,
                                -1);
 
+  if (label && !dnd)
+    gtk_label_set_angle (GTK_LABEL (label), 90);
+
   switch (tab_style)
     {
     case GIMP_TAB_STYLE_ICON:
@@ -494,7 +497,10 @@ gimp_dockable_new_tab_widget_internal (GimpDockable *dockable,
     case GIMP_TAB_STYLE_ICON_BLURB:
     case GIMP_TAB_STYLE_PREVIEW_NAME:
     case GIMP_TAB_STYLE_PREVIEW_BLURB:
-      tab_widget = gtk_hbox_new (FALSE, dnd ? 6 : 2);
+      if (dnd)
+        tab_widget = gtk_hbox_new (FALSE, 6);
+      else
+        tab_widget = gtk_vbox_new (FALSE, 2);
 
       gtk_box_pack_start (GTK_BOX (tab_widget), icon, FALSE, FALSE, 0);
       gtk_widget_show (icon);
