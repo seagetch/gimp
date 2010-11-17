@@ -19,6 +19,8 @@
 #define __GIMP_TOOL_OPTIONS_GUI_H__
 
 typedef struct _GimpToolOptionsTableIncrement GimpToolOptionsTableIncrement;
+typedef void (*GimpPopupCreateViewCallback) (GtkWidget *button, GtkWidget** result, GObject *config);
+typedef void (*GimpPopupCreateViewForTheTable) (GtkWidget* table, gint column, gint row, GObject *config);
 
 struct _GimpToolOptionsTableIncrement
 {
@@ -34,5 +36,61 @@ GimpToolOptionsTableIncrement gimp_tool_options_table_increment (gboolean horizo
 gint gimp_tool_options_table_increment_get_col (GimpToolOptionsTableIncrement* inc);
 gint gimp_tool_options_table_increment_get_row (GimpToolOptionsTableIncrement* inc);
 void gimp_tool_options_table_increment_next (GimpToolOptionsTableIncrement* inc);
+
+void gimp_tool_options_setup_popup_layout (GList *children, gboolean hide_label);
+GtkWidget * gimp_tool_options_frame_gui_with_popup (GObject                    *config,
+                                                    GType                       tool_type, 
+                                                    gchar                      *label,
+                                                    gboolean                    horizontal,
+                                                    GimpPopupCreateViewCallback create_view);
+GtkWidget * gimp_tool_options_toggle_gui_with_popup (GObject                    *config,
+                                                     GType                       tool_type, 
+                                                     gchar                      *property_name,
+                                                     gchar                      *short_label,
+                                                     gchar                      *long_label,
+                                                     gboolean                    horizontal,
+                                                     GimpPopupCreateViewCallback create_view);
+#if 0
+void gimp_tool_options_scale_entry_gui (GObject     *config,
+                                        const gchar *property_name,
+                                        GtkTable    *table,
+                                        gint         column,
+                                        gint         row,
+                                        gchar      *text,
+                                        gint         digits,
+                                        gboolean     percentage,
+                                        gboolean     horizontal,
+                                        GimpPopupCreateViewForTheTable create_view);
+void gimp_tool_options_opacity_entry_gui (GObject     *config,
+                                          const gchar *property_name,
+                                          GtkTable    *table,
+                                          gint         column,
+                                          gint         row,
+                                          gchar      *text,
+                                          gboolean     horizontal,
+                                          GimpPopupCreateViewForTheTable create_view);
+#endif
+void gimp_tool_options_scale_entry_new  (GObject      *config,
+                                          const gchar  *property_name,
+                                          GtkTable     *table,
+                                          gint          column,
+                                          gint          row,
+                                          const gchar  *label,
+                                          gdouble       step_increment,
+                                          gdouble       page_increment,
+                                          gint          digits,
+                                          gboolean      limit_scale,
+                                          gdouble       lower_limit,
+                                          gdouble       upper_limit,
+                                          gboolean      logarithm,
+                                          gboolean      horizontal);
+
+void gimp_tool_options_opacity_entry_new  (GObject      *config,
+                                           const gchar   *property_name,
+                                           GtkTable      *table,
+                                           gint           column,
+                                           gint           row,
+                                           const gchar   *label,
+                                           gboolean      horizontal);
 
 #endif  /*  __GIMP_TOOL_OPTIONS_GUI_H__  */

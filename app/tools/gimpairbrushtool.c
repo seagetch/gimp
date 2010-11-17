@@ -109,22 +109,22 @@ gimp_airbrush_options_gui_full (GimpToolOptions *tool_options, gboolean horizont
   gtk_box_pack_start (GTK_BOX (vbox), table, FALSE, FALSE, 0);
   gtk_widget_show (table);
 
-  gimp_prop_scale_entry_new (config, "rate",
-                             GTK_TABLE (table), 
-                             gimp_tool_options_table_increment_get_col (&inc), 
-                             gimp_tool_options_table_increment_get_row (&inc),
-                             _("Rate:"),
-                             1.0, 1.0, 1,
-                             FALSE, 0.0, 0.0);
+  gimp_tool_options_scale_entry_new (config, "rate",
+                                     GTK_TABLE (table), 
+                                     gimp_tool_options_table_increment_get_col (&inc), 
+                                     gimp_tool_options_table_increment_get_row (&inc),
+                                     _("Rate:"),
+                                     1.0, 1.0, 1,
+                                     FALSE, 0.0, 0.0, FALSE, horizontal);
   gimp_tool_options_table_increment_next (&inc);
 
-  gimp_prop_scale_entry_new (config, "flow",
-                             GTK_TABLE (table),
-                             gimp_tool_options_table_increment_get_col (&inc), 
-                             gimp_tool_options_table_increment_get_row (&inc),
-                             _("Flow:"),
-                             1.0, 1.0, 1,
-                             FALSE, 0.0, 0.0);
+  gimp_tool_options_scale_entry_new (config, "flow",
+                                     GTK_TABLE (table),
+                                     gimp_tool_options_table_increment_get_col (&inc), 
+                                     gimp_tool_options_table_increment_get_row (&inc),
+                                     _("Flow:"),
+                                     1.0, 1.0, 1,
+                                     FALSE, 0.0, 0.0, FALSE, horizontal);
 
   return vbox;
 }

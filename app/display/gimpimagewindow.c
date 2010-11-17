@@ -41,6 +41,7 @@
 #include "widgets/gimpuimanager.h"
 #include "widgets/gimpview.h"
 #include "widgets/gimptooloptionstoolbar.h"
+#include "widgets/gimppopupbutton.h"
 
 #include "gimpdisplay.h"
 #include "gimpdisplay-foreach.h"
@@ -324,8 +325,7 @@ gimp_image_window_constructor (GType                  type,
                                                    gimp_dialog_factory_get_menu_factory (private->dialog_factory));
   gtk_box_pack_start (GTK_BOX (private->main_vbox), private->toolbar,
                       FALSE, TRUE, 0);
-  gtk_widget_show (private->toolbar);
-  
+  gtk_widget_show (private->toolbar);  
 
   /* Create the hbox that contains docks and images */
   private->hbox = gtk_hbox_new (FALSE, 0);
@@ -358,6 +358,7 @@ gimp_image_window_constructor (GType                  type,
   private->notebook = gtk_notebook_new ();
   gtk_notebook_set_show_border (GTK_NOTEBOOK (private->notebook), FALSE);
   gtk_notebook_set_show_tabs (GTK_NOTEBOOK (private->notebook), FALSE);
+  gtk_notebook_set_tab_pos (GTK_NOTEBOOK (private->notebook), GTK_POS_LEFT);
   gtk_paned_pack1 (GTK_PANED (private->right_hpane), private->notebook,
                    TRUE, TRUE);
   g_signal_connect (private->notebook, "switch-page",
@@ -374,7 +375,7 @@ gimp_image_window_constructor (GType                  type,
                            private->dialog_factory,
                            private->menubar_manager);
   gtk_paned_pack2 (GTK_PANED (private->right_hpane), private->right_docks,
-                   FALSE, TRUE);
+                   FALSE, FALSE);
   gtk_widget_set_visible (private->right_docks, config->single_window_mode);
 
   g_signal_connect_object (config, "notify::single-window-mode",
