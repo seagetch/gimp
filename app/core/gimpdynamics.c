@@ -226,6 +226,7 @@ gimp_dynamics_finalize (GObject *object)
   g_object_unref (dynamics->angle_output);
   g_object_unref (dynamics->jitter_output);
   g_object_unref (dynamics->spacing_output);
+  g_object_unref (dynamics->blending_output);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
