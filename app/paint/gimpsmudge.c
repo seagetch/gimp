@@ -198,7 +198,7 @@ gimp_smudge_start (GimpPaintCore    *paint_core,
   /*  adjust the x and y coordinates to the upper left corner of the brush  */
   smudge->max_radius = 0;
   gimp_smudge_brush_coords (paint_core, paint_options, coords, &x, &y, &w, &h);
-  g_print ("smudge:start: (x,y,w,h)=%d,%d,%d,%d\n", x, y, w, h);
+//  g_print ("smudge:start: (x,y,w,h)=%d,%d,%d,%d\n", x, y, w, h);
 
   /*  Allocate the accumulation buffer */
   bytes = gimp_drawable_bytes (drawable);
@@ -294,7 +294,7 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
 
   /*  Get the unclipped brush coordinates  */
   gimp_smudge_brush_coords (paint_core, paint_options, coords, &x, &y, &w, &h);
-  g_print ("smudge:motion: (x,y,w,h)=%d,%d,%d,%d\n", x, y, w, h);
+//  g_print ("smudge:motion: (x,y,w,h)=%d,%d,%d,%d\n", x, y, w, h);
 
   /* srcPR will be the pixels under the current painthit from the drawable */
   pixel_region_init (&srcPR, gimp_drawable_get_tiles (drawable),
