@@ -20,7 +20,7 @@
 
 typedef struct _GimpToolOptionsTableIncrement GimpToolOptionsTableIncrement;
 typedef void (*GimpPopupCreateViewCallback) (GtkWidget *button, GtkWidget** result, GObject *config);
-typedef void (*GimpPopupCreateViewForTheTable) (GtkWidget* table, gint column, gint row, GObject *config);
+typedef void (*GimpPopupCreateViewCallbackExt) (GtkWidget *button, GtkWidget** result, GObject *config, gpointer data);
 
 struct _GimpToolOptionsTableIncrement
 {
@@ -43,6 +43,7 @@ GtkWidget * gimp_tool_options_frame_gui_with_popup (GObject                    *
                                                     gchar                      *label,
                                                     gboolean                    horizontal,
                                                     GimpPopupCreateViewCallback create_view);
+                                                    
 GtkWidget * gimp_tool_options_toggle_gui_with_popup (GObject                    *config,
                                                      GType                       tool_type, 
                                                      gchar                      *property_name,
@@ -50,26 +51,13 @@ GtkWidget * gimp_tool_options_toggle_gui_with_popup (GObject                    
                                                      gchar                      *long_label,
                                                      gboolean                    horizontal,
                                                      GimpPopupCreateViewCallback create_view);
-#if 0
-void gimp_tool_options_scale_entry_gui (GObject     *config,
-                                        const gchar *property_name,
-                                        GtkTable    *table,
-                                        gint         column,
-                                        gint         row,
-                                        gchar      *text,
-                                        gint         digits,
-                                        gboolean     percentage,
-                                        gboolean     horizontal,
-                                        GimpPopupCreateViewForTheTable create_view);
-void gimp_tool_options_opacity_entry_gui (GObject     *config,
-                                          const gchar *property_name,
-                                          GtkTable    *table,
-                                          gint         column,
-                                          gint         row,
-                                          gchar      *text,
-                                          gboolean     horizontal,
-                                          GimpPopupCreateViewForTheTable create_view);
-#endif
+
+GtkWidget * gimp_tool_options_button_with_popup (GObject                    *config,
+                                                 GtkWidget                  *label_widget,
+                                                 GimpPopupCreateViewCallbackExt create_view,
+                                                 gpointer                    data,
+                                                 void (*destroy_data) (gpointer data));
+
 void gimp_tool_options_scale_entry_new  (GObject      *config,
                                           const gchar  *property_name,
                                           GtkTable     *table,

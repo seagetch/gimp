@@ -128,40 +128,16 @@ gimp_tool_options_setup_popup_layout (GList *children, gboolean hide_label)
 
 
 typedef struct _GimpCreateViewInternal GimpCreateViewInternal;
-typedef struct _GimpCreateScaleEntry   GimpCreateScaleEntry;
-struct _GimpCreateScaleEntry
-{
-  gchar  *property_name;
-  gchar  *text;
-  gdouble       step_increment;
-  gdouble       page_increment;
-  gint          digits;
-  gboolean      limit_scale;
-  gdouble       lower_limit;
-  gdouble       upper_limit;
-  gboolean      logarithm;
-  gboolean      opacity;
-};
-
 struct _GimpCreateViewInternal 
 {
   GObject                        *config;
-  GimpPopupCreateViewForTheTable  create_view;
-  gboolean                        erase_label;
+  GimpPopupCreateViewCallbackExt  create_view;
   gpointer                        data;
   void  (*destroy_data) (gpointer data);
 };
 
 static void
-scale_entry_destroy (gpointer data)
-{
-  GimpCreateScaleEntry *entry_state = (GimpCreateScaleEntry*)data;
-  g_free (entry_state->property_name);
-  g_free (entry_state->text);
-}
-
-static void
-create_view_destroy (gpointer data, GClosure *closure)
+create_view_internal_destroy (gpointer data, GClosure *closure)
 {
   GimpCreateViewInternal *state = (GimpCreateViewInternal*)data;
   if (!state)
@@ -181,23 +157,73 @@ create_view_destroy (gpointer data, GClosure *closure)
 }
 
 static void
-create_view_for_inner_table_create_view (GtkWidget *button, GtkWidget **result, GimpCreateViewInternal *state)
+create_view_internal_callback (GtkWidget *button, GtkWidget **result, GimpCreateViewInternal *state)
 {
-  GtkWidget *table;
-  GList     *children;
-
-  g_return_if_fail (state != NULL);
+  g_return_if_fail (state && state->create_view);
   g_return_if_fail (G_IS_OBJECT (state->config));
-  g_return_if_fail (state->create_view != NULL);
   
-  table = gtk_table_new (1, 3, FALSE);
-  (*state->create_view)(table, 0, 0, state->config);
+  *result = NULL;
+  state->create_view (button, result, state->config, state->data);
+}
 
-  children = gtk_container_get_children (GTK_CONTAINER (table));  
-  gimp_tool_options_setup_popup_layout (children, state->erase_label);
-
-  *result = table;
+static GClosure *
+generate_create_view_internal_closure (GObject *config, 
+                              GimpPopupCreateViewCallbackExt create_view,
+                              gpointer data, 
+                              void (*destroy_data) (gpointer data))
+{
+  GimpCreateViewInternal *state = g_new0 (GimpCreateViewInternal, 1);
+  state->config = config;
+  g_object_ref (config);
+  state->data         = data;
+  state->destroy_data = destroy_data;
+  state->create_view  = create_view;
   
+  return g_cclosure_new (G_CALLBACK (create_view_internal_callback),
+                         state, create_view_internal_destroy);
+}
+
+GtkWidget * 
+gimp_tool_options_button_with_popup (GObject                       *config,
+                                     GtkWidget                     *label_widget,
+                                     GimpPopupCreateViewCallbackExt create_view,
+                                     gpointer                       data,
+                                     void (*destroy_data) (gpointer data))
+{
+  GtkWidget *result = NULL;
+  GClosure  *closure;
+
+  gtk_widget_show (label_widget);
+  result = gimp_popup_button_new (label_widget);
+  
+  closure = generate_create_view_internal_closure (config, create_view, data, destroy_data);
+  g_signal_connect_closure (result, "create-view", closure, 0);
+
+  return result;
+}
+
+typedef struct _GimpCreateScaleEntry   GimpCreateScaleEntry;
+struct _GimpCreateScaleEntry
+{
+  gchar  *property_name;
+  gchar  *text;
+  gdouble       step_increment;
+  gdouble       page_increment;
+  gint          digits;
+  gboolean      limit_scale;
+  gdouble       lower_limit;
+  gdouble       upper_limit;
+  gboolean      logarithm;
+  gboolean      opacity;
+  gboolean      erase_label;
+};
+
+static void
+scale_entry_destroy (gpointer data)
+{
+  GimpCreateScaleEntry *entry_state = (GimpCreateScaleEntry*)data;
+  g_free (entry_state->property_name);
+  g_free (entry_state->text);
 }
 
 static void
@@ -237,26 +263,9 @@ create_view_for_scale_entry (GtkWidget *button, GtkWidget **result, GimpCreateVi
     }
 
   children = gtk_container_get_children (GTK_CONTAINER (table));  
-  gimp_tool_options_setup_popup_layout (children, state->erase_label);
+  gimp_tool_options_setup_popup_layout (children, entry_state->erase_label);
 
   *result = table;
-}
-
-static GClosure *
-generate_create_view_closure (GObject *config, 
-                              GimpPopupCreateViewForTheTable create_view,
-                              gboolean erase_label)
-{
-  GimpCreateViewInternal *state = g_new0 (GimpCreateViewInternal, 1);
-  state->config = config;
-  g_object_ref (config);
-  state->create_view = create_view;
-  state->erase_label = erase_label;
-  state->data        = NULL;
-  state->destroy_data = NULL;
-  
-  return g_cclosure_new (G_CALLBACK (create_view_for_inner_table_create_view),
-                         state, create_view_destroy);
 }
 
 static GClosure *
@@ -285,16 +294,16 @@ generate_create_scale_entry_closure (GObject *config,
   entry_state->upper_limit    = upper_limit;
   entry_state->logarithm      = logarithm;
   entry_state->opacity        = opacity;
+  entry_state->erase_label    = TRUE;
 
   state->data = entry_state;
   state->config = config;
   g_object_ref (config);
 
-  state->erase_label = TRUE;
   state->destroy_data = scale_entry_destroy;
   
   return g_cclosure_new (G_CALLBACK (create_view_for_scale_entry),
-                         state, create_view_destroy);
+                         state, create_view_internal_destroy);
 }
 
 GtkWidget *
@@ -492,17 +501,6 @@ gimp_tool_options_scale_entry_new_internal (GObject      *config,
                                             gboolean      logarithm,
                                             gboolean      opacity,
                                             gboolean      horizontal)
-/*                                          
-                                   const gchar *property_name,
-                                   GtkTable    *table,
-                                   gint         column,
-                                   gint         row,
-                                   gchar       *text,
-                                   gint         digits,
-                                   gboolean     percentage,
-                                   gboolean     horizontal,
-                                   GimpPopupCreateViewForTheTable create_view)
-*/
 {
   if (horizontal)
     {

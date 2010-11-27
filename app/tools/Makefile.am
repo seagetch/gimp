@@ -24,6 +24,8 @@ libapptools_a_sources = \
 	\
 	gimpairbrushtool.c		\
 	gimpairbrushtool.h		\
+	gimpbrushoptions-gui.c		\
+	gimpbrushoptions-gui.h		\
 	gimpalignoptions.c		\
 	gimpalignoptions.h		\
 	gimpaligntool.c			\
