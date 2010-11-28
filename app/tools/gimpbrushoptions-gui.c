@@ -90,10 +90,12 @@ static void
 brush_dialog_private_destroy (gpointer data)
 {
   BrushDialogPrivate *p = (BrushDialogPrivate*)data;
+
   if (p->spacing_changed_handler_id)
     {
       gimp_container_remove_handler (p->container,
                                      p->spacing_changed_handler_id);
+      p->spacing_changed_handler_id = 0;
     }
 
   if (p->adj)
@@ -126,19 +128,23 @@ spacing_changed (GimpBrush *brush,
   GimpContext         *context;
 
   context = p->context;
+  
+  g_return_if_fail (G_IS_OBJECT (p->adj));
+  g_return_if_fail (G_IS_OBJECT (context));
+  g_return_if_fail (GIMP_IS_BRUSH (brush));
+
 
   if (brush == gimp_context_get_brush (context))
     {
-      g_signal_handlers_block_by_func (G_OBJECT (p->adj),
-                                       spacing_update,
-                                       p);
-
+      g_signal_handlers_block_matched (G_OBJECT (p->adj),
+                                       G_SIGNAL_MATCH_DETAIL,
+                                       0, g_quark_from_static_string ("value-changed"), NULL, NULL, NULL);
       gtk_adjustment_set_value (p->adj,
                                 gimp_brush_get_spacing (brush));
 
-      g_signal_handlers_unblock_by_func (G_OBJECT (p->adj),
-                                         spacing_update,
-                                         p);
+      g_signal_handlers_unblock_matched (G_OBJECT (p->adj),
+                                         G_SIGNAL_MATCH_DETAIL,
+                                         0, g_quark_from_static_string ("value-changed"), NULL, NULL, NULL);
     }
 }
 
@@ -152,19 +158,37 @@ spacing_update (GtkAdjustment *adjustment,
 
   context = p->context;
 
-  brush = gimp_context_get_brush (context);
+  g_return_if_fail (G_IS_OBJECT (p->adj));
+  g_return_if_fail (G_IS_OBJECT (context));
 
+  brush = gimp_context_get_brush (context);
+  g_return_if_fail (GIMP_IS_BRUSH (brush));
+  
   if (brush)
     {
-      g_signal_handlers_block_by_func (brush,
-                                       spacing_changed,
-                                       p);
+      g_signal_handlers_block_matched (brush,
+                                       G_SIGNAL_MATCH_DETAIL,
+                                       0, g_quark_from_static_string ("spacing-changed"), NULL, NULL, NULL);
+    
+      gimp_brush_set_spacing (brush, gtk_adjustment_get_value (p->adj));
 
-      gimp_brush_set_spacing (brush, gtk_adjustment_get_value (adjustment));
+      g_signal_handlers_unblock_matched (brush,
+                                         G_SIGNAL_MATCH_DETAIL,
+                                         0, g_quark_from_static_string ("spacing-changed"), NULL, NULL, NULL);
+    }
 
-      g_signal_handlers_unblock_by_func (brush,
-                                         spacing_changed,
-                                         p);
+}
+
+static void
+destroy_brush_popup_dialog (GtkWidget *widget, gpointer data)
+{
+  BrushDialogPrivate            *p = (BrushDialogPrivate*)data;
+  
+  if (p->spacing_changed_handler_id)
+    {
+      gimp_container_remove_handler (p->container,
+                                     p->spacing_changed_handler_id);
+      p->spacing_changed_handler_id = 0;
     }
 }
 
@@ -280,6 +304,8 @@ create_brush_popup_dialog (GtkWidget  *button,
 
   children = gtk_container_get_children (GTK_CONTAINER (table));  
   gimp_tool_options_setup_popup_layout (children, FALSE);
+
+  g_signal_connect (GTK_WIDGET (*result), "destroy", G_CALLBACK(destroy_brush_popup_dialog), p);
 }
 
 

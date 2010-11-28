@@ -133,6 +133,7 @@ struct _GimpCreateViewInternal
   GObject                        *config;
   GimpPopupCreateViewCallbackExt  create_view;
   gpointer                        data;
+  GClosure                       *closure;
   void  (*destroy_data) (gpointer data);
 };
 
@@ -143,8 +144,13 @@ create_view_internal_destroy (gpointer data, GClosure *closure)
   if (!state)
     return;
 
+  g_print ("tooloptions-gui:destroy\n");
+
   if (state->config)
     {
+      g_signal_handlers_disconnect_matched (state->config, G_SIGNAL_MATCH_CLOSURE,
+                                            0, (GQuark)0, closure, NULL, NULL);
+
       g_object_unref (state->config);
       state->config = NULL;
     }
@@ -163,7 +169,7 @@ create_view_internal_callback (GtkWidget *button, GtkWidget **result, GimpCreate
   g_return_if_fail (G_IS_OBJECT (state->config));
   
   *result = NULL;
-  state->create_view (button, result, state->config, state->data);
+  state->create_view (button, result, state->config, state->data);  
 }
 
 static GClosure *
@@ -172,6 +178,7 @@ generate_create_view_internal_closure (GObject *config,
                               gpointer data, 
                               void (*destroy_data) (gpointer data))
 {
+  GClosure *closure;
   GimpCreateViewInternal *state = g_new0 (GimpCreateViewInternal, 1);
   state->config = config;
   g_object_ref (config);
@@ -179,8 +186,10 @@ generate_create_view_internal_closure (GObject *config,
   state->destroy_data = destroy_data;
   state->create_view  = create_view;
   
-  return g_cclosure_new (G_CALLBACK (create_view_internal_callback),
-                         state, create_view_internal_destroy);
+  closure = g_cclosure_new (G_CALLBACK (create_view_internal_callback),
+                            state, create_view_internal_destroy);
+  state->closure = closure;
+  return closure;
 }
 
 GtkWidget * 
