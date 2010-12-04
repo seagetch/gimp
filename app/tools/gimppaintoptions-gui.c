@@ -45,6 +45,7 @@
 #include "gimpsmudgetool.h"
 #include "gimptooloptions-gui.h"
 #include "gimpbrushoptions-gui.h"
+#include "gimpdynamicsoptions-gui.h"
 
 #include "gimp-intl.h"
 
@@ -244,6 +245,13 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   if (tool_type == GIMP_TYPE_SMUDGE_TOOL)
     {
       button = gimp_prop_check_button_new (config, "use-color-blending", _("Color Blending"));
+      gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
+      gtk_widget_show (button);
+    }
+
+  if (horizontal)
+    {
+      button = gimp_dynamics_button_with_popup (config);
       gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
       gtk_widget_show (button);
     }

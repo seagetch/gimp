@@ -72,6 +72,8 @@ libapptools_a_sources = \
 	gimpdodgeburntool.h		\
 	gimpdrawtool.c			\
 	gimpdrawtool.h			\
+	gimpdynamicsoptions-gui.c	\
+	gimpdynamicsoptions-gui.h	\
 	gimpeditselectiontool.c		\
 	gimpeditselectiontool.h		\
 	gimpellipseselecttool.c		\
