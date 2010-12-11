@@ -42,6 +42,7 @@ struct _GimpSmudge
   PixelRegion    accumPR;
   guchar        *accum_data;
   guchar        *blending_data;
+  guint          max_radius;
 };
 
 struct _GimpSmudgeClass

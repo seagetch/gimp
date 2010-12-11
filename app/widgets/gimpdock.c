@@ -921,7 +921,8 @@ gimp_dock_titlebar_button_clicked (GtkWidget   *source,
             {
               if (GTK_IS_PANED (parent_paned))
                 {
-                  g_object_set (G_OBJECT (paned_child), "position-set", FALSE, NULL);
+                  if (paned_child)
+                    g_object_set (G_OBJECT (paned_child), "position-set", FALSE, NULL);
                   paned_child = parent_paned;
                 }
               parent_paned = gtk_widget_get_parent (parent_paned);
