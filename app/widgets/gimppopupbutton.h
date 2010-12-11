@@ -108,6 +108,7 @@ struct _GimpPopupButton
   gint               view_border_width;
 
   GtkWidget         *label;
+  GtkWidget         *parent;
 };
 
 struct _GimpPopupButtonClass
@@ -118,7 +119,8 @@ struct _GimpPopupButtonClass
 
 GType       gimp_popup_button_get_type (void) G_GNUC_CONST;
 
-GtkWidget * gimp_popup_button_new      (GtkWidget *label);
+GtkWidget * gimp_popup_button_new             (GtkWidget *label);
+GtkWidget * gimp_popup_button_new_with_parent (GtkWidget *label, GtkWidget *parent);
 
 gint         gimp_popup_button_get_view_size (GimpPopupButton *button);
 void         gimp_popup_button_set_view_size (GimpPopupButton *button,

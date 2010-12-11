@@ -54,25 +54,28 @@
 
 #define BRUSH_VIEW_SIZE 256
 
-static void notify_working_dynamics (GimpDynamics *dynamics, GParamSpec *pspec, gpointer data);
+static void notify_working_dynamics        (GimpDynamics *dynamics, GParamSpec *pspec, gpointer data);
 static void notify_current_target_dynamics (GimpDynamics *dynamics, GParamSpec *pspec, gpointer data);
-static void dynamics_changed (GimpContext *context, GimpData *brush_data, gpointer data);
+static void dynamics_changed               (GimpContext *context, GimpData *brush_data, gpointer data);
 
 /*  private functions  */
 typedef struct _DynamicsDialogPrivate DynamicsDialogPrivate;
 struct _DynamicsDialogPrivate
 {
-  GHashTable  *adj_hash;
   GimpDynamics *working_dynamics;
   GimpDynamics *current_target_dynamics;
+  GimpContext  *context;
 };
 
 static DynamicsDialogPrivate *
 dynamics_dialog_private_new (void)
 {
   DynamicsDialogPrivate *p = g_new0 (DynamicsDialogPrivate, 1);
-  p->adj_hash = g_hash_table_new (g_str_hash, g_str_equal);
+  
+  g_print ("DynamicsDialogPrivate::new\n");
+  
   p->working_dynamics = g_object_new (GIMP_TYPE_DYNAMICS, NULL);
+  g_object_ref (G_OBJECT (p->working_dynamics));
   return p;
 }
 
@@ -82,15 +85,15 @@ dynamics_dialog_private_destroy (gpointer data)
   DynamicsDialogPrivate *p = (DynamicsDialogPrivate*)data;
   
   g_print ("DynamicsDialogPrivate::destroy\n");
-
-  if (p->adj_hash)
-    {
-      g_hash_table_unref (p->adj_hash);
-    }
     
   if (p->working_dynamics)
     {
       g_object_unref (G_OBJECT (p->working_dynamics));
+    }
+
+  if (p->context)
+    {
+      p->context = NULL;
     }
   p->current_target_dynamics = NULL;
 
@@ -105,6 +108,8 @@ dynamics_changed (GimpContext    *context,
 {
   DynamicsDialogPrivate *p        = (DynamicsDialogPrivate*)data;
   GimpDynamics          *dynamics = GIMP_DYNAMICS (dynamics_data);
+  
+  g_print ("dynamics::changed %x\n", p);
 
   g_return_if_fail (p && context);
 
@@ -134,7 +139,7 @@ notify_current_target_dynamics (GimpDynamics *dynamics,
 {
   DynamicsDialogPrivate *p        = (DynamicsDialogPrivate*)data;
 
-  g_print ("notify::current_target_dynamics\n");
+  g_print ("notify::current_target_dynamics %x\n", p);
   
   g_return_if_fail (p && dynamics == p->current_target_dynamics);
 
@@ -187,19 +192,25 @@ destroy_dynamics_popup_dialog (GtkWidget *widget, gpointer data)
 
   if (p)
     {
+        guint result;
       if (p->current_target_dynamics)
         {
-          g_signal_handlers_disconnect_by_func (p->current_target_dynamics,
+          result = g_signal_handlers_disconnect_by_func (p->current_target_dynamics,
                                                 notify_current_target_dynamics,
                                                 p);
+          g_print ("current_target_dynamics::disconnect -> %u\n", result);
           p->current_target_dynamics = NULL;
         }
-      g_signal_handlers_disconnect_by_func (p->working_dynamics,
+      result = g_signal_handlers_disconnect_by_func (p->working_dynamics,
                                             notify_working_dynamics,
                                             p);
+          g_print ("working_dynamics::disconnect -> %u\n", result);
+          
+      result = g_signal_handlers_disconnect_by_func (p->context,
+                                            dynamics_changed,
+                                            p);
+          g_print ("context::disconnect -> %u\n", result);
     }
-
-  g_hash_table_remove_all (p->adj_hash);
 }
 
 static void
@@ -235,8 +246,9 @@ create_dynamics_popup_dialog (GtkWidget  *button,
   GtkWidget                     *frame;
   GtkWidget                     *box;
   
-  context   = GIMP_CONTEXT (config);
-  container = gimp_data_factory_get_container (context->gimp->dynamics_factory);
+  context    = GIMP_CONTEXT (config);
+  p->context = context;
+  container  = gimp_data_factory_get_container (context->gimp->dynamics_factory);
   
   g_return_if_fail (GIMP_IS_CONTAINER (container));
   g_return_if_fail (GIMP_IS_CONTEXT (context));
@@ -286,6 +298,9 @@ create_dynamics_popup_dialog (GtkWidget  *button,
   gtk_widget_show (notebook);
 
   /* Dynamics output editor */
+  dynamics = gimp_context_get_dynamics (context);
+  dynamics_changed (context, dynamics, p);
+
   enum_type = GIMP_TYPE_DYNAMICS_OUTPUT_TYPE;
   enum_class = g_type_class_ref (enum_type);
 
@@ -295,14 +310,16 @@ create_dynamics_popup_dialog (GtkWidget  *button,
     {
       GimpDynamicsOutput *output;
       GtkWidget          *output_editor;
+      gchar              *desc;
 
       if (value->value < enum_class->minimum || value->value > enum_class->maximum)
         continue;
 
       output = gimp_dynamics_get_output (p->working_dynamics, value->value);
       output_editor = gimp_dynamics_output_editor_new (output);
+      desc = gimp_enum_value_get_desc (enum_class, value);
 
-      gtk_notebook_append_page (GTK_NOTEBOOK (notebook), output_editor, gtk_label_new (_(value->value_nick)));
+      gtk_notebook_append_page (GTK_NOTEBOOK (notebook), output_editor, gtk_label_new (desc));
       gtk_widget_show (output_editor);
     }
 

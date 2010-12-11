@@ -399,32 +399,11 @@ gimp_popup_show (GimpPopup *popup,
 
 void
 gimp_popup_set_view_size (GimpPopup *popup,
-                                    gint                view_size)
+                          gint       view_size)
 {
-/*
-  GtkWidget     *scrolled_win;
-  GtkWidget     *viewport;
-  GtkAllocation  allocation;
-
-  g_return_if_fail (GIMP_IS_POPUP (popup));
-
-  scrolled_win = GIMP_BOX (popup->editor->view)->scrolled_win;
-  viewport     = gtk_bin_get_child (GTK_BIN (scrolled_win));
-
-  gtk_widget_get_allocation (viewport, &allocation);
-
-  view_size = CLAMP (view_size, GIMP_VIEW_SIZE_TINY,
-                     MIN (GIMP_VIEW_SIZE_GIGANTIC,
-                          allocation.width - 2 * popup->view_border_width));
-*/
   if (view_size != popup->view_size)
     {
       popup->view_size = view_size;
-/*
-      gimp_view_set_view_size (popup->editor->view,
-                                         popup->view_size,
-                                         popup->view_border_width);
-*/
     }
 }
 
@@ -432,16 +411,9 @@ gimp_popup_set_view_size (GimpPopup *popup,
 void
 gimp_popup_set_view (GimpPopup *popup, GtkWidget *view)
 {
-//  GtkWidget  *button;
 
   popup->view = view;
-  /*
-  gtk_widget_set_size_request (view,
-                               6  * (popup->default_view_size +
-                                     2 * popup->view_border_width),
-                               10 * (popup->default_view_size +
-                                     2 * popup->view_border_width));
-  */
+  
   gtk_container_add (GTK_CONTAINER (popup->frame), GTK_WIDGET (popup->view));
   gtk_widget_show (GTK_WIDGET (popup->view));
 
@@ -584,50 +556,6 @@ static gboolean
 gimp_popup_button_scroll_event (GtkWidget      *widget,
                                 GdkEventScroll *sevent)
 {
-/*
-  GimpPopupButton *button = GIMP_POPUP_BUTTON (widget);
-  GimpObject         *object;
-  gint                index;
-
-  object = gimp_context_get_by_type (button->context,
-                                     gimp_get_children_type (button->container));
-
-  index = gimp_get_child_index (button->container, object);
-
-  if (index != -1)
-    {
-      gint n_children;
-      gint new_index = index;
-
-      n_children = gimp_get_n_children (button->container);
-
-      if (sevent->direction == GDK_SCROLL_UP)
-        {
-          if (index > 0)
-            new_index--;
-          else
-            new_index = n_children - 1;
-        }
-      else if (sevent->direction == GDK_SCROLL_DOWN)
-        {
-          if (index == (n_children - 1))
-            new_index = 0;
-          else
-            new_index++;
-        }
-
-      if (new_index != index)
-        {
-          object = gimp_get_child_by_index (button->container,
-                                                      new_index);
-
-          if (object)
-            gimp_context_set_by_type (button->context,
-                                      gimp_get_children_type (button->container),
-                                      object);
-        }
-    }
-*/
   return TRUE;
 }
 
@@ -637,6 +565,7 @@ gimp_popup_button_clicked (GtkButton *button)
   GimpPopupButton *popup_button = GIMP_POPUP_BUTTON (button);
   GtkWidget       *popup;
   GtkWidget       *view;
+  GtkWidget       *parent;
   
   view = gimp_popup_button_create_view (popup_button);
   
@@ -651,7 +580,12 @@ gimp_popup_button_clicked (GtkButton *button)
                     G_CALLBACK (gimp_popup_button_popup_closed),
                     button);
 
-  gimp_popup_show (GIMP_POPUP (popup), GTK_WIDGET (button));
+  if (popup_button->parent)
+    parent = popup_button->parent;
+  else
+    parent = GTK_WIDGET (button);
+
+  gimp_popup_show (GIMP_POPUP (popup), parent);
 }
 
 static void
@@ -679,11 +613,21 @@ gimp_popup_button_new (GtkWidget *label)
 
   button->button_view_size  = 0;
   button->view_border_width = 0;
+  button->parent            = NULL;
 
   button->label = label;
   gtk_container_add (GTK_CONTAINER (button), button->label);
   gtk_widget_show (button->label);
 
+  return GTK_WIDGET (button);
+}
+
+GtkWidget *
+gimp_popup_button_new_with_parent (GtkWidget *label, GtkWidget *parent)
+{
+  GimpPopupButton *button = GIMP_POPUP_BUTTON (gimp_popup_button_new (label));
+  
+  button->parent          = GTK_WIDGET (parent);
   return GTK_WIDGET (button);
 }
 

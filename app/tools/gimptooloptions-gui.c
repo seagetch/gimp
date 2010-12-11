@@ -363,8 +363,21 @@ gimp_tool_options_frame_gui_with_popup (GObject                    *config,
   return result;
 }
 
+static void
+update_toggle_option (GtkWidget *toggle,
+                      gpointer data)
+{
+  GtkWidget       *widget         = GTK_WIDGET (data);
+  GtkToggleButton *toggled_button = GTK_TOGGLE_BUTTON (toggle);
+  gboolean         is_active;
+  
+  is_active = gtk_toggle_button_get_active (toggled_button);
+  
+  gtk_widget_set_sensitive (widget, is_active);
+}
+
 GtkWidget *
-gimp_tool_options_toggle_gui_with_popup (GObject           *config,
+gimp_tool_options_toggle_gui_with_popup (GObject                    *config,
                                          GType                       tool_type, 
                                          gchar                      *property_name,
                                          gchar                      *short_label,
@@ -378,21 +391,25 @@ gimp_tool_options_toggle_gui_with_popup (GObject           *config,
     {
       GtkWidget  *button_label;
       GtkWidget  *button;
+      GtkWidget  *toggle;
       GtkBox     *hbox;
       
       hbox          = GTK_BOX (gtk_hbox_new (FALSE, 0));
       button_label  = gtk_arrow_new (GTK_ARROW_DOWN, GTK_SHADOW_ETCHED_IN);
       
-      button        = gimp_prop_check_button_new (config, property_name, short_label);
-      gtk_box_pack_start (GTK_BOX (hbox), button, FALSE, FALSE, 0);
-      gtk_widget_show (button);
+      toggle        = gimp_prop_check_button_new (config, property_name, short_label);
+      gtk_box_pack_start (GTK_BOX (hbox), toggle, FALSE, FALSE, 0);
+      gtk_widget_show (toggle);
 
-      button        = gimp_popup_button_new (button_label);
+      button        = gimp_popup_button_new_with_parent (button_label, GTK_WIDGET (hbox));
       gtk_button_set_relief (GTK_BUTTON (button), GTK_RELIEF_NONE);
       gtk_box_pack_start (hbox, button, FALSE, TRUE, 0);
       gtk_widget_show (button);
       
+      g_signal_connect (toggle, "toggled", G_CALLBACK (update_toggle_option), button);
+      
       g_signal_connect_object (button, "create-view", G_CALLBACK (create_view), config, 0);
+      update_toggle_option (toggle, button);
       
       result = GTK_WIDGET (hbox);
     }

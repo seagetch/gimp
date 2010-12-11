@@ -425,19 +425,6 @@ destroy_brush_popup_dialog (GtkWidget *widget, gpointer data)
       p->spacing_changed_handler_id = 0;
     }
   
-/*
-  if (p->adj)
-    {
-      g_object_unref (G_OBJECT (p->adj));
-      p->adj = NULL;
-    }
-
-  if (p->shape_group)
-    {
-      g_object_unref (G_OBJECT (p->shape_group));
-      p->shape_group = NULL;
-    }
-*/
   p->shape_group = NULL;
   p->adj         = NULL;
   p->preview     = NULL;
