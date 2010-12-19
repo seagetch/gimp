@@ -41,6 +41,8 @@ struct _GimpFgBgEditor
 
   GdkPixbuf       *default_icon;
   GdkPixbuf       *swap_icon;
+  
+  GtkWidget       *popup;
 
   gint             rect_width;
   gint             rect_height;

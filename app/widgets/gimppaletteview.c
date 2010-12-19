@@ -42,6 +42,7 @@ enum
   ENTRY_SELECTED,
   ENTRY_ACTIVATED,
   ENTRY_CONTEXT,
+  ENTRY_CONFIRMED,
   COLOR_DROPPED,
   LAST_SIGNAL
 };
@@ -50,6 +51,8 @@ enum
 static gboolean gimp_palette_view_expose         (GtkWidget        *widget,
                                                   GdkEventExpose   *eevent);
 static gboolean gimp_palette_view_button_press   (GtkWidget        *widget,
+                                                  GdkEventButton   *bevent);
+static gboolean gimp_palette_view_button_release (GtkWidget        *widget,
                                                   GdkEventButton   *bevent);
 static gboolean gimp_palette_view_key_press      (GtkWidget        *widget,
                                                   GdkEventKey      *kevent);
@@ -130,6 +133,16 @@ gimp_palette_view_class_init (GimpPaletteViewClass *klass)
                   G_TYPE_NONE, 1,
                   G_TYPE_POINTER);
 
+  view_signals[ENTRY_CONFIRMED] =
+    g_signal_new ("entry-confirmed",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_FIRST,
+                  G_STRUCT_OFFSET (GimpPaletteViewClass, entry_confirmed),
+                  NULL, NULL,
+                  gimp_marshal_VOID__POINTER,
+                  G_TYPE_NONE, 1,
+                  G_TYPE_POINTER);
+
   view_signals[COLOR_DROPPED] =
     g_signal_new ("color-dropped",
                   G_TYPE_FROM_CLASS (klass),
@@ -141,12 +154,13 @@ gimp_palette_view_class_init (GimpPaletteViewClass *klass)
                   G_TYPE_POINTER,
                   GIMP_TYPE_RGB);
 
-  widget_class->expose_event       = gimp_palette_view_expose;
-  widget_class->button_press_event = gimp_palette_view_button_press;
-  widget_class->key_press_event    = gimp_palette_view_key_press;
-  widget_class->focus              = gimp_palette_view_focus;
+  widget_class->expose_event         = gimp_palette_view_expose;
+  widget_class->button_press_event   = gimp_palette_view_button_press;
+  widget_class->button_release_event = gimp_palette_view_button_release;
+  widget_class->key_press_event      = gimp_palette_view_key_press;
+  widget_class->focus                = gimp_palette_view_focus;
 
-  view_class->set_viewable         = gimp_palette_view_set_viewable;
+  view_class->set_viewable           = gimp_palette_view_set_viewable;
 }
 
 static void
@@ -219,7 +233,7 @@ gimp_palette_view_button_press (GtkWidget      *widget,
 {
   GimpPaletteView  *view = GIMP_PALETTE_VIEW (widget);
   GimpPaletteEntry *entry;
-
+  
   if (gtk_widget_get_can_focus (widget) && ! gtk_widget_has_focus (widget))
     gtk_widget_grab_focus (widget);
 
@@ -259,6 +273,31 @@ gimp_palette_view_button_press (GtkWidget      *widget,
 
     default:
       break;
+    }
+
+  return FALSE;
+}
+
+static gboolean
+gimp_palette_view_button_release (GtkWidget      *widget,
+                                  GdkEventButton *bevent)
+{
+  GimpPaletteView  *view = GIMP_PALETTE_VIEW (widget);
+  GimpPaletteEntry *entry;
+  
+  if (gtk_widget_get_can_focus (widget) && ! gtk_widget_has_focus (widget))
+    gtk_widget_grab_focus (widget);
+
+  entry = gimp_palette_view_find_entry (view, bevent->x, bevent->y);
+
+  view->dnd_entry = entry;
+
+  if (! entry || bevent->button == 2)
+    return FALSE;
+
+  if (bevent->button == 1 && view->selected == entry)
+    {
+      g_signal_emit (view, view_signals[ENTRY_CONFIRMED], 0, entry);
     }
 
   return FALSE;
