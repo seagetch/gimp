@@ -609,8 +609,7 @@ gimp_device_info_set_device (GimpDeviceInfo *info,
       info->device  = NULL;
       info->display = NULL;
 
-      g_object_set_data (G_OBJECT (info->device), GIMP_DEVICE_INFO_DATA_KEY,
-                         NULL);
+      g_object_set_data (G_OBJECT (device), GIMP_DEVICE_INFO_DATA_KEY, NULL);
 
       gimp_device_info_set_mode (info, device->mode);
 
@@ -837,17 +836,27 @@ gint
 gimp_device_info_compare (GimpDeviceInfo *a,
                           GimpDeviceInfo *b)
 {
-  if (a->device && ! b->device)
-    {
-      return 1;
-    }
-  else if (! a->device && b->device)
+  if (a->device && a->display &&
+      a->device == gdk_display_get_core_pointer (a->display))
     {
       return -1;
     }
+  else if (b->device && b->display &&
+           b->device == gdk_display_get_core_pointer (b->display))
+    {
+      return 1;
+    }
+  else if (a->device && ! b->device)
+    {
+      return -1;
+    }
+  else if (! a->device && b->device)
+    {
+      return 1;
+    }
   else
     {
-      return - strcmp (gimp_object_get_name (a),
-                       gimp_object_get_name (b));
+      return gimp_object_name_collate ((GimpObject *) a,
+                                       (GimpObject *) b);
     }
 }

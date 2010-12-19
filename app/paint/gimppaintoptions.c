@@ -85,23 +85,23 @@ gpointer gimp_circular_queue_get_last_offset(GimpCircularQueue* queue)
 }
 
 
-#define DEFAULT_BRUSH_SCALE            1.0
+#define DEFAULT_BRUSH_SIZE             20.0
 #define DEFAULT_BRUSH_ASPECT_RATIO     1.0
 #define DEFAULT_BRUSH_ANGLE            0.0
 
 #define DEFAULT_APPLICATION_MODE       GIMP_PAINT_CONSTANT
 #define DEFAULT_HARD                   FALSE
 
-#define DEFAULT_USE_FADE               FALSE
+#define DEFAULT_USE_JITTER             FALSE
+#define DEFAULT_JITTER_AMOUNT          0.2
+
+#define DEFAULT_DYNAMICS_EXPANDED      FALSE
+
 #define DEFAULT_FADE_LENGTH            100.0
 #define DEFAULT_FADE_REVERSE           FALSE
 #define DEFAULT_FADE_REPEAT            GIMP_REPEAT_NONE
 #define DEFAULT_FADE_UNIT              GIMP_UNIT_PIXEL
 
-#define DEFAULT_USE_JITTER             FALSE
-#define DEFAULT_JITTER_AMOUNT          0.2
-
-#define DEFAULT_USE_GRADIENT           FALSE
 #define DEFAULT_GRADIENT_REVERSE       FALSE
 #define DEFAULT_GRADIENT_REPEAT        GIMP_REPEAT_TRIANGULAR
 #define DEFAULT_GRADIENT_LENGTH        100.0
@@ -119,27 +119,29 @@ enum
 
   PROP_PAINT_INFO,
 
-  PROP_BRUSH_SCALE,
+  PROP_BRUSH_SIZE,
   PROP_BRUSH_ASPECT_RATIO,
   PROP_BRUSH_ANGLE,
 
   PROP_APPLICATION_MODE,
   PROP_HARD,
 
-  PROP_USE_FADE,
+  PROP_USE_JITTER,
+  PROP_JITTER_AMOUNT,
+
+  PROP_DYNAMICS_EXPANDED,
+
   PROP_FADE_LENGTH,
   PROP_FADE_REVERSE,
   PROP_FADE_REPEAT,
   PROP_FADE_UNIT,
 
-  PROP_USE_JITTER,
-  PROP_JITTER_AMOUNT,
-
-  PROP_USE_GRADIENT,
   PROP_GRADIENT_REVERSE,
 
   PROP_BRUSH_VIEW_TYPE,
   PROP_BRUSH_VIEW_SIZE,
+  PROP_DYNAMICS_VIEW_TYPE,
+  PROP_DYNAMICS_VIEW_SIZE,
   PROP_PATTERN_VIEW_TYPE,
   PROP_PATTERN_VIEW_SIZE,
   PROP_GRADIENT_VIEW_TYPE,
@@ -161,8 +163,6 @@ static void    gimp_paint_options_get_property     (GObject      *object,
                                                     guint         property_id,
                                                     GValue       *value,
                                                     GParamSpec   *pspec);
-static void    gimp_paint_options_notify           (GObject      *object,
-                                                    GParamSpec   *pspec);
 
 
 
@@ -180,7 +180,6 @@ gimp_paint_options_class_init (GimpPaintOptionsClass *klass)
   object_class->finalize     = gimp_paint_options_finalize;
   object_class->set_property = gimp_paint_options_set_property;
   object_class->get_property = gimp_paint_options_get_property;
-  object_class->notify       = gimp_paint_options_notify;
 
   g_object_class_install_property (object_class, PROP_PAINT_INFO,
                                    g_param_spec_object ("paint-info",
@@ -189,9 +188,9 @@ gimp_paint_options_class_init (GimpPaintOptionsClass *klass)
                                                         GIMP_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY));
 
-  GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, PROP_BRUSH_SCALE,
-                                   "brush-scale", _("Brush Scale"),
-                                   0.01, 10.0, DEFAULT_BRUSH_SCALE,
+  GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, PROP_BRUSH_SIZE,
+                                   "brush-size", _("Brush Size"),
+                                   1.0, 1000.0, DEFAULT_BRUSH_SIZE,
                                    GIMP_PARAM_STATIC_STRINGS);
 
   GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, PROP_BRUSH_ASPECT_RATIO,
@@ -208,15 +207,26 @@ gimp_paint_options_class_init (GimpPaintOptionsClass *klass)
                                  GIMP_TYPE_PAINT_APPLICATION_MODE,
                                  DEFAULT_APPLICATION_MODE,
                                  GIMP_PARAM_STATIC_STRINGS);
+
   GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_HARD,
                                     "hard", NULL,
                                     DEFAULT_HARD,
                                     GIMP_PARAM_STATIC_STRINGS);
 
-  GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_USE_FADE,
-                                    "use-fade", NULL,
-                                    DEFAULT_USE_FADE,
+  GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_USE_JITTER,
+                                    "use-jitter", NULL,
+                                    DEFAULT_USE_JITTER,
                                     GIMP_PARAM_STATIC_STRINGS);
+  GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, PROP_JITTER_AMOUNT,
+                                   "jitter-amount", NULL,
+                                   0.0, 50.0, DEFAULT_JITTER_AMOUNT,
+                                   GIMP_PARAM_STATIC_STRINGS);
+
+  GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_DYNAMICS_EXPANDED,
+                                     "dynamics-expanded", NULL,
+                                    DEFAULT_DYNAMICS_EXPANDED,
+                                    GIMP_PARAM_STATIC_STRINGS);
+
   GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, PROP_FADE_LENGTH,
                                    "fade-length", NULL,
                                    0.0, 32767.0, DEFAULT_FADE_LENGTH,
@@ -235,18 +245,6 @@ gimp_paint_options_class_init (GimpPaintOptionsClass *klass)
                                  DEFAULT_FADE_REPEAT,
                                  GIMP_PARAM_STATIC_STRINGS);
 
-  GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_USE_JITTER,
-                                    "use-jitter", NULL,
-                                    DEFAULT_USE_JITTER,
-                                    GIMP_PARAM_STATIC_STRINGS);
-  GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, PROP_JITTER_AMOUNT,
-                                   "jitter-amount", NULL,
-                                   0.0, 50.0, DEFAULT_JITTER_AMOUNT,
-                                   GIMP_PARAM_STATIC_STRINGS);
-  GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_USE_GRADIENT,
-                                    "use-gradient", NULL,
-                                    DEFAULT_USE_GRADIENT,
-                                    GIMP_PARAM_STATIC_STRINGS);
   GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_GRADIENT_REVERSE,
                                     "gradient-reverse", NULL,
                                     DEFAULT_GRADIENT_REVERSE,
@@ -259,6 +257,18 @@ gimp_paint_options_class_init (GimpPaintOptionsClass *klass)
                                  GIMP_PARAM_STATIC_STRINGS);
   GIMP_CONFIG_INSTALL_PROP_INT (object_class, PROP_BRUSH_VIEW_SIZE,
                                 "brush-view-size", NULL,
+                                GIMP_VIEW_SIZE_TINY,
+                                GIMP_VIEWABLE_MAX_BUTTON_SIZE,
+                                GIMP_VIEW_SIZE_SMALL,
+                                GIMP_PARAM_STATIC_STRINGS);
+
+  GIMP_CONFIG_INSTALL_PROP_ENUM (object_class, PROP_DYNAMICS_VIEW_TYPE,
+                                  "dynamics-view-type", NULL,
+                                 GIMP_TYPE_VIEW_TYPE,
+                                 GIMP_VIEW_TYPE_LIST,
+                                 GIMP_PARAM_STATIC_STRINGS);
+  GIMP_CONFIG_INSTALL_PROP_INT (object_class, PROP_DYNAMICS_VIEW_SIZE,
+                                "dynamics-view-size", NULL,
                                 GIMP_VIEW_SIZE_TINY,
                                 GIMP_VIEWABLE_MAX_BUTTON_SIZE,
                                 GIMP_VIEW_SIZE_SMALL,
@@ -310,8 +320,8 @@ gimp_paint_options_init (GimpPaintOptions *options)
 {
   options->application_mode_save = DEFAULT_APPLICATION_MODE;
 
-  options->fade_options      = g_slice_new0 (GimpFadeOptions);
   options->jitter_options    = g_slice_new0 (GimpJitterOptions);
+  options->fade_options      = g_slice_new0 (GimpFadeOptions);
   options->gradient_options  = g_slice_new0 (GimpGradientOptions);
   options->smoothing_options = g_slice_new0 (GimpSmoothingOptions);
 }
@@ -335,8 +345,8 @@ gimp_paint_options_finalize (GObject *object)
 {
   GimpPaintOptions *options = GIMP_PAINT_OPTIONS (object);
 
-  g_slice_free (GimpFadeOptions,     options->fade_options);
   g_slice_free (GimpJitterOptions,   options->jitter_options);
+  g_slice_free (GimpFadeOptions,     options->fade_options);
   g_slice_free (GimpGradientOptions, options->gradient_options);
   g_slice_free (GimpSmoothingOptions, options->smoothing_options);
 
@@ -361,8 +371,8 @@ gimp_paint_options_set_property (GObject      *object,
       options->paint_info = g_value_dup_object (value);
       break;
 
-    case PROP_BRUSH_SCALE:
-      options->brush_scale = g_value_get_double (value);
+    case PROP_BRUSH_SIZE:
+      options->brush_size = g_value_get_double (value);
       break;
 
     case PROP_BRUSH_ASPECT_RATIO:
@@ -381,8 +391,16 @@ gimp_paint_options_set_property (GObject      *object,
       options->hard = g_value_get_boolean (value);
       break;
 
-    case PROP_USE_FADE:
-      fade_options->use_fade = g_value_get_boolean (value);
+    case PROP_USE_JITTER:
+      jitter_options->use_jitter = g_value_get_boolean (value);
+      break;
+
+    case PROP_JITTER_AMOUNT:
+      jitter_options->jitter_amount = g_value_get_double (value);
+      break;
+
+    case PROP_DYNAMICS_EXPANDED:
+      options->dynamics_expanded = g_value_get_boolean (value);
       break;
 
     case PROP_FADE_LENGTH:
@@ -401,18 +419,6 @@ gimp_paint_options_set_property (GObject      *object,
       fade_options->fade_unit = g_value_get_int (value);
       break;
 
-    case PROP_USE_JITTER:
-      jitter_options->use_jitter = g_value_get_boolean (value);
-      break;
-
-    case PROP_JITTER_AMOUNT:
-      jitter_options->jitter_amount = g_value_get_double (value);
-      break;
-
-    case PROP_USE_GRADIENT:
-      gradient_options->use_gradient = g_value_get_boolean (value);
-      break;
-
     case PROP_GRADIENT_REVERSE:
       gradient_options->gradient_reverse = g_value_get_boolean (value);
       break;
@@ -423,6 +429,14 @@ gimp_paint_options_set_property (GObject      *object,
 
     case PROP_BRUSH_VIEW_SIZE:
       options->brush_view_size = g_value_get_int (value);
+      break;
+
+    case PROP_DYNAMICS_VIEW_TYPE:
+      options->dynamics_view_type = g_value_get_enum (value);
+      break;
+
+    case PROP_DYNAMICS_VIEW_SIZE:
+      options->dynamics_view_size = g_value_get_int (value);
       break;
 
     case PROP_PATTERN_VIEW_TYPE:
@@ -477,8 +491,8 @@ gimp_paint_options_get_property (GObject    *object,
       g_value_set_object (value, options->paint_info);
       break;
 
-    case PROP_BRUSH_SCALE:
-      g_value_set_double (value, options->brush_scale);
+    case PROP_BRUSH_SIZE:
+      g_value_set_double (value, options->brush_size);
       break;
 
     case PROP_BRUSH_ASPECT_RATIO:
@@ -497,8 +511,16 @@ gimp_paint_options_get_property (GObject    *object,
       g_value_set_boolean (value, options->hard);
       break;
 
-    case PROP_USE_FADE:
-      g_value_set_boolean (value, fade_options->use_fade);
+    case PROP_USE_JITTER:
+      g_value_set_boolean (value, jitter_options->use_jitter);
+      break;
+
+    case PROP_JITTER_AMOUNT:
+      g_value_set_double (value, jitter_options->jitter_amount);
+      break;
+
+    case PROP_DYNAMICS_EXPANDED:
+      g_value_set_boolean (value, options->dynamics_expanded);
       break;
 
     case PROP_FADE_LENGTH:
@@ -517,18 +539,6 @@ gimp_paint_options_get_property (GObject    *object,
       g_value_set_int (value, fade_options->fade_unit);
       break;
 
-    case PROP_USE_JITTER:
-      g_value_set_boolean (value, jitter_options->use_jitter);
-      break;
-
-    case PROP_JITTER_AMOUNT:
-      g_value_set_double (value, jitter_options->jitter_amount);
-      break;
-
-    case PROP_USE_GRADIENT:
-      g_value_set_boolean (value, gradient_options->use_gradient);
-      break;
-
     case PROP_GRADIENT_REVERSE:
       g_value_set_boolean (value, gradient_options->gradient_reverse);
       break;
@@ -539,6 +549,14 @@ gimp_paint_options_get_property (GObject    *object,
 
     case PROP_BRUSH_VIEW_SIZE:
       g_value_set_int (value, options->brush_view_size);
+      break;
+
+    case PROP_DYNAMICS_VIEW_TYPE:
+      g_value_set_enum (value, options->dynamics_view_type);
+      break;
+
+    case PROP_DYNAMICS_VIEW_SIZE:
+      g_value_set_int (value, options->dynamics_view_size);
       break;
 
     case PROP_PATTERN_VIEW_TYPE:
@@ -575,30 +593,6 @@ gimp_paint_options_get_property (GObject    *object,
     }
 }
 
-static void
-gimp_paint_options_notify (GObject    *object,
-                           GParamSpec *pspec)
-{
-  GimpPaintOptions *options = GIMP_PAINT_OPTIONS (object);
-
-  if (pspec->param_id == PROP_USE_GRADIENT)
-    {
-      if (options->gradient_options->use_gradient)
-        {
-          options->application_mode_save = options->application_mode;
-          options->application_mode      = GIMP_PAINT_INCREMENTAL;
-        }
-      else
-        {
-          options->application_mode = options->application_mode_save;
-        }
-
-      g_object_notify (object, "application-mode");
-    }
-
-  if (G_OBJECT_CLASS (parent_class)->notify)
-    G_OBJECT_CLASS (parent_class)->notify (object, pspec);
-}
 
 GimpPaintOptions *
 gimp_paint_options_new (GimpPaintInfo *paint_info)
@@ -622,8 +616,10 @@ gimp_paint_options_get_fade (GimpPaintOptions *paint_options,
                              gdouble           pixel_dist)
 {
   GimpFadeOptions *fade_options;
-  gdouble          z = -1.0;
-
+  gdouble          z        = -1.0;
+  gdouble          fade_out =  0.0;
+  gdouble          unit_factor;
+  gdouble          pos;
 
   g_return_val_if_fail (GIMP_IS_PAINT_OPTIONS (paint_options),
                         DYNAMIC_MAX_VALUE);
@@ -631,66 +627,56 @@ gimp_paint_options_get_fade (GimpPaintOptions *paint_options,
 
   fade_options = paint_options->fade_options;
 
-  if (fade_options->use_fade)
+  switch (fade_options->fade_unit)
     {
-      gdouble fade_out = 0.0;
-      gdouble unit_factor;
-      gdouble pos;
+    case GIMP_UNIT_PIXEL:
+      fade_out = fade_options->fade_length;
+      break;
 
+    case GIMP_UNIT_PERCENT:
+      fade_out = (MAX (gimp_image_get_width  (image),
+                       gimp_image_get_height (image)) *
+                  fade_options->fade_length / 100);
+      break;
 
-      switch (fade_options->fade_unit)
-        {
-        case GIMP_UNIT_PIXEL:
-          fade_out = fade_options->fade_length;
-          break;
+    default:
+      {
+        gdouble xres;
+        gdouble yres;
 
-        case GIMP_UNIT_PERCENT:
-          fade_out = (MAX (gimp_image_get_width  (image),
-                           gimp_image_get_height (image)) *
-                      fade_options->fade_length / 100);
-          break;
+        gimp_image_get_resolution (image, &xres, &yres);
 
-        default:
-          {
-            gdouble xres;
-            gdouble yres;
-
-            gimp_image_get_resolution (image, &xres, &yres);
-
-            unit_factor = gimp_unit_get_factor (fade_options->fade_unit);
-            fade_out    = (fade_options->fade_length *
-                           MAX (xres, yres) / unit_factor);
-          }
-          break;
-        }
-
-      /*  factor in the fade out value  */
-      if (fade_out > 0.0)
-        {
-          pos = pixel_dist / fade_out;
-        }
-      else
-        pos = DYNAMIC_MAX_VALUE;
-
-      /*  for no repeat, set pos close to 1.0 after the first chunk  */
-      if (fade_options->fade_repeat == GIMP_REPEAT_NONE && pos >= DYNAMIC_MAX_VALUE)
-        pos = DYNAMIC_MAX_VALUE - 0.0000001;
-
-      if (((gint) pos & 1) &&
-          fade_options->fade_repeat != GIMP_REPEAT_SAWTOOTH)
-        pos = DYNAMIC_MAX_VALUE - (pos - (gint) pos);
-      else
-        pos = pos - (gint) pos;
-
-      z = pos;
-
-      if (fade_options->fade_reverse)
-        z = 1.0 - z;
-
-      return z;    /*  ln (1/255)  */
+        unit_factor = gimp_unit_get_factor (fade_options->fade_unit);
+        fade_out    = (fade_options->fade_length *
+                       MAX (xres, yres) / unit_factor);
+      }
+      break;
     }
 
-  return DYNAMIC_MIN_VALUE;
+  /*  factor in the fade out value  */
+  if (fade_out > 0.0)
+    {
+      pos = pixel_dist / fade_out;
+    }
+  else
+    pos = DYNAMIC_MAX_VALUE;
+
+  /*  for no repeat, set pos close to 1.0 after the first chunk  */
+  if (fade_options->fade_repeat == GIMP_REPEAT_NONE && pos >= DYNAMIC_MAX_VALUE)
+    pos = DYNAMIC_MAX_VALUE - 0.0000001;
+
+  if (((gint) pos & 1) &&
+      fade_options->fade_repeat != GIMP_REPEAT_SAWTOOTH)
+    pos = DYNAMIC_MAX_VALUE - (pos - (gint) pos);
+  else
+    pos = pos - (gint) pos;
+
+  z = pos;
+
+  if (fade_options->fade_reverse)
+    z = 1.0 - z;
+
+  return z;    /*  ln (1/255)  */
 }
 
 gdouble
@@ -732,7 +718,7 @@ gimp_paint_options_get_gradient_color (GimpPaintOptions *paint_options,
 
   dynamics = gimp_context_get_dynamics (GIMP_CONTEXT (paint_options));
 
-  if (gimp_dynamics_output_is_enabled(dynamics->color_output) && gradient_options->use_gradient)
+  if (gimp_dynamics_output_is_enabled (dynamics->color_output))
     {
       gimp_gradient_get_color_at (gradient, GIMP_CONTEXT (paint_options),
                                   NULL, grad_point,

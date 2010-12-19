@@ -87,7 +87,7 @@ gimp_blob_editor_class_init (GimpBlobEditorClass *klass)
                                    g_param_spec_enum ("blob-type",
                                                       NULL, NULL,
                                                       GIMP_TYPE_INK_BLOB_TYPE,
-                                                      GIMP_INK_BLOB_TYPE_ELLIPSE,
+                                                      GIMP_INK_BLOB_TYPE_CIRCLE,
                                                       GIMP_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT));
   g_object_class_install_property (object_class, PROP_ASPECT,
@@ -328,24 +328,24 @@ gimp_blob_editor_draw_blob (GimpBlobEditor *editor,
                             gdouble         yc,
                             gdouble         radius)
 {
-  GtkWidget *widget   = GTK_WIDGET (editor);
-  GtkStyle  *style    = gtk_widget_get_style (widget);
-  Blob      *blob;
-  BlobFunc   function = blob_ellipse;
-  gint       i;
+  GtkWidget    *widget   = GTK_WIDGET (editor);
+  GtkStyle     *style    = gtk_widget_get_style (widget);
+  GimpBlob     *blob;
+  GimpBlobFunc  function = gimp_blob_ellipse;
+  gint          i;
 
   switch (editor->type)
     {
-    case GIMP_INK_BLOB_TYPE_ELLIPSE:
-      function = blob_ellipse;
+    case GIMP_INK_BLOB_TYPE_CIRCLE:
+      function = gimp_blob_ellipse;
       break;
 
     case GIMP_INK_BLOB_TYPE_SQUARE:
-      function = blob_square;
+      function = gimp_blob_square;
       break;
 
     case GIMP_INK_BLOB_TYPE_DIAMOND:
-      function = blob_diamond;
+      function = gimp_blob_diamond;
       break;
     }
 

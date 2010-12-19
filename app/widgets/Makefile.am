@@ -154,10 +154,10 @@ libappwidgets_a_sources = \
 	gimpdrawabletreeview.h		\
 	gimpdynamicseditor.c		\
 	gimpdynamicseditor.h		\
-	gimpdynamicsfactoryview.c		\
-	gimpdynamicsfactoryview.h		\
-	gimpdynamicsoutputeditor.c		\
-	gimpdynamicsoutputeditor.h		\
+	gimpdynamicsfactoryview.c	\
+	gimpdynamicsfactoryview.h	\
+	gimpdynamicsoutputeditor.c	\
+	gimpdynamicsoutputeditor.h	\
 	gimpeditor.c			\
 	gimpeditor.h			\
 	gimpenumaction.c		\
@@ -240,13 +240,13 @@ libappwidgets_a_sources = \
 	gimpoverlayframe.c		\
 	gimpoverlayframe.h		\
 	gimppaletteeditor.c		\
-	gimppanedbox.c			\
-	gimppanedbox.h			\
 	gimppaletteeditor.h		\
 	gimppaletteselect.c		\
 	gimppaletteselect.h		\
 	gimppaletteview.c		\
 	gimppaletteview.h		\
+	gimppanedbox.c			\
+	gimppanedbox.h			\
 	gimppatternfactoryview.c	\
 	gimppatternfactoryview.h	\
 	gimppatternselect.c		\
@@ -294,6 +294,8 @@ libappwidgets_a_sources = \
 	gimpsettingseditor.h		\
 	gimpsizebox.c			\
 	gimpsizebox.h			\
+	gimpspinscale.c			\
+	gimpspinscale.h			\
 	gimpstringaction.c		\
 	gimpstringaction.h		\
 	gimpstrokeeditor.c		\
@@ -338,6 +340,8 @@ libappwidgets_a_sources = \
 	gimptooleditor.h		\
 	gimptooloptionseditor.c		\
 	gimptooloptionseditor.h		\
+	gimptoolpalette.c		\
+	gimptoolpalette.h		\
 	gimptoolpreseteditor.c		\
 	gimptoolpreseteditor.h		\
 	gimptoolpresetfactoryview.c	\

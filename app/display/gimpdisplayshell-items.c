@@ -27,6 +27,7 @@
 #include "gimpcanvascursor.h"
 #include "gimpcanvasgrid.h"
 #include "gimpcanvaslayerboundary.h"
+#include "gimpcanvaspassepartout.h"
 #include "gimpcanvasproxygroup.h"
 #include "gimpdisplayshell.h"
 #include "gimpdisplayshell-expose.h"
@@ -36,7 +37,7 @@
 /*  local function prototypes  */
 
 static void   gimp_display_shell_item_update (GimpCanvasItem   *item,
-                                              GdkRegion        *region,
+                                              cairo_region_t   *region,
                                               GimpDisplayShell *shell);
 
 
@@ -49,11 +50,17 @@ gimp_display_shell_items_init (GimpDisplayShell *shell)
 
   shell->canvas_item = gimp_canvas_group_new (shell);
 
+  shell->passe_partout = gimp_canvas_passe_partout_new (shell, 0, 0, 0, 0);
+  gimp_canvas_item_set_visible (shell->passe_partout, FALSE);
+  gimp_display_shell_add_item (shell, shell->passe_partout);
+  g_object_unref (shell->passe_partout);
+
   shell->vectors = gimp_canvas_proxy_group_new (shell);
   gimp_display_shell_add_item (shell, shell->vectors);
   g_object_unref (shell->vectors);
 
   shell->grid = gimp_canvas_grid_new (shell, NULL);
+  gimp_canvas_item_set_visible (shell->grid, FALSE);
   g_object_set (shell->grid, "grid-style", TRUE, NULL);
   gimp_display_shell_add_item (shell, shell->grid);
   g_object_unref (shell->grid);
@@ -95,6 +102,7 @@ gimp_display_shell_items_free (GimpDisplayShell *shell)
       g_object_unref (shell->canvas_item);
       shell->canvas_item = NULL;
 
+      shell->passe_partout  = NULL;
       shell->vectors        = NULL;
       shell->grid           = NULL;
       shell->guides         = NULL;
@@ -129,7 +137,7 @@ gimp_display_shell_remove_item (GimpDisplayShell *shell,
 
 static void
 gimp_display_shell_item_update (GimpCanvasItem   *item,
-                                GdkRegion        *region,
+                                cairo_region_t   *region,
                                 GimpDisplayShell *shell)
 {
   gimp_display_shell_expose_region (shell, region);

@@ -377,8 +377,7 @@ gimp_statusbar_progress_start (GimpProgress *progress,
           statusbar->progress_shown = TRUE;
         }
 
-      if (gtk_widget_is_drawable (bar))
-        gdk_window_process_updates (gtk_widget_get_window (bar), TRUE);
+      gimp_widget_flush_expose (bar);
 
       gimp_statusbar_override_window_title (statusbar);
 
@@ -439,8 +438,7 @@ gimp_statusbar_progress_set_text (GimpProgress *progress,
 
       gimp_statusbar_replace (statusbar, "progress", NULL, "%s", message);
 
-      if (gtk_widget_is_drawable (bar))
-        gdk_window_process_updates (gtk_widget_get_window (bar), TRUE);
+      gimp_widget_flush_expose (bar);
 
       gimp_statusbar_override_window_title (statusbar);
     }
@@ -468,8 +466,7 @@ gimp_statusbar_progress_set_value (GimpProgress *progress,
         {
           gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR (bar), percentage);
 
-          if (gtk_widget_is_drawable (bar))
-            gdk_window_process_updates (gtk_widget_get_window (bar), TRUE);
+          gimp_widget_flush_expose (bar);
         }
     }
 }
@@ -496,8 +493,7 @@ gimp_statusbar_progress_pulse (GimpProgress *progress)
 
       gtk_progress_bar_pulse (GTK_PROGRESS_BAR (bar));
 
-      if (gtk_widget_is_drawable (bar))
-        gdk_window_process_updates (gtk_widget_get_window (bar), TRUE);
+      gimp_widget_flush_expose (bar);
     }
 }
 
@@ -606,7 +602,7 @@ gimp_statusbar_set_text (GimpStatusbar *statusbar,
           rect.y      = 0;
           rect.width  = PANGO_SCALE * (gdk_pixbuf_get_width (statusbar->icon) +
                                        ICON_SPACING);
-          rect.height = PANGO_SCALE * gdk_pixbuf_get_height (statusbar->icon);
+          rect.height = 0;
 
           attrs = pango_attr_list_new ();
 

@@ -85,8 +85,6 @@
 /*  defines  */
 #define  MAX_GRADIENT      179.606  /* == sqrt (127^2 + 127^2) */
 #define  GRADIENT_SEARCH   32  /* how far to look when snapping to an edge */
-#define  TARGET_SIZE       25
-#define  POINT_WIDTH       12  /* size (in pixels) of seed handles */
 #define  EXTEND_BY         0.2 /* proportion to expand cost map by */
 #define  FIXED             5   /* additional fixed size to expand cost map */
 #define  MIN_GRADIENT      63  /* gradients < this are directionless */
@@ -607,8 +605,9 @@ gimp_iscissors_tool_button_release (GimpTool              *tool,
                                                 iscissors->x, iscissors->y,
                                                 GIMP_HANDLE_CIRCLE,
                                                 curve->x1, curve->y1,
-                                                POINT_WIDTH, POINT_WIDTH,
-                                                GTK_ANCHOR_CENTER))
+                                                GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                                GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                                GIMP_HANDLE_ANCHOR_CENTER))
                     {
                       iscissors->x = curve->x1;
                       iscissors->y = curve->y1;
@@ -752,8 +751,9 @@ gimp_iscissors_tool_draw (GimpDrawTool *draw_tool)
       gimp_draw_tool_add_handle (draw_tool,
                                  GIMP_HANDLE_CROSS,
                                  iscissors->x, iscissors->y,
-                                 TARGET_SIZE, TARGET_SIZE,
-                                 GTK_ANCHOR_CENTER);
+                                 GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                 GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                 GIMP_HANDLE_ANCHOR_CENTER);
 
       /* Draw a line boundary */
       if (! iscissors->first_point && ! (iscissors->draw & DRAW_LIVEWIRE))
@@ -812,9 +812,9 @@ gimp_iscissors_tool_draw (GimpDrawTool *draw_tool)
                                      GIMP_HANDLE_FILLED_CIRCLE,
                                      iscissors->ix,
                                      iscissors->iy,
-                                     POINT_WIDTH,
-                                     POINT_WIDTH,
-                                     GTK_ANCHOR_CENTER);
+                                     GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                     GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                     GIMP_HANDLE_ANCHOR_CENTER);
         }
 
       /*  Go through the list of icurves, and render each one...  */
@@ -835,9 +835,9 @@ gimp_iscissors_tool_draw (GimpDrawTool *draw_tool)
                                      GIMP_HANDLE_FILLED_CIRCLE,
                                      curve->x1,
                                      curve->y1,
-                                     POINT_WIDTH,
-                                     POINT_WIDTH,
-                                     GTK_ANCHOR_CENTER);
+                                     GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                     GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                     GIMP_HANDLE_ANCHOR_CENTER);
 
           if (iscissors->draw & DRAW_ACTIVE_CURVE)
             {
@@ -876,9 +876,9 @@ gimp_iscissors_tool_draw (GimpDrawTool *draw_tool)
                                  GIMP_HANDLE_FILLED_CIRCLE,
                                  iscissors->nx,
                                  iscissors->ny,
-                                 POINT_WIDTH,
-                                 POINT_WIDTH,
-                                 GTK_ANCHOR_CENTER);
+                                 GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                 GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                 GIMP_HANDLE_ANCHOR_CENTER);
     }
 }
 
@@ -943,8 +943,9 @@ gimp_iscissors_tool_oper_update (GimpTool         *tool,
                                     RINT (coords->x), RINT (coords->y),
                                     GIMP_HANDLE_CIRCLE,
                                     curve->x1, curve->y1,
-                                    POINT_WIDTH, POINT_WIDTH,
-                                    GTK_ANCHOR_CENTER))
+                                    GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                    GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                    GIMP_HANDLE_ANCHOR_CENTER))
         {
           gimp_tool_replace_status (tool, display, _("Click to close the"
                                                      " curve"));
@@ -1214,8 +1215,9 @@ mouse_over_vertex (GimpIscissorsTool *iscissors,
                                     x, y,
                                     GIMP_HANDLE_CIRCLE,
                                     curve->x1, curve->y1,
-                                    POINT_WIDTH, POINT_WIDTH,
-                                    GTK_ANCHOR_CENTER))
+                                    GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                    GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                    GIMP_HANDLE_ANCHOR_CENTER))
         {
           iscissors->curve1 = curve;
 
@@ -1227,8 +1229,9 @@ mouse_over_vertex (GimpIscissorsTool *iscissors,
                                          x, y,
                                          GIMP_HANDLE_CIRCLE,
                                          curve->x2, curve->y2,
-                                         POINT_WIDTH, POINT_WIDTH,
-                                         GTK_ANCHOR_CENTER))
+                                         GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                         GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                         GIMP_HANDLE_ANCHOR_CENTER))
         {
           iscissors->curve2 = curve;
 
@@ -1303,7 +1306,7 @@ mouse_over_curve (GimpIscissorsTool *iscissors,
           if (gimp_draw_tool_calc_distance_square (GIMP_DRAW_TOOL (iscissors),
                                                    GIMP_TOOL (iscissors)->display,
                                                    tx, ty,
-                                                   x, y) < SQR (POINT_WIDTH / 2))
+                                                   x, y) < SQR (GIMP_TOOL_HANDLE_SIZE_CIRCLE / 2))
             {
               return list;
             }

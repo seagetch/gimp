@@ -370,6 +370,7 @@ load_image (const gchar  *filename,
       g_set_error (error, G_FILE_ERROR, G_FILE_ERROR_FAILED,
                    _("Could not read header from '%s'"),
                    gimp_filename_to_utf8 (filename));
+      fclose (fd);
       return -1;
     }
 
@@ -380,6 +381,7 @@ load_image (const gchar  *filename,
       g_set_error (error, G_FILE_ERROR, G_FILE_ERROR_FAILED,
                    _("'%s' is not a PCX file"),
                    gimp_filename_to_utf8 (filename));
+      fclose (fd);
       return -1;
     }
 
@@ -392,16 +394,19 @@ load_image (const gchar  *filename,
   if ((width < 0) || (width > GIMP_MAX_IMAGE_SIZE))
     {
       g_message (_("Unsupported or invalid image width: %d"), width);
+      fclose (fd);
       return -1;
     }
   if ((height < 0) || (height > GIMP_MAX_IMAGE_SIZE))
     {
       g_message (_("Unsupported or invalid image height: %d"), height);
+      fclose (fd);
       return -1;
     }
   if (bytesperline < (width * pcx_header.bpp) / 8)
     {
       g_message (_("Invalid number of bytes per line in PCX header"));
+      fclose (fd);
       return -1;
     }
 
@@ -409,6 +414,7 @@ load_image (const gchar  *filename,
   if (G_MAXSIZE / width / height < 3)
     {
       g_message (_("Image dimensions too large: width %d x height %d"), width, height);
+      fclose (fd);
       return -1;
     }
 
@@ -457,12 +463,14 @@ load_image (const gchar  *filename,
   else
     {
       g_message (_("Unusual PCX flavour, giving up"));
+      fclose (fd);
       return -1;
     }
 
   gimp_pixel_rgn_init (&pixel_rgn, drawable, 0, 0, width, height, TRUE, FALSE);
   gimp_pixel_rgn_set_rect (&pixel_rgn, dest, 0, 0, width, height);
 
+  fclose (fd);
   g_free (dest);
 
   gimp_drawable_flush (drawable);
@@ -666,14 +674,6 @@ save_image (const gchar  *filename,
       return FALSE;
   }
 
-  if ((fp = g_fopen (filename, "wb")) == NULL)
-    {
-      g_set_error (error, G_FILE_ERROR, g_file_error_from_errno (errno),
-                   _("Could not open '%s' for writing: %s"),
-                   gimp_filename_to_utf8 (filename), g_strerror (errno));
-      return FALSE;
-    }
-
   pixels = (guchar *) g_malloc (width * height * pcx_header.planes);
   gimp_pixel_rgn_get_rect (&pixel_rgn, pixels, 0, 0, width, height);
 
@@ -700,6 +700,14 @@ save_image (const gchar  *filename,
     {
       g_message (_("Bottom border out of bounds (must be < %d): %d"), (1<<16),
                  offset_y + height - 1);
+      return FALSE;
+    }
+
+  if ((fp = g_fopen (filename, "wb")) == NULL)
+    {
+      g_set_error (error, G_FILE_ERROR, g_file_error_from_errno (errno),
+                   _("Could not open '%s' for writing: %s"),
+                   gimp_filename_to_utf8 (filename), g_strerror (errno));
       return FALSE;
     }
 

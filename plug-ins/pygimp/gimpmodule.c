@@ -789,18 +789,6 @@ pygimp_gamma(PyObject *self)
 }
 
 static PyObject *
-pygimp_install_cmap(PyObject *self)
-{
-    return PyBool_FromLong(gimp_install_cmap());
-}
-
-static PyObject *
-pygimp_min_colors(PyObject *self)
-{
-    return PyInt_FromLong(gimp_min_colors());
-}
-
-static PyObject *
 pygimp_gtkrc(PyObject *self)
 {
     return PyString_FromString(gimp_gtkrc());
@@ -1128,7 +1116,7 @@ pygimp_delete(PyObject *self, PyObject *args)
     if (pygimp_image_check(img))
         gimp_image_delete(img->ID);
     else if (pygimp_drawable_check(img))
-        gimp_drawable_delete(img->ID);
+        gimp_item_delete(img->ID);
     else if (pygimp_display_check(img))
         gimp_display_delete(img->ID);
 
@@ -1276,6 +1264,7 @@ pygimp_parasite_attach(PyObject *self, PyObject *args)
 static PyObject *
 pygimp_attach_new_parasite(PyObject *self, PyObject *args)
 {
+    GimpParasite *parasite;
     char *name, *data;
     int flags, size;
 
@@ -1283,10 +1272,15 @@ pygimp_attach_new_parasite(PyObject *self, PyObject *args)
                           &data, &size))
         return NULL;
 
-    if (!gimp_attach_new_parasite(name, flags, size, data)) {
+    parasite = gimp_parasite_new (name, flags, size, data);
+
+    if (!gimp_parasite_attach (parasite)) {
         PyErr_Format(pygimp_error, "could not attach new parasite '%s'", name);
+        gimp_parasite_free (parasite);
         return NULL;
     }
+
+    gimp_parasite_free (parasite);
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -1708,8 +1702,6 @@ static struct PyMethodDef gimp_methods[] = {
     {"domain_register",         (PyCFunction)pygimp_domain_register,    METH_VARARGS},
     {"menu_register",           (PyCFunction)pygimp_menu_register,      METH_VARARGS},
     {"gamma",   (PyCFunction)pygimp_gamma,      METH_NOARGS},
-    {"install_cmap",    (PyCFunction)pygimp_install_cmap,       METH_NOARGS},
-    {"min_colors",      (PyCFunction)pygimp_min_colors, METH_NOARGS},
     {"gtkrc",   (PyCFunction)pygimp_gtkrc,      METH_NOARGS},
     {"personal_rc_file",        (PyCFunction)pygimp_personal_rc_file, METH_VARARGS | METH_KEYWORDS},
     {"context_push", (PyCFunction)pygimp_context_push, METH_NOARGS},

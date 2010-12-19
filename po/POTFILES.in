@@ -230,6 +230,7 @@ app/file/file-procedure.c
 app/file/file-save.c
 app/file/file-utils.c
 
+app/gegl/gimp-gegl-enums.c
 app/gegl/gimpcurvesconfig.c
 app/gegl/gimplevelsconfig.c
 
@@ -274,6 +275,7 @@ app/pdb/gimppdbcontext.c
 app/pdb/gimpprocedure.c
 app/pdb/guides-cmds.c
 app/pdb/image-cmds.c
+app/pdb/image-select-cmds.c
 app/pdb/item-transform-cmds.c
 app/pdb/layer-cmds.c
 app/pdb/paths-cmds.c
@@ -316,6 +318,8 @@ app/tools/gimpbrightnesscontrasttool.c
 app/tools/gimpbucketfilloptions.c
 app/tools/gimpbucketfilltool.c
 app/tools/gimpbycolorselecttool.c
+app/tools/gimpcageoptions.c
+app/tools/gimpcagetool.c
 app/tools/gimpclonetool.c
 app/tools/gimpcolorbalancetool.c
 app/tools/gimpcolorizetool.c
@@ -468,6 +472,7 @@ app/widgets/gimptoolbox-indicator-area.c
 app/widgets/gimptoolbox.c
 app/widgets/gimptooleditor.c
 app/widgets/gimptooloptionseditor.c
+app/widgets/gimptoolpalette.c
 app/widgets/gimptoolpreseteditor.c
 app/widgets/gimptranslationstore.c
 app/widgets/gimpuimanager.c

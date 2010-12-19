@@ -10,9 +10,16 @@ TESTS_ENVIRONMENT = \
 	GIMP_TESTING_ABS_TOP_SRCDIR=@abs_top_srcdir@ \
 	GIMP_TESTING_ABS_TOP_BUILDDIR=@abs_top_builddir@
 
+# Run tests with xvfb-run if available
+if HAVE_XVFB_RUN
+TESTS_ENVIRONMENT += $(XVFB_RUN) --server-args="-screen 0 1280x1024x24"
+endif
+
+
 TESTS = \
 	test-core		\
 	test-session-management	\
+	test-tools		\
 	test-ui			\
 	test-xcf
 

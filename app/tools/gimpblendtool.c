@@ -46,9 +46,6 @@
 #include "gimp-intl.h"
 
 
-#define TARGET_SIZE  15
-
-
 /*  local function prototypes  */
 
 static gboolean gimp_blend_tool_initialize        (GimpTool              *tool,
@@ -391,18 +388,18 @@ gimp_blend_tool_draw (GimpDrawTool *draw_tool)
                              GIMP_HANDLE_CROSS,
                              blend_tool->start_x,
                              blend_tool->start_y,
-                             TARGET_SIZE,
-                             TARGET_SIZE,
-                             GTK_ANCHOR_CENTER);
+                             GIMP_TOOL_HANDLE_SIZE_CROSS,
+                             GIMP_TOOL_HANDLE_SIZE_CROSS,
+                             GIMP_HANDLE_ANCHOR_CENTER);
 
   /*  Draw end target  */
   gimp_draw_tool_add_handle (draw_tool,
                              GIMP_HANDLE_CROSS,
                              blend_tool->end_x,
                              blend_tool->end_y,
-                             TARGET_SIZE,
-                             TARGET_SIZE,
-                             GTK_ANCHOR_CENTER);
+                             GIMP_TOOL_HANDLE_SIZE_CROSS,
+                             GIMP_TOOL_HANDLE_SIZE_CROSS,
+                             GIMP_HANDLE_ANCHOR_CENTER);
 }
 
 static void

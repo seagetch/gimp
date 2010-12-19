@@ -62,7 +62,6 @@
 
 #define EDIT_SELECT_SCROLL_LOCK FALSE
 #define ARROW_VELOCITY          25
-#define CENTER_CROSS_SIZE       7
 
 
 typedef struct _GimpEditSelectionTool
@@ -975,9 +974,9 @@ gimp_edit_selection_tool_draw (GimpDrawTool *draw_tool)
                              GIMP_HANDLE_CROSS,
                              edit_select->center_x + edit_select->cumlx,
                              edit_select->center_y + edit_select->cumly,
-                             CENTER_CROSS_SIZE,
-                             CENTER_CROSS_SIZE,
-                             GTK_ANCHOR_CENTER);
+                             GIMP_TOOL_HANDLE_SIZE_SMALL,
+                             GIMP_TOOL_HANDLE_SIZE_SMALL,
+                             GIMP_HANDLE_ANCHOR_CENTER);
 
   GIMP_DRAW_TOOL_CLASS (parent_class)->draw (draw_tool);
 }

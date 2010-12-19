@@ -22,6 +22,8 @@
 
 #include "core/core-types.h"
 
+#include "gegl/gimp-gegl-enums.h"
+
 
 /*  operations  */
 
@@ -31,6 +33,9 @@ typedef struct _GimpOperationTileSource       GimpOperationTileSource;
 typedef struct _GimpOperationPointFilter      GimpOperationPointFilter;
 typedef struct _GimpOperationColorBalance     GimpOperationColorBalance;
 typedef struct _GimpOperationColorize         GimpOperationColorize;
+typedef struct _GimpOperationCageCoefCalc     GimpOperationCageCoefCalc;
+typedef struct _GimpOperationCagePreview      GimpOperationCagePreview;
+typedef struct _GimpOperationCageTransform    GimpOperationCageTransform;
 typedef struct _GimpOperationCurves           GimpOperationCurves;
 typedef struct _GimpOperationDesaturate       GimpOperationDesaturate;
 typedef struct _GimpOperationHueSaturation    GimpOperationHueSaturation;
@@ -69,6 +74,7 @@ typedef struct _GimpOperationAntiEraseMode    GimpOperationAntiEraseMode;
 /*  operation config objects  */
 
 typedef struct _GimpBrightnessContrastConfig  GimpBrightnessContrastConfig;
+typedef struct _GimpCageConfig                GimpCageConfig;
 typedef struct _GimpColorBalanceConfig        GimpColorBalanceConfig;
 typedef struct _GimpColorizeConfig            GimpColorizeConfig;
 typedef struct _GimpCurvesConfig              GimpCurvesConfig;

@@ -32,7 +32,6 @@
 
 #include "core/gimp.h"
 #include "core/gimpcontext.h"
-#include "core/gimptoolinfo.h"
 
 #include "file/file-open.h"
 #include "file/file-utils.h"
@@ -48,6 +47,7 @@
 #include "gimptoolbox-dnd.h"
 #include "gimptoolbox-image-area.h"
 #include "gimptoolbox-indicator-area.h"
+#include "gimptoolpalette.h"
 #include "gimpuimanager.h"
 #include "gimpwidgets-utils.h"
 #include "gtkhwrapbox.h"
@@ -56,12 +56,6 @@
 
 #include "gimp-intl.h"
 
-
-#define DEFAULT_TOOL_ICON_SIZE GTK_ICON_SIZE_BUTTON
-#define DEFAULT_BUTTON_RELIEF  GTK_RELIEF_NONE
-
-#define TOOL_BUTTON_DATA_KEY   "gimp-tool-item"
-#define TOOL_INFO_DATA_KEY     "gimp-tool-info"
 
 enum
 {
@@ -82,14 +76,11 @@ struct _GimpToolboxPrivate
 
   GtkWidget         *header;
   GtkWidget         *tool_palette;
-
   GtkWidget         *area_wbox;
   GtkWidget         *color_area;
   GtkWidget         *foo_area;
   GtkWidget         *image_area;
 
-  gint               tool_rows;
-  gint               tool_columns;
   gint               area_rows;
   gint               area_columns;
 
@@ -99,85 +90,63 @@ struct _GimpToolboxPrivate
 };
 
 
-static GObject   * gimp_toolbox_constructor             (GType                  type,
-                                                         guint                  n_params,
-                                                         GObjectConstructParam *params);
+static void        gimp_toolbox_constructed             (GObject               *object);
 static void        gimp_toolbox_dispose                 (GObject               *object);
-static void        gimp_toolbox_set_property            (GObject               *object,
-                                                         guint                  property_id,
-                                                         const GValue          *value,
-                                                         GParamSpec            *pspec);
-static void        gimp_toolbox_get_property            (GObject               *object,
-                                                         guint                  property_id,
-                                                         GValue                *value,
-                                                         GParamSpec            *pspec);
-static void        gimp_toolbox_size_allocate           (GtkWidget             *widget,
-                                                         GtkAllocation         *allocation);
-static void        gimp_toolbox_style_set               (GtkWidget             *widget,
-                                                         GtkStyle              *previous_style);
-static gboolean    gimp_toolbox_button_press_event      (GtkWidget             *widget,
-                                                         GdkEventButton        *event);
-static void        gimp_toolbox_drag_leave              (GtkWidget             *widget,
-                                                         GdkDragContext        *context,
-                                                         guint                  time,
-                                                         GimpToolbox           *toolbox);
-static gboolean    gimp_toolbox_drag_motion             (GtkWidget             *widget,
-                                                         GdkDragContext        *context,
-                                                         gint                   x,
-                                                         gint                   y,
-                                                         guint                  time,
-                                                         GimpToolbox           *toolbox);
-static gboolean    gimp_toolbox_drag_drop               (GtkWidget             *widget,
-                                                         GdkDragContext        *context,
-                                                         gint                   x,
-                                                         gint                   y,
-                                                         guint                  time,
-                                                         GimpToolbox           *toolbox);
-static gchar     * gimp_toolbox_get_description         (GimpDock              *dock,
-                                                         gboolean               complete);
-static void        gimp_toolbox_set_host_geometry_hints (GimpDock              *dock,
-                                                         GtkWindow             *window);
-static void        gimp_toolbox_book_added              (GimpDock              *dock,
-                                                         GimpDockbook          *dockbook);
-static void        gimp_toolbox_book_removed            (GimpDock              *dock,
-                                                         GimpDockbook          *dockbook);
-static gboolean    gimp_toolbox_expose_wilber           (GtkWidget             *widget,
-                                                         GdkEventExpose        *event);
-static void        toolbox_create_tools                 (GimpToolbox           *toolbox,
-                                                         GimpContext           *context);
-static GtkWidget * toolbox_create_color_area            (GimpToolbox           *toolbox,
-                                                         GimpContext           *context);
-static GtkWidget * toolbox_create_foo_area              (GimpToolbox           *toolbox,
-                                                         GimpContext           *context);
-static GtkWidget * toolbox_create_image_area            (GimpToolbox           *toolbox,
-                                                         GimpContext           *context);
-static void        toolbox_area_notify                  (GimpGuiConfig         *config,
-                                                         GParamSpec            *pspec,
-                                                         GtkWidget             *area);
-static void        toolbox_wilber_notify                (GimpGuiConfig         *config,
-                                                         GParamSpec            *pspec,
-                                                         GtkWidget             *wilber);
-static void        toolbox_tool_changed                 (GimpContext           *context,
-                                                         GimpToolInfo          *tool_info,
-                                                         GimpToolbox           *toolbox);
-static void        toolbox_tool_reorder                 (GimpContainer         *container,
-                                                         GimpToolInfo          *tool_info,
-                                                         gint                   index,
-                                                         GimpToolbox           *toolbox);
-static void        toolbox_tool_visible_notify          (GimpToolInfo          *tool_info,
-                                                         GParamSpec            *pspec,
-                                                         GtkToolItem           *item);
-static void        toolbox_tool_button_toggled          (GtkWidget             *widget,
-                                                         GimpToolbox           *toolbox);
-static gboolean    toolbox_tool_button_press            (GtkWidget             *widget,
-                                                         GdkEventButton        *bevent,
-                                                         GimpToolbox           *toolbox);
-static gboolean    toolbox_check_device                 (GtkWidget             *widget,
-                                                         GdkEvent              *event,
-                                                         Gimp                  *gimp);
-static void        toolbox_paste_received               (GtkClipboard          *clipboard,
-                                                         const gchar           *text,
-                                                         gpointer               data);
+static void        gimp_toolbox_set_property            (GObject        *object,
+                                                         guint           property_id,
+                                                         const GValue   *value,
+                                                         GParamSpec     *pspec);
+static void        gimp_toolbox_get_property            (GObject        *object,
+                                                         guint           property_id,
+                                                         GValue         *value,
+                                                         GParamSpec     *pspec);
+static void        gimp_toolbox_size_allocate           (GtkWidget      *widget,
+                                                         GtkAllocation  *allocation);
+static void        gimp_toolbox_style_set               (GtkWidget      *widget,
+                                                         GtkStyle       *previous_style);
+static gboolean    gimp_toolbox_button_press_event      (GtkWidget      *widget,
+                                                         GdkEventButton *event);
+static void        gimp_toolbox_drag_leave              (GtkWidget      *widget,
+                                                         GdkDragContext *context,
+                                                         guint           time,
+                                                         GimpToolbox    *toolbox);
+static gboolean    gimp_toolbox_drag_motion             (GtkWidget      *widget,
+                                                         GdkDragContext *context,
+                                                         gint            x,
+                                                         gint            y,
+                                                         guint           time,
+                                                         GimpToolbox    *toolbox);
+static gboolean    gimp_toolbox_drag_drop               (GtkWidget      *widget,
+                                                         GdkDragContext *context,
+                                                         gint            x,
+                                                         gint            y,
+                                                         guint           time,
+                                                         GimpToolbox    *toolbox);
+static gchar     * gimp_toolbox_get_description         (GimpDock       *dock,
+                                                         gboolean        complete);
+static void        gimp_toolbox_set_host_geometry_hints (GimpDock       *dock,
+                                                         GtkWindow      *window);
+static void        gimp_toolbox_book_added              (GimpDock       *dock,
+                                                         GimpDockbook   *dockbook);
+static void        gimp_toolbox_book_removed            (GimpDock       *dock,
+                                                         GimpDockbook   *dockbook);
+static gboolean    gimp_toolbox_expose_wilber           (GtkWidget      *widget,
+                                                         GdkEventExpose *event);
+static GtkWidget * toolbox_create_color_area            (GimpToolbox    *toolbox,
+                                                         GimpContext    *context);
+static GtkWidget * toolbox_create_foo_area              (GimpToolbox    *toolbox,
+                                                         GimpContext    *context);
+static GtkWidget * toolbox_create_image_area            (GimpToolbox    *toolbox,
+                                                         GimpContext    *context);
+static void        toolbox_area_notify                  (GimpGuiConfig  *config,
+                                                         GParamSpec     *pspec,
+                                                         GtkWidget      *area);
+static void        toolbox_wilber_notify                (GimpGuiConfig  *config,
+                                                         GParamSpec     *pspec,
+                                                         GtkWidget      *wilber);
+static void        toolbox_paste_received               (GtkClipboard   *clipboard,
+                                                         const gchar    *text,
+                                                         gpointer        data);
 
 
 G_DEFINE_TYPE (GimpToolbox, gimp_toolbox, GIMP_TYPE_DOCK)
@@ -192,7 +161,7 @@ gimp_toolbox_class_init (GimpToolboxClass *klass)
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
   GimpDockClass  *dock_class   = GIMP_DOCK_CLASS (klass);
 
-  object_class->constructor           = gimp_toolbox_constructor;
+  object_class->constructed           = gimp_toolbox_constructed;
   object_class->dispose               = gimp_toolbox_dispose;
   object_class->set_property          = gimp_toolbox_set_property;
   object_class->get_property          = gimp_toolbox_get_property;
@@ -227,20 +196,6 @@ gimp_toolbox_class_init (GimpToolboxClass *klass)
                                                         GIMP_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY));
 
-  gtk_widget_class_install_style_property (widget_class,
-                                           g_param_spec_enum ("tool-icon-size",
-                                                              NULL, NULL,
-                                                              GTK_TYPE_ICON_SIZE,
-                                                              DEFAULT_TOOL_ICON_SIZE,
-                                                              GIMP_PARAM_READABLE));
-
-  gtk_widget_class_install_style_property (widget_class,
-                                           g_param_spec_enum ("button-relief",
-                                                              NULL, NULL,
-                                                              GTK_TYPE_RELIEF_STYLE,
-                                                              DEFAULT_BUTTON_RELIEF,
-                                                              GIMP_PARAM_READABLE));
-
   g_type_class_add_private (klass, sizeof (GimpToolboxPrivate));
 }
 
@@ -255,23 +210,20 @@ gimp_toolbox_init (GimpToolbox *toolbox)
                      GIMP_HELP_TOOLBOX, NULL);
 }
 
-static GObject *
-gimp_toolbox_constructor (GType                  type,
-                          guint                  n_params,
-                          GObjectConstructParam *params)
+static void
+gimp_toolbox_constructed (GObject *object)
 {
-  GObject       *object;
-  GimpToolbox   *toolbox;
+  GimpToolbox   *toolbox = GIMP_TOOLBOX (object);
   GimpGuiConfig *config;
   GtkWidget     *main_vbox;
   GdkDisplay    *display;
   GList         *list;
 
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
+  g_assert (GIMP_IS_CONTEXT (toolbox->p->context));
+  g_assert (GIMP_IS_UI_MANAGER (toolbox->p->ui_manager));
+  g_assert (GIMP_IS_DIALOG_FACTORY (toolbox->p->dialog_factory));
 
-  toolbox = GIMP_TOOLBOX (object);
-
-  config  = GIMP_GUI_CONFIG (toolbox->p->context->gimp->config);
+  config = GIMP_GUI_CONFIG (toolbox->p->context->gimp->config);
 
   main_vbox = gimp_dock_get_main_vbox (GIMP_DOCK (toolbox));
 
@@ -321,9 +273,11 @@ gimp_toolbox_constructor (GType                  type,
                            G_CALLBACK (toolbox_wilber_notify),
                            toolbox->p->header, 0);
 
-  toolbox->p->tool_palette = gtk_tool_palette_new ();
+  toolbox->p->tool_palette = gimp_tool_palette_new (toolbox->p->context,
+                                                    toolbox->p->ui_manager,
+                                                    toolbox->p->dialog_factory);
   gtk_box_pack_start (GTK_BOX (toolbox->p->vbox), toolbox->p->tool_palette,
-                      TRUE, TRUE, 0);
+                      FALSE, FALSE, 0);
   gtk_widget_show (toolbox->p->tool_palette);
 
   toolbox->p->area_wbox = gtk_hwrap_box_new (FALSE);
@@ -352,7 +306,7 @@ gimp_toolbox_constructor (GType                  type,
   if (! list)  /* all devices have cursor */
     {
       g_signal_connect (toolbox, "motion-notify-event",
-                        G_CALLBACK (toolbox_check_device),
+                        G_CALLBACK (gimp_devices_check_callback),
                         toolbox->p->context->gimp);
 
       gtk_widget_add_events (GTK_WIDGET (toolbox), GDK_POINTER_MOTION_MASK);
@@ -360,9 +314,8 @@ gimp_toolbox_constructor (GType                  type,
                                        GDK_EXTENSION_EVENTS_CURSOR);
     }
 
-  toolbox_create_tools (toolbox, toolbox->p->context);
-
-  toolbox->p->color_area = toolbox_create_color_area (toolbox, toolbox->p->context);
+  toolbox->p->color_area = toolbox_create_color_area (toolbox,
+                                                      toolbox->p->context);
   gtk_wrap_box_pack_wrapped (GTK_WRAP_BOX (toolbox->p->area_wbox),
                              toolbox->p->color_area,
                              TRUE, TRUE, FALSE, TRUE, TRUE);
@@ -383,7 +336,8 @@ gimp_toolbox_constructor (GType                  type,
                            G_CALLBACK (toolbox_area_notify),
                            toolbox->p->foo_area, 0);
 
-  toolbox->p->image_area = toolbox_create_image_area (toolbox, toolbox->p->context);
+  toolbox->p->image_area = toolbox_create_image_area (toolbox,
+                                                      toolbox->p->context);
   gtk_wrap_box_pack (GTK_WRAP_BOX (toolbox->p->area_wbox), toolbox->p->image_area,
                      TRUE, TRUE, FALSE, TRUE);
   if (config->toolbox_image_area)
@@ -393,17 +347,10 @@ gimp_toolbox_constructor (GType                  type,
                            G_CALLBACK (toolbox_area_notify),
                            toolbox->p->image_area, 0);
 
-  g_signal_connect_object (toolbox->p->context, "tool-changed",
-                           G_CALLBACK (toolbox_tool_changed),
-                           toolbox,
-                           0);
-
-  gimp_toolbox_dnd_init (GIMP_TOOLBOX (toolbox));
+  gimp_toolbox_dnd_init (GIMP_TOOLBOX (toolbox), toolbox->p->vbox);
 
   gimp_toolbox_style_set (GTK_WIDGET (toolbox),
                           gtk_widget_get_style (GTK_WIDGET (toolbox)));
-
-  return object;
 }
 
 static void
@@ -496,147 +443,58 @@ static void
 gimp_toolbox_size_allocate (GtkWidget     *widget,
                             GtkAllocation *allocation)
 {
-  GimpToolbox   *toolbox = GIMP_TOOLBOX (widget);
-  Gimp          *gimp;
-  GimpGuiConfig *config;
-  GimpToolInfo  *tool_info;
-  GtkWidget     *tool_button;
+  GimpToolbox    *toolbox = GIMP_TOOLBOX (widget);
+  GimpGuiConfig  *config;
+  GtkRequisition  color_requisition;
+  GtkRequisition  foo_requisition;
+  GtkRequisition  image_requisition;
+  gint            width;
+  gint            height;
+  gint            n_areas;
+  gint            area_rows;
+  gint            area_columns;
 
-  if (GTK_WIDGET_CLASS (parent_class)->size_allocate)
-    GTK_WIDGET_CLASS (parent_class)->size_allocate (widget, allocation);
+  GTK_WIDGET_CLASS (parent_class)->size_allocate (widget, allocation);
 
-  if (! gimp_toolbox_get_context (toolbox))
-    return;
+  config = GIMP_GUI_CONFIG (toolbox->p->context->gimp->config);
 
-  gimp = gimp_toolbox_get_context (toolbox)->gimp;
+  gtk_widget_size_request (toolbox->p->color_area, &color_requisition);
+  gtk_widget_size_request (toolbox->p->foo_area,   &foo_requisition);
+  gtk_widget_size_request (toolbox->p->image_area, &image_requisition);
 
-  config = GIMP_GUI_CONFIG (gimp->config);
+  width  = MAX (color_requisition.width,
+                MAX (foo_requisition.width,
+                     image_requisition.width));
+  height = MAX (color_requisition.height,
+                MAX (foo_requisition.height,
+                     image_requisition.height));
 
-  tool_info = gimp_get_tool_info (gimp, "gimp-rect-select-tool");
-  tool_button = g_object_get_data (G_OBJECT (tool_info), TOOL_BUTTON_DATA_KEY);
+  n_areas = (config->toolbox_color_area +
+             config->toolbox_foo_area   +
+             config->toolbox_image_area);
 
-  if (tool_button)
+  area_columns = MAX (1, (allocation->width / width));
+  area_rows    = n_areas / area_columns;
+
+  if (n_areas % area_columns)
+    area_rows++;
+
+  if (toolbox->p->area_rows    != area_rows  ||
+      toolbox->p->area_columns != area_columns)
     {
-      GtkRequisition  button_requisition;
-      GList          *list;
-      gint            n_tools;
-      gint            tool_rows;
-      gint            tool_columns;
+      toolbox->p->area_rows    = area_rows;
+      toolbox->p->area_columns = area_columns;
 
-      gtk_widget_size_request (tool_button, &button_requisition);
-
-      for (list = gimp_get_tool_info_iter (gimp), n_tools = 0;
-           list;
-           list = list->next)
-        {
-          tool_info = list->data;
-
-          if (tool_info->visible)
-            n_tools++;
-        }
-
-      tool_columns = MAX (1, (allocation->width / button_requisition.width));
-      tool_rows    = n_tools / tool_columns;
-
-      if (n_tools % tool_columns)
-        tool_rows++;
-
-      if (toolbox->p->tool_rows    != tool_rows  ||
-          toolbox->p->tool_columns != tool_columns)
-        {
-          toolbox->p->tool_rows    = tool_rows;
-          toolbox->p->tool_columns = tool_columns;
-
-          gtk_widget_set_size_request (toolbox->p->tool_palette, -1,
-                                       tool_rows * button_requisition.height);
-        }
+      gtk_widget_set_size_request (toolbox->p->area_wbox, -1,
+                                   area_rows * height);
     }
-
-  {
-    GtkRequisition  color_requisition;
-    GtkRequisition  foo_requisition;
-    GtkRequisition  image_requisition;
-    gint            width;
-    gint            height;
-    gint            n_areas;
-    gint            area_rows;
-    gint            area_columns;
-
-    gtk_widget_size_request (toolbox->p->color_area, &color_requisition);
-    gtk_widget_size_request (toolbox->p->foo_area,   &foo_requisition);
-    gtk_widget_size_request (toolbox->p->image_area, &image_requisition);
-
-    width  = MAX (color_requisition.width,
-                  MAX (foo_requisition.width,
-                       image_requisition.width));
-    height = MAX (color_requisition.height,
-                  MAX (foo_requisition.height,
-                       image_requisition.height));
-
-    n_areas = (config->toolbox_color_area +
-               config->toolbox_foo_area   +
-               config->toolbox_image_area);
-
-    area_columns = MAX (1, (allocation->width / width));
-    area_rows    = n_areas / area_columns;
-
-    if (n_areas % area_columns)
-      area_rows++;
-
-    if (toolbox->p->area_rows    != area_rows  ||
-        toolbox->p->area_columns != area_columns)
-      {
-        toolbox->p->area_rows    = area_rows;
-        toolbox->p->area_columns = area_columns;
-
-        gtk_widget_set_size_request (toolbox->p->area_wbox, -1,
-                                     area_rows * height);
-      }
-  }
 }
 
 static void
 gimp_toolbox_style_set (GtkWidget *widget,
                         GtkStyle  *previous_style)
 {
-  GimpToolbox    *toolbox = GIMP_TOOLBOX (widget);
-  Gimp           *gimp;
-  GtkIconSize     tool_icon_size;
-  GtkReliefStyle  relief;
-  GList          *list;
-
   GTK_WIDGET_CLASS (parent_class)->style_set (widget, previous_style);
-
-  if (! gimp_toolbox_get_context (toolbox))
-    return;
-
-  gimp = gimp_toolbox_get_context (toolbox)->gimp;
-
-  gtk_widget_style_get (widget,
-                        "tool-icon-size", &tool_icon_size,
-                        "button-relief",  &relief,
-                        NULL);
-
-  gtk_tool_palette_set_icon_size (GTK_TOOL_PALETTE (toolbox->p->tool_palette),
-                                  tool_icon_size);
-
-  for (list = gimp_get_tool_info_iter (gimp);
-       list;
-       list = g_list_next (list))
-    {
-      GimpToolInfo *tool_info = list->data;
-      GtkWidget    *tool_button;
-
-      tool_button = g_object_get_data (G_OBJECT (tool_info),
-                                       TOOL_BUTTON_DATA_KEY);
-
-      if (tool_button)
-        {
-          GtkWidget *button = gtk_bin_get_child (GTK_BIN (tool_button));
-
-          gtk_button_set_relief (GTK_BUTTON (button), relief);
-        }
-    }
 
   gimp_dock_invalidate_geometry (GIMP_DOCK (widget));
 }
@@ -645,6 +503,8 @@ static gboolean
 gimp_toolbox_button_press_event (GtkWidget      *widget,
                                  GdkEventButton *event)
 {
+  GimpToolbox *toolbox = GIMP_TOOLBOX (widget);
+
   if (event->type == GDK_BUTTON_PRESS && event->button == 2)
     {
       GtkClipboard *clipboard;
@@ -652,7 +512,7 @@ gimp_toolbox_button_press_event (GtkWidget      *widget,
       clipboard = gtk_widget_get_clipboard (widget, GDK_SELECTION_PRIMARY);
       gtk_clipboard_request_text (clipboard,
                                   toolbox_paste_received,
-                                  g_object_ref (gimp_toolbox_get_context (GIMP_TOOLBOX (widget))));
+                                  g_object_ref (toolbox->p->context));
 
       return TRUE;
     }
@@ -726,8 +586,8 @@ gimp_toolbox_drag_drop (GtkWidget      *widget,
         }
     }
 
-  if (handled)	  
-    gtk_drag_finish (context, 
+  if (handled)
+    gtk_drag_finish (context,
                      TRUE /*success*/,
                      (context->action == GDK_ACTION_MOVE) /*del*/,
                      time);
@@ -758,8 +618,8 @@ static void
 gimp_toolbox_book_added (GimpDock     *dock,
                          GimpDockbook *dockbook)
 {
-  if (GIMP_DOCK_CLASS (gimp_toolbox_parent_class)->book_added)
-    GIMP_DOCK_CLASS (gimp_toolbox_parent_class)->book_added (dock, dockbook);
+  if (GIMP_DOCK_CLASS (parent_class)->book_added)
+    GIMP_DOCK_CLASS (parent_class)->book_added (dock, dockbook);
 
   if (g_list_length (gimp_dock_get_dockbooks (dock)) == 1)
     {
@@ -773,8 +633,8 @@ gimp_toolbox_book_removed (GimpDock     *dock,
 {
   GimpToolbox *toolbox = GIMP_TOOLBOX (dock);
 
-  if (GIMP_DOCK_CLASS (gimp_toolbox_parent_class)->book_removed)
-    GIMP_DOCK_CLASS (gimp_toolbox_parent_class)->book_removed (dock, dockbook);
+  if (GIMP_DOCK_CLASS (parent_class)->book_removed)
+    GIMP_DOCK_CLASS (parent_class)->book_removed (dock, dockbook);
 
   if (g_list_length (gimp_dock_get_dockbooks (dock)) == 0 &&
       ! toolbox->p->in_destruction)
@@ -787,43 +647,30 @@ static void
 gimp_toolbox_set_host_geometry_hints (GimpDock  *dock,
                                       GtkWindow *window)
 {
-  GimpToolbox  *toolbox = GIMP_TOOLBOX (dock);
-  Gimp         *gimp;
-  GimpToolInfo *tool_info;
-  GtkWidget    *tool_button;
+  GimpToolbox *toolbox = GIMP_TOOLBOX (dock);
+  gint         button_width;
+  gint         button_height;
 
-  gimp = gimp_toolbox_get_context (toolbox)->gimp;
-
-  tool_info = gimp_get_tool_info (gimp, "gimp-rect-select-tool");
-  tool_button = g_object_get_data (G_OBJECT (tool_info), TOOL_BUTTON_DATA_KEY);
-
-  if (tool_button)
+  if (gimp_tool_palette_get_button_size (GIMP_TOOL_PALETTE (toolbox->p->tool_palette),
+                                         &button_width, &button_height))
     {
-      GtkWidget      *main_vbox = gimp_dock_get_main_vbox (GIMP_DOCK (toolbox));
-      GtkRequisition  button_requisition;
-      gint            border_width;
-      GdkGeometry     geometry;
-
-      gtk_widget_size_request (tool_button, &button_requisition);
+      GdkGeometry geometry;
 
       gtk_widget_set_size_request (toolbox->p->header,
-                                   -1,
-                                   button_requisition.height *
-                                   PANGO_SCALE_SMALL);
+                                   -1, button_height * PANGO_SCALE_SMALL);
 
-      border_width = gtk_container_get_border_width (GTK_CONTAINER (main_vbox));
-
-      geometry.min_width  = (2 * border_width +
-                             2 * button_requisition.width);
-      geometry.min_height = -1;
-      geometry.width_inc  = button_requisition.width;
-      geometry.height_inc = (gimp_dock_get_dockbooks (GIMP_DOCK (toolbox)) ?
-                             1 : button_requisition.height);
+      geometry.min_width   = 2 * button_width;
+      geometry.min_height  = -1;
+      geometry.base_width  = button_width;
+      geometry.base_height = 0;
+      geometry.width_inc   = button_width;
+      geometry.height_inc  = 1;
 
       gtk_window_set_geometry_hints (window,
                                      NULL,
                                      &geometry,
                                      GDK_HINT_MIN_SIZE   |
+                                     GDK_HINT_BASE_SIZE  |
                                      GDK_HINT_RESIZE_INC |
                                      GDK_HINT_USER_POS);
 
@@ -836,6 +683,10 @@ gimp_toolbox_new (GimpDialogFactory *factory,
                   GimpContext       *context,
                   GimpUIManager     *ui_manager)
 {
+  g_return_val_if_fail (GIMP_IS_DIALOG_FACTORY (factory), NULL);
+  g_return_val_if_fail (GIMP_IS_CONTEXT (context), NULL);
+  g_return_val_if_fail (GIMP_IS_UI_MANAGER (ui_manager), NULL);
+
   return g_object_new (GIMP_TYPE_TOOLBOX,
                        "dialog-factory", factory,
                        "context",        context,
@@ -857,22 +708,6 @@ gimp_toolbox_get_dialog_factory (GimpToolbox *toolbox)
   g_return_val_if_fail (GIMP_IS_TOOLBOX (toolbox), NULL);
 
   return toolbox->p->dialog_factory;
-}
-
-GimpUIManager *
-gimp_toolbox_get_ui_manager (GimpToolbox *toolbox)
-{
-  g_return_val_if_fail (GIMP_IS_TOOLBOX (toolbox), NULL);
-
-  return toolbox->p->ui_manager;
-}
-
-GtkWidget *
-gimp_toolbox_get_vbox (GimpToolbox *toolbox)
-{
-  g_return_val_if_fail (GIMP_IS_TOOLBOX (toolbox), NULL);
-
-  return toolbox->p->vbox;
 }
 
 void
@@ -902,89 +737,6 @@ gimp_toolbox_expose_wilber (GtkWidget      *widget,
   cairo_destroy (cr);
 
   return FALSE;
-}
-
-static void
-toolbox_create_tools (GimpToolbox *toolbox,
-                      GimpContext *context)
-{
-  GtkWidget    *group;
-  GimpToolInfo *active_tool;
-  GList        *list;
-  GSList       *item_group = NULL;
-
-  group = gtk_tool_item_group_new (_("Tools"));
-  gtk_tool_item_group_set_label_widget (GTK_TOOL_ITEM_GROUP (group), NULL);
-  gtk_container_add (GTK_CONTAINER (toolbox->p->tool_palette), group);
-  gtk_widget_show (group);
-
-  active_tool = gimp_context_get_tool (context);
-
-  for (list = gimp_get_tool_info_iter (context->gimp);
-       list;
-       list = g_list_next (list))
-    {
-      GimpToolInfo *tool_info = list->data;
-      GtkToolItem  *item;
-      const gchar  *stock_id;
-
-      stock_id = gimp_viewable_get_stock_id (GIMP_VIEWABLE (tool_info));
-
-      item = gtk_radio_tool_button_new_from_stock (item_group, stock_id);
-      item_group = gtk_radio_tool_button_get_group (GTK_RADIO_TOOL_BUTTON (item));
-      gtk_tool_item_group_insert (GTK_TOOL_ITEM_GROUP (group), item, -1);
-      gtk_widget_show (GTK_WIDGET (item));
-
-      gtk_tool_item_set_visible_horizontal (item, tool_info->visible);
-      gtk_tool_item_set_visible_vertical   (item, tool_info->visible);
-
-      g_signal_connect_object (tool_info, "notify::visible",
-                               G_CALLBACK (toolbox_tool_visible_notify),
-                               item, 0);
-
-      g_object_set_data (G_OBJECT (tool_info), TOOL_BUTTON_DATA_KEY, item);
-      g_object_set_data (G_OBJECT (item)  ,    TOOL_INFO_DATA_KEY,   tool_info);
-
-      if (tool_info == active_tool)
-        gtk_toggle_tool_button_set_active (GTK_TOGGLE_TOOL_BUTTON (item), TRUE);
-
-      g_signal_connect (item, "toggled",
-                        G_CALLBACK (toolbox_tool_button_toggled),
-                        toolbox);
-
-      g_signal_connect (gtk_bin_get_child (GTK_BIN (item)), "button-press-event",
-                        G_CALLBACK (toolbox_tool_button_press),
-                        toolbox);
-
-
-      if (toolbox->p->ui_manager)
-        {
-          GtkAction   *action     = NULL;
-          const gchar *identifier = NULL;
-          gchar       *tmp        = NULL;
-          gchar       *name       = NULL;
-
-          identifier = gimp_object_get_name (tool_info);
-
-          tmp = g_strndup (identifier + strlen ("gimp-"),
-                           strlen (identifier) - strlen ("gimp--tool"));
-          name = g_strdup_printf ("tools-%s", tmp);
-          g_free (tmp);
-
-          action = gimp_ui_manager_find_action (toolbox->p->ui_manager, "tools", name);
-          g_free (name);
-
-          if (action)
-            gimp_widget_set_accel_help (GTK_WIDGET (item), action);
-          else
-            gimp_help_set_help_data (GTK_WIDGET (item),
-                                     tool_info->help, tool_info->help_id);
-        }
-    }
-
-  g_signal_connect_object (context->gimp->tool_info_list, "reorder",
-                           G_CALLBACK (toolbox_tool_reorder),
-                           toolbox, 0);
 }
 
 static GtkWidget *
@@ -1060,7 +812,6 @@ toolbox_area_notify (GimpGuiConfig *config,
 
       gtk_widget_show (parent);
 
-      /* FIXME: fix GtkWrapBox child requisition/allocation instead of hacking badly (bug #162500). */
       gtk_widget_size_request (area, &req);
       gtk_widget_set_size_request (parent, req.width, req.height);
     }
@@ -1083,96 +834,6 @@ toolbox_wilber_notify (GimpGuiConfig *config,
 
   g_object_get (config, pspec->name, &visible, NULL);
   g_object_set (wilber, "visible", visible, NULL);
-}
-
-static void
-toolbox_tool_changed (GimpContext  *context,
-                      GimpToolInfo *tool_info,
-                      GimpToolbox  *toolbox)
-{
-  if (tool_info)
-    {
-      GtkWidget *tool_button = g_object_get_data (G_OBJECT (tool_info),
-                                                  TOOL_BUTTON_DATA_KEY);
-
-      if (tool_button &&
-          ! gtk_toggle_tool_button_get_active (GTK_TOGGLE_TOOL_BUTTON (tool_button)))
-        {
-          g_signal_handlers_block_by_func (tool_button,
-                                           toolbox_tool_button_toggled,
-                                           toolbox);
-
-          gtk_toggle_tool_button_set_active (GTK_TOGGLE_TOOL_BUTTON (tool_button),
-                                             TRUE);
-
-          g_signal_handlers_unblock_by_func (tool_button,
-                                             toolbox_tool_button_toggled,
-                                             toolbox);
-        }
-    }
-}
-
-static void
-toolbox_tool_reorder (GimpContainer *container,
-                      GimpToolInfo  *tool_info,
-                      gint           index,
-                      GimpToolbox   *toolbox)
-{
-  if (tool_info)
-    {
-      GtkWidget *button = g_object_get_data (G_OBJECT (tool_info),
-                                             TOOL_BUTTON_DATA_KEY);
-      GtkWidget *group  = gtk_widget_get_parent (button);
-
-      gtk_tool_item_group_set_item_position (GTK_TOOL_ITEM_GROUP (group),
-                                             GTK_TOOL_ITEM (button), index);
-    }
-}
-
-static void
-toolbox_tool_visible_notify (GimpToolInfo *tool_info,
-                             GParamSpec   *pspec,
-                             GtkToolItem  *item)
-{
-  gtk_tool_item_set_visible_horizontal (item, tool_info->visible);
-  gtk_tool_item_set_visible_vertical   (item, tool_info->visible);
-}
-
-static void
-toolbox_tool_button_toggled (GtkWidget   *widget,
-                             GimpToolbox *toolbox)
-{
-  GimpToolInfo *tool_info = g_object_get_data (G_OBJECT (widget),
-                                               TOOL_INFO_DATA_KEY);
-
-  if (gtk_toggle_tool_button_get_active (GTK_TOGGLE_TOOL_BUTTON (widget)))
-    gimp_context_set_tool (gimp_toolbox_get_context (toolbox), tool_info);
-}
-
-static gboolean
-toolbox_tool_button_press (GtkWidget      *widget,
-                           GdkEventButton *event,
-                           GimpToolbox    *toolbox)
-{
-  if (event->type == GDK_2BUTTON_PRESS && event->button == 1)
-    {
-      gimp_dialog_factory_dialog_raise (toolbox->p->dialog_factory,
-                                        gtk_widget_get_screen (widget),
-                                        "gimp-tool-options",
-                                        -1);
-    }
-
-  return FALSE;
-}
-
-static gboolean
-toolbox_check_device (GtkWidget *widget,
-                      GdkEvent  *event,
-                      Gimp      *gimp)
-{
-  gimp_devices_check_change (gimp, event);
-
-  return FALSE;
 }
 
 static void

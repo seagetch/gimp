@@ -31,6 +31,7 @@
 #include "widgets/gimpcairo.h"
 
 #include "gimpcanvashandle.h"
+#include "gimpcanvasitem-utils.h"
 #include "gimpdisplayshell.h"
 #include "gimpdisplayshell-transform.h"
 
@@ -53,14 +54,14 @@ typedef struct _GimpCanvasHandlePrivate GimpCanvasHandlePrivate;
 
 struct _GimpCanvasHandlePrivate
 {
-  GimpHandleType  type;
-  GtkAnchorType   anchor;
-  gdouble         x;
-  gdouble         y;
-  gint            width;
-  gint            height;
-  gdouble         start_angle;
-  gdouble         slice_angle;;
+  GimpHandleType   type;
+  GimpHandleAnchor anchor;
+  gdouble          x;
+  gdouble          y;
+  gint             width;
+  gint             height;
+  gdouble          start_angle;
+  gdouble          slice_angle;;
 };
 
 #define GET_PRIVATE(handle) \
@@ -71,19 +72,19 @@ struct _GimpCanvasHandlePrivate
 
 /*  local function prototypes  */
 
-static void        gimp_canvas_handle_set_property (GObject          *object,
-                                                    guint             property_id,
-                                                    const GValue     *value,
-                                                    GParamSpec       *pspec);
-static void        gimp_canvas_handle_get_property (GObject          *object,
-                                                    guint             property_id,
-                                                    GValue           *value,
-                                                    GParamSpec       *pspec);
-static void        gimp_canvas_handle_draw         (GimpCanvasItem   *item,
-                                                    GimpDisplayShell *shell,
-                                                    cairo_t          *cr);
-static GdkRegion * gimp_canvas_handle_get_extents  (GimpCanvasItem   *item,
-                                                    GimpDisplayShell *shell);
+static void             gimp_canvas_handle_set_property (GObject          *object,
+                                                         guint             property_id,
+                                                         const GValue     *value,
+                                                         GParamSpec       *pspec);
+static void             gimp_canvas_handle_get_property (GObject          *object,
+                                                         guint             property_id,
+                                                         GValue           *value,
+                                                         GParamSpec       *pspec);
+static void             gimp_canvas_handle_draw         (GimpCanvasItem   *item,
+                                                         GimpDisplayShell *shell,
+                                                         cairo_t          *cr);
+static cairo_region_t * gimp_canvas_handle_get_extents  (GimpCanvasItem   *item,
+                                                         GimpDisplayShell *shell);
 
 
 G_DEFINE_TYPE (GimpCanvasHandle, gimp_canvas_handle,
@@ -112,8 +113,8 @@ gimp_canvas_handle_class_init (GimpCanvasHandleClass *klass)
 
   g_object_class_install_property (object_class, PROP_ANCHOR,
                                    g_param_spec_enum ("anchor", NULL, NULL,
-                                                      GTK_TYPE_ANCHOR_TYPE,
-                                                      GTK_ANCHOR_CENTER,
+                                                      GIMP_TYPE_HANDLE_ANCHOR,
+                                                      GIMP_HANDLE_ANCHOR_CENTER,
                                                       GIMP_PARAM_READWRITE));
 
   g_object_class_install_property (object_class, PROP_X,
@@ -245,130 +246,6 @@ gimp_canvas_handle_get_property (GObject    *object,
     }
 }
 
-static inline void
-gimp_canvas_handle_shift_to_north_west (GtkAnchorType  anchor,
-                                        gdouble        x,
-                                        gdouble        y,
-                                        gint           handle_width,
-                                        gint           handle_height,
-                                        gdouble       *shifted_x,
-                                        gdouble       *shifted_y)
-{
-  switch (anchor)
-    {
-    case GTK_ANCHOR_CENTER:
-      x -= handle_width  / 2;
-      y -= handle_height / 2;
-      break;
-
-    case GTK_ANCHOR_NORTH:
-      x -= handle_width / 2;
-      break;
-
-    case GTK_ANCHOR_NORTH_WEST:
-      /*  nothing, this is the default  */
-      break;
-
-    case GTK_ANCHOR_NORTH_EAST:
-      x -= handle_width;
-      break;
-
-    case GTK_ANCHOR_SOUTH:
-      x -= handle_width / 2;
-      y -= handle_height;
-      break;
-
-    case GTK_ANCHOR_SOUTH_WEST:
-      y -= handle_height;
-      break;
-
-    case GTK_ANCHOR_SOUTH_EAST:
-      x -= handle_width;
-      y -= handle_height;
-      break;
-
-    case GTK_ANCHOR_WEST:
-      y -= handle_height / 2;
-      break;
-
-    case GTK_ANCHOR_EAST:
-      x -= handle_width;
-      y -= handle_height / 2;
-      break;
-
-    default:
-      break;
-    }
-
-  if (shifted_x)
-    *shifted_x = x;
-
-  if (shifted_y)
-    *shifted_y = y;
-}
-
-static inline void
-gimp_canvas_handle_shift_to_center (GtkAnchorType  anchor,
-                                    gdouble        x,
-                                    gdouble        y,
-                                    gint           width,
-                                    gint           height,
-                                    gdouble       *shifted_x,
-                                    gdouble       *shifted_y)
-{
-  switch (anchor)
-    {
-    case GTK_ANCHOR_CENTER:
-      /*  nothing, this is the default  */
-      break;
-
-    case GTK_ANCHOR_NORTH:
-      y += height / 2;
-      break;
-
-    case GTK_ANCHOR_NORTH_WEST:
-      x += width  / 2;
-      y += height / 2;
-      break;
-
-    case GTK_ANCHOR_NORTH_EAST:
-      x -= width  / 2;
-      y += height / 2;
-      break;
-
-    case GTK_ANCHOR_SOUTH:
-      y -= height / 2;
-      break;
-
-    case GTK_ANCHOR_SOUTH_WEST:
-      x += width  / 2;
-      y -= height / 2;
-      break;
-
-    case GTK_ANCHOR_SOUTH_EAST:
-      x -= width  / 2;
-      y -= height / 2;
-      break;
-
-    case GTK_ANCHOR_WEST:
-      x += width / 2;
-      break;
-
-    case GTK_ANCHOR_EAST:
-      x -= width / 2;
-      break;
-
-    default:
-      break;
-    }
-
-  if (shifted_x)
-    *shifted_x = x;
-
-  if (shifted_y)
-    *shifted_y = y;
-}
-
 static void
 gimp_canvas_handle_transform (GimpCanvasItem   *item,
                               GimpDisplayShell *shell,
@@ -385,21 +262,21 @@ gimp_canvas_handle_transform (GimpCanvasItem   *item,
     {
     case GIMP_HANDLE_SQUARE:
     case GIMP_HANDLE_FILLED_SQUARE:
-      gimp_canvas_handle_shift_to_north_west (private->anchor,
-                                              *x, *y,
-                                              private->width,
-                                              private->height,
-                                              x, y);
+      gimp_canvas_item_shift_to_north_west (private->anchor,
+                                            *x, *y,
+                                            private->width,
+                                            private->height,
+                                            x, y);
       break;
 
     case GIMP_HANDLE_CIRCLE:
     case GIMP_HANDLE_FILLED_CIRCLE:
     case GIMP_HANDLE_CROSS:
-      gimp_canvas_handle_shift_to_center (private->anchor,
-                                          *x, *y,
-                                          private->width,
-                                          private->height,
-                                          x, y);
+      gimp_canvas_item_shift_to_center (private->anchor,
+                                        *x, *y,
+                                        private->width,
+                                        private->height,
+                                        x, y);
       break;
 
     default:
@@ -467,7 +344,7 @@ gimp_canvas_handle_draw (GimpCanvasItem   *item,
     }
 }
 
-static GdkRegion *
+static cairo_region_t *
 gimp_canvas_handle_get_extents (GimpCanvasItem   *item,
                                 GimpDisplayShell *shell)
 {
@@ -500,13 +377,13 @@ gimp_canvas_handle_get_extents (GimpCanvasItem   *item,
       break;
     }
 
-  return gdk_region_rectangle (&rectangle);
+  return cairo_region_create_rectangle ((cairo_rectangle_int_t *) &rectangle);
 }
 
 GimpCanvasItem *
 gimp_canvas_handle_new (GimpDisplayShell *shell,
                         GimpHandleType    type,
-                        GtkAnchorType     anchor,
+                        GimpHandleAnchor  anchor,
                         gdouble           x,
                         gdouble           y,
                         gint              width,
