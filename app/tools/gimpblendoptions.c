@@ -25,6 +25,7 @@
 #include "tools-types.h"
 
 #include "core/gimpdatafactory.h"
+#include "core/gimptoolinfo.h"
 
 #include "widgets/gimppropwidgets.h"
 #include "widgets/gimpviewablebox.h"
@@ -63,7 +64,7 @@ static void   blend_options_gradient_type_notify (GimpBlendOptions *options,
                                                   GtkWidget        *repeat_combo);
 
 static GtkWidget * gimp_blend_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal);
-
+static void supersample_options_create_view (GtkWidget *button, GtkWidget **result, GObject *config);
 
 G_DEFINE_TYPE (GimpBlendOptions, gimp_blend_options, GIMP_TYPE_PAINT_OPTIONS)
 
@@ -218,7 +219,8 @@ gimp_blend_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   GtkWidget *frame;
   GtkWidget *combo;
   GtkWidget *button;
-  GimpToolOptionsTableIncrement inc = gimp_tool_options_table_increment (horizontal);
+  GType      tool_type = tool_options->tool_info->tool_type;
+  GimpToolOptionsTableIncrement inc = gimp_tool_options_table_increment (horizontal);  
 
   table = g_object_get_data (G_OBJECT (vbox), GIMP_PAINT_OPTIONS_TABLE_KEY);
   
@@ -238,13 +240,13 @@ gimp_blend_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   gimp_tool_options_table_increment_next (&inc);
 
   /*  the offset scale  */
-  gimp_prop_scale_entry_new (config, "offset",
-                             GTK_TABLE (table),
-                             gimp_tool_options_table_increment_get_col (&inc),
-                             gimp_tool_options_table_increment_get_row (&inc),
-                             _("Offset:"),
-                             1.0, 10.0, 1,
-                             FALSE, 0.0, 0.0);
+  gimp_tool_options_scale_entry_new (config, "offset",
+                                     GTK_TABLE (table),
+                                     gimp_tool_options_table_increment_get_col (&inc),
+                                     gimp_tool_options_table_increment_get_row (&inc),
+                                     _("Offset:"),
+                                     1.0, 10.0, 1,
+                                     FALSE, 0.0, 0.0, FALSE, horizontal);
   gimp_tool_options_table_increment_next (&inc);
 
   /*  the gradient type menu  */
@@ -279,19 +281,31 @@ gimp_blend_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   gtk_widget_show (button);
 
   /*  supersampling options  */
-  table = gimp_tool_options_table (2, horizontal);
-  gtk_table_set_col_spacings (GTK_TABLE (table), 2);
-  gtk_table_set_row_spacings (GTK_TABLE (table), 1);
-  
-  inc = gimp_tool_options_table_increment (horizontal);
+  frame = 
+    gimp_tool_options_toggle_gui_with_popup (config, tool_type,
+                                             "supersample", 
+                                             _("Adaptive"), _("Adaptive supersampling"),
+                                             horizontal, supersample_options_create_view);
+  gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
+  gtk_widget_show (frame);
 
+  return vbox;
+}
+
+static void
+supersample_options_create_view (GtkWidget *button, GtkWidget **result, GObject *config)
+{
+  GimpToolOptionsTableIncrement inc = gimp_tool_options_table_increment (FALSE);
+  GtkWidget *table = gtk_table_new (3, 3, FALSE);
+  GList     *children;
+#if 0
   frame = gimp_prop_expanding_frame_new (config, "supersample",
                                          _("Adaptive supersampling"),
                                          table, NULL);
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
-
-  /*  max depth scale  */
+#endif
+  gtk_table_set_col_spacings (GTK_TABLE (table), 2);  /*  max depth scale  */
   gimp_prop_scale_entry_new (config, "supersample-depth",
                              GTK_TABLE (table),
                              gimp_tool_options_table_increment_get_col (&inc),
@@ -311,7 +325,10 @@ gimp_blend_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
                              FALSE, 0.0, 0.0);
   gimp_tool_options_table_increment_next (&inc);
 
-  return vbox;
+  children = gtk_container_get_children (GTK_CONTAINER (table));  
+  gimp_tool_options_setup_popup_layout (children, FALSE);
+
+  *result = table;
 }
 
 static void

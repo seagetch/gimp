@@ -67,6 +67,9 @@ static void   gimp_bucket_fill_options_notify (GimpBucketFillOptions *options,
                                                GParamSpec            *pspec,
                                                GtkWidget             *widget);
 
+static GtkWidget *gimp_bucket_fill_options_gui_full (GimpToolOptions *tool_options, 
+                                                      gboolean horizontal);
+
 
 G_DEFINE_TYPE (GimpBucketFillOptions, gimp_bucket_fill_options,
                GIMP_TYPE_PAINT_OPTIONS)
@@ -211,8 +214,20 @@ gimp_bucket_fill_options_reset (GimpToolOptions *tool_options)
 GtkWidget *
 gimp_bucket_fill_options_gui (GimpToolOptions *tool_options)
 {
+  return gimp_bucket_fill_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_bucket_fill_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_bucket_fill_options_gui_full (tool_options, TRUE);
+}
+
+static GtkWidget *
+gimp_bucket_fill_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
+{
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_paint_options_gui (tool_options);
+  GtkWidget *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
   GtkWidget *vbox2;
   GtkWidget *table;
   GtkWidget *frame;

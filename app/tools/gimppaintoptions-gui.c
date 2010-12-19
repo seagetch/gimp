@@ -201,10 +201,17 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
       gtk_widget_show (frame);
     }
 
-    frame = smoothing_options_gui (options, tool_type, horizontal);
-    gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
-    gtk_widget_show (frame);
-    
+  /* the "smoothing" toggle */
+  if (g_type_is_a (tool_type, GIMP_TYPE_BRUSH_TOOL) ||
+      tool_type == GIMP_TYPE_INK_TOOL ||
+      tool_type == GIMP_TYPE_SMUDGE_TOOL ||
+      tool_type == GIMP_TYPE_DODGE_BURN_TOOL)
+    {
+      frame = smoothing_options_gui (options, tool_type, horizontal);
+      gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
+      gtk_widget_show (frame);
+    }
+  
 
   /*  the "incremental" toggle  */
   if (tool_type == GIMP_TYPE_PENCIL_TOOL     ||
