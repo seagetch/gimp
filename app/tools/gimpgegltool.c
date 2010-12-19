@@ -87,7 +87,7 @@ gimp_gegl_tool_register (GimpToolRegisterCallback  callback,
                          gpointer                  data)
 {
   (* callback) (GIMP_TYPE_GEGL_TOOL,
-                GIMP_TYPE_IMAGE_MAP_OPTIONS, NULL,
+                GIMP_TYPE_IMAGE_MAP_OPTIONS, NULL, NULL,
                 0,
                 "gimp-gegl-tool",
                 _("GEGL Operation"),

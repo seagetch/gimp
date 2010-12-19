@@ -1,5 +1,5 @@
-/* GIMP - The GNU Image Manipulation Program
- * Copyright (C) 1995 Spencer Kimball and Peter Mattis
+/* GIMP-painter - The GNU Image Manipulation Program
+ * Copyright (C) 1995-1999 Spencer Kimball and Peter Mattis
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,12 +15,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef  __GIMP_INK_OPTIONS_GUI_H__
-#define  __GIMP_INK_OPTIONS_GUI_H__
+#ifndef __GIMP_BRUSH_OPTIONS_GUI_H__
+#define __GIMP_BRUSH_OPTIONS_GUI_H__
 
+GtkWidget *gimp_brush_button_with_popup (GObject *config);
 
-GtkWidget * gimp_ink_options_gui      (GimpToolOptions *tool_options);
-GtkWidget * gimp_ink_options_gui_horizontal      (GimpToolOptions *tool_options);
-
-
-#endif  /*  __GIMP_INK_OPTIONS_GUI_H__  */
+#endif  /*  __GIMP_TOOL_OPTIONS_GUI_H__  */

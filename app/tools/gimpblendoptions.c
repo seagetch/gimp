@@ -25,12 +25,14 @@
 #include "tools-types.h"
 
 #include "core/gimpdatafactory.h"
+#include "core/gimptoolinfo.h"
 
 #include "widgets/gimppropwidgets.h"
 #include "widgets/gimpviewablebox.h"
 
 #include "gimpblendoptions.h"
 #include "gimppaintoptions-gui.h"
+#include "gimptooloptions-gui.h"
 
 #include "gimp-intl.h"
 
@@ -61,6 +63,8 @@ static void   blend_options_gradient_type_notify (GimpBlendOptions *options,
                                                   GParamSpec       *pspec,
                                                   GtkWidget        *repeat_combo);
 
+static GtkWidget * gimp_blend_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal);
+static void supersample_options_create_view (GtkWidget *button, GtkWidget **result, GObject *config);
 
 G_DEFINE_TYPE (GimpBlendOptions, gimp_blend_options, GIMP_TYPE_PAINT_OPTIONS)
 
@@ -197,14 +201,34 @@ gimp_blend_options_get_property (GObject    *object,
 GtkWidget *
 gimp_blend_options_gui (GimpToolOptions *tool_options)
 {
+  return gimp_blend_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_blend_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_blend_options_gui_full (tool_options, TRUE);
+}
+
+static GtkWidget *
+gimp_blend_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
+{
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_paint_options_gui (tool_options);
+  GtkWidget *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
   GtkWidget *table;
   GtkWidget *vbox2;
   GtkWidget *frame;
   GtkWidget *scale;
   GtkWidget *combo;
   GtkWidget *button;
+  GType      tool_type = tool_options->tool_info->tool_type;
+  GimpToolOptionsTableIncrement inc = gimp_tool_options_table_increment (horizontal);  
+
+//  table = g_object_get_data (G_OBJECT (vbox), GIMP_PAINT_OPTIONS_TABLE_KEY);
+  table = gimp_tool_options_table (2, horizontal);
+  
+  gimp_tool_options_table_increment_next (&inc);
+  gimp_tool_options_table_increment_next (&inc);
 
   /*  the gradient  */
   button = gimp_prop_gradient_box_new (NULL, GIMP_CONTEXT (tool_options),
@@ -212,6 +236,7 @@ gimp_blend_options_gui (GimpToolOptions *tool_options)
                                        "gradient-view-type",
                                        "gradient-view-size",
                                        "gradient-reverse");
+#if 0
   gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
   gtk_widget_show (button);
 
@@ -220,22 +245,45 @@ gimp_blend_options_gui (GimpToolOptions *tool_options)
   gtk_table_set_row_spacings (GTK_TABLE (table), 2);
   gtk_box_pack_start (GTK_BOX (vbox), table, FALSE, FALSE, 0);
   gtk_widget_show (table);
+#endif
+  gimp_table_attach_aligned (GTK_TABLE (table),
+                             gimp_tool_options_table_increment_get_col (&inc),
+                             gimp_tool_options_table_increment_get_row (&inc),
+                             _("Gradient:"), 0.0, 0.5,
+                             button, 2, TRUE);
+  gimp_tool_options_table_increment_next (&inc);
+
+  /*  the offset scale  */
+  gimp_tool_options_scale_entry_new (config, "offset",
+                                     GTK_TABLE (table),
+                                     gimp_tool_options_table_increment_get_col (&inc),
+                                     gimp_tool_options_table_increment_get_row (&inc),
+                                     _("Offset:"),
+                                     1.0, 10.0, 1,
+                                     FALSE, 0.0, 0.0, FALSE, horizontal);
+  gimp_tool_options_table_increment_next (&inc);
 
   /*  the gradient type menu  */
   combo = gimp_prop_enum_combo_box_new (config, "gradient-type", 0, 0);
   g_object_set (combo, "ellipsize", PANGO_ELLIPSIZE_END, NULL);
   gimp_enum_combo_box_set_stock_prefix (GIMP_ENUM_COMBO_BOX (combo),
                                         "gimp-gradient");
-  gimp_table_attach_aligned (GTK_TABLE (table), 0, 0,
+  gimp_table_attach_aligned (GTK_TABLE (table),
+                             gimp_tool_options_table_increment_get_col (&inc),
+                             gimp_tool_options_table_increment_get_row (&inc),
                              _("Shape:"), 0.0, 0.5,
                              combo, 2, FALSE);
+  gimp_tool_options_table_increment_next (&inc);
 
   /*  the repeat option  */
   combo = gimp_prop_enum_combo_box_new (config, "gradient-repeat", 0, 0);
   g_object_set (combo, "ellipsize", PANGO_ELLIPSIZE_END, NULL);
-  gimp_table_attach_aligned (GTK_TABLE (table), 0, 1,
+  gimp_table_attach_aligned (GTK_TABLE (table),
+                             gimp_tool_options_table_increment_get_col (&inc),
+                             gimp_tool_options_table_increment_get_row (&inc),
                              _("Repeat:"), 0.0, 0.5,
                              combo, 2, FALSE);
+  gimp_tool_options_table_increment_next (&inc);
 
   g_signal_connect (config, "notify::gradient-type",
                     G_CALLBACK (blend_options_gradient_type_notify),
@@ -255,12 +303,26 @@ gimp_blend_options_gui (GimpToolOptions *tool_options)
   gtk_widget_show (button);
 
   /*  supersampling options  */
-  vbox2 = gtk_vbox_new (FALSE, 2);
-  frame = gimp_prop_expanding_frame_new (config, "supersample",
-                                         _("Adaptive supersampling"),
-                                         vbox2, NULL);
+  frame = 
+    gimp_tool_options_toggle_gui_with_popup (config, tool_type,
+                                             "supersample", 
+                                             _("Adaptive"), _("Adaptive supersampling"),
+                                             horizontal, supersample_options_create_view);
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
+
+  return vbox;
+}
+
+static void
+supersample_options_create_view (GtkWidget *button, GtkWidget **result, GObject *config)
+{
+  GimpToolOptionsTableIncrement inc = gimp_tool_options_table_increment (FALSE);
+//  GtkWidget *table = gtk_table_new (3, 3, FALSE);
+  GList     *children;
+  GtkWidget *vbox2 = gtk_vbox_new (FALSE, 2);
+  GtkWidget *scale;
+
 
   /*  max depth scale  */
   scale = gimp_prop_spin_scale_new (config, "supersample-depth",
@@ -276,7 +338,10 @@ gimp_blend_options_gui (GimpToolOptions *tool_options)
   gtk_box_pack_start (GTK_BOX (vbox2), scale, FALSE, FALSE, 0);
   gtk_widget_show (scale);
 
-  return vbox;
+//  children = gtk_container_get_children (GTK_CONTAINER (table));  
+//  gimp_tool_options_setup_popup_layout (children, FALSE);
+
+  *result = vbox2;
 }
 
 static void

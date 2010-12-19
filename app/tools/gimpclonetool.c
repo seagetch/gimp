@@ -54,6 +54,7 @@ gimp_clone_tool_register (GimpToolRegisterCallback  callback,
   (* callback) (GIMP_TYPE_CLONE_TOOL,
                 GIMP_TYPE_CLONE_OPTIONS,
                 gimp_clone_options_gui,
+                NULL,
                 GIMP_PAINT_OPTIONS_CONTEXT_MASK |
                 GIMP_CONTEXT_PATTERN_MASK,
                 "gimp-clone-tool",

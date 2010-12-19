@@ -44,6 +44,7 @@ gimp_paintbrush_tool_register (GimpToolRegisterCallback  callback,
   (* callback) (GIMP_TYPE_PAINTBRUSH_TOOL,
                 GIMP_TYPE_PAINT_OPTIONS,
                 gimp_paint_options_gui,
+                gimp_paint_options_gui_horizontal,
                 GIMP_PAINT_OPTIONS_CONTEXT_MASK |
                 GIMP_CONTEXT_GRADIENT_MASK,
                 "gimp-paintbrush-tool",

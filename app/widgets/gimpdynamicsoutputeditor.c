@@ -125,6 +125,9 @@ static void     gimp_dynamics_output_editor_notify_output (GimpDynamicsOutput   
                                                            const GParamSpec         *pspec,
                                                            GimpDynamicsOutputEditor *editor);
 
+static void     gimp_dynamics_output_editor_destroy       (GimpDynamicsOutputEditor *editor,
+                                                            gpointer data);
+
 G_DEFINE_TYPE (GimpDynamicsOutputEditor, gimp_dynamics_output_editor,
                GTK_TYPE_BOX)
 
@@ -303,6 +306,9 @@ gimp_dynamics_output_editor_constructor (GType                   type,
    g_signal_connect (private->output, "notify",
                      G_CALLBACK (gimp_dynamics_output_editor_notify_output),
                      editor);
+
+   g_signal_connect (editor, "destroy",
+                     G_CALLBACK (gimp_dynamics_output_editor_destroy), NULL);
 
   return object;
 }
@@ -656,6 +662,20 @@ gimp_dynamics_output_editor_notify_output (GimpDynamicsOutput *output,
         }
     }
 }
+
+static void
+gimp_dynamics_output_editor_destroy (GimpDynamicsOutputEditor *editor,
+                                     gpointer data)
+{
+  GimpDynamicsOutputEditorPrivate *private;
+  
+  private = GIMP_DYNAMICS_OUTPUT_EDITOR_GET_PRIVATE (G_OBJECT (editor));
+
+   g_signal_handlers_disconnect_by_func (private->output,
+                                         gimp_dynamics_output_editor_notify_output,
+                                         editor);
+}
+
 
 /*  public functions  */
 

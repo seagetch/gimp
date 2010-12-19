@@ -88,7 +88,7 @@ gimp_color_balance_tool_register (GimpToolRegisterCallback  callback,
                                   gpointer                  data)
 {
   (* callback) (GIMP_TYPE_COLOR_BALANCE_TOOL,
-                GIMP_TYPE_IMAGE_MAP_OPTIONS, NULL,
+                GIMP_TYPE_IMAGE_MAP_OPTIONS, NULL, NULL,
                 0,
                 "gimp-color-balance-tool",
                 _("Color Balance"),

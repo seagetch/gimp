@@ -196,7 +196,9 @@ gimp_smudge_start (GimpPaintCore    *paint_core,
     return FALSE;
 
   /*  adjust the x and y coordinates to the upper left corner of the brush  */
+  smudge->max_radius = 0;
   gimp_smudge_brush_coords (paint_core, paint_options, coords, &x, &y, &w, &h);
+//  g_print ("smudge:start: (x,y,w,h)=%d,%d,%d,%d\n", x, y, w, h);
 
   /*  Allocate the accumulation buffer */
   bytes = gimp_drawable_bytes (drawable);
@@ -292,6 +294,7 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
 
   /*  Get the unclipped brush coordinates  */
   gimp_smudge_brush_coords (paint_core, paint_options, coords, &x, &y, &w, &h);
+//  g_print ("smudge:motion: (x,y,w,h)=%d,%d,%d,%d\n", x, y, w, h);
 
   /* srcPR will be the pixels under the current painthit from the drawable */
   pixel_region_init (&srcPR, gimp_drawable_get_tiles (drawable),
@@ -399,18 +402,22 @@ gimp_smudge_brush_coords (GimpPaintCore    *paint_core,
                           gint             *h)
 {
   GimpBrushCore *brush_core = GIMP_BRUSH_CORE (paint_core);
+  GimpSmudge    *smudge     = GIMP_SMUDGE (paint_core);
   gint           width;
   gint           height;
   gdouble        max_radius;
 
-  gimp_brush_transform_size (brush_core->brush,
-                             paint_options->brush_scale,
-                             brush_core->aspect_ratio,
-                             brush_core->angle,
-                             &width, &height);
+  if (smudge->max_radius == 0)
+    {
+      gimp_brush_transform_size (brush_core->brush,
+                                 paint_options->brush_size,
+                                 brush_core->aspect_ratio,
+                                 brush_core->angle,
+                                 &width, &height);
+      smudge->max_radius = ceil(sqrt(width * width + height * height));
+    }
 
-  max_radius = ceil(sqrt(width * width + height * height));
-  width = height = (gint)max_radius;
+  width = height = (gint)smudge->max_radius;
 
   /* Note: these are the brush mask size plus a border of 1 pixel */
   *x = (gint) coords->x - width  / 2 - 1;

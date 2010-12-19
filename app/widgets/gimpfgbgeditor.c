@@ -31,10 +31,14 @@
 
 #include "core/gimpcontext.h"
 #include "core/gimpmarshal.h"
+#include "core/gimppalette.h"
 
 #include "gimpdnd.h"
+#include "gimpview.h"
+#include "gimppaletteview.h"
+#include "gimppopupbutton.h"
 #include "gimpfgbgeditor.h"
-
+#include "gimpviewrendererpalette.h"
 
 enum
 {
@@ -53,11 +57,16 @@ typedef enum
 {
   INVALID_AREA,
   FOREGROUND_AREA,
+  FOREGROUND_POPUP_AREA,
   BACKGROUND_AREA,
+  BACKGROUND_POPUP_AREA,
   SWAP_AREA,
   DEFAULT_AREA
 } FgBgTarget;
 
+#define GIMP_COLOR_CELL_SIZE  16
+#define GIMP_COLOR_CELL_COLS  10
+#define GIMP_COLOR_ARROW_SIZE 12
 
 static void     gimp_fg_bg_editor_dispose         (GObject        *object);
 static void     gimp_fg_bg_editor_set_property    (GObject        *object,
@@ -90,6 +99,8 @@ static void     gimp_fg_bg_editor_drop_color      (GtkWidget      *widget,
                                                    const GimpRGB  *color,
                                                    gpointer        data);
 
+static void     gimp_fg_bg_editor_popup_palette (GtkWidget        *widget,
+                                                   FgBgTarget       target);             
 
 G_DEFINE_TYPE (GimpFgBgEditor, gimp_fg_bg_editor, GTK_TYPE_DRAWING_AREA)
 
@@ -314,6 +325,12 @@ gimp_fg_bg_editor_expose (GtkWidget      *widget,
       cairo_fill (cr);
     }
 
+  gtk_paint_arrow (style, window,
+                   GTK_STATE_NORMAL,
+                   GTK_SHADOW_NONE, NULL, widget, NULL,
+                   GTK_ARROW_DOWN, TRUE,
+                   width - rect_w, (height - 8), 8, 8);
+
   gtk_paint_shadow (style, window, GTK_STATE_NORMAL,
                     editor->active_color == GIMP_ACTIVE_COLOR_FOREGROUND ?
                     GTK_SHADOW_OUT : GTK_SHADOW_IN,
@@ -335,6 +352,13 @@ gimp_fg_bg_editor_expose (GtkWidget      *widget,
                        rect_w, rect_h);
       cairo_fill (cr);
     }
+
+  gtk_paint_arrow (style, window,
+                   GTK_STATE_NORMAL,
+                   GTK_SHADOW_NONE, NULL, widget, NULL,
+                   GTK_ARROW_DOWN, TRUE,
+                   0, (rect_h - GIMP_COLOR_ARROW_SIZE), 
+                   GIMP_COLOR_ARROW_SIZE, GIMP_COLOR_ARROW_SIZE);
 
   gtk_paint_shadow (style, window, GTK_STATE_NORMAL,
                     editor->active_color == GIMP_ACTIVE_COLOR_BACKGROUND ?
@@ -364,8 +388,13 @@ gimp_fg_bg_editor_target (GimpFgBgEditor *editor,
   width  = allocation.width;
   height = allocation.height;
 
-  if (x > 0 && x < rect_w && y > 0 && y < rect_h)
+  if (x > 0 && x < GIMP_COLOR_ARROW_SIZE && y > rect_h - GIMP_COLOR_ARROW_SIZE && y < rect_h)
+    return FOREGROUND_POPUP_AREA;
+  else if (x > 0 && x < rect_w && y > 0 && y < rect_h)
     return FOREGROUND_AREA;
+  else if (x > (width - rect_w)  && x < width - rect_w + GIMP_COLOR_ARROW_SIZE  &&
+           y > (height - GIMP_COLOR_ARROW_SIZE) && y < height)
+    return BACKGROUND_POPUP_AREA;
   else if (x > (width - rect_w)  && x < width  &&
            y > (height - rect_h) && y < height)
     return BACKGROUND_AREA;
@@ -406,6 +435,11 @@ gimp_fg_bg_editor_button_press (GtkWidget      *widget,
             gimp_fg_bg_editor_set_active (editor,
                                           GIMP_ACTIVE_COLOR_BACKGROUND);
           editor->click_target = BACKGROUND_AREA;
+          break;
+          
+        case FOREGROUND_POPUP_AREA:
+        case BACKGROUND_POPUP_AREA:
+          gimp_fg_bg_editor_popup_palette (widget, target);
           break;
 
         case SWAP_AREA:
@@ -595,3 +629,153 @@ gimp_fg_bg_editor_drop_color (GtkWidget     *widget,
         }
     }
 }
+
+static void
+gimp_fg_bg_palette_changed (GimpContext *context,
+                            GimpPalette *palette,
+                            GtkWidget   *widget)
+{
+  GimpView *view = GIMP_VIEW (widget);
+  gint cols;
+  gint rows;
+  g_return_if_fail (GIMP_IS_PALETTE (palette));
+  
+  cols = MIN (MAX(GIMP_COLOR_CELL_COLS, palette->n_columns), palette->n_colors);
+  rows = (palette->n_colors + cols - 1) / cols;
+  gtk_widget_set_size_request (widget, GIMP_COLOR_CELL_SIZE * cols + 1, GIMP_COLOR_CELL_SIZE * rows + 1);
+  gimp_view_set_viewable (view, GIMP_VIEWABLE (palette));
+}
+
+static void
+gimp_fg_entry_clicked (GimpPaletteView   *view,
+                       GimpPaletteEntry  *entry,
+                       GdkModifierType    state,
+                       gpointer           data)
+{
+  GimpFgBgEditor *editor = GIMP_FG_BG_EDITOR (data);
+  gimp_context_set_foreground (editor->context, &entry->color);
+}
+
+static void
+gimp_bg_entry_clicked (GimpPaletteView   *view,
+                       GimpPaletteEntry  *entry,
+                       GdkModifierType    state,
+                       gpointer           data)
+{
+  GimpFgBgEditor *editor = GIMP_FG_BG_EDITOR (data);
+  gimp_context_set_background (editor->context, &entry->color);
+}
+
+static void
+gimp_fg_bg_editor_entry_activated (GtkWidget *widget, 
+                                   GimpPaletteEntry *entry, 
+                                   gpointer data)
+{
+  GimpFgBgEditor *editor = GIMP_FG_BG_EDITOR (data);
+  gimp_popup_close (GIMP_POPUP (editor->popup));
+  editor->popup = NULL;
+}
+
+static void     
+gimp_fg_bg_editor_popup_palette (GtkWidget        *widget,
+                                 FgBgTarget        target)
+{
+  GimpFgBgEditor *editor = GIMP_FG_BG_EDITOR (widget);
+  
+  GtkWidget     *view = NULL;
+  gint           orig_x;
+  gint           orig_y;
+  gint           x;
+  gint           y;
+  GdkScreen     *screen;
+
+  GtkRequisition requisition;
+  GtkAllocation  allocation;
+  gint          width;
+  gint          height;
+  gint          rect_w = editor->rect_width;
+  gint          rect_h = editor->rect_height;
+  
+  g_return_if_fail (GIMP_IS_FG_BG_EDITOR (editor));
+  g_return_if_fail (GIMP_IS_CONTEXT (editor->context));
+
+  gtk_widget_get_allocation (widget, &allocation);
+
+  width  = allocation.width;
+  height = allocation.height;
+
+  switch (target)
+    {
+    case FOREGROUND_POPUP_AREA:
+      view = gimp_view_new_full_by_types (editor->context,
+                                          GIMP_TYPE_PALETTE_VIEW,
+                                          GIMP_TYPE_PALETTE,
+                                          GIMP_COLOR_CELL_SIZE * GIMP_COLOR_CELL_COLS,
+                                          100, 0,
+                                          TRUE, TRUE, TRUE);
+      g_signal_connect (view, "entry-clicked",
+                        G_CALLBACK (gimp_fg_entry_clicked),
+                        editor);
+      x    = 0;
+      y    = 0;
+      break;
+
+    case BACKGROUND_POPUP_AREA:
+      view = gimp_view_new_full_by_types (editor->context,
+                                          GIMP_TYPE_PALETTE_VIEW,
+                                          GIMP_TYPE_PALETTE,
+                                          GIMP_COLOR_CELL_SIZE * GIMP_COLOR_CELL_COLS,
+                                          100, 0,
+                                          TRUE, TRUE, TRUE);
+      g_signal_connect (view, "entry-clicked",
+                        G_CALLBACK (gimp_bg_entry_clicked),
+                        editor);
+      x    = width - rect_w;
+      y    = height - rect_h;
+      break;
+
+    default:
+      break;
+    }
+
+  g_return_if_fail (view);
+    
+  gimp_view_set_expand (GIMP_VIEW (view), TRUE);
+  gimp_view_renderer_palette_set_cell_size
+    (GIMP_VIEW_RENDERER_PALETTE (GIMP_VIEW (view)->renderer),
+    GIMP_COLOR_CELL_SIZE);
+  gimp_view_renderer_palette_set_draw_grid
+    (GIMP_VIEW_RENDERER_PALETTE (GIMP_VIEW (view)->renderer),
+     TRUE);
+  g_signal_connect (view, "entry-confirmed",
+                    G_CALLBACK (gimp_fg_bg_editor_entry_activated),
+                    editor);
+  gtk_widget_show (view);
+
+  gimp_fg_bg_palette_changed (editor->context,
+                              gimp_context_get_palette (editor->context),
+                              view);
+  editor->popup = gimp_popup_new (view);
+
+  gtk_widget_size_request (editor->popup, &requisition);
+  gdk_window_get_origin (gtk_widget_get_window (widget), &orig_x, &orig_y);
+
+  if (! gtk_widget_get_has_window (widget))
+    {
+      orig_x += allocation.x + x;
+      orig_y += allocation.y + y;
+    }
+  else
+    {
+      orig_x += x;
+      orig_y += y;
+    }
+
+  screen = gtk_widget_get_screen (widget);
+
+  gimp_popup_show (GIMP_POPUP (editor->popup), screen, orig_x, orig_y, 
+                   orig_x + rect_w, orig_y + rect_h, 
+                   GTK_CORNER_BOTTOM_LEFT);
+}
+
+

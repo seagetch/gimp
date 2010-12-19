@@ -118,6 +118,7 @@ gimp_perspective_clone_tool_register (GimpToolRegisterCallback  callback,
   (* callback) (GIMP_TYPE_PERSPECTIVE_CLONE_TOOL,
                 GIMP_TYPE_PERSPECTIVE_CLONE_OPTIONS,
                 gimp_perspective_clone_options_gui,
+                NULL,
                 GIMP_PAINT_OPTIONS_CONTEXT_MASK |
                 GIMP_CONTEXT_PATTERN_MASK,
                 "gimp-perspective-clone-tool",

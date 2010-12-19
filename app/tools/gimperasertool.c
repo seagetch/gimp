@@ -45,7 +45,9 @@ static void   gimp_eraser_tool_cursor_update (GimpTool         *tool,
                                               GdkModifierType   state,
                                               GimpDisplay      *display);
 
-static GtkWidget * gimp_eraser_options_gui   (GimpToolOptions *tool_options);
+static GtkWidget * gimp_eraser_options_gui            (GimpToolOptions *tool_options);
+static GtkWidget * gimp_eraser_options_gui_horizontal (GimpToolOptions *tool_options);
+static GtkWidget * gimp_eraser_options_gui_full       (GimpToolOptions *tool_options, gboolean horizontal);
 
 
 G_DEFINE_TYPE (GimpEraserTool, gimp_eraser_tool, GIMP_TYPE_BRUSH_TOOL)
@@ -60,6 +62,7 @@ gimp_eraser_tool_register (GimpToolRegisterCallback  callback,
   (* callback) (GIMP_TYPE_ERASER_TOOL,
                 GIMP_TYPE_ERASER_OPTIONS,
                 gimp_eraser_options_gui,
+                gimp_eraser_options_gui_horizontal,
                 GIMP_PAINT_OPTIONS_CONTEXT_MASK,
                 "gimp-eraser-tool",
                 _("Eraser"),
@@ -134,10 +137,10 @@ gimp_eraser_tool_cursor_update (GimpTool         *tool,
 /*  tool options stuff  */
 
 static GtkWidget *
-gimp_eraser_options_gui (GimpToolOptions *tool_options)
+gimp_eraser_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_paint_options_gui (tool_options);
+  GtkWidget *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
   GtkWidget *button;
   gchar     *str;
 
@@ -152,4 +155,17 @@ gimp_eraser_options_gui (GimpToolOptions *tool_options)
   g_free (str);
 
   return vbox;
+}
+
+static GtkWidget *
+gimp_eraser_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_eraser_options_gui_full (tool_options, FALSE);
+}
+
+
+static GtkWidget *
+gimp_eraser_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_eraser_options_gui_full (tool_options, TRUE);
 }

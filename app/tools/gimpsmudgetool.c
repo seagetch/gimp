@@ -29,6 +29,7 @@
 #include "widgets/gimppropwidgets.h"
 
 #include "gimpsmudgetool.h"
+#include "gimptooloptions-gui.h"
 #include "gimppaintoptions-gui.h"
 #include "gimptoolcontrol.h"
 
@@ -36,6 +37,8 @@
 
 
 static GtkWidget * gimp_smudge_options_gui (GimpToolOptions *tool_options);
+static GtkWidget * gimp_smudge_options_gui_horizontal (GimpToolOptions *tool_options);
+static GtkWidget * gimp_smudge_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal);
 
 
 G_DEFINE_TYPE (GimpSmudgeTool, gimp_smudge_tool, GIMP_TYPE_BRUSH_TOOL)
@@ -48,6 +51,7 @@ gimp_smudge_tool_register (GimpToolRegisterCallback  callback,
   (* callback) (GIMP_TYPE_SMUDGE_TOOL,
                 GIMP_TYPE_SMUDGE_OPTIONS,
                 gimp_smudge_options_gui,
+                gimp_smudge_options_gui_horizontal,
                 GIMP_PAINT_OPTIONS_CONTEXT_MASK,
                 "gimp-smudge-tool",
                 _("Smudge"),
@@ -82,16 +86,33 @@ gimp_smudge_tool_init (GimpSmudgeTool *smudge)
 static GtkWidget *
 gimp_smudge_options_gui (GimpToolOptions *tool_options)
 {
+  return gimp_smudge_options_gui_full (tool_options, FALSE);
+}
+
+static GtkWidget *
+gimp_smudge_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_smudge_options_gui_full (tool_options, TRUE);
+}
+
+static GtkWidget *
+gimp_smudge_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
+{
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_paint_options_gui (tool_options);
-  GtkWidget *scale;
+  GtkWidget *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
+  GtkWidget *table;
 
   /*  the rate scale  */
-  scale = gimp_prop_spin_scale_new (config, "rate",
-                                    _("Rate"),
-                                    1.0, 10.0, 1);
-  gtk_box_pack_start (GTK_BOX (vbox), scale, FALSE, FALSE, 0);
-  gtk_widget_show (scale);
+  table = gimp_tool_options_table (1, horizontal);
+  gtk_table_set_col_spacings (GTK_TABLE (table), 2);
+  gtk_box_pack_start (GTK_BOX (vbox), table, FALSE, FALSE, 0);
+  gtk_widget_show (table);
+
+  gimp_tool_options_scale_entry_new (config, "rate",
+                                     GTK_TABLE (table), 0, 0,
+                                     _("Rate:"),
+                                     1.0, 10.0, 1,
+                                     FALSE, 0.0, 0.0, FALSE, horizontal);
 
   return vbox;
 }

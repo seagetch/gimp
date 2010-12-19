@@ -257,6 +257,8 @@ libappwidgets_a_sources = \
 	gimppixbuf.h			\
 	gimppluginaction.c		\
 	gimppluginaction.h		\
+	gimppopupbutton.c		\
+	gimppopupbutton.h		\
 	gimpprofilechooserdialog.c	\
 	gimpprofilechooserdialog.h	\
 	gimpprogressbox.c		\
@@ -322,6 +324,7 @@ libappwidgets_a_sources = \
 	gimptexttag.h			\
 	gimpthumbbox.c			\
 	gimpthumbbox.h			\
+  gimptitlebaricon-pixbuf.h \
 	gimptoggleaction.c		\
 	gimptoggleaction.h		\
 	gimptoolbox.c			\
@@ -342,6 +345,8 @@ libappwidgets_a_sources = \
 	gimptooloptionseditor.h		\
 	gimptoolpalette.c		\
 	gimptoolpalette.h		\
+	gimptooloptionstoolbar.c	\
+	gimptooloptionstoolbar.h	\
 	gimptoolpreseteditor.c		\
 	gimptoolpreseteditor.h		\
 	gimptoolpresetfactoryview.c	\
