@@ -224,43 +224,29 @@ gimp_blend_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   GType      tool_type = tool_options->tool_info->tool_type;
   GimpToolOptionsTableIncrement inc = gimp_tool_options_table_increment (horizontal);  
 
-//  table = g_object_get_data (G_OBJECT (vbox), GIMP_PAINT_OPTIONS_TABLE_KEY);
-  table = gimp_tool_options_table (2, horizontal);
-  
-  gimp_tool_options_table_increment_next (&inc);
-  gimp_tool_options_table_increment_next (&inc);
-
   /*  the gradient  */
   button = gimp_prop_gradient_box_new (NULL, GIMP_CONTEXT (tool_options),
                                        _("Gradient"), 2,
                                        "gradient-view-type",
                                        "gradient-view-size",
                                        "gradient-reverse");
-#if 0
   gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
   gtk_widget_show (button);
 
-  table = gtk_table_new (3, 2, FALSE);
+  table = gimp_tool_options_table (2, horizontal);
   gtk_table_set_col_spacings (GTK_TABLE (table), 2);
   gtk_table_set_row_spacings (GTK_TABLE (table), 2);
   gtk_box_pack_start (GTK_BOX (vbox), table, FALSE, FALSE, 0);
   gtk_widget_show (table);
-#endif
+  
+  gimp_tool_options_table_increment_next (&inc);
+  gimp_tool_options_table_increment_next (&inc);
+
   gimp_table_attach_aligned (GTK_TABLE (table),
                              gimp_tool_options_table_increment_get_col (&inc),
                              gimp_tool_options_table_increment_get_row (&inc),
                              _("Gradient:"), 0.0, 0.5,
                              button, 2, TRUE);
-  gimp_tool_options_table_increment_next (&inc);
-
-  /*  the offset scale  */
-  gimp_tool_options_scale_entry_new (config, "offset",
-                                     GTK_TABLE (table),
-                                     gimp_tool_options_table_increment_get_col (&inc),
-                                     gimp_tool_options_table_increment_get_row (&inc),
-                                     _("Offset:"),
-                                     1.0, 10.0, 1,
-                                     FALSE, 0.0, 0.0, FALSE, horizontal);
   gimp_tool_options_table_increment_next (&inc);
 
   /*  the gradient type menu  */
@@ -311,6 +297,13 @@ gimp_blend_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
+  if (horizontal)
+    {
+      GList *children;
+      children = gtk_container_get_children (GTK_CONTAINER (vbox));
+      gimp_tool_options_setup_popup_layout (children, FALSE);
+    }
+
   return vbox;
 }
 
@@ -338,8 +331,8 @@ supersample_options_create_view (GtkWidget *button, GtkWidget **result, GObject 
   gtk_box_pack_start (GTK_BOX (vbox2), scale, FALSE, FALSE, 0);
   gtk_widget_show (scale);
 
-//  children = gtk_container_get_children (GTK_CONTAINER (table));  
-//  gimp_tool_options_setup_popup_layout (children, FALSE);
+  children = gtk_container_get_children (GTK_CONTAINER (vbox2));  
+  gimp_tool_options_setup_popup_layout (children, FALSE);
 
   *result = vbox2;
 }

@@ -100,19 +100,18 @@ gimp_smudge_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal
 {
   GObject   *config = G_OBJECT (tool_options);
   GtkWidget *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
-  GtkWidget *table;
+  GtkWidget *scale;
+  GList     *children;
 
   /*  the rate scale  */
-  table = gimp_tool_options_table (1, horizontal);
-  gtk_table_set_col_spacings (GTK_TABLE (table), 2);
-  gtk_box_pack_start (GTK_BOX (vbox), table, FALSE, FALSE, 0);
-  gtk_widget_show (table);
+  scale = gimp_prop_spin_scale_new (config, "rate",
+                                    _("Rate"),
+                                    1.0, 10.0, 1);
+  gtk_box_pack_start (GTK_BOX (vbox), scale, FALSE, FALSE, 0);
+  gtk_widget_show (scale);
 
-  gimp_tool_options_scale_entry_new (config, "rate",
-                                     GTK_TABLE (table), 0, 0,
-                                     _("Rate:"),
-                                     1.0, 10.0, 1,
-                                     FALSE, 0.0, 0.0, FALSE, horizontal);
+  children = gtk_container_get_children (GTK_CONTAINER (vbox));  
+  gimp_tool_options_setup_popup_layout (children, FALSE);
 
   return vbox;
 }

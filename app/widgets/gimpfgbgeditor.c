@@ -652,7 +652,7 @@ gimp_fg_entry_clicked (GimpPaletteView   *view,
                        GdkModifierType    state,
                        gpointer           data)
 {
-  GimpFgBgEditor *editor = GIMP_FG_BG_EDITOR (data);
+  GimpFgBgEditor *editor  = GIMP_FG_BG_EDITOR (data);
   gimp_context_set_foreground (editor->context, &entry->color);
 }
 
@@ -662,7 +662,7 @@ gimp_bg_entry_clicked (GimpPaletteView   *view,
                        GdkModifierType    state,
                        gpointer           data)
 {
-  GimpFgBgEditor *editor = GIMP_FG_BG_EDITOR (data);
+  GimpFgBgEditor *editor  = GIMP_FG_BG_EDITOR (data);
   gimp_context_set_background (editor->context, &entry->color);
 }
 
@@ -676,13 +676,30 @@ gimp_fg_bg_editor_entry_activated (GtkWidget *widget,
   editor->popup = NULL;
 }
 
+static void
+gimp_fg_color_add_clicked (GtkWidget *widget, gpointer data)
+{
+  GimpFgBgEditor   *editor = GIMP_FG_BG_EDITOR (data);
+  GimpPalette      *palette = gimp_context_get_palette (editor->context);
+  GimpRGB           color;
+  gint              pos   = palette->n_colors;
+  GimpPaletteEntry *entry;
+
+  gimp_context_get_foreground (editor->context, &color);  
+  entry = gimp_palette_add_entry (palette, pos, NULL, &color);
+
+//  gimp_palette_view_select_entry (GIMP_PALETTE_VIEW (editor->view), entry);
+}
+
 static void     
 gimp_fg_bg_editor_popup_palette (GtkWidget        *widget,
                                  FgBgTarget        target)
 {
   GimpFgBgEditor *editor = GIMP_FG_BG_EDITOR (widget);
   
+  GtkWidget     *vbox;
   GtkWidget     *view = NULL;
+  GtkWidget     *button;
   gint           orig_x;
   gint           orig_y;
   gint           x;
@@ -703,7 +720,15 @@ gimp_fg_bg_editor_popup_palette (GtkWidget        *widget,
 
   width  = allocation.width;
   height = allocation.height;
-
+  
+  vbox   = gtk_vbox_new (FALSE, 2);
+  gtk_widget_show (vbox);
+  
+  button = gimp_button_new ();
+  gtk_button_set_label (GTK_BUTTON (button), "Add Color to the Palette.");
+  gtk_box_pack_start (GTK_BOX (vbox), button, TRUE, TRUE, 0);
+  gtk_widget_show (button);
+  
   switch (target)
     {
     case FOREGROUND_POPUP_AREA:
@@ -716,6 +741,7 @@ gimp_fg_bg_editor_popup_palette (GtkWidget        *widget,
       g_signal_connect (view, "entry-clicked",
                         G_CALLBACK (gimp_fg_entry_clicked),
                         editor);
+      g_signal_connect (button, "clicked", G_CALLBACK (gimp_fg_color_add_clicked), editor);
       x    = 0;
       y    = 0;
       break;
@@ -750,12 +776,13 @@ gimp_fg_bg_editor_popup_palette (GtkWidget        *widget,
   g_signal_connect (view, "entry-confirmed",
                     G_CALLBACK (gimp_fg_bg_editor_entry_activated),
                     editor);
+  gtk_box_pack_start (GTK_BOX (vbox), view, TRUE, TRUE, 0);
   gtk_widget_show (view);
 
   gimp_fg_bg_palette_changed (editor->context,
                               gimp_context_get_palette (editor->context),
                               view);
-  editor->popup = gimp_popup_new (view);
+  editor->popup = gimp_popup_new (vbox);
 
   gtk_widget_size_request (editor->popup, &requisition);
   gdk_window_get_origin (gtk_widget_get_window (widget), &orig_x, &orig_y);

@@ -37,7 +37,6 @@
 #include "gimp-intl.h"
 
 
-static GtkWidget * blob_image_new (GimpInkBlobType blob_type);
 static GtkWidget * gimp_ink_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal);
 static void sensitivity_create_view (GtkWidget *button, GtkWidget **result, GObject *config);
 static void blob_create_view (GtkWidget *button, GtkWidget **result, GObject *config);
@@ -60,29 +59,42 @@ gimp_ink_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   GObject        *config      = G_OBJECT (tool_options);
   GtkWidget      *vbox        = gimp_paint_options_gui_full (tool_options, horizontal);
   GtkWidget      *frame;
+  GtkWidget      *vbox2;
+  GtkWidget      *scale;
 
-  GtkWidget      *table;
   GType          tool_type = G_TYPE_NONE;
   GimpToolOptionsTableIncrement inc = gimp_tool_options_table_increment (horizontal);
 
   /* adjust sliders */
-  table = gimp_tool_options_table (2, horizontal);
-  gtk_table_set_col_spacings (GTK_TABLE (table), 2);
 
   if (horizontal)
     {
-      gtk_box_pack_start (GTK_BOX (vbox), table, FALSE, TRUE, 0);
+      vbox2 = vbox;
     }
   else
     {
       frame = gimp_frame_new (_("Adjustment"));
       gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, TRUE, 0);
       gtk_widget_show (frame);
-      gtk_container_add (GTK_CONTAINER (frame), table);
+      vbox2 = gimp_tool_options_gui_full (tool_options, horizontal);
+      gtk_container_add (GTK_CONTAINER (frame), vbox2);
+      gtk_widget_show (vbox2);
     }
 
-  gtk_widget_show (table);
+  /*  size slider  */
+  scale = gimp_prop_spin_scale_new (config, "size",
+                                    _("Size"),
+                                    1.0, 2.0, 1);
+  gtk_box_pack_start (GTK_BOX (vbox2), scale, FALSE, FALSE, 0);
+  gtk_widget_show (scale);
 
+  /* angle adjust slider */
+  scale = gimp_prop_spin_scale_new (config, "tilt-angle",
+                                    _("Angle"),
+                                    1.0, 10.0, 1);
+  gtk_box_pack_start (GTK_BOX (vbox2), scale, FALSE, FALSE, 0);
+  gtk_widget_show (scale);
+#if 0
   /*  size slider  */
   gimp_tool_options_scale_entry_new (config, "size",
                                      GTK_TABLE (table),
@@ -102,7 +114,7 @@ gimp_ink_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
                                      _("Angle:"),
                                      1.0, 10.0, 1,
                                      FALSE, 0.0, 0.0, FALSE, horizontal);
-
+#endif
   /* sens sliders */
   frame = gimp_tool_options_frame_gui_with_popup (config, tool_type,
                                                   _("Sensitivity"),
@@ -116,106 +128,67 @@ gimp_ink_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
                                                   horizontal, blob_create_view);
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
 
-  return vbox;
-}
-
-static GtkWidget *
-blob_image_new (GimpInkBlobType blob_type)
-{
-  const gchar *stock_id = NULL;
-
-  switch (blob_type)
+  if (horizontal)
     {
-    case GIMP_INK_BLOB_TYPE_CIRCLE:
-      stock_id = GIMP_STOCK_SHAPE_CIRCLE;
-      break;
-
-    case GIMP_INK_BLOB_TYPE_SQUARE:
-      stock_id = GIMP_STOCK_SHAPE_SQUARE;
-      break;
-
-    case GIMP_INK_BLOB_TYPE_DIAMOND:
-      stock_id = GIMP_STOCK_SHAPE_DIAMOND;
-      break;
+      GList *children;
+      children = gtk_container_get_children (GTK_CONTAINER (vbox2));  
+      gimp_tool_options_setup_popup_layout (children, FALSE);
     }
-
-  return gtk_image_new_from_stock (stock_id, GTK_ICON_SIZE_MENU);
+    
+  return vbox;
 }
 
 static void
 sensitivity_create_view (GtkWidget *button, GtkWidget **result, GObject *config)
 {
-  GtkWidget *table;
-  GimpToolOptionsTableIncrement inc = gimp_tool_options_table_increment (FALSE);
+  GtkWidget *vbox2;
+  GtkWidget *scale;
   GList *children;
 
-  table = gimp_tool_options_table (3, FALSE);
-  gtk_table_set_col_spacings (GTK_TABLE (table), 2);
-  gtk_widget_show (table);
+  vbox2 = gtk_vbox_new (FALSE, 2);
+  gtk_widget_show (vbox2);
 
   /* size sens slider */
-  gimp_prop_scale_entry_new (config, "size-sensitivity",
-                             GTK_TABLE (table),
-                             gimp_tool_options_table_increment_get_col (&inc),
-                             gimp_tool_options_table_increment_get_row (&inc),
-                             _("Size:"),
-                             0.01, 0.1, 1,
-                             FALSE, 0.0, 0.0);
-  gimp_tool_options_table_increment_next (&inc);
+  scale = gimp_prop_spin_scale_new (config, "size-sensitivity",
+                                    _("Size"),
+                                    0.01, 0.1, 2);
+  gtk_box_pack_start (GTK_BOX (vbox2), scale, FALSE, FALSE, 0);
+  gtk_widget_show (scale);
 
   /* tilt sens slider */
-  gimp_prop_scale_entry_new (config, "tilt-sensitivity",
-                             GTK_TABLE (table),
-                             gimp_tool_options_table_increment_get_col (&inc),
-                             gimp_tool_options_table_increment_get_row (&inc),
-                             _("Tilt:"),
-                             0.01, 0.1, 1,
-                             FALSE, 0.0, 0.0);
-  gimp_tool_options_table_increment_next (&inc);
+  scale = gimp_prop_spin_scale_new (config, "tilt-sensitivity",
+                                    _("Tilt"),
+                                    0.01, 0.1, 2);
+  gtk_box_pack_start (GTK_BOX (vbox2), scale, FALSE, FALSE, 0);
+  gtk_widget_show (scale);
 
   /* velocity sens slider */
-  gimp_prop_scale_entry_new (config, "vel-sensitivity",
-                             GTK_TABLE (table),
-                             gimp_tool_options_table_increment_get_col (&inc),
-                             gimp_tool_options_table_increment_get_row (&inc),
-                             _("Speed:"),
-                             0.01, 0.1, 1,
-                             FALSE, 0.0, 0.0);
-  gimp_tool_options_table_increment_next (&inc);
-  
-  children = gtk_container_get_children (GTK_CONTAINER (table));
+  scale = gimp_prop_spin_scale_new (config, "vel-sensitivity",
+                                    _("Speed"),
+                                    0.01, 0.1, 2);
+  gtk_box_pack_start (GTK_BOX (vbox2), scale, FALSE, FALSE, 0);
+  gtk_widget_show (scale);
+
+
+  children = gtk_container_get_children (GTK_CONTAINER (vbox2));  
   gimp_tool_options_setup_popup_layout (children, FALSE);
 
-  *result = table;
+  *result = vbox2;
 }
 
 static void
 blob_create_view (GtkWidget *button, GtkWidget **result, GObject *config)
 {
-  GtkHBox   *hbox;
-  GtkWidget *blob_vbox;
-  GtkWidget *frame;
-  GtkWidget *editor;
-  GtkWidget *size_group;
-  GtkWidget *blob_box;
   GimpInkOptions * ink_options = GIMP_INK_OPTIONS (config);
+  GtkWidget *frame;
+  GtkWidget *blob_box;
+  GtkWidget *hbox;
+  GtkWidget *editor;
 
-  hbox = GTK_HBOX (gtk_hbox_new (FALSE, 2));
-  gtk_widget_show (GTK_WIDGET (hbox));
+  /* Blob shape widgets */
+  hbox = gtk_hbox_new (FALSE, 2);
+  gtk_widget_show (hbox);
 
-  /* Blob type radiobuttons */
-  frame = gimp_prop_enum_radio_frame_new (config, "blob-type",
-                                          _("Type"), 0, 0);
-  gtk_box_pack_start (GTK_BOX (hbox), frame, TRUE, TRUE, 0);
-  gtk_widget_show (frame);
-
-  hbox = GTK_HBOX (gtk_hbox_new (FALSE, 2));
-  gtk_container_add (GTK_CONTAINER (frame), hbox);
-  gtk_widget_show (GTK_WIDGET (hbox));
-
-  size_group = GTK_WIDGET (gtk_size_group_new (GTK_SIZE_GROUP_VERTICAL));
-
-#if 1
   /* Blob type radiobuttons */
   blob_box = gimp_prop_enum_stock_box_new (config, "blob-type",
                                            "gimp-shape", 0, 0);
@@ -223,29 +196,22 @@ blob_create_view (GtkWidget *button, GtkWidget **result, GObject *config)
                                   GTK_ORIENTATION_VERTICAL);
   gtk_box_pack_start (GTK_BOX (hbox), blob_box, FALSE, FALSE, 0);
   gtk_widget_show (blob_box);
-#else
-  frame = gimp_frame_new (_("Shape"));
-  gtk_box_pack_start (GTK_BOX (hbox), frame, TRUE, TRUE, 0);
-  gtk_widget_show (frame);
-#endif
 
-  gtk_size_group_add_widget (size_group, blob_box);
 
   /* Blob editor */
-  frame = gtk_aspect_frame_new (NULL, 0.0, 0.5, 1.0, FALSE);
+  frame = gtk_frame_new("");
   gtk_frame_set_shadow_type (GTK_FRAME (frame), GTK_SHADOW_IN);
   gtk_box_pack_start (GTK_BOX (hbox), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 
-  gtk_size_group_add_widget (size_group, frame);
-
   editor = gimp_blob_editor_new (ink_options->blob_type,
                                  ink_options->blob_aspect,
                                  ink_options->blob_angle);
+  gtk_widget_set_size_request (editor, 80, 80);
   gtk_container_add (GTK_CONTAINER (frame), editor);
   gtk_widget_show (editor);
 
   gimp_config_connect (config, G_OBJECT (editor), NULL);
   
-  *result = GTK_WIDGET (hbox);
+  *result = hbox;
 }

@@ -95,21 +95,39 @@ static GtkWidget *
 gimp_airbrush_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject   *config = G_OBJECT (tool_options);
+  GList     *children;
 
   GtkWidget *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
-  GtkWidget *table;
+//  GtkWidget *table;
+  GtkWidget *scale;
   GtkWidget *button;
   GimpToolOptionsTableIncrement inc = gimp_tool_options_table_increment (horizontal);
-
-  table = gimp_tool_options_table (2, horizontal);
-  gtk_table_set_col_spacing (GTK_TABLE (table), 0, 2);
 
   button = gimp_prop_check_button_new (config, "motion-only", _("Motion only"));
   gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
   gtk_widget_show (button);
 
+  scale = gimp_prop_spin_scale_new (config, "rate",
+                                    _("Rate"),
+                                    1.0, 10.0, 1);
+  gtk_box_pack_start (GTK_BOX (vbox), scale, FALSE, FALSE, 0);
+  gtk_widget_show (scale);
+
+  scale = gimp_prop_spin_scale_new (config, "flow",
+                                    _("Flow"),
+                                    1.0, 10.0, 1);
+  gtk_box_pack_start (GTK_BOX (vbox), scale, FALSE, FALSE, 0);
+  gtk_widget_show (scale);
+
+  children = gtk_container_get_children (GTK_CONTAINER (vbox));  
+  gimp_tool_options_setup_popup_layout (children, FALSE);
+
+#if 0
   gtk_box_pack_start (GTK_BOX (vbox), table, FALSE, FALSE, 0);
   gtk_widget_show (table);
+
+  table = gimp_tool_options_table (2, horizontal);
+  gtk_table_set_col_spacing (GTK_TABLE (table), 0, 2);
 
   gimp_tool_options_scale_entry_new (config, "rate",
                                      GTK_TABLE (table), 
@@ -127,6 +145,6 @@ gimp_airbrush_options_gui_full (GimpToolOptions *tool_options, gboolean horizont
                                      _("Flow:"),
                                      1.0, 1.0, 1,
                                      FALSE, 0.0, 0.0, FALSE, horizontal);
-
+#endif
   return vbox;
 }
