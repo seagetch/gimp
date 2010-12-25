@@ -197,6 +197,7 @@ gimp_smudge_start (GimpPaintCore    *paint_core,
 
   /*  adjust the x and y coordinates to the upper left corner of the brush  */
   smudge->max_radius = 0;
+  w = h = 0;
   gimp_smudge_brush_coords (paint_core, paint_options, coords, &x, &y, &w, &h);
 //  g_print ("smudge:start: (x,y,w,h)=%d,%d,%d,%d\n", x, y, w, h);
 
@@ -403,14 +404,16 @@ gimp_smudge_brush_coords (GimpPaintCore    *paint_core,
 {
   GimpBrushCore *brush_core = GIMP_BRUSH_CORE (paint_core);
   GimpSmudge    *smudge     = GIMP_SMUDGE (paint_core);
-  gint           width;
-  gint           height;
-  gdouble        max_radius;
+  gint           width = 0;
+  gint           height = 0;
 
   if (smudge->max_radius == 0)
     {
+      brush_core->scale = paint_options->brush_size /
+                          MAX (brush_core->main_brush->mask->width,
+                               brush_core->main_brush->mask->height);
       gimp_brush_transform_size (brush_core->brush,
-                                 paint_options->brush_size,
+                                 brush_core->scale,
                                  brush_core->aspect_ratio,
                                  brush_core->angle,
                                  &width, &height);

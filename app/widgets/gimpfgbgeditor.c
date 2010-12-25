@@ -635,13 +635,18 @@ gimp_fg_bg_palette_changed (GimpContext *context,
                             GimpPalette *palette,
                             GtkWidget   *widget)
 {
-  GimpView *view = GIMP_VIEW (widget);
+  GimpView *view;
   gint cols;
-  gint rows;
-  g_return_if_fail (GIMP_IS_PALETTE (palette));
+  gint rows = 0;
+  
+  g_return_if_fail (palette && GIMP_IS_PALETTE (palette));
+  g_return_if_fail (widget);
+
+  view = GIMP_VIEW (widget);
   
   cols = MIN (MAX(GIMP_COLOR_CELL_COLS, palette->n_columns), palette->n_colors);
-  rows = (palette->n_colors + cols - 1) / cols;
+  if (cols)
+    rows = MAX (1, (palette->n_colors + cols - 1) / cols);
   gtk_widget_set_size_request (widget, GIMP_COLOR_CELL_SIZE * cols + 1, GIMP_COLOR_CELL_SIZE * rows + 1);
   gimp_view_set_viewable (view, GIMP_VIEWABLE (palette));
 }
