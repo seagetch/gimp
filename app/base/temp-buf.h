@@ -27,6 +27,10 @@ struct _TempBuf
   gint      x, y;       /*  origin of data source                          */
   guchar   *data;       /*  The data buffer. Do never access this field
                             directly, use temp_buf_get_data() instead !!   */
+  TempBuf  *parent;     /* parent temp_buf. subwindowed TempBuf has a      */
+                        /* pointer to the windowing parent TempBuf. subwindowed */ 
+                        /* TempBuf does no memory management, so should be */
+                        /* managed its lifecycle carefully.                */
 };
 
 
@@ -73,5 +77,12 @@ gsize     temp_buf_get_memsize   (TempBuf       *buf);
 void      temp_buf_dump          (TempBuf       *buf,
                                   const gchar   *filename);
 
+TempBuf * temp_buf_subwindow     (TempBuf       *parent,
+                                  gint           x,
+                                  gint           y,
+                                  gint           width,
+                                  gint           height);
+
+gint      temp_buf_get_rowstride (TempBuf       *buf);
 
 #endif  /*  __TEMP_BUF_H__  */

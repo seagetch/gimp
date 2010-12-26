@@ -217,6 +217,8 @@ gimp_brush_core_init (GimpBrushCore *core)
   core->cache_invalid                = FALSE;
 
   core->rand                         = g_rand_new ();
+  
+  core->ignore_scale                 = FALSE;
 
   core->brush_bound_segs             = NULL;
   core->n_brush_bound_segs           = 0;
@@ -1730,11 +1732,12 @@ gimp_brush_core_eval_transform_dynamics (GimpPaintCore     *paint_core,
                                                     paint_core->pixel_dist);
         }
 
-      core->scale *=
-        gimp_dynamics_output_get_linear_value (core->dynamics->size_output,
-                                               coords,
-                                               paint_options,
-                                               fade_point);
+      if (!core->ignore_scale)
+        core->scale *=
+          gimp_dynamics_output_get_linear_value (core->dynamics->size_output,
+                                                 coords,
+                                                 paint_options,
+                                                 fade_point);
 
       core->angle +=
         gimp_dynamics_output_get_angular_value (core->dynamics->angle_output,

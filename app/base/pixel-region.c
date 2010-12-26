@@ -95,7 +95,7 @@ pixel_region_init_temp_buf (PixelRegion *PR,
   PR->offx          = 0;
   PR->offy          = 0;
   PR->bytes         = temp_buf->bytes;
-  PR->rowstride     = temp_buf->width * temp_buf->bytes;
+  PR->rowstride     = temp_buf_get_rowstride (temp_buf);
   PR->x             = x;
   PR->y             = y;
   PR->w             = w;

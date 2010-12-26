@@ -177,20 +177,23 @@ gimp_smudge_start (GimpPaintCore    *paint_core,
                    GimpPaintOptions *paint_options,
                    const GimpCoords *coords)
 {
-  GimpSmudge  *smudge = GIMP_SMUDGE (paint_core);
-  GimpSmudgeOptions *options  = GIMP_SMUDGE_OPTIONS (paint_options);
-  GimpImage   *image;
-  TempBuf     *area;
-  PixelRegion  srcPR;
-  gint         bytes;
-  gint         x, y, w, h;
+  GimpSmudge        *smudge     = GIMP_SMUDGE (paint_core);
+  GimpBrushCore     *brush_core = GIMP_BRUSH_CORE (paint_core);
+  GimpSmudgeOptions *options    = GIMP_SMUDGE_OPTIONS (paint_options);
+  GimpImage         *image;
+  TempBuf           *area;
+  PixelRegion        srcPR;
+  gint               bytes;
+  gint               x, y, w, h;
 
   image = gimp_item_get_image (GIMP_ITEM (drawable));
 
   if (gimp_drawable_is_indexed (drawable))
     return FALSE;
 
-  area = gimp_paint_core_get_paint_area (paint_core, drawable, paint_options,
+  brush_core->ignore_scale = TRUE;
+
+  area  = gimp_paint_core_get_paint_area (paint_core, drawable, paint_options,
                                          coords);
   if (! area)
     return FALSE;
@@ -250,6 +253,8 @@ gimp_smudge_start (GimpPaintCore    *paint_core,
                           area->width,
                           area->height);
 
+  brush_core->ignore_scale = FALSE;
+
   return TRUE;
 }
 
@@ -259,10 +264,11 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
                     GimpPaintOptions *paint_options,
                     const GimpCoords *coords)
 {
-  GimpSmudge        *smudge   = GIMP_SMUDGE (paint_core);
-  GimpSmudgeOptions *options  = GIMP_SMUDGE_OPTIONS (paint_options);
-  GimpContext       *context  = GIMP_CONTEXT (paint_options);
-  GimpDynamics      *dynamics = GIMP_BRUSH_CORE (paint_core)->dynamics;
+  GimpSmudge        *smudge     = GIMP_SMUDGE (paint_core);
+  GimpBrushCore     *brush_core = GIMP_BRUSH_CORE (paint_core);
+  GimpSmudgeOptions *options    = GIMP_SMUDGE_OPTIONS (paint_options);
+  GimpContext       *context    = GIMP_CONTEXT (paint_options);
+  GimpDynamics      *dynamics   = GIMP_BRUSH_CORE (paint_core)->dynamics;
   GimpImage         *image;
   TempBuf           *area;
   PixelRegion        srcPR, destPR, tempPR;
@@ -272,6 +278,7 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
   gdouble            dynamic_rate;
   gint               x, y, w, h;
   gdouble            hardness;
+  TempBuf           *old_canvas_buf = NULL;
 
   if (gimp_drawable_is_indexed (drawable))
     return;
@@ -287,6 +294,8 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
                                                    fade_point);
   if (opacity == 0.0)
     return;
+
+  brush_core->ignore_scale = TRUE;
 
   area = gimp_paint_core_get_paint_area (paint_core, drawable, paint_options,
                                          coords);
@@ -364,7 +373,7 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
       col[area->bytes - 1] = OPAQUE_OPACITY;
       shade_region (&tempPR, &blendPR, col, ROUND (blending_rate * 255.0));
 
-      /* re-init the tempPR */
+      /* re-initialize the tempPR */
       pixel_region_init_data (&tempPR, smudge->blending_data,
                               smudge->accumPR.bytes,
                               smudge->accumPR.rowstride,
@@ -378,6 +387,56 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
     add_alpha_region (&tempPR, &destPR);
   else
     copy_region (&tempPR, &destPR);
+
+  brush_core->ignore_scale = FALSE;
+
+  {
+    gint brush_width,brush_height;
+    gint x, y;
+    gint x1, y1, x2, y2;
+    gint drawable_width, drawable_height;
+    
+    gimp_brush_core_eval_transform_dynamics (paint_core,
+                                             drawable,
+                                             paint_options,
+                                             coords);
+    /* FIXME: following code is simply copied from gimp_brush_core_clamp_scale */
+    {
+      TempBuf *mask = brush_core->main_brush->mask;
+
+      /* ensure that the final brush mask remains >= 0.5 pixel along both axes */
+      brush_core->scale = MAX (0.5 / (gfloat) MIN (mask->width, mask->height), brush_core->scale);
+    }
+
+    gimp_brush_transform_size (brush_core->brush,
+                               brush_core->scale, brush_core->aspect_ratio, brush_core->angle,
+                               &brush_width, &brush_height);
+
+    /*  adjust the x and y coordinates to the upper left corner of the brush  */
+    x = (gint) floor (coords->x) - (brush_width  / 2);
+    y = (gint) floor (coords->y) - (brush_height / 2);
+
+    drawable_width  = gimp_item_get_width  (GIMP_ITEM (drawable));
+    drawable_height = gimp_item_get_height (GIMP_ITEM (drawable));
+
+    x1 = CLAMP (x - 1, 0, drawable_width);
+    y1 = CLAMP (y - 1, 0, drawable_height);
+    x2 = CLAMP (x + brush_width  + 1, 0, drawable_width);
+    y2 = CLAMP (y + brush_height + 1, 0, drawable_height);
+
+    /*  configure the canvas buffer  */
+    if ((x2 - x1) && (y2 - y1))
+      {
+        gint bytes;
+
+        bytes = gimp_drawable_bytes_with_alpha (drawable);
+
+        old_canvas_buf         = paint_core->canvas_buf;
+        paint_core->canvas_buf = temp_buf_subwindow (paint_core->canvas_buf,
+                                                     x1, y1,
+                                                     (x2 - x1), (y2 - y1));
+      }
+  }
   
   hardness = gimp_dynamics_output_get_linear_value (dynamics->hardness_output,
                                                     coords,
@@ -391,6 +450,8 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
                                   gimp_paint_options_get_brush_mode (paint_options),
                                   hardness,
                                   GIMP_PAINT_INCREMENTAL);
+  if (old_canvas_buf)
+     paint_core->canvas_buf = old_canvas_buf;
 }
 
 static void
@@ -409,9 +470,13 @@ gimp_smudge_brush_coords (GimpPaintCore    *paint_core,
 
   if (smudge->max_radius == 0)
     {
-      brush_core->scale = paint_options->brush_size /
-                          MAX (brush_core->main_brush->mask->width,
-                               brush_core->main_brush->mask->height);
+      if (brush_core->main_brush)
+        brush_core->scale = paint_options->brush_size /
+                            MAX (brush_core->main_brush->mask->width,
+                                 brush_core->main_brush->mask->height);
+      else
+        brush_core->scale = -1;
+
       gimp_brush_transform_size (brush_core->brush,
                                  brush_core->scale,
                                  brush_core->aspect_ratio,

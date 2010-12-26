@@ -82,6 +82,9 @@ struct _GimpBrushCore
   gdouble        jitter_lut_y[BRUSH_CORE_JITTER_LUTSIZE];
 
   GRand         *rand;
+  
+  /* tweaks for smudge */
+  gboolean       ignore_scale;
 
   /*  don't use these...  */
   BoundSeg      *brush_bound_segs;

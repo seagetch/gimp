@@ -65,6 +65,7 @@ temp_buf_new (gint          width,
   temp->y       = y;
 
   temp->data = g_new (guchar, width * height * bytes);
+  temp->parent  = NULL; 
 
   /*  initialize the data  */
   if (color)
@@ -207,6 +208,49 @@ temp_buf_copy (TempBuf *src,
     }
 
   return dest;
+}
+
+
+TempBuf *
+temp_buf_subwindow (TempBuf *parent,
+                    gint x,
+                    gint y,
+                    gint w,
+                    gint h)
+{
+  TempBuf *temp;
+  gint     x2, y2;
+  gint     parent_x2, parent_y2;
+  gint     ofs_x, ofs_y;
+  gint     rowstride;
+
+  g_return_val_if_fail (parent != NULL, NULL);
+  g_return_val_if_fail (w > 0 && h > 0, NULL);
+
+  x2        = x + w;
+  y2        = y + h;  
+  parent_x2 = parent->x + parent->width;
+  parent_y2 = parent->y + parent->height;
+    
+  g_return_val_if_fail (x < parent_x2 && y < parent_y2, NULL);
+  g_return_val_if_fail (parent->x < x2 && parent->y < y2, NULL);
+
+  temp = g_slice_new (TempBuf);
+
+  temp->bytes   = parent->bytes;
+  temp->x       = MAX (parent->x, x);
+  temp->y       = MAX (parent->y, y);
+  temp->width   = MIN (x2, parent_x2) - temp->x;
+  temp->height  = MIN (y2, parent_y2) - temp->y;
+  temp->parent  = parent;
+  
+  ofs_x     = temp->x - parent->x;
+  ofs_y     = temp->y - parent->y;
+  rowstride = temp_buf_get_rowstride (parent);
+
+  temp->data    = parent->data + ofs_y * rowstride + temp->bytes * ofs_x;
+
+  return temp;
 }
 
 TempBuf *
@@ -408,6 +452,9 @@ temp_buf_free (TempBuf *buf)
 {
   g_return_if_fail (buf != NULL);
 
+  if (buf->parent)
+    return;
+
   if (buf->data)
     g_free (buf->data);
 
@@ -561,4 +608,14 @@ temp_buf_to_gray (TempBuf *src_buf,
       g_return_if_reached ();
       break;
     }
+}
+
+gint
+temp_buf_get_rowstride (TempBuf *buf)
+{
+  g_return_val_if_fail (buf, -1);
+  
+  if (buf->parent)
+    return temp_buf_get_rowstride (buf->parent);
+  return buf->width * buf->bytes;
 }
