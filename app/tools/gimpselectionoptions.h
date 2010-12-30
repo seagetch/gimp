@@ -47,9 +47,12 @@ struct _GimpSelectionOptions
 };
 
 
-GType       gimp_selection_options_get_type (void) G_GNUC_CONST;
+GType       gimp_selection_options_get_type       (void) G_GNUC_CONST;
 
-GtkWidget * gimp_selection_options_gui      (GimpToolOptions *tool_options);
+GtkWidget * gimp_selection_options_gui            (GimpToolOptions *tool_options);
+GtkWidget * gimp_selection_options_gui_horizontal (GimpToolOptions *tool_options);
+GtkWidget * gimp_selection_options_gui_full       (GimpToolOptions *tool_options,
+                                                   gboolean horizontal);
 
 
 #endif  /*  __GIMP_SELECTION_OPTIONS_H__  */

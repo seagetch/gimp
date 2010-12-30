@@ -143,6 +143,9 @@ struct _GimpRectangleOptionsPrivate
 
 GType       gimp_rectangle_options_interface_get_type (void) G_GNUC_CONST;
 
+GtkWidget * gimp_rectangle_options_gui_full           (GimpToolOptions      *tool_options,
+                                                       gboolean              horizontal);
+GtkWidget * gimp_rectangle_options_gui_horizontal     (GimpToolOptions      *tool_options);
 GtkWidget * gimp_rectangle_options_gui                (GimpToolOptions      *tool_options);
 
 gboolean    gimp_rectangle_options_fixed_rule_active  (GimpRectangleOptions *rectangle_options,
@@ -163,6 +166,11 @@ void        gimp_rectangle_options_get_property       (GObject      *object,
                                                        guint         property_id,
                                                        GValue       *value,
                                                        GParamSpec   *pspec);
+
+
+/*  testing helper functions  */
+
+GtkWidget * gimp_rectangle_options_get_width_entry    (GimpRectangleOptions *rectangle_options);
 
 
 #endif  /* __GIMP_RECTANGLE_OPTIONS_H__ */

@@ -65,6 +65,9 @@ static gboolean gimp_number_pair_entry_history_select         (GtkEntryCompletio
 
 static void     gimp_number_pair_entry_history_add            (GtkWidget                     *entry,
                                                                GtkTreeModel                  *model);
+static void     gimp_rectangle_options_create_view            (GtkWidget *source, 
+                                                               GtkWidget **result, 
+                                                               GObject *config);
 
 
 GType
@@ -657,6 +660,23 @@ gimp_rectangle_options_get_property (GObject      *object,
 }
 
 /**
+ * gimp_rectangle_options_get_width_entry:
+ * @rectangle_options:
+ *
+ * Returns: GtkEntry used to enter desired width of rectangle. For
+ *          testing purposes.
+ **/
+GtkWidget *
+gimp_rectangle_options_get_width_entry (GimpRectangleOptions *rectangle_options)
+{
+  GimpRectangleOptionsPrivate *private;
+
+  private = GIMP_RECTANGLE_OPTIONS_GET_PRIVATE (rectangle_options);
+
+  return private->width_entry;
+}
+  
+/**
  * gimp_rectangle_options_fixed_rule_changed:
  * @combo_box:
  * @private:
@@ -792,9 +812,37 @@ gimp_rectangle_options_prop_dimension_frame_new (GObject      *config,
 GtkWidget *
 gimp_rectangle_options_gui (GimpToolOptions *tool_options)
 {
+  return gimp_rectangle_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_rectangle_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_rectangle_options_gui_full (tool_options, TRUE);
+}
+
+GtkWidget *
+gimp_rectangle_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
+{
+  GtkWidget *frame;
+  GObject   *config    = G_OBJECT (tool_options);
+  GType      tool_type = G_TYPE_NONE;
+
+  /* Detail Options */
+  frame = gimp_tool_options_frame_gui_with_popup (config, tool_type,
+                                                  _("Selection details..."),
+                                                  horizontal, gimp_rectangle_options_create_view);
+  gtk_widget_show (frame);
+
+  return frame;
+}
+
+static void
+gimp_rectangle_options_create_view (GtkWidget *source, GtkWidget **result, GObject *config)
+{
+  GimpToolOptions             *tool_options = GIMP_TOOL_OPTIONS (config);
   GimpRectangleOptionsPrivate *private;
-  GObject                     *config = G_OBJECT (tool_options);
-  GtkWidget                   *vbox   = gimp_tool_options_gui (tool_options);
+  GtkWidget                   *vbox         = gimp_tool_options_gui_full (tool_options, FALSE);
   GtkWidget                   *button;
   GtkWidget                   *combo;
   GtkWidget                   *frame;
@@ -1001,7 +1049,7 @@ gimp_rectangle_options_gui (GimpToolOptions *tool_options)
   /* Setup initial fixed rule widgets */
   gimp_rectangle_options_fixed_rule_changed (NULL, private);
 
-  return vbox;
+  *result = vbox;
 }
 
 /**

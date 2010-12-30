@@ -33,6 +33,8 @@ enum
   GIMP_UNIT_STORE_UNIT_ABBREVIATION,
   GIMP_UNIT_STORE_UNIT_SINGULAR,
   GIMP_UNIT_STORE_UNIT_PLURAL,
+  GIMP_UNIT_STORE_UNIT_SHORT_FORMAT,
+  GIMP_UNIT_STORE_UNIT_LONG_FORMAT,
   GIMP_UNIT_STORE_UNIT_COLUMNS,
   GIMP_UNIT_STORE_FIRST_VALUE = GIMP_UNIT_STORE_UNIT_COLUMNS
 };
@@ -48,6 +50,11 @@ enum
 
 typedef struct _GimpUnitStoreClass  GimpUnitStoreClass;
 
+struct _GimpUnitStore
+{
+  GObject  parent_instance;
+};
+
 struct _GimpUnitStoreClass
 {
   GObjectClass  parent_class;
@@ -59,13 +66,8 @@ struct _GimpUnitStoreClass
   void (*_gtk_reserved4) (void);
 };
 
-struct _GimpUnitStore
-{
-  GObject       parent_instance;
-};
 
-
-GType           gimp_unit_store_get_type (void) G_GNUC_CONST;
+GType           gimp_unit_store_get_type         (void) G_GNUC_CONST;
 
 GimpUnitStore * gimp_unit_store_new              (gint           num_values);
 

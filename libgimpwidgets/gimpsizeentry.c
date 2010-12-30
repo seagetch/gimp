@@ -24,8 +24,6 @@
 
 #include <string.h>
 
-#undef GSEAL_ENABLE
-
 #include <gtk/gtk.h>
 
 #include "libgimpbase/gimpbase.h"
@@ -87,13 +85,13 @@ struct _GimpSizeEntryField
   gdouble        lower;
   gdouble        upper;
 
-  GtkObject     *value_adjustment;
+  GtkAdjustment *value_adjustment;
   GtkWidget     *value_spinbutton;
   gdouble        value;
   gdouble        min_value;
   gdouble        max_value;
 
-  GtkObject     *refval_adjustment;
+  GtkAdjustment *refval_adjustment;
   GtkWidget     *refval_spinbutton;
   gdouble        refval;
   gdouble        min_refval;
@@ -322,7 +320,7 @@ gimp_size_entry_new (gint                       number_of_fields,
                 gsef->refval_digits : ((unit == GIMP_UNIT_PERCENT) ?
                                        2 : GIMP_SIZE_ENTRY_DIGITS (unit)));
 
-      gsef->value_spinbutton = gimp_spin_button_new (&gsef->value_adjustment,
+      gsef->value_spinbutton = gimp_spin_button_new ((GtkObject **) &gsef->value_adjustment,
                                                      gsef->value,
                                                      gsef->min_value,
                                                      gsef->max_value,
@@ -354,7 +352,7 @@ gimp_size_entry_new (gint                       number_of_fields,
       if (gse->show_refval)
         {
           gsef->refval_spinbutton =
-            gimp_spin_button_new (&gsef->refval_adjustment,
+            gimp_spin_button_new ((GtkObject **) &gsef->refval_adjustment,
                                   gsef->refval,
                                   gsef->min_refval, gsef->max_refval,
                                   1.0, 10.0, 0.0, 1.0, gsef->refval_digits);
@@ -380,6 +378,27 @@ gimp_size_entry_new (gint                       number_of_fields,
   store = gimp_unit_store_new (gse->number_of_fields);
   gimp_unit_store_set_has_pixels (store, gse->menu_show_pixels);
   gimp_unit_store_set_has_percent (store, gse->menu_show_percent);
+
+  if (unit_format)
+    {
+      gchar *short_format = g_strdup (unit_format);
+      gchar *p;
+
+      p = strstr (short_format, "%s");
+      if (p)
+        strcpy (p, "%a");
+
+      p = strstr (short_format, "%p");
+      if (p)
+        strcpy (p, "%a");
+
+      g_object_set (store,
+                    "short-format", short_format,
+                    "long-format",  unit_format,
+                    NULL);
+
+      g_free (short_format);
+    }
 
   gse->unitmenu = gimp_unit_combo_box_new_with_model (store);
   g_object_unref (store);
@@ -447,8 +466,7 @@ gimp_size_entry_add_field  (GimpSizeEntry *gse,
     (gse->update_policy == GIMP_SIZE_ENTRY_UPDATE_SIZE) ? 0 : 3;
   gsef->stop_recursion = 0;
 
-  gsef->value_adjustment =
-    GTK_OBJECT (gtk_spin_button_get_adjustment (value_spinbutton));
+  gsef->value_adjustment = gtk_spin_button_get_adjustment (value_spinbutton);
   gsef->value_spinbutton = GTK_WIDGET (value_spinbutton);
   g_signal_connect (gsef->value_adjustment, "value-changed",
                     G_CALLBACK (gimp_size_entry_value_callback),
@@ -459,8 +477,7 @@ gimp_size_entry_add_field  (GimpSizeEntry *gse,
 
   if (gse->show_refval)
     {
-      gsef->refval_adjustment =
-        GTK_OBJECT (gtk_spin_button_get_adjustment (refval_spinbutton));
+      gsef->refval_adjustment = gtk_spin_button_get_adjustment (refval_spinbutton);
       gsef->refval_spinbutton = GTK_WIDGET (refval_spinbutton);
       g_signal_connect (gsef->refval_adjustment, "value-changed",
                         G_CALLBACK (gimp_size_entry_refval_callback),
@@ -662,11 +679,16 @@ gimp_size_entry_set_value_boundaries (GimpSizeEntry *gse,
   gsef->min_value        = lower;
   gsef->max_value        = upper;
 
-  GTK_ADJUSTMENT (gsef->value_adjustment)->lower = gsef->min_value;
-  GTK_ADJUSTMENT (gsef->value_adjustment)->upper = gsef->max_value;
+  g_object_freeze_notify (G_OBJECT (gsef->value_adjustment));
+
+  gtk_adjustment_set_lower (gsef->value_adjustment, gsef->min_value);
+  gtk_adjustment_set_upper (gsef->value_adjustment, gsef->max_value);
 
   if (gsef->stop_recursion) /* this is a hack (but useful ;-) */
-    return;
+    {
+      g_object_thaw_notify (G_OBJECT (gsef->value_adjustment));
+      return;
+    }
 
   gsef->stop_recursion++;
   switch (gsef->gse->update_policy)
@@ -717,6 +739,8 @@ gimp_size_entry_set_value_boundaries (GimpSizeEntry *gse,
   gsef->stop_recursion--;
 
   gimp_size_entry_set_value (gse, field, gsef->value);
+
+  g_object_thaw_notify (G_OBJECT (gsef->value_adjustment));
 }
 
 /**
@@ -782,8 +806,7 @@ gimp_size_entry_update_value (GimpSizeEntryField *gsef,
           break;
         }
       if (gsef->gse->show_refval)
-        gtk_adjustment_set_value (GTK_ADJUSTMENT (gsef->refval_adjustment),
-                                  gsef->refval);
+        gtk_adjustment_set_value (gsef->refval_adjustment, gsef->refval);
       break;
 
     case GIMP_SIZE_ENTRY_UPDATE_RESOLUTION:
@@ -791,8 +814,7 @@ gimp_size_entry_update_value (GimpSizeEntryField *gsef,
         CLAMP (value * gimp_unit_get_factor (gsef->gse->unit),
                gsef->min_refval, gsef->max_refval);
       if (gsef->gse->show_refval)
-        gtk_adjustment_set_value (GTK_ADJUSTMENT (gsef->refval_adjustment),
-                                  gsef->refval);
+        gtk_adjustment_set_value (gsef->refval_adjustment, gsef->refval);
       break;
 
     default:
@@ -832,7 +854,7 @@ gimp_size_entry_set_value (GimpSizeEntry *gse,
 
   value = CLAMP (value, gsef->min_value, gsef->max_value);
 
-  gtk_adjustment_set_value (GTK_ADJUSTMENT (gsef->value_adjustment), value);
+  gtk_adjustment_set_value (gsef->value_adjustment, value);
   gimp_size_entry_update_value (gsef, value);
 }
 
@@ -885,12 +907,19 @@ gimp_size_entry_set_refval_boundaries (GimpSizeEntry *gse,
 
   if (gse->show_refval)
     {
-      GTK_ADJUSTMENT (gsef->refval_adjustment)->lower = gsef->min_refval;
-      GTK_ADJUSTMENT (gsef->refval_adjustment)->upper = gsef->max_refval;
+      g_object_freeze_notify (G_OBJECT (gsef->refval_adjustment));
+
+      gtk_adjustment_set_lower (gsef->refval_adjustment, gsef->min_refval);
+      gtk_adjustment_set_upper (gsef->refval_adjustment, gsef->max_refval);
     }
 
   if (gsef->stop_recursion) /* this is a hack (but useful ;-) */
-    return;
+    {
+      if (gse->show_refval)
+        g_object_thaw_notify (G_OBJECT (gsef->refval_adjustment));
+
+      return;
+    }
 
   gsef->stop_recursion++;
   switch (gsef->gse->update_policy)
@@ -941,6 +970,9 @@ gimp_size_entry_set_refval_boundaries (GimpSizeEntry *gse,
   gsef->stop_recursion--;
 
   gimp_size_entry_set_refval (gse, field, gsef->refval);
+
+  if (gse->show_refval)
+    g_object_thaw_notify (G_OBJECT (gsef->refval_adjustment));
 }
 
 /**
@@ -1041,16 +1073,14 @@ gimp_size_entry_update_refval (GimpSizeEntryField *gsef,
                    gsef->min_value, gsef->max_value);
           break;
         }
-      gtk_adjustment_set_value (GTK_ADJUSTMENT (gsef->value_adjustment),
-                                gsef->value);
+      gtk_adjustment_set_value (gsef->value_adjustment, gsef->value);
       break;
 
     case GIMP_SIZE_ENTRY_UPDATE_RESOLUTION:
       gsef->value =
         CLAMP (refval / gimp_unit_get_factor (gsef->gse->unit),
                gsef->min_value, gsef->max_value);
-      gtk_adjustment_set_value (GTK_ADJUSTMENT (gsef->value_adjustment),
-                                gsef->value);
+      gtk_adjustment_set_value (gsef->value_adjustment, gsef->value);
       break;
 
     default:
@@ -1087,8 +1117,7 @@ gimp_size_entry_set_refval (GimpSizeEntry *gse,
   refval = CLAMP (refval, gsef->min_refval, gsef->max_refval);
 
   if (gse->show_refval)
-    gtk_adjustment_set_value (GTK_ADJUSTMENT (gsef->refval_adjustment),
-                              refval);
+    gtk_adjustment_set_value (gsef->refval_adjustment, refval);
 
   gimp_size_entry_update_refval (gsef, refval);
 }

@@ -110,7 +110,7 @@ static GimpDockColumns * gimp_dock_get_dock_columns       (GimpDock     *dock);
 static void              gimp_dock_titlebar_button_clicked (GtkWidget   *source, GimpDock *data);
 static void              gimp_dock_titlebar_update_description (GimpDockTitlebar* titlebar, GimpDock *dock);
 
-G_DEFINE_TYPE (GimpDock, gimp_dock, GTK_TYPE_VBOX)
+G_DEFINE_TYPE (GimpDock, gimp_dock, GTK_TYPE_BOX)
 
 #define parent_class gimp_dock_parent_class
 
@@ -189,6 +189,9 @@ gimp_dock_init (GimpDock *dock)
   static gint  dock_ID = 1;
   gchar       *name    = NULL;
 
+  gtk_orientable_set_orientation (GTK_ORIENTABLE (dock),
+                                  GTK_ORIENTATION_VERTICAL);
+
   dock->p = G_TYPE_INSTANCE_GET_PRIVATE (dock,
                                          GIMP_TYPE_DOCK,
                                          GimpDockPrivate);
@@ -200,11 +203,11 @@ gimp_dock_init (GimpDock *dock)
   g_free (name);
 
   dock->p->temp_vbox = gtk_vbox_new (FALSE, 0);
-  gtk_container_add (GTK_CONTAINER (dock), dock->p->temp_vbox);
+  gtk_box_pack_start (GTK_BOX (dock), dock->p->temp_vbox, FALSE, FALSE, 0);
   /* Never show it */
 
   dock->p->main_vbox = gtk_vbox_new (FALSE, 0);
-  gtk_container_add (GTK_CONTAINER (dock), dock->p->main_vbox);
+  gtk_box_pack_start (GTK_BOX (dock), dock->p->main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (dock->p->main_vbox);
 
   /* Titlebar */
@@ -231,6 +234,7 @@ gimp_dock_init (GimpDock *dock)
   gimp_paned_box_set_dropped_cb (GIMP_PANED_BOX (dock->p->paned_vbox),
                                  gimp_dock_dropped_cb,
                                  dock);
+
   gtk_container_add (GTK_CONTAINER (dock->p->content_hbox), dock->p->paned_vbox);
   gtk_widget_show (dock->p->paned_vbox);
 }
@@ -845,7 +849,7 @@ gimp_dock_temp_add (GimpDock  *dock,
   g_return_if_fail (GIMP_IS_DOCK (dock));
   g_return_if_fail (GTK_IS_WIDGET (child));
 
-  gtk_container_add (GTK_CONTAINER (dock->p->temp_vbox), child);
+  gtk_box_pack_start (GTK_BOX (dock->p->temp_vbox), child, FALSE, FALSE, 0);
 }
 
 /**

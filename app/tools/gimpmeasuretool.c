@@ -55,8 +55,7 @@
 #include "gimp-intl.h"
 
 
-#define  TARGET      12
-#define  ARC_RADIUS  30
+#define ARC_RADIUS 30
 
 
 /*  local function prototypes  */
@@ -120,7 +119,7 @@ gimp_measure_tool_register (GimpToolRegisterCallback  callback,
   (* callback) (GIMP_TYPE_MEASURE_TOOL,
                 GIMP_TYPE_MEASURE_OPTIONS,
                 gimp_measure_options_gui,
-                NULL,
+                gimp_measure_options_gui_horizontal,
                 0,
                 "gimp-measure-tool",
                 _("Measure"),
@@ -220,8 +219,9 @@ gimp_measure_tool_button_press (GimpTool            *tool,
                                         GIMP_HANDLE_CIRCLE,
                                         measure->x[i],
                                         measure->y[i],
-                                        TARGET * 2, TARGET * 2,
-                                        GTK_ANCHOR_CENTER))
+                                        GIMP_TOOL_HANDLE_SIZE_CROSS,
+                                        GIMP_TOOL_HANDLE_SIZE_CROSS,
+                                        GIMP_HANDLE_ANCHOR_CENTER))
             {
               if (state & (GDK_CONTROL_MASK | GDK_MOD1_MASK))
                 {
@@ -547,8 +547,9 @@ gimp_measure_tool_cursor_update (GimpTool         *tool,
                                         GIMP_HANDLE_CIRCLE,
                                         measure->x[i],
                                         measure->y[i],
-                                        TARGET * 2, TARGET * 2,
-                                        GTK_ANCHOR_CENTER))
+                                        GIMP_TOOL_HANDLE_SIZE_CROSS,
+                                        GIMP_TOOL_HANDLE_SIZE_CROSS,
+                                        GIMP_HANDLE_ANCHOR_CENTER))
             {
               in_handle = TRUE;
 
@@ -670,9 +671,9 @@ gimp_measure_tool_draw (GimpDrawTool *draw_tool)
                                      GIMP_HANDLE_CIRCLE,
                                      measure->x[i],
                                      measure->y[i],
-                                     TARGET,
-                                     TARGET,
-                                     GTK_ANCHOR_CENTER);
+                                     GIMP_TOOL_HANDLE_SIZE_CROSS,
+                                     GIMP_TOOL_HANDLE_SIZE_CROSS,
+                                     GIMP_HANDLE_ANCHOR_CENTER);
         }
       else
         {
@@ -680,9 +681,9 @@ gimp_measure_tool_draw (GimpDrawTool *draw_tool)
                                      GIMP_HANDLE_CROSS,
                                      measure->x[i],
                                      measure->y[i],
-                                     TARGET * 2,
-                                     TARGET * 2,
-                                     GTK_ANCHOR_CENTER);
+                                     GIMP_TOOL_HANDLE_SIZE_CROSS,
+                                     GIMP_TOOL_HANDLE_SIZE_CROSS,
+                                     GIMP_HANDLE_ANCHOR_CENTER);
         }
 
       if (i > 0)
@@ -732,7 +733,7 @@ gimp_measure_tool_draw (GimpDrawTool *draw_tool)
                                             measure->y[0],
                                             ARC_RADIUS * 2 + 1,
                                             ARC_RADIUS * 2 + 1,
-                                            GTK_ANCHOR_CENTER);
+                                            GIMP_HANDLE_ANCHOR_CENTER);
 
           gimp_canvas_handle_set_angles (GIMP_CANVAS_HANDLE (item),
                                          angle1, angle2);
@@ -745,7 +746,7 @@ gimp_measure_tool_draw (GimpDrawTool *draw_tool)
 
               shell = gimp_display_get_shell (tool->display);
 
-              target     = FUNSCALEX (shell, (TARGET >> 1));
+              target     = FUNSCALEX (shell, (GIMP_TOOL_HANDLE_SIZE_CROSS >> 1));
               arc_radius = FUNSCALEX (shell, ARC_RADIUS);
 
               gimp_draw_tool_add_line (draw_tool,
@@ -1012,8 +1013,8 @@ gimp_measure_tool_dialog_new (GimpMeasureTool *measure)
   gtk_table_set_col_spacings (GTK_TABLE (table), 6);
   gtk_table_set_row_spacings (GTK_TABLE (table), 6);
   gtk_container_set_border_width (GTK_CONTAINER (table), 6);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     table);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      table, TRUE, TRUE, 0);
   gtk_widget_show (table);
 
 

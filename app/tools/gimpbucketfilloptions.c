@@ -32,10 +32,12 @@
 
 #include "display/gimpdisplay.h"
 
+#include "widgets/gimppropwidgets.h"
 #include "widgets/gimpviewablebox.h"
 #include "widgets/gimpwidgets-utils.h"
 
 #include "gimpbucketfilloptions.h"
+#include "gimptooloptions-gui.h"
 #include "gimppaintoptions-gui.h"
 
 #include "gimp-intl.h"
@@ -67,6 +69,12 @@ static void   gimp_bucket_fill_options_notify (GimpBucketFillOptions *options,
                                                GParamSpec            *pspec,
                                                GtkWidget             *widget);
 
+static GtkWidget *gimp_bucket_fill_options_gui_full (GimpToolOptions *tool_options, 
+                                                      gboolean horizontal);
+
+static void   gimp_bucketfill_options_create_view   (GtkWidget *source, 
+                                                      GtkWidget **result, 
+                                                      GObject *config);
 
 G_DEFINE_TYPE (GimpBucketFillOptions, gimp_bucket_fill_options,
                GIMP_TYPE_PAINT_OPTIONS)
@@ -211,15 +219,46 @@ gimp_bucket_fill_options_reset (GimpToolOptions *tool_options)
 GtkWidget *
 gimp_bucket_fill_options_gui (GimpToolOptions *tool_options)
 {
-  GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_paint_options_gui (tool_options);
-  GtkWidget *vbox2;
-  GtkWidget *table;
+  return gimp_bucket_fill_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_bucket_fill_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_bucket_fill_options_gui_full (tool_options, TRUE);
+}
+
+static GtkWidget *
+gimp_bucket_fill_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
+{
+  GtkWidget *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
   GtkWidget *frame;
-  GtkWidget *hbox;
-  GtkWidget *button;
-  GtkWidget *combo;
-  gchar     *str;
+  GObject   *config    = G_OBJECT (tool_options);
+  GType      tool_type = G_TYPE_NONE;
+
+  /* Detail Options */
+  frame = gimp_tool_options_frame_gui_with_popup (config, tool_type,
+                                                  _("Details..."),
+                                                  horizontal, gimp_bucketfill_options_create_view);
+  gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
+  gtk_widget_show (frame);
+
+  return vbox;
+}
+
+static void
+gimp_bucketfill_options_create_view (GtkWidget *source, GtkWidget **result, GObject *config)
+{
+  GimpToolOptions *tool_options = GIMP_TOOL_OPTIONS (config);
+  GtkWidget       *vbox         = gimp_tool_options_gui_full (tool_options, FALSE);
+  GtkWidget       *vbox2;
+  GtkWidget       *table;
+  GtkWidget       *frame;
+  GtkWidget       *hbox;
+  GtkWidget       *button;
+  GtkWidget       *scale;
+  GtkWidget       *combo;
+  gchar           *str;
 
   /*  fill type  */
   str = g_strdup_printf (_("Fill Type  (%s)"),
@@ -230,7 +269,8 @@ gimp_bucket_fill_options_gui (GimpToolOptions *tool_options)
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  hbox = gimp_prop_pattern_box_new (NULL, GIMP_CONTEXT (tool_options), 2,
+  hbox = gimp_prop_pattern_box_new (NULL, GIMP_CONTEXT (tool_options),
+                                    NULL, 2,
                                     "pattern-view-type", "pattern-view-size");
   gimp_enum_radio_frame_add (GTK_FRAME (frame), hbox,
                              GIMP_PATTERN_BUCKET_FILL, TRUE);
@@ -277,24 +317,24 @@ gimp_bucket_fill_options_gui (GimpToolOptions *tool_options)
   gtk_widget_show (button);
 
   /*  the threshold scale  */
+  scale = gimp_prop_spin_scale_new (config, "threshold",
+                                    _("Threshold"),
+                                    1.0, 16.0, 1);
+  gtk_box_pack_start (GTK_BOX (vbox2), scale, FALSE, FALSE, 0);
+  gtk_widget_show (scale);
+
+  /*  the fill criterion combo  */
   table = gtk_table_new (2, 3, FALSE);
   gtk_table_set_col_spacings (GTK_TABLE (table), 2);
   gtk_box_pack_start (GTK_BOX (vbox2), table, FALSE, FALSE, 0);
   gtk_widget_show (table);
 
-  gimp_prop_scale_entry_new (config, "threshold",
-                             GTK_TABLE (table), 0, 0,
-                             _("Threshold:"),
-                             1.0, 16.0, 1,
-                             FALSE, 0.0, 0.0);
-
-  /*  the fill criterion combo  */
   combo = gimp_prop_enum_combo_box_new (config, "fill-criterion", 0, 0);
-  gimp_table_attach_aligned (GTK_TABLE (table), 0, 1,
+  gimp_table_attach_aligned (GTK_TABLE (table), 0, 0,
                              _("Fill by:"), 0.0, 0.5,
                              combo, 2, FALSE);
 
-  return vbox;
+  *result = vbox;
 }
 
 static void

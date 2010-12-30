@@ -1181,6 +1181,7 @@ add_layers (const gint32  image_id,
                             if (fread (&rle_pack_len[rowi], 2, 1, f) < 1)
                               {
                                 psd_set_error (feof (f), errno, error);
+                                g_free (rle_pack_len);
                                 return -1;
                               }
                             rle_pack_len[rowi] = GUINT16_FROM_BE (rle_pack_len[rowi]);
@@ -1546,6 +1547,7 @@ add_merged_image (const gint32  image_id,
 
           case PSD_COMP_ZIP:                 /* ? */
           case PSD_COMP_ZIP_PRED:
+          default:
             g_set_error (error, G_FILE_ERROR, G_FILE_ERROR_FAILED,
                         _("Unsupported compression mode: %d"), comp_mode);
             return -1;
@@ -1845,6 +1847,8 @@ read_channel_data (PSDchannel     *channel,
             if (fread (src, rle_pack_len[i], 1, f) < 1)
               {
                 psd_set_error (feof (f), errno, error);
+                g_free (src);
+                g_free (dst);
                 return -1;
               }
             /* FIXME check for errors returned from decode packbits */

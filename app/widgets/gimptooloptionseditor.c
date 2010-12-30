@@ -174,7 +174,8 @@ gimp_tool_options_editor_init (GimpToolOptionsEditor *editor)
                                   GTK_POLICY_AUTOMATIC,
                                   GTK_POLICY_AUTOMATIC);
 
-  gtk_container_add (GTK_CONTAINER (editor), editor->p->scrolled_window);
+  gtk_box_pack_start (GTK_BOX (editor), editor->p->scrolled_window,
+                      TRUE, TRUE, 0);
   gtk_widget_show (editor->p->scrolled_window);
 
   viewport = gtk_viewport_new (gtk_scrolled_window_get_hadjustment (scrolled_window),
@@ -492,8 +493,7 @@ gimp_tool_options_editor_tool_changed (GimpContext           *context,
                                               gimp_tool_options_editor_presets_changed,
                                               editor);
 
-      options_gui = g_object_get_data (G_OBJECT (editor->p->visible_tool_options),
-                                       "gimp-tool-options-gui");
+      options_gui = gimp_tools_get_tool_options_gui (editor->p->visible_tool_options);
 
       if (options_gui)
         gtk_widget_hide (options_gui);
@@ -510,8 +510,7 @@ gimp_tool_options_editor_tool_changed (GimpContext           *context,
                                  G_CALLBACK (gimp_tool_options_editor_presets_changed),
                                  G_OBJECT (editor), 0);
 
-      options_gui = g_object_get_data (G_OBJECT (tool_info->tool_options),
-                                       "gimp-tool-options-gui");
+      options_gui = gimp_tools_get_tool_options_gui (tool_info->tool_options);
 
       if (! gtk_widget_get_parent (options_gui))
         gtk_box_pack_start (GTK_BOX (editor->p->options_vbox), options_gui,

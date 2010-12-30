@@ -111,11 +111,11 @@ gimp_measure_options_get_property (GObject    *object,
     }
 }
 
-GtkWidget *
-gimp_measure_options_gui (GimpToolOptions *tool_options)
+static GtkWidget *
+gimp_measure_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_tool_options_gui (tool_options);
+  GtkWidget *vbox   = gimp_tool_options_gui_full (tool_options, horizontal);
   GtkWidget *button;
 
   /*  the use_info_window toggle button  */
@@ -125,4 +125,17 @@ gimp_measure_options_gui (GimpToolOptions *tool_options)
   gtk_widget_show (button);
 
   return vbox;
+}
+
+
+GtkWidget *
+gimp_measure_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_measure_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_measure_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_measure_options_gui_full (tool_options, TRUE);
 }

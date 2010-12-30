@@ -26,6 +26,7 @@
 #include "paint/gimpconvolveoptions.h"
 
 #include "widgets/gimphelp-ids.h"
+#include "widgets/gimppropwidgets.h"
 #include "widgets/gimpwidgets-utils.h"
 
 #include "gimpconvolvetool.h"
@@ -52,7 +53,10 @@ static void   gimp_convolve_tool_oper_update   (GimpTool         *tool,
 static void   gimp_convolve_tool_status_update (GimpTool         *tool,
                                                 GimpConvolveType  type);
 
-static GtkWidget * gimp_convolve_options_gui   (GimpToolOptions  *options);
+static GtkWidget * gimp_convolve_options_gui            (GimpToolOptions  *options);
+static GtkWidget * gimp_convolve_options_gui_full       (GimpToolOptions  *options,
+                                                          gboolean horizontal);
+static GtkWidget * gimp_convolve_options_gui_horizontal (GimpToolOptions  *options);
 
 
 G_DEFINE_TYPE (GimpConvolveTool, gimp_convolve_tool, GIMP_TYPE_BRUSH_TOOL)
@@ -67,7 +71,7 @@ gimp_convolve_tool_register (GimpToolRegisterCallback  callback,
   (* callback) (GIMP_TYPE_CONVOLVE_TOOL,
                 GIMP_TYPE_CONVOLVE_OPTIONS,
                 gimp_convolve_options_gui,
-                NULL,
+                gimp_convolve_options_gui_horizontal,
                 GIMP_PAINT_OPTIONS_CONTEXT_MASK,
                 "gimp-convolve-tool",
                 _("Blur / Sharpen"),
@@ -187,12 +191,12 @@ gimp_convolve_tool_status_update (GimpTool         *tool,
 /*  tool options stuff  */
 
 static GtkWidget *
-gimp_convolve_options_gui (GimpToolOptions *tool_options)
+gimp_convolve_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_paint_options_gui (tool_options);
-  GtkWidget *table;
+  GtkWidget *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
   GtkWidget *frame;
+  GtkWidget *scale;
   gchar     *str;
 
   /*  the type radio box  */
@@ -207,16 +211,23 @@ gimp_convolve_options_gui (GimpToolOptions *tool_options)
   g_free (str);
 
   /*  the rate scale  */
-  table = gtk_table_new (1, 3, FALSE);
-  gtk_table_set_col_spacings (GTK_TABLE (table), 2);
-  gtk_box_pack_start (GTK_BOX (vbox), table, FALSE, FALSE, 0);
-  gtk_widget_show (table);
-
-  gimp_prop_scale_entry_new (config, "rate",
-                             GTK_TABLE (table), 0, 0,
-                             _("Rate:"),
-                             1.0, 10.0, 1,
-                             FALSE, 0.0, 0.0);
+  scale = gimp_prop_spin_scale_new (config, "rate",
+                                    _("Rate"),
+                                    1.0, 10.0, 1);
+  gtk_box_pack_start (GTK_BOX (vbox), scale, FALSE, FALSE, 0);
+  gtk_widget_show (scale);
 
   return vbox;
+}
+
+static GtkWidget *
+gimp_convolve_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_convolve_options_gui_full (tool_options, FALSE);
+}
+
+static GtkWidget *
+gimp_convolve_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_convolve_options_gui_full (tool_options, TRUE);
 }

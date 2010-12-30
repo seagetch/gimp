@@ -89,6 +89,8 @@ struct _GimpDockbookPrivate
   GList          *dockables;
 
   GtkWidget      *menu_button;
+  
+  gboolean        horizontal;
 };
 
 
@@ -266,6 +268,8 @@ gimp_dockbook_init (GimpDockbook *dockbook)
                                              GimpDockbookPrivate);
 
   /* Various init */
+  dockbook->p->horizontal = FALSE;
+  
   gtk_notebook_popup_enable (notebook);
   gtk_notebook_set_scrollable (notebook, TRUE);
   gtk_notebook_set_show_border (notebook, FALSE);
@@ -299,7 +303,8 @@ gimp_dockbook_init (GimpDockbook *dockbook)
                                   GTK_PACK_END);
   gtk_widget_show (dockbook->p->menu_button);
 
-  gtk_notebook_set_tab_pos (notebook, GTK_POS_LEFT);
+  if (!dockbook->p->horizontal)
+    gtk_notebook_set_tab_pos (notebook, GTK_POS_LEFT);
 }
 
 static void
@@ -676,6 +681,41 @@ gimp_dockbook_get_dockable_tab_width (GimpDockbook *dockbook,
 }
 
 /**
+ * gimp_dockbook_get_dockable_tab_height:
+ * @dockable:
+ * @tab_style:
+ *
+ * Returns: Height of tab when the dockable is using the specified tab
+ *          style.
+ **/
+static gint
+gimp_dockbook_get_dockable_tab_height (GimpDockbook *dockbook,
+                                      GimpDockable *dockable,
+                                      GimpTabStyle  tab_style)
+{
+  GtkRequisition  dockable_request;
+  GtkWidget      *tab_widget;
+
+  tab_widget =
+    gimp_dockable_create_event_box_tab_widget (dockable,
+                                               gimp_dock_get_context (dockbook->p->dock),
+                                               tab_style,
+                                               gimp_dockbook_get_tab_icon_size (dockbook));
+
+  /* So font-scale is applied. We can't apply styles without having a
+   * GdkScreen :(
+   */
+  gimp_dock_temp_add (dockbook->p->dock, tab_widget);
+
+  gtk_widget_size_request (tab_widget, &dockable_request);
+
+  /* Also destroys the widget */
+  gimp_dock_temp_remove (dockbook->p->dock, tab_widget);
+
+  return dockable_request.height;
+}
+
+/**
  * gimp_dockbook_tab_style_to_prefered:
  * @tab_style:
  * @dockable:
@@ -746,10 +786,13 @@ gimp_dockbook_refresh_tab_layout_lut (GimpDockbook *dockbook)
 
           style_to_use = gimp_dockbook_tab_style_to_prefered (candidate,
                                                               dockable);
-          size_with_candidate +=
-            gimp_dockbook_get_dockable_tab_width (dockbook,
-                                                  dockable,
-                                                  style_to_use);
+          size_with_candidate += dockbook->p->horizontal ? 
+            gimp_dockbook_get_dockable_tab_width  (dockbook,
+                                                   dockable,
+                                                   style_to_use) :
+            gimp_dockbook_get_dockable_tab_height (dockbook,
+                                                   dockable,
+                                                   style_to_use);
         }
 
       dockbook->p->min_width_for_style[i] =
@@ -782,8 +825,8 @@ gimp_dockbook_update_automatic_tab_style (GimpDockbook *dockbook)
   GimpTabStyle  tab_style           = 0;
   int           i                   = 0;
   gint          available_space     = 0;
-  guint         tab_hborder         = 0;
-  gint          xthickness          = 0;
+  guint         tab_border          = 0;
+  gint          thickness           = 0;
   gint          tab_curvature       = 0;
   gint          focus_width         = 0;
   gint          tab_overlap         = 0;
@@ -791,10 +834,21 @@ gimp_dockbook_update_automatic_tab_style (GimpDockbook *dockbook)
   gint          border_loss         = 0;
   gint          action_widget_size  = 0;
 
-  xthickness = gtk_widget_get_style (widget)->xthickness;
-  g_object_get (widget,
-                "tab-hborder", &tab_hborder,
-                NULL);
+  if (dockbook->p->horizontal)
+    {
+      thickness = gtk_widget_get_style (widget)->xthickness;
+      g_object_get (widget,
+                    "tab-hborder", &tab_border,
+                    NULL);
+     }
+   else
+     {
+      thickness = gtk_widget_get_style (widget)->ythickness;
+      g_object_get (widget,
+                    "tab-vborder", &tab_border,
+                    NULL);
+     }
+
   gtk_widget_style_get (widget,
                         "tab-curvature",    &tab_curvature,
                         "focus-line-width", &focus_width,
@@ -813,14 +867,19 @@ gimp_dockbook_update_automatic_tab_style (GimpDockbook *dockbook)
   border_loss = gtk_container_get_border_width (GTK_CONTAINER (dockbook)) * 2;
 
   /* Space taken by action widget */
-  action_widget_size = button_allocation.width + xthickness;
+  action_widget_size = 
+    (dockbook->p->horizontal ? 
+     button_allocation.width : button_allocation.height) + 
+    thickness;
 
   /* Space taken by the tabs but not the tab widgets themselves */
   tab_padding = gtk_notebook_get_n_pages (GTK_NOTEBOOK (dockbook)) *
-                (2 * (xthickness + tab_curvature + focus_width + tab_hborder) -
+                (2 * (thickness + tab_curvature + focus_width + tab_border) -
                  tab_overlap);
 
-  available_space = dockbook_allocation.width
+  available_space = 
+    (dockbook->p->horizontal ? 
+      dockbook_allocation.width : dockbook_allocation.height)
     - border_loss
     - action_widget_size
     - tab_padding

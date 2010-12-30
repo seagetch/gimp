@@ -60,7 +60,7 @@ static void      gimp_fill_editor_get_property (GObject           *object,
                                                 GParamSpec        *pspec);
 
 
-G_DEFINE_TYPE (GimpFillEditor, gimp_fill_editor, GTK_TYPE_VBOX)
+G_DEFINE_TYPE (GimpFillEditor, gimp_fill_editor, GTK_TYPE_BOX)
 
 #define parent_class gimp_fill_editor_parent_class
 
@@ -93,6 +93,9 @@ gimp_fill_editor_class_init (GimpFillEditorClass *klass)
 static void
 gimp_fill_editor_init (GimpFillEditor *editor)
 {
+  gtk_orientable_set_orientation (GTK_ORIENTABLE (editor),
+                                  GTK_ORIENTATION_VERTICAL);
+
   gtk_box_set_spacing (GTK_BOX (editor), 6);
 }
 
@@ -133,7 +136,8 @@ gimp_fill_editor_constructor (GType                   type,
                                GIMP_FILL_STYLE_SOLID, FALSE);
 
       pattern_box = gimp_prop_pattern_box_new (NULL,
-                                               GIMP_CONTEXT (editor->options), 2,
+                                               GIMP_CONTEXT (editor->options),
+                                               NULL, 2,
                                                "pattern-view-type",
                                                "pattern-view-size");
       gimp_enum_radio_box_add (GTK_BOX (box), pattern_box,

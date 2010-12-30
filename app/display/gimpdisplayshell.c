@@ -103,11 +103,11 @@ typedef struct _GimpDisplayShellOverlay GimpDisplayShellOverlay;
 
 struct _GimpDisplayShellOverlay
 {
-  gdouble       image_x;
-  gdouble       image_y;
-  GtkAnchorType anchor;
-  gint          spacing_x;
-  gint          spacing_y;
+  gdouble          image_x;
+  gdouble          image_y;
+  GimpHandleAnchor anchor;
+  gint             spacing_x;
+  gint             spacing_y;
 };
 
 
@@ -160,7 +160,7 @@ static void   gimp_display_shell_transform_overlay (GimpDisplayShell *shell,
 
 
 G_DEFINE_TYPE_WITH_CODE (GimpDisplayShell, gimp_display_shell,
-                         GTK_TYPE_VBOX,
+                         GTK_TYPE_BOX,
                          G_IMPLEMENT_INTERFACE (GIMP_TYPE_PROGRESS,
                                                 gimp_display_shell_progress_iface_init)
                          G_IMPLEMENT_INTERFACE (GIMP_TYPE_COLOR_MANAGED,
@@ -274,6 +274,9 @@ gimp_color_managed_iface_init (GimpColorManagedInterface *iface)
 static void
 gimp_display_shell_init (GimpDisplayShell *shell)
 {
+  gtk_orientable_set_orientation (GTK_ORIENTABLE (shell),
+                                  GTK_ORIENTATION_VERTICAL);
+
   shell->options            = g_object_new (GIMP_TYPE_DISPLAY_OPTIONS, NULL);
   shell->fullscreen_options = g_object_new (GIMP_TYPE_DISPLAY_OPTIONS_FULLSCREEN, NULL);
   shell->no_image_options   = g_object_new (GIMP_TYPE_DISPLAY_OPTIONS_NO_IMAGE, NULL);
@@ -784,12 +787,6 @@ gimp_display_shell_dispose (GObject *object)
       shell->checkerboard = NULL;
     }
 
-  if (shell->highlight)
-    {
-      g_slice_free (GdkRectangle, shell->highlight);
-      shell->highlight = NULL;
-    }
-
   if (shell->mask)
     {
       g_object_unref (shell->mask);
@@ -1113,47 +1110,47 @@ gimp_display_shell_transform_overlay (GimpDisplayShell *shell,
 
   switch (overlay->anchor)
     {
-    case GTK_ANCHOR_CENTER:
+    case GIMP_HANDLE_ANCHOR_CENTER:
       *x -= requisition.width  / 2;
       *y -= requisition.height / 2;
       break;
 
-    case GTK_ANCHOR_NORTH:
+    case GIMP_HANDLE_ANCHOR_NORTH:
       *x -= requisition.width / 2;
       *y += overlay->spacing_y;
       break;
 
-    case GTK_ANCHOR_NORTH_WEST:
+    case GIMP_HANDLE_ANCHOR_NORTH_WEST:
       *x += overlay->spacing_x;
       *y += overlay->spacing_y;
       break;
 
-    case GTK_ANCHOR_NORTH_EAST:
+    case GIMP_HANDLE_ANCHOR_NORTH_EAST:
       *x -= requisition.width + overlay->spacing_x;
       *y += overlay->spacing_y;
       break;
 
-    case GTK_ANCHOR_SOUTH:
+    case GIMP_HANDLE_ANCHOR_SOUTH:
       *x -= requisition.width / 2;
       *y -= requisition.height + overlay->spacing_y;
       break;
 
-    case GTK_ANCHOR_SOUTH_WEST:
+    case GIMP_HANDLE_ANCHOR_SOUTH_WEST:
       *x += overlay->spacing_x;
       *y -= requisition.height + overlay->spacing_y;
       break;
 
-    case GTK_ANCHOR_SOUTH_EAST:
+    case GIMP_HANDLE_ANCHOR_SOUTH_EAST:
       *x -= requisition.width + overlay->spacing_x;
       *y -= requisition.height + overlay->spacing_y;
       break;
 
-    case GTK_ANCHOR_WEST:
+    case GIMP_HANDLE_ANCHOR_WEST:
       *x += overlay->spacing_x;
       *y -= requisition.height / 2;
       break;
 
-    case GTK_ANCHOR_EAST:
+    case GIMP_HANDLE_ANCHOR_EAST:
       *x -= requisition.width + overlay->spacing_x;
       *y -= requisition.height / 2;
       break;
@@ -1184,7 +1181,7 @@ gimp_display_shell_add_overlay (GimpDisplayShell *shell,
                                 GtkWidget        *child,
                                 gdouble           image_x,
                                 gdouble           image_y,
-                                GtkAnchorType     anchor,
+                                GimpHandleAnchor  anchor,
                                 gint              spacing_x,
                                 gint              spacing_y)
 {
@@ -1219,7 +1216,7 @@ gimp_display_shell_move_overlay (GimpDisplayShell *shell,
                                  GtkWidget        *child,
                                  gdouble           image_x,
                                  gdouble           image_y,
-                                 GtkAnchorType     anchor,
+                                 GimpHandleAnchor  anchor,
                                  gint              spacing_x,
                                  gint              spacing_y)
 {
@@ -1758,54 +1755,24 @@ gimp_display_shell_set_highlight (GimpDisplayShell   *shell,
 {
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
 
-  if (shell->highlight)
+  gimp_canvas_item_begin_change (shell->passe_partout);
+
+  if (highlight)
     {
-      if (highlight)
-        {
-          GdkRectangle *rects;
-          GdkRegion    *old;
-          GdkRegion    *new;
-          gint          num_rects, i;
-
-          if (memcmp (shell->highlight, highlight, sizeof (GdkRectangle)) == 0)
-            return;
-
-          old = gdk_region_rectangle (shell->highlight);
-
-          *shell->highlight = *highlight;
-
-          new = gdk_region_rectangle (shell->highlight);
-
-          gdk_region_xor (old, new);
-
-          gdk_region_get_rectangles (old, &rects, &num_rects);
-
-          gdk_region_destroy (old);
-          gdk_region_destroy (new);
-
-          for (i = 0; i < num_rects; i++)
-            gimp_display_update_area (shell->display, TRUE,
-                                      rects[i].x,
-                                      rects[i].y,
-                                      rects[i].width,
-                                      rects[i].height);
-          g_free (rects);
-        }
-      else
-        {
-          g_slice_free (GdkRectangle, shell->highlight);
-          shell->highlight = NULL;
-
-          gimp_display_shell_expose_full (shell);
-        }
+      g_object_set (shell->passe_partout,
+                    "visible", TRUE,
+                    "x",       (gdouble) highlight->x,
+                    "y",       (gdouble) highlight->y,
+                    "width",   (gdouble) highlight->width,
+                    "height",  (gdouble) highlight->height,
+                    NULL);
     }
-  else if (highlight)
+  else
     {
-      shell->highlight = g_slice_new (GdkRectangle);
-      *shell->highlight = *highlight;
-
-      gimp_display_shell_expose_full (shell);
+      gimp_canvas_item_set_visible (shell->passe_partout, FALSE);
     }
+
+  gimp_canvas_item_end_change (shell->passe_partout);
 }
 
 /**

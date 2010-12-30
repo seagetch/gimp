@@ -140,12 +140,12 @@ button_append_modifier (GtkWidget       *button,
   g_free (str);
 }
 
-GtkWidget *
-gimp_vector_options_gui (GimpToolOptions *tool_options)
+static GtkWidget *
+gimp_vector_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject           *config  = G_OBJECT (tool_options);
   GimpVectorOptions *options = GIMP_VECTOR_OPTIONS (tool_options);
-  GtkWidget         *vbox    = gimp_tool_options_gui (tool_options);
+  GtkWidget         *vbox    = gimp_tool_options_gui_full (tool_options, horizontal);
   GtkWidget         *frame;
   GtkWidget         *button;
   gchar             *str;
@@ -204,4 +204,17 @@ gimp_vector_options_gui (GimpToolOptions *tool_options)
   options->stroke_button = button;
 
   return vbox;
+}
+
+
+GtkWidget *
+gimp_vector_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_vector_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_vector_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_vector_options_gui_full (tool_options, TRUE);
 }

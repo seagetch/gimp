@@ -62,8 +62,6 @@
 #include "gimp-intl.h"
 
 
-#define TARGET       13
-
 #define TOGGLE_MASK  GDK_SHIFT_MASK
 #define MOVE_MASK    GDK_MOD1_MASK
 #define INSDEL_MASK  GDK_CONTROL_MASK
@@ -156,7 +154,7 @@ gimp_vector_tool_register (GimpToolRegisterCallback callback,
   (* callback) (GIMP_TYPE_VECTOR_TOOL,
                 GIMP_TYPE_VECTOR_OPTIONS,
                 gimp_vector_options_gui,
-                NULL,
+                gimp_vector_options_gui_horizontal,
                 GIMP_PAINT_OPTIONS_CONTEXT_MASK |
                 GIMP_CONTEXT_GRADIENT_MASK, /* for stroking */
                 "gimp-vector-tool",
@@ -303,7 +301,9 @@ gimp_vector_tool_button_press (GimpTool            *tool,
 
   if (vector_tool->function == VECTORS_SELECT_VECTOR)
     {
-      if (gimp_draw_tool_on_vectors (draw_tool, display, coords, TARGET, TARGET,
+      if (gimp_draw_tool_on_vectors (draw_tool, display, coords,
+                                     GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                     GIMP_TOOL_HANDLE_SIZE_CIRCLE,
                                      NULL, NULL, NULL, NULL, NULL, &vectors))
         {
           gimp_vector_tool_set_vectors (vector_tool, vectors);
@@ -436,7 +436,8 @@ gimp_vector_tool_button_press (GimpTool            *tool,
 
           gimp_draw_tool_on_vectors_handle (GIMP_DRAW_TOOL (tool), display,
                                             vector_tool->vectors, coords,
-                                            TARGET, TARGET,
+                                            GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                            GIMP_TOOL_HANDLE_SIZE_CIRCLE,
                                             GIMP_ANCHOR_CONTROL, TRUE,
                                             &vector_tool->cur_anchor,
                                             &vector_tool->cur_stroke);
@@ -961,7 +962,8 @@ gimp_vector_tool_oper_update (GimpTool         *tool,
                                                     display,
                                                     vector_tool->vectors,
                                                     coords,
-                                                    TARGET, TARGET,
+                                                    GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                                    GIMP_TOOL_HANDLE_SIZE_CIRCLE,
                                                     GIMP_ANCHOR_ANCHOR,
                                                     vector_tool->sel_count > 2,
                                                     &anchor, &stroke);
@@ -971,7 +973,8 @@ gimp_vector_tool_oper_update (GimpTool         *tool,
                                                     display,
                                                     vector_tool->vectors,
                                                     coords,
-                                                    TARGET, TARGET,
+                                                    GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                                    GIMP_TOOL_HANDLE_SIZE_CIRCLE,
                                                     NULL,
                                                     &position, &anchor,
                                                     &anchor2, &stroke);
@@ -984,7 +987,8 @@ gimp_vector_tool_oper_update (GimpTool         *tool,
   else
     {
       on_vectors = gimp_draw_tool_on_vectors (draw_tool, display, coords,
-                                              TARGET, TARGET,
+                                              GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                              GIMP_TOOL_HANDLE_SIZE_CIRCLE,
                                               NULL, NULL, NULL, NULL, NULL,
                                               &(vector_tool->cur_vectors));
     }
@@ -1437,9 +1441,9 @@ gimp_vector_tool_draw (GimpDrawTool *draw_tool)
                                          GIMP_HANDLE_FILLED_CIRCLE,
                                          cur_anchor->position.x,
                                          cur_anchor->position.y,
-                                         TARGET,
-                                         TARGET,
-                                         GTK_ANCHOR_CENTER);
+                                         GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                         GIMP_TOOL_HANDLE_SIZE_CIRCLE,
+                                         GIMP_HANDLE_ANCHOR_CENTER);
             }
         }
 
@@ -1485,9 +1489,9 @@ gimp_vector_tool_draw (GimpDrawTool *draw_tool)
                                          GIMP_HANDLE_SQUARE,
                                          cur_anchor->position.x,
                                          cur_anchor->position.y,
-                                         TARGET - 3,
-                                         TARGET - 3,
-                                         GTK_ANCHOR_CENTER);
+                                         GIMP_TOOL_HANDLE_SIZE_CIRCLE - 3,
+                                         GIMP_TOOL_HANDLE_SIZE_CIRCLE - 3,
+                                         GIMP_HANDLE_ANCHOR_CENTER);
             }
 
           g_list_free (draw_anchors);

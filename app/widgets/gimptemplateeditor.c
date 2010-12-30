@@ -72,7 +72,7 @@ static void gimp_template_editor_icon_changed    (GimpContext        *context,
                                                   GimpTemplateEditor *editor);
 
 
-G_DEFINE_TYPE (GimpTemplateEditor, gimp_template_editor, GTK_TYPE_VBOX)
+G_DEFINE_TYPE (GimpTemplateEditor, gimp_template_editor, GTK_TYPE_BOX)
 
 #define parent_class gimp_template_editor_parent_class
 
@@ -97,6 +97,11 @@ gimp_template_editor_class_init (GimpTemplateEditorClass *klass)
 static void
 gimp_template_editor_init (GimpTemplateEditor *editor)
 {
+  gtk_orientable_set_orientation (GTK_ORIENTABLE (editor),
+                                  GTK_ORIENTATION_VERTICAL);
+
+  gtk_box_set_spacing (GTK_BOX (editor), 12);
+
   editor->template = NULL;
 }
 
@@ -131,8 +136,6 @@ gimp_template_editor_constructor (GType                  type,
   editor = GIMP_TEMPLATE_EDITOR (object);
 
   g_assert (editor->template != NULL);
-
-  gtk_box_set_spacing (GTK_BOX (editor), 12);
 
   /*  Image size frame  */
   frame = gimp_frame_new (_("Image Size"));
@@ -304,7 +307,7 @@ gimp_template_editor_constructor (GType                  type,
   gtk_widget_show (hbox);
 
   editor->resolution_se =
-    gimp_size_entry_new (0, editor->template->resolution_unit, _("pixels/%a"),
+    gimp_size_entry_new (0, editor->template->resolution_unit, _("pixels/%s"),
                          FALSE, FALSE, FALSE, SB_WIDTH,
                          GIMP_SIZE_ENTRY_UPDATE_RESOLUTION);
 

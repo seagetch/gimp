@@ -47,7 +47,7 @@ typedef struct _GimpDisplayShellClass  GimpDisplayShellClass;
 
 struct _GimpDisplayShell
 {
-  GtkVBox            parent_instance;
+  GtkBox             parent_instance;
 
   /* --- cacheline 2 boundary (128 bytes) was 20 bytes ago --- */
 
@@ -136,6 +136,7 @@ struct _GimpDisplayShell
   cairo_pattern_t   *checkerboard;     /*  checkerboard pattern               */
 
   GimpCanvasItem    *canvas_item;      /*  items drawn on the canvas          */
+  GimpCanvasItem    *passe_partout;    /*  item for the highlight             */
   GimpCanvasItem    *vectors;          /*  item proxy of vectors              */
   GimpCanvasItem    *grid;             /*  item proxy of the grid             */
   GimpCanvasItem    *guides;           /*  item proxies of guides             */
@@ -194,7 +195,6 @@ struct _GimpDisplayShell
 
   gboolean           button_press_before_focus;
 
-  GdkRectangle      *highlight;        /* in image coordinates, can be NULL   */
   GimpDrawable      *mask;
   GimpRGB            mask_color;
 
@@ -211,7 +211,7 @@ struct _GimpDisplayShell
 
 struct _GimpDisplayShellClass
 {
-  GtkVBoxClass  parent_class;
+  GtkBoxClass  parent_class;
 
   void (* scaled)    (GimpDisplayShell *shell);
   void (* scrolled)  (GimpDisplayShell *shell);
@@ -230,14 +230,14 @@ void              gimp_display_shell_add_overlay   (GimpDisplayShell   *shell,
                                                     GtkWidget          *child,
                                                     gdouble             image_x,
                                                     gdouble             image_y,
-                                                    GtkAnchorType       anchor,
+                                                    GimpHandleAnchor    anchor,
                                                     gint                spacing_x,
                                                     gint                spacing_y);
 void              gimp_display_shell_move_overlay  (GimpDisplayShell   *shell,
                                                     GtkWidget          *child,
                                                     gdouble             image_x,
                                                     gdouble             image_y,
-                                                    GtkAnchorType       anchor,
+                                                    GimpHandleAnchor    anchor,
                                                     gint                spacing_x,
                                                     gint                spacing_y);
 

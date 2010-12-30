@@ -23,6 +23,8 @@
 
 #include "tools-types.h"
 
+#include "base/temp-buf.h"
+
 #include "libgimpmath/gimpmath.h"
 #include "libgimpwidgets/gimpwidgets.h"
 
@@ -65,6 +67,7 @@ struct _BrushDialogPrivate
   GtkAdjustment *adj;
   GtkWidget     *shape_group;
   GtkWidget     *preview;
+  GtkWidget     *brush_frame;
   GimpContainer *container;
   GimpContext   *context;
   gint           spacing_changed_handler_id;
@@ -163,6 +166,8 @@ brush_changed (GimpContext    *context,
   gdouble                  spacing      = 0.0;
   gboolean                 editable;
 
+  g_return_if_fail (p);
+
   if (brush) /* BUG: old brush must be used, but "brush" is new brush object ... */
     g_signal_handlers_disconnect_by_func (brush, notify_brush, p);
 
@@ -173,7 +178,7 @@ brush_changed (GimpContext    *context,
 
   if (p->preview)
     gimp_view_set_viewable (GIMP_VIEW (p->preview), GIMP_VIEWABLE (brush_data));
-
+    
   if (brush_data && GIMP_IS_BRUSH_GENERATED (brush_data))
     {
       GimpBrushGenerated *brush_generated = GIMP_BRUSH_GENERATED (brush);
@@ -186,13 +191,11 @@ brush_changed (GimpContext    *context,
       angle    = gimp_brush_generated_get_angle        (brush_generated);
     }
 
-    spacing  = gimp_brush_get_spacing                (GIMP_BRUSH (brush));
-/*    
-  editable = brush_data && gimp_data_is_writable (brush_data);
+  spacing  = gimp_brush_get_spacing                (GIMP_BRUSH (brush));
 
-  gtk_widget_set_sensitive (brush_editor->options_table,
-                            editable);
-*/
+  editable = brush_data && gimp_data_is_writable (brush_data);
+  gtk_widget_set_sensitive (p->brush_frame, editable);
+
   gimp_int_radio_group_set_active (GTK_RADIO_BUTTON (p->shape_group),
                                    shape);
   gtk_adjustment_set_value (GTK_ADJUSTMENT (g_hash_table_lookup (p->adj_hash, "radius")), radius);
@@ -201,6 +204,12 @@ brush_changed (GimpContext    *context,
   gtk_adjustment_set_value (GTK_ADJUSTMENT (g_hash_table_lookup (p->adj_hash, "aspect-ratio")), ratio);
   gtk_adjustment_set_value (GTK_ADJUSTMENT (g_hash_table_lookup (p->adj_hash, "angle")),        angle);
   gtk_adjustment_set_value (GTK_ADJUSTMENT (g_hash_table_lookup (p->adj_hash, "spacing")),      spacing);
+
+  if (brush && p->context)
+    {
+      gdouble value = MAX (brush->mask->width, brush->mask->height);
+      g_object_set (p->context, "brush-size", value, NULL);
+    }
 }
 
 static void
@@ -329,6 +338,12 @@ update_brush (GtkAdjustment *adjustment,
           gimp_data_thaw (GIMP_DATA (brush));
 
           g_signal_handlers_unblock_by_func (brush, notify_brush, p);
+        }
+        
+      if (strcmp (prop_name, "radius") == 0)
+        {
+          gdouble value = MAX (brush->mask->width, brush->mask->height);
+          g_object_set (p->context, "brush-size", value, NULL);
         }
     }
 
@@ -464,6 +479,7 @@ create_brush_popup_dialog (GtkWidget  *button,
   GtkWidget                     *box;
   GtkWidget                     *table;
   GtkWidget                     *preview;
+  GtkWidget                     *frame2;
   GimpViewType                   view_type = GIMP_VIEW_TYPE_GRID;
   GimpViewSize                   view_size = GIMP_VIEW_SIZE_SMALL;
   gint                           view_border_width = 1;
@@ -512,15 +528,20 @@ create_brush_popup_dialog (GtkWidget  *button,
   gtk_box_pack_start (GTK_BOX (*result), vbox, TRUE, TRUE, 0);      
   gtk_widget_show (vbox);
   
+  frame2 = gimp_frame_new (_("Tool Options"));
+  gtk_frame_set_shadow_type (GTK_FRAME (frame2), GTK_SHADOW_IN);
+  gtk_box_pack_start (GTK_BOX (vbox), frame2, TRUE, TRUE, 0);
+  gtk_widget_show (frame2);
+  
   table = gtk_table_new (6, 3, FALSE);
-  gtk_box_pack_start (GTK_BOX (vbox), table, TRUE, TRUE, 0);      
+  gtk_container_add (GTK_CONTAINER (frame2), table);
   gtk_widget_show (table);
   
-  gimp_tool_options_scale_entry_new (config, "brush-scale",
+  gimp_tool_options_scale_entry_new (config, "brush-size",
                                      GTK_TABLE (table),
                                      gimp_tool_options_table_increment_get_col (&inc),
                                      gimp_tool_options_table_increment_get_row (&inc),
-                                     _("Scale:"),
+                                     _("Size:"),
                                      0.01, 0.1, 2,
                                      FALSE, 0.0, 0.0, TRUE, FALSE);
   gimp_tool_options_table_increment_next (&inc);
@@ -563,9 +584,10 @@ create_brush_popup_dialog (GtkWidget  *button,
                     p);
   gimp_tool_options_table_increment_next (&inc);  
 
-  frame = gtk_frame_new (NULL);
+  /* Brush preview */
+  frame = gtk_frame_new (_("Preview"));
   gtk_frame_set_shadow_type (GTK_FRAME (frame), GTK_SHADOW_IN);
-  gtk_box_pack_start (GTK_BOX (vbox), frame, TRUE, TRUE, 0);
+  gtk_box_pack_end (GTK_BOX (vbox), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 
   preview = gimp_view_new_full_by_types (context,
@@ -579,6 +601,17 @@ create_brush_popup_dialog (GtkWidget  *button,
   gimp_view_set_expand (GIMP_VIEW (preview), TRUE);
   gtk_container_add (GTK_CONTAINER (frame), preview);
   gtk_widget_show (preview);
+
+  /* Brush Options Editor */
+  frame2         = gimp_frame_new (_("Brush Options"));
+  p->brush_frame = frame2;
+  gtk_frame_set_shadow_type (GTK_FRAME (frame2), GTK_SHADOW_IN);
+  gtk_box_pack_start (GTK_BOX (vbox), frame2, TRUE, TRUE, 0);
+  gtk_widget_show (frame2);
+  
+  table = gtk_table_new (6, 3, FALSE);
+  gtk_container_add (GTK_CONTAINER (frame2), table);
+  gtk_widget_show (table);
 
   p->shape_group = NULL;
 
@@ -685,21 +718,6 @@ create_brush_popup_dialog (GtkWidget  *button,
                     p);
   gimp_tool_options_table_increment_next (&inc);  
 
-#if 0
-  /*  brush spacing  */
-  editor->spacing_data =
-    GTK_ADJUSTMENT (gimp_scale_entry_new (GTK_TABLE (editor->options_table),
-                                          0, row++,
-                                          _("Spacing:"), -1, 5,
-                                          0.0, 1.0, 200.0, 1.0, 10.0, 1,
-                                          FALSE, 1.0, 5000.0,
-                                          _("Percentage of width of brush"),
-                                          NULL));
-
-  g_signal_connect (editor->spacing_data, "value-changed",
-                    G_CALLBACK (gimp_brush_editor_update_brush),
-                    editor);
-#endif                    
   p->spacing_changed_handler_id =
     gimp_container_add_handler (container, "spacing-changed",
                                 G_CALLBACK (spacing_changed),

@@ -143,25 +143,26 @@ gimp_rectangle_select_options_get_property (GObject    *object,
     }
 }
 
-GtkWidget *
-gimp_rectangle_select_options_gui (GimpToolOptions *tool_options)
+static GtkWidget *
+gimp_rectangle_select_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_selection_options_gui (tool_options);
+  GtkWidget *vbox   = gimp_selection_options_gui_full (tool_options, horizontal);
 
   /*  the round corners frame  */
   if (tool_options->tool_info->tool_type == GIMP_TYPE_RECTANGLE_SELECT_TOOL)
     {
       GtkWidget *frame;
       GtkWidget *button;
-      GtkWidget *table;
+      GtkWidget *scale;
 
-      table = gtk_table_new (1, 3, FALSE);
-      gtk_table_set_col_spacings (GTK_TABLE (table), 2);
+      scale = gimp_prop_spin_scale_new (config, "corner-radius",
+                                        _("Radius"),
+                                        1.0, 10.0, 1);
 
       frame = gimp_prop_expanding_frame_new (config, "round-corners",
                                              _("Rounded corners"),
-                                             table, &button);
+                                             scale, &button);
       gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
       gtk_widget_show (frame);
 
@@ -169,22 +170,29 @@ gimp_rectangle_select_options_gui (GimpToolOptions *tool_options)
                          GIMP_SELECTION_OPTIONS (tool_options)->antialias_toggle);
       gtk_widget_set_sensitive (GIMP_SELECTION_OPTIONS (tool_options)->antialias_toggle,
                                 GIMP_RECTANGLE_SELECT_OPTIONS (tool_options)->round_corners);
-
-      gimp_prop_scale_entry_new (config, "corner-radius",
-                                 GTK_TABLE (table), 0, 0,
-                                 _("Radius:"),
-                                 1.0, 10.0, 1,
-                                 FALSE, 0.0, 0.0);
-  }
+    }
 
   /*  the rectangle options  */
   {
     GtkWidget *vbox_rectangle;
 
-    vbox_rectangle = gimp_rectangle_options_gui (tool_options);
+    vbox_rectangle = gimp_rectangle_options_gui_full (tool_options, horizontal);
     gtk_box_pack_start (GTK_BOX (vbox), vbox_rectangle, FALSE, FALSE, 0);
     gtk_widget_show (vbox_rectangle);
   }
 
   return vbox;
+}
+
+GtkWidget *
+gimp_rectangle_select_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_rectangle_select_options_gui_full (tool_options, FALSE);
+}
+
+
+GtkWidget *
+gimp_rectangle_select_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_rectangle_select_options_gui_full (tool_options, TRUE);
 }

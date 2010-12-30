@@ -29,6 +29,7 @@
 #include "core/gimp.h"
 #include "core/gimptoolinfo.h"
 
+#include "widgets/gimppropwidgets.h"
 #include "widgets/gimpwidgets-utils.h"
 
 #include "gimprotatetool.h"
@@ -73,6 +74,12 @@ static void   gimp_transform_options_preview_opacity_notify (GimpTransformOption
                                                      GParamSpec           *pspec,
                                                      GtkWidget            *table);
 
+static GtkWidget * gimp_transform_options_gui_full (GimpToolOptions *tool_options, 
+                                                     gboolean horizontal);
+
+static void        gimp_transform_options_create_view (GtkWidget *source, 
+                                                        GtkWidget **result, 
+                                                        GObject *config);
 
 G_DEFINE_TYPE (GimpTransformOptions, gimp_transform_options,
                GIMP_TYPE_TOOL_OPTIONS)
@@ -242,6 +249,20 @@ gimp_transform_options_reset (GimpToolOptions *tool_options)
   GIMP_TOOL_OPTIONS_CLASS (parent_class)->reset (tool_options);
 }
 
+GtkWidget *
+gimp_transform_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_transform_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_transform_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_transform_options_gui_full (tool_options, TRUE);
+}
+
+/*  private functions  */
+
 /**
  * gimp_transform_options_gui:
  * @tool_options: a #GimpToolOptions
@@ -250,20 +271,16 @@ gimp_transform_options_reset (GimpToolOptions *tool_options)
  *
  * Return value: a container holding the transform tool options
  **/
-GtkWidget *
-gimp_transform_options_gui (GimpToolOptions *tool_options)
+static GtkWidget *
+gimp_transform_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject              *config  = G_OBJECT (tool_options);
-  GimpTransformOptions *options = GIMP_TRANSFORM_OPTIONS (tool_options);
-  GtkWidget            *vbox    = gimp_tool_options_gui (tool_options);
+  GtkWidget            *vbox    = gimp_tool_options_gui_full (tool_options, horizontal);
   GtkWidget            *hbox;
   GtkWidget            *box;
   GtkWidget            *label;
   GtkWidget            *frame;
-  GtkWidget            *table;
-  GtkWidget            *combo;
-  GtkWidget            *preview_box;
-  const gchar          *constrain = NULL;
+  GType                 tool_type = G_TYPE_NONE;
 
   hbox = gtk_hbox_new (FALSE, 2);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
@@ -281,6 +298,38 @@ gimp_transform_options_gui (GimpToolOptions *tool_options)
                                           _("Direction"), 0, 0);
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
+
+  /* Detail Options */
+  frame = gimp_tool_options_frame_gui_with_popup (config, tool_type,
+                                                  _("Transformation details..."),
+                                                  horizontal, gimp_transform_options_create_view);
+  gtk_box_pack_start (GTK_BOX (vbox), frame, TRUE, TRUE, 0);
+  gtk_widget_show (frame);
+
+  if (horizontal)
+    {
+      GList *children;
+      children = gtk_container_get_children (GTK_CONTAINER (vbox));  
+      gimp_tool_options_setup_popup_layout (children, FALSE);
+    }  
+  
+  return vbox;
+}
+  
+static void
+gimp_transform_options_create_view (GtkWidget *source, GtkWidget **result, GObject *config)
+{
+  GimpToolOptions      *tool_options = GIMP_TOOL_OPTIONS (config);
+  GimpTransformOptions *options      = GIMP_TRANSFORM_OPTIONS (tool_options);
+  GtkWidget            *vbox         = gimp_tool_options_gui_full (tool_options, FALSE);
+  GtkWidget            *frame;
+  GtkWidget            *hbox;
+  GtkWidget            *combo;
+  GtkWidget            *scale;
+  GtkWidget            *preview_box;
+  GtkWidget            *label;
+  const gchar          *constrain = NULL;
+  
 
   /*  the interpolation menu  */
   frame = gimp_frame_new (_("Interpolation:"));
@@ -322,66 +371,42 @@ gimp_transform_options_gui (GimpToolOptions *tool_options)
   gtk_box_pack_start (GTK_BOX (hbox), combo, TRUE, TRUE, 0);
   gtk_widget_show (combo);
 
-  preview_box = gtk_vbox_new (FALSE, 6);
+  preview_box = gtk_vbox_new (FALSE, 2);
+//  preview_box = gimp_tool_options_gui_full (tool_options, horizontal);
   gtk_container_add (GTK_CONTAINER (frame), preview_box);
   gtk_widget_show (preview_box);
 
   /*  the preview opacity scale  */
-  table = gtk_table_new (1, 3, FALSE);
-  gtk_table_set_col_spacing (GTK_TABLE (table), 1, 2);
-  gtk_box_pack_start (GTK_BOX (preview_box), table, FALSE, FALSE, 0);
-  gtk_widget_show (table);
-
-  gtk_widget_set_sensitive (table,
-                            options->preview_type ==
-                            GIMP_TRANSFORM_PREVIEW_TYPE_IMAGE ||
-                            options->preview_type ==
-                            GIMP_TRANSFORM_PREVIEW_TYPE_IMAGE_GRID);
+  scale = gimp_prop_opacity_spin_scale_new (config, "preview-opacity",
+                                            _("Opacity"));
+  gtk_box_pack_start (GTK_BOX (preview_box), scale, FALSE, FALSE, 0);
+  gtk_widget_show (scale);
 
   g_signal_connect (config, "notify::preview-type",
                     G_CALLBACK (gimp_transform_options_preview_opacity_notify),
-                    table);
-
-  gimp_prop_opacity_entry_new (config, "preview-opacity",
-                               GTK_TABLE (table), 0, 0,
-                               _("Opacity:"));
+                    scale);
+  gimp_transform_options_preview_opacity_notify (options, NULL, scale);
 
   /*  the grid type menu  */
   combo = gimp_prop_enum_combo_box_new (config, "grid-type", 0, 0);
   gtk_box_pack_start (GTK_BOX (preview_box), combo, FALSE, FALSE, 0);
   gtk_widget_show (combo);
 
-  /*  the grid density scale  */
-  table = gtk_table_new (1, 3, FALSE);
-  gtk_table_set_col_spacing (GTK_TABLE (table), 1, 2);
-  gtk_box_pack_start (GTK_BOX (preview_box), table, FALSE, FALSE, 0);
-  gtk_widget_show (table);
-
-  gtk_widget_set_sensitive (combo,
-                            options->preview_type ==
-                            GIMP_TRANSFORM_PREVIEW_TYPE_GRID ||
-                            options->preview_type ==
-                            GIMP_TRANSFORM_PREVIEW_TYPE_IMAGE_GRID);
-
   g_signal_connect (config, "notify::preview-type",
                     G_CALLBACK (gimp_transform_options_preview_notify),
                     combo);
+  gimp_transform_options_preview_notify (options, NULL, combo);
 
-  gtk_widget_set_sensitive (table,
-                            options->preview_type ==
-                            GIMP_TRANSFORM_PREVIEW_TYPE_GRID ||
-                            options->preview_type ==
-                            GIMP_TRANSFORM_PREVIEW_TYPE_IMAGE_GRID);
+  /*  the grid density scale  */
+  scale = gimp_prop_spin_scale_new (config, "grid-size", NULL,
+                                    1.8, 8.0, 0);
+  gtk_box_pack_start (GTK_BOX (preview_box), scale, FALSE, FALSE, 0);
+  gtk_widget_show (scale);
 
   g_signal_connect (config, "notify::preview-type",
                     G_CALLBACK (gimp_transform_options_preview_notify),
-                    table);
-
-  gimp_prop_scale_entry_new (config, "grid-size",
-                             GTK_TABLE (table), 0, 0,
-                             NULL,
-                             1.0, 8.0, 0,
-                             FALSE, 0.0, 0.0);
+                    scale);
+  gimp_transform_options_preview_notify (options, NULL, scale);
 
   if (tool_options->tool_info->tool_type == GIMP_TYPE_ROTATE_TOOL)
     {
@@ -407,18 +432,15 @@ gimp_transform_options_gui (GimpToolOptions *tool_options)
       g_free (label);
     }
 
-  return vbox;
+  *result = vbox;
 }
-
-
-/*  private functions  */
 
 static void
 gimp_transform_options_preview_notify (GimpTransformOptions *options,
                                        GParamSpec           *pspec,
-                                       GtkWidget            *box)
+                                       GtkWidget            *widget)
 {
-  gtk_widget_set_sensitive (box,
+  gtk_widget_set_sensitive (widget,
                             options->preview_type ==
                             GIMP_TRANSFORM_PREVIEW_TYPE_GRID ||
                             options->preview_type ==
@@ -428,9 +450,9 @@ gimp_transform_options_preview_notify (GimpTransformOptions *options,
 static void
 gimp_transform_options_preview_opacity_notify (GimpTransformOptions *options,
                                                GParamSpec           *pspec,
-                                               GtkWidget            *table)
+                                               GtkWidget            *widget)
 {
-  gtk_widget_set_sensitive (table,
+  gtk_widget_set_sensitive (widget,
                             options->preview_type ==
                             GIMP_TRANSFORM_PREVIEW_TYPE_IMAGE ||
                             options->preview_type ==

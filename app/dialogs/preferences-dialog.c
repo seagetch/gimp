@@ -1415,8 +1415,8 @@ prefs_dialog_new (Gimp       *gimp,
   /* The main hbox */
   hbox = gtk_hbox_new (FALSE, 12);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     hbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      hbox, TRUE, TRUE, 0);
   gtk_widget_show (hbox);
 
   /* The categories tree */
@@ -2041,8 +2041,7 @@ prefs_dialog_new (Gimp       *gimp,
                                  gimp_get_user_context (gimp),
                                  core_config->default_image->xresolution,
                                  core_config->default_image->yresolution);
-
-  gtk_container_add (GTK_CONTAINER (vbox), editor);
+  gtk_box_pack_start (GTK_BOX (vbox), editor, TRUE, TRUE, 0);
   gtk_widget_show (editor);
 
 
@@ -2360,7 +2359,6 @@ prefs_dialog_new (Gimp       *gimp,
   gtk_widget_show (button);
 
   g_object_set_data (G_OBJECT (button), "monitor_resolution_sizeentry", entry);
-  g_object_set_data (G_OBJECT (button), "set_sensitive", label);
   g_object_set_data (G_OBJECT (button), "inverse_sensitive", entry);
 
   g_signal_connect (button, "toggled",
@@ -2786,7 +2784,7 @@ prefs_dialog_new (Gimp       *gimp,
                                             paths[i].path_property_name,
                                             paths[i].writable_property_name,
                                             gettext (paths[i].fs_label));
-        gtk_container_add (GTK_CONTAINER (vbox), editor);
+        gtk_box_pack_start (GTK_BOX (vbox), editor, TRUE, TRUE, 0);
         gtk_widget_show (editor);
       }
   }

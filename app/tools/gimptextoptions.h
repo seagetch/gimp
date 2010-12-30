@@ -64,7 +64,8 @@ GType       gimp_text_options_get_type     (void) G_GNUC_CONST;
 void        gimp_text_options_connect_text (GimpTextOptions *options,
                                             GimpText        *text);
 
-GtkWidget * gimp_text_options_gui          (GimpToolOptions *tool_options);
+GtkWidget * gimp_text_options_gui            (GimpToolOptions *tool_options);
+GtkWidget * gimp_text_options_gui_horizontal (GimpToolOptions *tool_options);
 
 GtkWidget * gimp_text_options_editor_new   (GtkWindow       *parent,
                                             GimpTextOptions *options,

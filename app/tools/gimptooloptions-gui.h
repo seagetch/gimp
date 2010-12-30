@@ -43,7 +43,13 @@ GtkWidget * gimp_tool_options_frame_gui_with_popup (GObject                    *
                                                     gchar                      *label,
                                                     gboolean                    horizontal,
                                                     GimpPopupCreateViewCallback create_view);
-
+GtkWidget * gimp_tool_options_expander_gui_with_popup (GObject                    *config,
+                                                       GType                       tool_type, 
+                                                       gchar                      *prop_name,
+                                                       gchar                      *short_label,
+                                                       gchar                      *long_label,
+                                                       gboolean                    horizontal,
+                                                       GimpPopupCreateViewCallback create_view);
 GtkWidget * gimp_tool_options_toggle_gui_with_popup (GObject                    *config,
                                                      GType                       tool_type, 
                                                      gchar                      *property_name,

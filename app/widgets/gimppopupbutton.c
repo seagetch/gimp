@@ -232,7 +232,7 @@ gimp_popup_button_press (GtkWidget      *widget,
     }
   else if (gtk_widget_get_toplevel (event_widget) != widget)
     {
-      GtkWidget *parent;
+      /* GtkWidget *parent; */
       /*  the event was on a gimp widget, but not inside the popup  */
 
       cancel = TRUE;
@@ -282,43 +282,20 @@ gimp_popup_real_cancel (GimpPopup *popup)
 static void
 gimp_popup_real_confirm (GimpPopup *popup)
 {
+  gimp_popup_close (popup);
+}
+
+
+void
+gimp_popup_close (GimpPopup *popup)
+{
   GtkWidget  *widget = GTK_WIDGET (popup);
-/*
-  GimpObject *object;
-  object = gimp_context_get_by_type (popup->context,
-                                     gimp_get_children_type (popup->container));
-  gimp_context_set_by_type (popup->orig_context,
-                            gimp_get_children_type (popup->container),
-                            object);
-*/
   if (gtk_grab_get_current () == widget)
     gtk_grab_remove (widget);
 
   gtk_widget_destroy (widget);
+//  g_object_unref (G_OBJECT (widget));
 }
-/*
-static void
-gimp_popup_context_changed (GimpContext        *context,
-                            GimpPopup       *popup)
-{
-  GdkEvent *current_event;
-  gboolean  confirm = FALSE;
-
-  current_event = gtk_get_current_event ();
-
-  if (current_event)
-    {
-      if (((GdkEventAny *) current_event)->type == GDK_BUTTON_PRESS ||
-          ((GdkEventAny *) current_event)->type == GDK_BUTTON_RELEASE)
-        confirm = TRUE;
-
-      gdk_event_free (current_event);
-    }
-
-  if (confirm)
-    g_signal_emit (popup, popup_signals[CONFIRM], 0);
-}
-*/
 
 GtkWidget *
 gimp_popup_new (GtkWidget *view)
@@ -339,19 +316,74 @@ gimp_popup_new (GtkWidget *view)
   return GTK_WIDGET (popup);
 }
 
+
 void
 gimp_popup_show (GimpPopup *popup,
-                 GtkWidget *widget)
+                 GdkScreen *screen,
+                 gint targetLeft,
+                 gint targetTop,
+                 gint targetRight,
+                 gint targetBottom,
+                 GtkCornerType pos)
+{
+  GtkRequisition  requisition;
+  GdkRectangle    rect;
+  gint            monitor;
+  gint            x;
+  gint            y;
+
+  g_return_if_fail (GIMP_IS_POPUP (popup));
+  g_return_if_fail (GDK_IS_SCREEN (screen));
+
+  gtk_widget_size_request (GTK_WIDGET (popup), &requisition);
+
+  monitor = gdk_screen_get_monitor_at_point (screen, targetLeft, targetTop);
+  gdk_screen_get_monitor_geometry (screen, monitor, &rect);
+
+  x = targetLeft;
+  if (pos == GTK_CORNER_TOP_RIGHT || pos == GTK_CORNER_BOTTOM_RIGHT)
+    {
+      x = targetRight - requisition.width;
+
+      if (x < rect.x)
+        x = targetLeft;
+    }
+  else
+    {
+      x = targetLeft;
+
+      if (x + requisition.width > rect.x + rect.width)
+        x = targetRight - requisition.width;
+    }
+
+  if (pos == GTK_CORNER_BOTTOM_LEFT || pos == GTK_CORNER_BOTTOM_RIGHT)
+    {
+      y = targetBottom;
+
+      if (y + requisition.height > rect.y + rect.height)
+        y = targetTop - requisition.height;
+    }
+  else
+    {
+      y = targetTop - requisition.height;
+      
+      if (y < rect.y)
+        y = targetBottom;
+    }
+
+  gtk_window_move (GTK_WINDOW (popup), x, y);
+  gtk_widget_show (GTK_WIDGET (popup));
+}
+
+void
+gimp_popup_show_over_widget (GimpPopup *popup,
+                             GtkWidget *widget)
 {
   GdkScreen      *screen;
   GtkRequisition  requisition;
   GtkAllocation   allocation;
-  GdkRectangle    rect;
-  gint            monitor;
   gint            orig_x;
   gint            orig_y;
-  gint            x;
-  gint            y;
 
   g_return_if_fail (GIMP_IS_POPUP (popup));
   g_return_if_fail (GTK_IS_WIDGET (widget));
@@ -369,31 +401,9 @@ gimp_popup_show (GimpPopup *popup,
 
   screen = gtk_widget_get_screen (widget);
 
-  monitor = gdk_screen_get_monitor_at_point (screen, orig_x, orig_y);
-  gdk_screen_get_monitor_geometry (screen, monitor, &rect);
-
-  if (gtk_widget_get_direction (widget) == GTK_TEXT_DIR_RTL)
-    {
-      x = orig_x + allocation.width - requisition.width;
-
-      if (x < rect.x)
-        x -= allocation.width - requisition.width;
-    }
-  else
-    {
-      x = orig_x;
-
-      if (x + requisition.width > rect.x + rect.width)
-        x += allocation.width - requisition.width;
-    }
-
-  y = orig_y + allocation.height;
-
-  if (y + requisition.height > rect.y + rect.height)
-    y = orig_y - requisition.height;
-
-  gtk_window_move (GTK_WINDOW (popup), x, y);
-  gtk_widget_show (GTK_WIDGET (popup));
+  gimp_popup_show (popup, screen, orig_x, orig_y, 
+                   orig_x + allocation.width, orig_y + allocation.height, 
+                   GTK_CORNER_BOTTOM_LEFT);
 }
 
 
@@ -584,7 +594,7 @@ gimp_popup_button_clicked (GtkButton *button)
   else
     parent = GTK_WIDGET (button);
 
-  gimp_popup_show (GIMP_POPUP (popup), parent);
+  gimp_popup_show_over_widget (GIMP_POPUP (popup), parent);
 }
 
 static void

@@ -26,6 +26,8 @@
 
 #include "tools-types.h"
 
+#include "widgets/gimpwidgets-utils.h"
+
 #include "core/gimp.h"
 #include "core/gimp-contexts.h"
 #include "core/gimptoolinfo.h"
@@ -42,6 +44,7 @@
 #include "gimpbrightnesscontrasttool.h"
 #include "gimpbucketfilltool.h"
 #include "gimpbycolorselecttool.h"
+#include "gimpcagetool.h"
 #include "gimpclonetool.h"
 #include "gimpcolorbalancetool.h"
 #include "gimpcolorizetool.h"
@@ -146,6 +149,7 @@ gimp_tools_init (Gimp *gimp)
 
     /*  transform tools  */
 
+    gimp_cage_tool_register,
     gimp_flip_tool_register,
     gimp_perspective_tool_register,
     gimp_shear_tool_register,
@@ -234,17 +238,14 @@ gimp_tools_exit (Gimp *gimp)
       GtkWidget    *options_gui;
       GtkWidget    *toolbar_gui;
 
-      options_gui = g_object_get_data (G_OBJECT (tool_info->tool_options),
-                                       "gimp-tool-options-gui");
+      options_gui = gimp_tools_get_tool_options_gui (tool_info->tool_options);
       toolbar_gui = g_object_get_data (G_OBJECT (tool_info->tool_options),
                                        "gimp-tool-options-toolbar-gui");
 
       gtk_widget_destroy (options_gui);
       gtk_widget_destroy (toolbar_gui);
 
-      g_object_set_data (G_OBJECT (tool_info->tool_options),
-                         "gimp-tool-options-gui", NULL);
-
+      gimp_tools_set_tool_options_gui (tool_info->tool_options, NULL);
       g_object_set_data (G_OBJECT (tool_info->tool_options),
                          "gimp-tool-options-toolbar-gui", NULL);
     }
@@ -368,10 +369,8 @@ gimp_tools_restore (Gimp *gimp)
           gtk_widget_show (label);
         }
 
-      g_object_set_data_full (G_OBJECT (tool_info->tool_options),
-                              "gimp-tool-options-gui",
-                              g_object_ref_sink (options_gui),
-                              (GDestroyNotify) g_object_unref);
+      gimp_tools_set_tool_options_gui (tool_info->tool_options,
+                                       g_object_ref_sink (options_gui));
 
       toolbar_gui_func = g_object_get_data (G_OBJECT (tool_info),
                                             "gimp-tool-options-gui-horizontal-func");

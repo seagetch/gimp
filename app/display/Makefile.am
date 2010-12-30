@@ -37,16 +37,22 @@ libappdisplay_a_sources = \
 	gimpcanvashandle.h			\
 	gimpcanvasitem.c			\
 	gimpcanvasitem.h			\
+	gimpcanvasitem-utils.c			\
+	gimpcanvasitem-utils.h			\
 	gimpcanvaslayerboundary.c		\
 	gimpcanvaslayerboundary.h		\
 	gimpcanvasline.c			\
 	gimpcanvasline.h			\
+	gimpcanvaspassepartout.c		\
+	gimpcanvaspassepartout.h		\
 	gimpcanvaspath.c			\
 	gimpcanvaspath.h			\
 	gimpcanvaspen.c				\
 	gimpcanvaspen.h				\
 	gimpcanvaspolygon.c			\
 	gimpcanvaspolygon.h			\
+	gimpcanvasprogress.c			\
+	gimpcanvasprogress.h			\
 	gimpcanvasproxygroup.c			\
 	gimpcanvasproxygroup.h			\
 	gimpcanvasrectangle.c			\

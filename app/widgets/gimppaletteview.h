@@ -55,6 +55,8 @@ struct _GimpPaletteViewClass
                             GimpPaletteEntry *entry);
   void (* entry_context)   (GimpPaletteView  *view,
                             GimpPaletteEntry *entry);
+  void (* entry_confirmed) (GimpPaletteView  *view,
+                            GimpPaletteEntry *entry);
   void (* color_dropped)   (GimpPaletteView  *view,
                             GimpPaletteEntry *entry,
                             const GimpRGB    *color);

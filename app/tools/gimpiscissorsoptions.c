@@ -114,11 +114,11 @@ gimp_iscissors_options_get_property (GObject    *object,
     }
 }
 
-GtkWidget *
-gimp_iscissors_options_gui (GimpToolOptions *tool_options)
+static GtkWidget *
+gimp_iscissors_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject   *config  = G_OBJECT (tool_options);
-  GtkWidget *vbox    = gimp_selection_options_gui (tool_options);
+  GtkWidget *vbox    = gimp_selection_options_gui_full (tool_options, horizontal);
   GtkWidget *button;
 
   button = gimp_prop_check_button_new (config, "interactive",
@@ -127,4 +127,17 @@ gimp_iscissors_options_gui (GimpToolOptions *tool_options)
   gtk_widget_show (button);
 
   return vbox;
+}
+
+
+GtkWidget *
+gimp_iscissors_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_iscissors_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_iscissors_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_iscissors_options_gui_full (tool_options, TRUE);
 }

@@ -35,6 +35,7 @@
 
 #include "display/gimpdisplay.h"
 #include "display/gimpdisplayshell.h"
+#include "display/gimpdisplayshell-appearance.h"
 #include "display/gimpimagewindow.h"
 
 #include "menus/menus.h"
@@ -317,8 +318,8 @@ gimp_ui_configurer_separate_shells (GimpUIConfigurer *ui_configurer,
   /* The last display shell remains in its window */
   while (gimp_image_window_get_n_shells (source_image_window) > 1)
     {
-      GimpDisplayShell *shell            = NULL;
-      GimpImageWindow  *new_image_window = NULL;
+      GimpImageWindow  *new_image_window;
+      GimpDisplayShell *shell;
 
       /* Create a new image window */
       new_image_window = gimp_image_window_new (ui_configurer->p->gimp,
@@ -352,7 +353,7 @@ gimp_ui_configurer_separate_shells (GimpUIConfigurer *ui_configurer,
 static void
 gimp_ui_configurer_configure_for_single_window (GimpUIConfigurer *ui_configurer)
 {
-  Gimp            *gimp              = GIMP (ui_configurer->p->gimp);
+  Gimp            *gimp              = ui_configurer->p->gimp;
   GList           *windows           = gimp_get_image_windows (gimp);
   GList           *iter              = NULL;
   GimpImageWindow *uber_image_window = NULL;
@@ -412,7 +413,7 @@ gimp_ui_configurer_configure_for_single_window (GimpUIConfigurer *ui_configurer)
 static void
 gimp_ui_configurer_configure_for_multi_window (GimpUIConfigurer *ui_configurer)
 {
-  Gimp  *gimp    = GIMP (ui_configurer->p->gimp);
+  Gimp  *gimp    = ui_configurer->p->gimp;
   GList *windows = gimp_get_image_windows (gimp);
   GList *iter    = NULL;
 
@@ -447,6 +448,41 @@ gimp_ui_configurer_get_uber_window (GimpUIConfigurer *ui_configurer)
 }
 
 /**
+ * gimp_ui_configurer_update_appearance:
+ * @ui_configurer:
+ *
+ * Updates the appearance of all shells in all image windows, so they
+ * do whatever they deem neccessary to fit the new UI mode mode.
+ **/
+static void
+gimp_ui_configurer_update_appearance (GimpUIConfigurer *ui_configurer)
+{
+  Gimp  *gimp    = ui_configurer->p->gimp;
+  GList *windows = gimp_get_image_windows (gimp);
+  GList *list;
+
+  for (list = windows; list; list = g_list_next (list))
+    {
+      GimpImageWindow *image_window = GIMP_IMAGE_WINDOW (list->data);
+      gint             n_shells;
+      gint             i;
+
+      n_shells = gimp_image_window_get_n_shells (image_window);
+
+      for (i = 0; i < n_shells; i++)
+        {
+          GimpDisplayShell *shell;
+
+          shell = gimp_image_window_get_shell (image_window, i);
+
+          gimp_display_shell_appearance_update (shell);
+        }
+    }
+
+  g_list_free (windows);
+}
+
+/**
  * gimp_ui_configurer_configure:
  * @ui_configurer:
  * @single_window_mode:
@@ -461,4 +497,6 @@ gimp_ui_configurer_configure (GimpUIConfigurer *ui_configurer,
     gimp_ui_configurer_configure_for_single_window (ui_configurer);
   else
     gimp_ui_configurer_configure_for_multi_window (ui_configurer);
+
+  gimp_ui_configurer_update_appearance (ui_configurer);
 }

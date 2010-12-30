@@ -24,6 +24,8 @@
 
 #include "tools-types.h"
 
+#include "core/gimptoolinfo.h"
+
 #include "widgets/gimppropwidgets.h"
 #include "widgets/gimpwidgets-utils.h"
 
@@ -51,6 +53,9 @@ static void   gimp_selection_options_get_property (GObject      *object,
                                                    guint         property_id,
                                                    GValue       *value,
                                                    GParamSpec   *pspec);
+static void   feather_radius_options_create_view  (GtkWidget *button, 
+                                                   GtkWidget **result, 
+                                                   GObject *config);
 
 
 G_DEFINE_TYPE (GimpSelectionOptions, gimp_selection_options,
@@ -187,11 +192,11 @@ gimp_selection_options_get_modifier (GimpChannelOps operation)
 }
 
 GtkWidget *
-gimp_selection_options_gui (GimpToolOptions *tool_options)
+gimp_selection_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject              *config  = G_OBJECT (tool_options);
   GimpSelectionOptions *options = GIMP_SELECTION_OPTIONS (tool_options);
-  GtkWidget            *vbox    = gimp_tool_options_gui (tool_options);
+  GtkWidget            *vbox    = gimp_tool_options_gui_full (tool_options, horizontal);
   GtkWidget            *button;
 
   /*  the selection operation radio buttons  */
@@ -252,6 +257,7 @@ gimp_selection_options_gui (GimpToolOptions *tool_options)
     g_list_free (children);
   }
 
+#if 0
   /*  the antialias toggle button  */
   button = gimp_prop_check_button_new (config, "antialias",
                                        _("Antialiasing"));
@@ -259,28 +265,54 @@ gimp_selection_options_gui (GimpToolOptions *tool_options)
   gtk_widget_show (button);
 
   options->antialias_toggle = button;
-
+#endif
   /*  the feather frame  */
   {
     GtkWidget *frame;
-    GtkWidget *table;
-
-    table = gtk_table_new (1, 3, FALSE);
-    gtk_table_set_col_spacings (GTK_TABLE (table), 2);
-
-    frame = gimp_prop_expanding_frame_new (config, "feather",
-                                           _("Feather edges"),
-                                           table, NULL);
+    GType      tool_type;
+    tool_type = tool_options->tool_info->tool_type;
+    frame = gimp_tool_options_toggle_gui_with_popup (config, tool_type,
+                                                     "antialias",
+                                                     _("Antialiasing"),
+                                                     _("Antialiasing"),
+                                                     horizontal,
+                                                     feather_radius_options_create_view);
     gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
     gtk_widget_show (frame);
 
-    /*  the feather radius scale  */
-    gimp_prop_scale_entry_new (config, "feather-radius",
-                               GTK_TABLE (table), 0, 0,
-                               _("Radius:"),
-                               1.0, 10.0, 1,
-                               FALSE, 0.0, 0.0);
+    options->antialias_toggle = frame;
   }
 
   return vbox;
+}
+
+static void
+feather_radius_options_create_view (GtkWidget *button, GtkWidget **result, GObject *config)
+{
+  GtkWidget *scale;
+  GtkWidget *vbox  = gtk_vbox_new (FALSE, 2);
+  GList     *children;
+
+  /*  the feather radius scale  */
+  scale = gimp_prop_spin_scale_new (config, "feather-radius",
+                                    _("Radius"),
+                                    1.0, 10.0, 1);
+  gtk_box_pack_start (GTK_BOX (vbox), scale, TRUE, TRUE, 0);
+  gtk_widget_show (scale);
+  *result = vbox;
+
+  children = gtk_container_get_children (GTK_CONTAINER (vbox));
+  gimp_tool_options_setup_popup_layout (children, FALSE);
+}
+
+GtkWidget *
+gimp_selection_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_selection_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_selection_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_selection_options_gui_full (tool_options, TRUE);
 }

@@ -73,9 +73,13 @@ struct _GimpPopupClass
 GType       gimp_popup_get_type (void) G_GNUC_CONST;
 
 GtkWidget * gimp_popup_new      (GtkWidget *view);
-
-void        gimp_popup_show     (GimpPopup *popup,
-                                  GtkWidget          *widget);
+void gimp_popup_close (GimpPopup *popup);
+void gimp_popup_show (GimpPopup *popup, GdkScreen *screen,
+                       gint targetLeft, gint targetTop,
+                       gint targetRight, gint targetBottom,
+                       GtkCornerType pos);
+void        gimp_popup_show_over_widget (GimpPopup *popup,
+                                          GtkWidget          *widget);
 
 gint     gimp_popup_get_view_size (GimpPopup *popup);
 void    gimp_popup_set_view_size (GimpPopup *popup,
@@ -115,7 +119,6 @@ struct _GimpPopupButtonClass
 {
   GimpButtonClass  parent_class;
 };
-
 
 GType       gimp_popup_button_get_type (void) G_GNUC_CONST;
 

@@ -62,19 +62,19 @@ struct _GimpCanvasPenPrivate
 
 /*  local function prototypes  */
 
-static void        gimp_canvas_pen_set_property (GObject          *object,
-                                                 guint             property_id,
-                                                 const GValue     *value,
-                                                 GParamSpec       *pspec);
-static void        gimp_canvas_pen_get_property (GObject          *object,
-                                                 guint             property_id,
-                                                 GValue           *value,
-                                                 GParamSpec       *pspec);
-static GdkRegion * gimp_canvas_pen_get_extents  (GimpCanvasItem   *item,
-                                                 GimpDisplayShell *shell);
-static void        gimp_canvas_pen_stroke       (GimpCanvasItem   *item,
-                                                 GimpDisplayShell *shell,
-                                                 cairo_t          *cr);
+static void             gimp_canvas_pen_set_property (GObject          *object,
+                                                      guint             property_id,
+                                                      const GValue     *value,
+                                                      GParamSpec       *pspec);
+static void             gimp_canvas_pen_get_property (GObject          *object,
+                                                      guint             property_id,
+                                                      GValue           *value,
+                                                      GParamSpec       *pspec);
+static cairo_region_t * gimp_canvas_pen_get_extents  (GimpCanvasItem   *item,
+                                                      GimpDisplayShell *shell);
+static void             gimp_canvas_pen_stroke       (GimpCanvasItem   *item,
+                                                      GimpDisplayShell *shell,
+                                                      cairo_t          *cr);
 
 
 G_DEFINE_TYPE (GimpCanvasPen, gimp_canvas_pen,
@@ -159,12 +159,12 @@ gimp_canvas_pen_get_property (GObject    *object,
     }
 }
 
-static GdkRegion *
+static cairo_region_t *
 gimp_canvas_pen_get_extents (GimpCanvasItem   *item,
                              GimpDisplayShell *shell)
 {
   GimpCanvasPenPrivate *private = GET_PRIVATE (item);
-  GdkRegion            *region;
+  cairo_region_t       *region;
 
   region = GIMP_CANVAS_ITEM_CLASS (parent_class)->get_extents (item, shell);
 
@@ -172,14 +172,14 @@ gimp_canvas_pen_get_extents (GimpCanvasItem   *item,
     {
       GdkRectangle rectangle;
 
-      gdk_region_get_clipbox (region, &rectangle);
+      cairo_region_get_extents (region, (cairo_rectangle_int_t *) &rectangle);
 
       rectangle.x      -= ceil (private->width / 2.0);
       rectangle.y      -= ceil (private->width / 2.0);
       rectangle.width  += private->width + 1;
       rectangle.height += private->width + 1;
 
-      gdk_region_union_with_rect (region, &rectangle);
+      cairo_region_union_rectangle (region, (cairo_rectangle_int_t *) &rectangle);
     }
 
   return region;

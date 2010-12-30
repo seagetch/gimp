@@ -92,7 +92,9 @@ static void  gimp_text_options_notify_color       (GimpContext  *context,
 static void  gimp_text_options_notify_text_color  (GimpText     *text,
                                                    GParamSpec   *pspec,
                                                    GimpContext  *context);
-
+static void  gimp_text_options_create_view        (GtkWidget *source, 
+                                                   GtkWidget **result, 
+                                                   GObject *config);
 
 G_DEFINE_TYPE_WITH_CODE (GimpTextOptions, gimp_text_options,
                          GIMP_TYPE_TOOL_OPTIONS,
@@ -452,12 +454,95 @@ gimp_text_options_connect_text (GimpTextOptions *options,
                            options, 0);
 }
 
-GtkWidget *
-gimp_text_options_gui (GimpToolOptions *tool_options)
+static GtkWidget *
+gimp_text_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject         *config    = G_OBJECT (tool_options);
   GimpTextOptions *options   = GIMP_TEXT_OPTIONS (tool_options);
-  GtkWidget       *main_vbox = gimp_tool_options_gui (tool_options);
+  GtkWidget       *main_vbox = gimp_tool_options_gui_full (tool_options, horizontal);
+  GtkWidget       *frame;
+  GtkWidget       *table;
+  GtkWidget       *vbox;
+  GtkWidget       *hbox;
+  GtkWidget       *button;
+  GtkWidget       *entry;
+/*
+  GtkWidget       *box;
+  GtkWidget       *label;
+  GtkWidget       *spinbutton;
+  GtkWidget       *combo;
+  GtkSizeGroup    *size_group;
+*/
+  gint             row = 0;
+  GType            tool_type = G_TYPE_NONE;
+
+  hbox = gimp_prop_font_box_new (NULL, GIMP_CONTEXT (tool_options),
+                                 _("Font"), 2,
+                                 "font-view-type", "font-view-size");
+  gtk_box_pack_start (GTK_BOX (main_vbox), hbox, FALSE, FALSE, 0);
+  gtk_widget_show (hbox);
+
+  table = gtk_table_new (1, 3, FALSE);
+  gtk_table_set_col_spacings (GTK_TABLE (table), 2);
+  gtk_table_set_row_spacings (GTK_TABLE (table), 2);
+  gtk_box_pack_start (GTK_BOX (main_vbox), table, FALSE, FALSE, 0);
+  gtk_widget_show (table);
+
+  entry = gimp_prop_size_entry_new (config,
+                                    "font-size", FALSE, "font-size-unit", "%a",
+                                    GIMP_SIZE_ENTRY_UPDATE_SIZE, 72.0);
+  gimp_table_attach_aligned (GTK_TABLE (table), 0, row++,
+                             _("Size:"), 0.0, 0.5,
+                             entry, 2, FALSE);
+
+  options->size_entry = entry;
+
+//  vbox = gtk_vbox_new (FALSE, 2);
+  vbox = gimp_tool_options_gui_full (tool_options, horizontal);
+  gtk_box_pack_start (GTK_BOX (main_vbox), vbox, FALSE, FALSE, 0);
+  gtk_widget_show (vbox);
+
+  button = gimp_prop_check_button_new (config, "use-editor", _("Use editor"));
+  gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
+  gtk_widget_show (button);
+
+  button = gimp_prop_check_button_new (config, "antialias", _("Antialiasing"));
+  gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
+  gtk_widget_show (button);
+
+  if (horizontal)
+    {
+      button = gimp_prop_color_button_new (config, "foreground", _("Text Color"),
+                                           40, 24, GIMP_COLOR_AREA_FLAT);
+      gimp_color_panel_set_context (GIMP_COLOR_PANEL (button),
+                                    GIMP_CONTEXT (options));
+      gtk_box_pack_start (GTK_BOX (main_vbox), button, FALSE, FALSE, 0);
+      gtk_widget_show (button);
+    }
+
+  /* Detail Options */
+  frame = gimp_tool_options_frame_gui_with_popup (config, tool_type,
+                                                  _("Details..."),
+                                                  horizontal, gimp_text_options_create_view);
+  gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 0);
+  gtk_widget_show (frame);
+
+  if (horizontal)
+    {
+      GList *children;
+      children = gtk_container_get_children (GTK_CONTAINER (vbox));  
+      gimp_tool_options_setup_popup_layout (children, FALSE);
+    }  
+  
+  return main_vbox;
+}
+  
+static void
+gimp_text_options_create_view (GtkWidget *source, GtkWidget **result, GObject *config)
+{
+  GimpToolOptions *tool_options = GIMP_TOOL_OPTIONS (config);
+  GimpTextOptions *options      = GIMP_TEXT_OPTIONS (tool_options);
+  GtkWidget       *main_vbox    = gimp_tool_options_gui_full (tool_options, FALSE);
   GtkWidget       *table;
   GtkWidget       *vbox;
   GtkWidget       *hbox;
@@ -469,39 +554,6 @@ gimp_text_options_gui (GimpToolOptions *tool_options)
   GtkWidget       *combo;
   GtkSizeGroup    *size_group;
   gint             row = 0;
-
-  table = gtk_table_new (2, 3, FALSE);
-  gtk_table_set_col_spacings (GTK_TABLE (table), 2);
-  gtk_table_set_row_spacings (GTK_TABLE (table), 2);
-  gtk_box_pack_start (GTK_BOX (main_vbox), table, FALSE, FALSE, 0);
-  gtk_widget_show (table);
-
-  hbox = gimp_prop_font_box_new (NULL, GIMP_CONTEXT (tool_options), 2,
-                                 "font-view-type", "font-view-size");
-  gimp_table_attach_aligned (GTK_TABLE (table), 0, row++,
-                             _("Font:"), 0.0, 0.5,
-                             hbox, 2, FALSE);
-
-  entry = gimp_prop_size_entry_new (config,
-                                    "font-size", FALSE, "font-size-unit", "%a",
-                                    GIMP_SIZE_ENTRY_UPDATE_SIZE, 72.0);
-  gimp_table_attach_aligned (GTK_TABLE (table), 0, row++,
-                             _("Size:"), 0.0, 0.5,
-                             entry, 2, FALSE);
-
-  options->size_entry = entry;
-
-  vbox = gtk_vbox_new (FALSE, 2);
-  gtk_box_pack_start (GTK_BOX (main_vbox), vbox, FALSE, FALSE, 0);
-  gtk_widget_show (vbox);
-
-  button = gimp_prop_check_button_new (config, "use-editor", _("Use editor"));
-  gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
-  gtk_widget_show (button);
-
-  button = gimp_prop_check_button_new (config, "antialias", _("Antialiasing"));
-  gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
-  gtk_widget_show (button);
 
   table = gtk_table_new (6, 3, FALSE);
   gtk_table_set_col_spacings (GTK_TABLE (table), 2);
@@ -576,7 +628,19 @@ gimp_text_options_gui (GimpToolOptions *tool_options)
   gtk_widget_show (entry);
 #endif
 
-  return main_vbox;
+  *result = main_vbox;
+}
+
+GtkWidget *
+gimp_text_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_text_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_text_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_text_options_gui_full (tool_options, TRUE);
 }
 
 static void

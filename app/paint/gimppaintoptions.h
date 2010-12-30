@@ -49,20 +49,10 @@ gpointer gimp_circular_queue_get_last_offset(GimpCircularQueue* queue);
 #define gimp_circular_queue_last(q, type) (*(type*)gimp_circular_queue_get_last_offset(q))
 
 
-typedef struct _GimpFadeOptions     GimpFadeOptions;
 typedef struct _GimpJitterOptions   GimpJitterOptions;
+typedef struct _GimpFadeOptions     GimpFadeOptions;
 typedef struct _GimpGradientOptions GimpGradientOptions;
 typedef struct _GimpSmoothingOptions GimpSmoothingOptions;
-
-
-struct _GimpFadeOptions
-{
-  gboolean        use_fade;
-  gboolean        fade_reverse;
-  gdouble         fade_length;
-  GimpUnit        fade_unit;
-  GimpRepeatMode  fade_repeat;
-};
 
 struct _GimpJitterOptions
 {
@@ -70,9 +60,16 @@ struct _GimpJitterOptions
   gdouble   jitter_amount;
 };
 
+struct _GimpFadeOptions
+{
+  gboolean        fade_reverse;
+  gdouble         fade_length;
+  GimpUnit        fade_unit;
+  GimpRepeatMode  fade_repeat;
+};
+
 struct _GimpGradientOptions
 {
-  gboolean        use_gradient;
   gboolean        gradient_reverse;
   GimpRepeatMode  gradient_repeat;
 };
@@ -101,7 +98,7 @@ struct _GimpPaintOptions
 
   GimpPaintInfo            *paint_info;
 
-  gdouble                   brush_scale;
+  gdouble                   brush_size;
   gdouble                   brush_angle;
   gdouble                   brush_aspect_ratio;
 
@@ -110,13 +107,17 @@ struct _GimpPaintOptions
 
   gboolean                  hard;
 
-  GimpFadeOptions          *fade_options;
   GimpJitterOptions        *jitter_options;
+
+  gboolean                  dynamics_expanded;
+  GimpFadeOptions          *fade_options;
   GimpGradientOptions      *gradient_options;
   GimpSmoothingOptions     *smoothing_options;
 
   GimpViewType              brush_view_type;
   GimpViewSize              brush_view_size;
+  GimpViewType              dynamics_view_type;
+  GimpViewSize              dynamics_view_size;
   GimpViewType              pattern_view_type;
   GimpViewSize              pattern_view_size;
   GimpViewType              gradient_view_type;

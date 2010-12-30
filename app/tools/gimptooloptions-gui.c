@@ -29,6 +29,7 @@
 
 #include "widgets/gimppropwidgets.h"
 #include "widgets/gimppopupbutton.h"
+#include "widgets/gimpspinscale.h"
 
 #include "gimptooloptions-gui.h"
 
@@ -49,11 +50,11 @@ gimp_tool_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 
   if (horizontal)
     {
-      vbox = gtk_hbox_new (FALSE, 6);
+      vbox = gtk_hbox_new (FALSE, 4);
     }
   else
     {
-      vbox = gtk_vbox_new (FALSE, 6);
+      vbox = gtk_vbox_new (FALSE, 4);
     }
 
   return vbox;
@@ -117,7 +118,7 @@ gimp_tool_options_setup_popup_layout (GList *children, gboolean hide_label)
         {
           gtk_widget_destroy (widget);
         }
-      else if (GTK_IS_HSCALE (widget))
+      else if (GTK_IS_HSCALE (widget) || GIMP_IS_SPIN_SCALE (widget))
         {
           gtk_widget_set_size_request (widget, 100, -1);
         }
@@ -361,6 +362,37 @@ gimp_tool_options_frame_gui_with_popup (GObject                    *config,
       gtk_widget_show (result);
     }
 
+  return result;
+}
+
+GtkWidget *
+gimp_tool_options_expander_gui_with_popup (GObject                    *config,
+                                           GType                       tool_type, 
+                                           gchar                      *prop_name,
+                                           gchar                      *short_label,
+                                           gchar                      *long_label,
+                                           gboolean                    horizontal,
+                                           GimpPopupCreateViewCallback create_view)
+{
+  GtkWidget *result  = NULL;
+  GtkWidget *content = NULL;
+  if (horizontal)
+    return gimp_tool_options_frame_gui_with_popup (config, tool_type,
+                                                    short_label, horizontal,
+                                                    create_view);
+  else
+    {
+      result = gimp_prop_expander_new (config, prop_name,
+                                       long_label);
+
+      if (create_view)
+        {
+          (*create_view)(NULL, &content, config);
+          gtk_container_add (GTK_CONTAINER (result), content);
+          gtk_widget_show (content);
+        }
+      gtk_widget_show (result);
+    }
   return result;
 }
 

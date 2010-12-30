@@ -33,14 +33,20 @@
 #include "display/gimpdisplay.h"
 
 #include "gimpclonetool.h"
+#include "gimptooloptions-gui.h"
 #include "gimppaintoptions-gui.h"
 #include "gimptoolcontrol.h"
 
 #include "gimp-intl.h"
 
 
-static GtkWidget * gimp_clone_options_gui (GimpToolOptions *tool_options);
-
+static GtkWidget * gimp_clone_options_gui            (GimpToolOptions *tool_options);
+static GtkWidget * gimp_clone_options_gui_full       (GimpToolOptions *tool_options,
+                                                       gboolean horizontal);
+static GtkWidget * gimp_clone_options_gui_horizontal (GimpToolOptions *tool_options);
+static void       gimp_clone_options_create_view     (GtkWidget *source,  
+                                                       GtkWidget **result, 
+                                                       GObject *config);
 
 G_DEFINE_TYPE (GimpCloneTool, gimp_clone_tool, GIMP_TYPE_SOURCE_TOOL)
 
@@ -54,7 +60,7 @@ gimp_clone_tool_register (GimpToolRegisterCallback  callback,
   (* callback) (GIMP_TYPE_CLONE_TOOL,
                 GIMP_TYPE_CLONE_OPTIONS,
                 gimp_clone_options_gui,
-                NULL,
+                gimp_clone_options_gui_horizontal,
                 GIMP_PAINT_OPTIONS_CONTEXT_MASK |
                 GIMP_CONTEXT_PATTERN_MASK,
                 "gimp-clone-tool",
@@ -95,15 +101,39 @@ gimp_clone_tool_init (GimpCloneTool *clone)
 /*  tool options stuff  */
 
 static GtkWidget *
-gimp_clone_options_gui (GimpToolOptions *tool_options)
+gimp_clone_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
-  GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_paint_options_gui (tool_options);
+  GtkWidget *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
   GtkWidget *frame;
-  GtkWidget *button;
-  GtkWidget *hbox;
-  GtkWidget *table;
-  GtkWidget *combo;
+  GType      tool_type = G_TYPE_NONE;
+  GObject   *config = G_OBJECT (tool_options);
+
+  frame = gimp_tool_options_frame_gui_with_popup (config, tool_type,
+                                                  _("Options"),
+                                                  horizontal, gimp_clone_options_create_view);
+  gtk_box_pack_start (GTK_BOX (vbox), frame, TRUE, TRUE, 0);
+  gtk_widget_show (frame);
+
+  if (horizontal)
+    {
+      GList *children;
+      children = gtk_container_get_children (GTK_CONTAINER (vbox));  
+      gimp_tool_options_setup_popup_layout (children, FALSE);
+    }  
+
+  return vbox;
+}
+  
+static void
+gimp_clone_options_create_view (GtkWidget *source, GtkWidget **result, GObject *config)
+{
+  GimpToolOptions *tool_options = GIMP_TOOL_OPTIONS (config);
+  GtkWidget       *vbox         = gimp_tool_options_gui_full (tool_options, FALSE);
+  GtkWidget       *frame;
+  GtkWidget       *button;
+  GtkWidget       *hbox;
+  GtkWidget       *table;
+  GtkWidget       *combo;
 
   frame = gimp_prop_enum_radio_frame_new (config, "clone-type",
                                           _("Source"), 0, 0);
@@ -115,7 +145,8 @@ gimp_clone_options_gui (GimpToolOptions *tool_options)
   gimp_enum_radio_frame_add (GTK_FRAME (frame), button,
                              GIMP_IMAGE_CLONE, TRUE);
 
-  hbox = gimp_prop_pattern_box_new (NULL, GIMP_CONTEXT (tool_options), 2,
+  hbox = gimp_prop_pattern_box_new (NULL, GIMP_CONTEXT (tool_options),
+                                    NULL, 2,
                                     "pattern-view-type", "pattern-view-size");
   gimp_enum_radio_frame_add (GTK_FRAME (frame), hbox,
                              GIMP_PATTERN_CLONE, TRUE);
@@ -129,6 +160,17 @@ gimp_clone_options_gui (GimpToolOptions *tool_options)
   gimp_table_attach_aligned (GTK_TABLE (table), 0, 0,
                              _("Alignment:"), 0.0, 0.5,
                              combo, 1, FALSE);
+  *result = vbox;
+}
 
-  return vbox;
+static GtkWidget *
+gimp_clone_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_clone_options_gui_full (tool_options, FALSE);
+}
+
+static GtkWidget *
+gimp_clone_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_clone_options_gui_full (tool_options, TRUE);
 }

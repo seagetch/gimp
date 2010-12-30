@@ -187,13 +187,14 @@ gimp_region_select_options_reset (GimpToolOptions *tool_options)
   GIMP_TOOL_OPTIONS_CLASS (parent_class)->reset (tool_options);
 }
 
-GtkWidget *
-gimp_region_select_options_gui (GimpToolOptions *tool_options)
+static GtkWidget *
+gimp_region_select_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject   *config  = G_OBJECT (tool_options);
-  GtkWidget *vbox    = gimp_selection_options_gui (tool_options);
+  GtkWidget *vbox    = gimp_selection_options_gui_full (tool_options, horizontal);
   GtkWidget *button;
   GtkWidget *table;
+  GtkWidget *scale;
   GtkWidget *combo;
 
   /*  the select transparent areas toggle  */
@@ -209,22 +210,36 @@ gimp_region_select_options_gui (GimpToolOptions *tool_options)
   gtk_widget_show (button);
 
   /*  the threshold scale  */
-  table = gtk_table_new (2, 3, FALSE);
+  scale = gimp_prop_spin_scale_new (config, "threshold",
+                                    _("Threshold"),
+                                    1.0, 16.0, 1);
+  gtk_box_pack_start (GTK_BOX (vbox), scale, FALSE, FALSE, 0);
+  gtk_widget_show (scale);
+
+  /*  the select criterion combo  */
+  table = gtk_table_new (1, 3, FALSE);
   gtk_table_set_col_spacings (GTK_TABLE (table), 2);
+  gtk_table_set_row_spacings (GTK_TABLE (table), 2);
   gtk_box_pack_start (GTK_BOX (vbox), table, FALSE, FALSE, 0);
   gtk_widget_show (table);
 
-  gimp_prop_scale_entry_new (config, "threshold",
-                             GTK_TABLE (table), 0, 0,
-                             _("Threshold:"),
-                             1.0, 16.0, 1,
-                             FALSE, 0.0, 0.0);
-
-  /*  the select criterion combo  */
   combo = gimp_prop_enum_combo_box_new (config, "select-criterion", 0, 0);
   gimp_table_attach_aligned (GTK_TABLE (table), 0, 1,
                              _("Select by:"), 0.0, 0.5,
                              combo, 2, FALSE);
 
   return vbox;
+}
+
+
+GtkWidget *
+gimp_region_select_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_region_select_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_region_select_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_region_select_options_gui_full (tool_options, TRUE);
 }

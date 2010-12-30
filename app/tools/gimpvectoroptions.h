@@ -46,9 +46,10 @@ struct _GimpVectorOptions
 };
 
 
-GType       gimp_vector_options_get_type (void) G_GNUC_CONST;
+GType       gimp_vector_options_get_type       (void) G_GNUC_CONST;
 
-GtkWidget * gimp_vector_options_gui      (GimpToolOptions *tool_options);
+GtkWidget * gimp_vector_options_gui            (GimpToolOptions *tool_options);
+GtkWidget * gimp_vector_options_gui_horizontal (GimpToolOptions *tool_options);
 
 
 #endif  /*  __GIMP_VECTOR_OPTIONS_H__  */

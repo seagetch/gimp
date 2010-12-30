@@ -129,7 +129,7 @@ static void     gimp_dynamics_output_editor_destroy       (GimpDynamicsOutputEdi
                                                             gpointer data);
 
 G_DEFINE_TYPE (GimpDynamicsOutputEditor, gimp_dynamics_output_editor,
-               GTK_TYPE_VBOX)
+               GTK_TYPE_BOX)
 
 #define parent_class gimp_dynamics_output_editor_parent_class
 
@@ -156,9 +156,8 @@ gimp_dynamics_output_editor_class_init (GimpDynamicsOutputEditorClass *klass)
 static void
 gimp_dynamics_output_editor_init (GimpDynamicsOutputEditor *editor)
 {
-  GimpDynamicsOutputEditorPrivate *private;
-
-  private = GIMP_DYNAMICS_OUTPUT_EDITOR_GET_PRIVATE (editor);
+  gtk_orientable_set_orientation (GTK_ORIENTABLE (editor),
+                                  GTK_ORIENTATION_VERTICAL);
 
   gtk_box_set_spacing (GTK_BOX (editor), 6);
 }
