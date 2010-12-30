@@ -94,27 +94,7 @@ gimp_ink_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
                                     1.0, 10.0, 1);
   gtk_box_pack_start (GTK_BOX (vbox2), scale, FALSE, FALSE, 0);
   gtk_widget_show (scale);
-#if 0
-  /*  size slider  */
-  gimp_tool_options_scale_entry_new (config, "size",
-                                     GTK_TABLE (table),
-                                     gimp_tool_options_table_increment_get_col (&inc),
-                                     gimp_tool_options_table_increment_get_row (&inc),
-                                     _("Size:"),
-                                     1.0, 2.0, 1,
-                                     FALSE, 0.0, 0.0, TRUE, horizontal);
-    
-  gimp_tool_options_table_increment_next (&inc);
 
-  /* angle adjust slider */
-  gimp_tool_options_scale_entry_new (config, "tilt-angle",
-                                     GTK_TABLE (table),
-                                     gimp_tool_options_table_increment_get_col (&inc),
-                                     gimp_tool_options_table_increment_get_row (&inc),
-                                     _("Angle:"),
-                                     1.0, 10.0, 1,
-                                     FALSE, 0.0, 0.0, FALSE, horizontal);
-#endif
   /* sens sliders */
   frame = gimp_tool_options_frame_gui_with_popup (config, tool_type,
                                                   _("Sensitivity"),

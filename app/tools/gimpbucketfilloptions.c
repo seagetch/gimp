@@ -37,6 +37,7 @@
 #include "widgets/gimpwidgets-utils.h"
 
 #include "gimpbucketfilloptions.h"
+#include "gimptooloptions-gui.h"
 #include "gimppaintoptions-gui.h"
 
 #include "gimp-intl.h"
@@ -71,6 +72,9 @@ static void   gimp_bucket_fill_options_notify (GimpBucketFillOptions *options,
 static GtkWidget *gimp_bucket_fill_options_gui_full (GimpToolOptions *tool_options, 
                                                       gboolean horizontal);
 
+static void   gimp_bucketfill_options_create_view   (GtkWidget *source, 
+                                                      GtkWidget **result, 
+                                                      GObject *config);
 
 G_DEFINE_TYPE (GimpBucketFillOptions, gimp_bucket_fill_options,
                GIMP_TYPE_PAINT_OPTIONS)
@@ -227,16 +231,34 @@ gimp_bucket_fill_options_gui_horizontal (GimpToolOptions *tool_options)
 static GtkWidget *
 gimp_bucket_fill_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
-  GObject   *config = G_OBJECT (tool_options);
   GtkWidget *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
-  GtkWidget *vbox2;
-  GtkWidget *table;
   GtkWidget *frame;
-  GtkWidget *hbox;
-  GtkWidget *button;
-  GtkWidget *scale;
-  GtkWidget *combo;
-  gchar     *str;
+  GObject   *config    = G_OBJECT (tool_options);
+  GType      tool_type = G_TYPE_NONE;
+
+  /* Detail Options */
+  frame = gimp_tool_options_frame_gui_with_popup (config, tool_type,
+                                                  _("Details..."),
+                                                  horizontal, gimp_bucketfill_options_create_view);
+  gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
+  gtk_widget_show (frame);
+
+  return vbox;
+}
+
+static void
+gimp_bucketfill_options_create_view (GtkWidget *source, GtkWidget **result, GObject *config)
+{
+  GimpToolOptions *tool_options = GIMP_TOOL_OPTIONS (config);
+  GtkWidget       *vbox         = gimp_tool_options_gui_full (tool_options, FALSE);
+  GtkWidget       *vbox2;
+  GtkWidget       *table;
+  GtkWidget       *frame;
+  GtkWidget       *hbox;
+  GtkWidget       *button;
+  GtkWidget       *scale;
+  GtkWidget       *combo;
+  gchar           *str;
 
   /*  fill type  */
   str = g_strdup_printf (_("Fill Type  (%s)"),
@@ -312,7 +334,7 @@ gimp_bucket_fill_options_gui_full (GimpToolOptions *tool_options, gboolean horiz
                              _("Fill by:"), 0.0, 0.5,
                              combo, 2, FALSE);
 
-  return vbox;
+  *result = vbox;
 }
 
 static void

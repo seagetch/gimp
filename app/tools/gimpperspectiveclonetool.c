@@ -40,6 +40,7 @@
 #include "display/gimpdisplay.h"
 
 #include "gimpperspectiveclonetool.h"
+#include "gimptooloptions-gui.h"
 #include "gimppaintoptions-gui.h"
 #include "gimptoolcontrol.h"
 
@@ -104,6 +105,14 @@ static void          gimp_perspective_clone_tool_recalc                 (GimpPer
 
 static GtkWidget   * gimp_perspective_clone_options_gui                 (GimpToolOptions *tool_options);
 
+static GtkWidget   * gimp_perspective_clone_options_gui_full            (GimpToolOptions *tool_options,
+                                                                          gboolean horizontal);
+
+static GtkWidget   * gimp_perspective_clone_options_gui_horizontal      (GimpToolOptions *tool_options);
+static void          gimp_perspective_clone_options_create_view         (GtkWidget *source,  
+                                                                          GtkWidget **result, 
+                                                                          GObject *config);
+
 
 G_DEFINE_TYPE (GimpPerspectiveCloneTool, gimp_perspective_clone_tool,
                GIMP_TYPE_BRUSH_TOOL)
@@ -118,7 +127,7 @@ gimp_perspective_clone_tool_register (GimpToolRegisterCallback  callback,
   (* callback) (GIMP_TYPE_PERSPECTIVE_CLONE_TOOL,
                 GIMP_TYPE_PERSPECTIVE_CLONE_OPTIONS,
                 gimp_perspective_clone_options_gui,
-                NULL,
+                gimp_perspective_clone_options_gui_horizontal,
                 GIMP_PAINT_OPTIONS_CONTEXT_MASK |
                 GIMP_CONTEXT_PATTERN_MASK,
                 "gimp-perspective-clone-tool",
@@ -921,20 +930,17 @@ gimp_perspective_clone_tool_mode_notify (GimpPerspectiveCloneOptions *options,
 /*  tool options stuff  */
 
 static GtkWidget *
-gimp_perspective_clone_options_gui (GimpToolOptions *tool_options)
+gimp_perspective_clone_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
-  GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox;
+  GtkWidget *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
   GtkWidget *paint_options;
   GtkWidget *frame;
   GtkWidget *mode;
-  GtkWidget *button;
-  GtkWidget *hbox;
-  GtkWidget *table;
-  GtkWidget *combo;
+  GType      tool_type = G_TYPE_NONE;
+  GObject   *config = G_OBJECT (tool_options);
 
-  vbox = gtk_vbox_new (FALSE, 6);
-  paint_options = gimp_paint_options_gui (tool_options);
+  vbox = gimp_tool_options_gui_full (tool_options, horizontal);
+  paint_options = gimp_paint_options_gui_full (tool_options, horizontal);
 
   /* radio buttons to set if you are modifying perspe plane or painting */
   mode = gimp_prop_enum_radio_box_new (config, "clone-mode", 0, 0);
@@ -943,7 +949,36 @@ gimp_perspective_clone_options_gui (GimpToolOptions *tool_options)
 
   gtk_box_pack_start (GTK_BOX (vbox), paint_options, FALSE, FALSE, 0);
   gtk_widget_show (paint_options);
+  
+  frame = gimp_tool_options_frame_gui_with_popup (config, tool_type,
+                                                  _("Options"),
+                                                  horizontal, gimp_perspective_clone_options_create_view);
+  gtk_box_pack_start (GTK_BOX (vbox), frame, TRUE, TRUE, 0);
+  gtk_widget_show (frame);
 
+  if (horizontal)
+    {
+      GList *children;
+      children = gtk_container_get_children (GTK_CONTAINER (vbox));  
+      gimp_tool_options_setup_popup_layout (children, FALSE);
+    }  
+
+  return vbox;
+}
+
+  
+static void
+gimp_perspective_clone_options_create_view (GtkWidget *source, GtkWidget **result, GObject *config)
+{
+  GimpToolOptions *tool_options = GIMP_TOOL_OPTIONS (config);
+  GtkWidget *vbox;
+  GtkWidget *frame;
+  GtkWidget *button;
+  GtkWidget *hbox;
+  GtkWidget *table;
+  GtkWidget *combo;
+
+  vbox = gtk_vbox_new (FALSE, 6);
   frame = gimp_prop_enum_radio_frame_new (config, "clone-type",
                                           _("Source"), 0, 0);
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
@@ -970,5 +1005,17 @@ gimp_perspective_clone_options_gui (GimpToolOptions *tool_options)
                              _("Alignment:"), 0.0, 0.5,
                              combo, 1, FALSE);
 
-  return vbox;
+  *result = vbox;
+}
+
+static GtkWidget *
+gimp_perspective_clone_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_perspective_clone_options_gui_full (tool_options, FALSE);
+}
+
+static GtkWidget *
+gimp_perspective_clone_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_perspective_clone_options_gui_full (tool_options, TRUE);
 }

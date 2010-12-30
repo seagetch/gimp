@@ -187,11 +187,11 @@ gimp_region_select_options_reset (GimpToolOptions *tool_options)
   GIMP_TOOL_OPTIONS_CLASS (parent_class)->reset (tool_options);
 }
 
-GtkWidget *
-gimp_region_select_options_gui (GimpToolOptions *tool_options)
+static GtkWidget *
+gimp_region_select_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject   *config  = G_OBJECT (tool_options);
-  GtkWidget *vbox    = gimp_selection_options_gui (tool_options);
+  GtkWidget *vbox    = gimp_selection_options_gui_full (tool_options, horizontal);
   GtkWidget *button;
   GtkWidget *table;
   GtkWidget *scale;
@@ -229,4 +229,17 @@ gimp_region_select_options_gui (GimpToolOptions *tool_options)
                              combo, 2, FALSE);
 
   return vbox;
+}
+
+
+GtkWidget *
+gimp_region_select_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_region_select_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_region_select_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_region_select_options_gui_full (tool_options, TRUE);
 }

@@ -147,11 +147,11 @@ gimp_crop_options_get_property (GObject    *object,
     }
 }
 
-GtkWidget *
-gimp_crop_options_gui (GimpToolOptions *tool_options)
+static GtkWidget *
+gimp_crop_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_tool_options_gui (tool_options);
+  GtkWidget *vbox   = gimp_tool_options_gui_full (tool_options, horizontal);
   GtkWidget *vbox_rectangle;
   GtkWidget *button;
 
@@ -168,9 +168,21 @@ gimp_crop_options_gui (GimpToolOptions *tool_options)
   gtk_widget_show (button);
 
   /*  rectangle options  */
-  vbox_rectangle = gimp_rectangle_options_gui (tool_options);
+  vbox_rectangle = gimp_rectangle_options_gui_full (tool_options, horizontal);
   gtk_box_pack_start (GTK_BOX (vbox), vbox_rectangle, FALSE, FALSE, 0);
   gtk_widget_show (vbox_rectangle);
 
   return vbox;
+}
+
+GtkWidget *
+gimp_crop_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_crop_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_crop_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_crop_options_gui_full (tool_options, TRUE);
 }

@@ -50,6 +50,7 @@ struct _GimpForegroundSelectOptions
 GType       gimp_foreground_select_options_get_type       (void) G_GNUC_CONST;
 
 GtkWidget * gimp_foreground_select_options_gui            (GimpToolOptions             *tool_options);
+GtkWidget * gimp_foreground_select_options_gui_horizontal (GimpToolOptions             *tool_options);
 
 void        gimp_foreground_select_options_get_mask_color (GimpForegroundSelectOptions *options,
                                                            GimpRGB                     *color);

@@ -152,11 +152,11 @@ gimp_magnify_options_reset (GimpToolOptions *tool_options)
   GIMP_TOOL_OPTIONS_CLASS (parent_class)->reset (tool_options);
 }
 
-GtkWidget *
-gimp_magnify_options_gui (GimpToolOptions *tool_options)
+static GtkWidget *
+gimp_magnify_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_tool_options_gui (tool_options);
+  GtkWidget *vbox   = gimp_tool_options_gui_full (tool_options, horizontal);
   GtkWidget *frame;
   GtkWidget *button;
   gchar     *str;
@@ -179,4 +179,16 @@ gimp_magnify_options_gui (GimpToolOptions *tool_options)
   g_free (str);
 
   return vbox;
+}
+
+GtkWidget *
+gimp_magnify_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_magnify_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_magnify_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_magnify_options_gui_full (tool_options, TRUE);
 }

@@ -74,6 +74,12 @@ static void   gimp_transform_options_preview_opacity_notify (GimpTransformOption
                                                      GParamSpec           *pspec,
                                                      GtkWidget            *table);
 
+static GtkWidget * gimp_transform_options_gui_full (GimpToolOptions *tool_options, 
+                                                     gboolean horizontal);
+
+static void        gimp_transform_options_create_view (GtkWidget *source, 
+                                                        GtkWidget **result, 
+                                                        GObject *config);
 
 G_DEFINE_TYPE (GimpTransformOptions, gimp_transform_options,
                GIMP_TYPE_TOOL_OPTIONS)
@@ -243,6 +249,20 @@ gimp_transform_options_reset (GimpToolOptions *tool_options)
   GIMP_TOOL_OPTIONS_CLASS (parent_class)->reset (tool_options);
 }
 
+GtkWidget *
+gimp_transform_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_transform_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_transform_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_transform_options_gui_full (tool_options, TRUE);
+}
+
+/*  private functions  */
+
 /**
  * gimp_transform_options_gui:
  * @tool_options: a #GimpToolOptions
@@ -251,20 +271,16 @@ gimp_transform_options_reset (GimpToolOptions *tool_options)
  *
  * Return value: a container holding the transform tool options
  **/
-GtkWidget *
-gimp_transform_options_gui (GimpToolOptions *tool_options)
+static GtkWidget *
+gimp_transform_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject              *config  = G_OBJECT (tool_options);
-  GimpTransformOptions *options = GIMP_TRANSFORM_OPTIONS (tool_options);
-  GtkWidget            *vbox    = gimp_tool_options_gui (tool_options);
+  GtkWidget            *vbox    = gimp_tool_options_gui_full (tool_options, horizontal);
   GtkWidget            *hbox;
   GtkWidget            *box;
   GtkWidget            *label;
   GtkWidget            *frame;
-  GtkWidget            *combo;
-  GtkWidget            *scale;
-  GtkWidget            *preview_box;
-  const gchar          *constrain = NULL;
+  GType                 tool_type = G_TYPE_NONE;
 
   hbox = gtk_hbox_new (FALSE, 2);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
@@ -282,6 +298,38 @@ gimp_transform_options_gui (GimpToolOptions *tool_options)
                                           _("Direction"), 0, 0);
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
+
+  /* Detail Options */
+  frame = gimp_tool_options_frame_gui_with_popup (config, tool_type,
+                                                  _("Transformation details..."),
+                                                  horizontal, gimp_transform_options_create_view);
+  gtk_box_pack_start (GTK_BOX (vbox), frame, TRUE, TRUE, 0);
+  gtk_widget_show (frame);
+
+  if (horizontal)
+    {
+      GList *children;
+      children = gtk_container_get_children (GTK_CONTAINER (vbox));  
+      gimp_tool_options_setup_popup_layout (children, FALSE);
+    }  
+  
+  return vbox;
+}
+  
+static void
+gimp_transform_options_create_view (GtkWidget *source, GtkWidget **result, GObject *config)
+{
+  GimpToolOptions      *tool_options = GIMP_TOOL_OPTIONS (config);
+  GimpTransformOptions *options      = GIMP_TRANSFORM_OPTIONS (tool_options);
+  GtkWidget            *vbox         = gimp_tool_options_gui_full (tool_options, FALSE);
+  GtkWidget            *frame;
+  GtkWidget            *hbox;
+  GtkWidget            *combo;
+  GtkWidget            *scale;
+  GtkWidget            *preview_box;
+  GtkWidget            *label;
+  const gchar          *constrain = NULL;
+  
 
   /*  the interpolation menu  */
   frame = gimp_frame_new (_("Interpolation:"));
@@ -324,6 +372,7 @@ gimp_transform_options_gui (GimpToolOptions *tool_options)
   gtk_widget_show (combo);
 
   preview_box = gtk_vbox_new (FALSE, 2);
+//  preview_box = gimp_tool_options_gui_full (tool_options, horizontal);
   gtk_container_add (GTK_CONTAINER (frame), preview_box);
   gtk_widget_show (preview_box);
 
@@ -383,11 +432,8 @@ gimp_transform_options_gui (GimpToolOptions *tool_options)
       g_free (label);
     }
 
-  return vbox;
+  *result = vbox;
 }
-
-
-/*  private functions  */
 
 static void
 gimp_transform_options_preview_notify (GimpTransformOptions *options,

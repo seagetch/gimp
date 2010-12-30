@@ -34,7 +34,10 @@
 #include "gimp-intl.h"
 
 
-static GtkWidget * gimp_heal_options_gui (GimpToolOptions *tool_options);
+static GtkWidget * gimp_heal_options_gui            (GimpToolOptions *tool_options);
+static GtkWidget * gimp_heal_options_gui_full       (GimpToolOptions *tool_options,
+                                                      gboolean horizontal);
+static GtkWidget * gimp_heal_options_gui_horizontal (GimpToolOptions *tool_options);
 
 
 G_DEFINE_TYPE (GimpHealTool, gimp_heal_tool, GIMP_TYPE_SOURCE_TOOL)
@@ -47,7 +50,7 @@ gimp_heal_tool_register (GimpToolRegisterCallback  callback,
   (* callback) (GIMP_TYPE_HEAL_TOOL,
                 GIMP_TYPE_SOURCE_OPTIONS,
                 gimp_heal_options_gui,
-                NULL,
+                gimp_heal_options_gui_horizontal,
                 GIMP_PAINT_OPTIONS_CONTEXT_MASK,
                 "gimp-heal-tool",
                 _("Heal"),
@@ -86,10 +89,10 @@ gimp_heal_tool_init (GimpHealTool *heal)
 /*  tool options stuff  */
 
 static GtkWidget *
-gimp_heal_options_gui (GimpToolOptions *tool_options)
+gimp_heal_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_paint_options_gui (tool_options);
+  GtkWidget *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
   GtkWidget *button;
   GtkWidget *table;
   GtkWidget *combo;
@@ -112,4 +115,16 @@ gimp_heal_options_gui (GimpToolOptions *tool_options)
                              combo, 1, FALSE);
 
   return vbox;
+}
+
+static GtkWidget *
+gimp_heal_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_heal_options_gui_full (tool_options, FALSE);
+}
+
+static GtkWidget *
+gimp_heal_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_heal_options_gui_full (tool_options, TRUE);
 }

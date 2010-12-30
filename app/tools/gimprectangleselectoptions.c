@@ -143,11 +143,11 @@ gimp_rectangle_select_options_get_property (GObject    *object,
     }
 }
 
-GtkWidget *
-gimp_rectangle_select_options_gui (GimpToolOptions *tool_options)
+static GtkWidget *
+gimp_rectangle_select_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_selection_options_gui (tool_options);
+  GtkWidget *vbox   = gimp_selection_options_gui_full (tool_options, horizontal);
 
   /*  the round corners frame  */
   if (tool_options->tool_info->tool_type == GIMP_TYPE_RECTANGLE_SELECT_TOOL)
@@ -176,10 +176,23 @@ gimp_rectangle_select_options_gui (GimpToolOptions *tool_options)
   {
     GtkWidget *vbox_rectangle;
 
-    vbox_rectangle = gimp_rectangle_options_gui (tool_options);
+    vbox_rectangle = gimp_rectangle_options_gui_full (tool_options, horizontal);
     gtk_box_pack_start (GTK_BOX (vbox), vbox_rectangle, FALSE, FALSE, 0);
     gtk_widget_show (vbox_rectangle);
   }
 
   return vbox;
+}
+
+GtkWidget *
+gimp_rectangle_select_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_rectangle_select_options_gui_full (tool_options, FALSE);
+}
+
+
+GtkWidget *
+gimp_rectangle_select_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_rectangle_select_options_gui_full (tool_options, TRUE);
 }

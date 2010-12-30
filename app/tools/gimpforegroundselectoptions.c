@@ -51,14 +51,17 @@ enum
 };
 
 
-static void   gimp_foreground_select_options_set_property (GObject      *object,
-                                                           guint         property_id,
-                                                           const GValue *value,
-                                                           GParamSpec   *pspec);
-static void   gimp_foreground_select_options_get_property (GObject      *object,
-                                                           guint         property_id,
-                                                           GValue       *value,
-                                                           GParamSpec   *pspec);
+static void gimp_foreground_select_options_set_property   (GObject      *object,
+                                                            guint         property_id,
+                                                            const GValue *value,
+                                                            GParamSpec   *pspec);
+static void gimp_foreground_select_options_get_property   (GObject      *object,
+                                                            guint         property_id,
+                                                            GValue       *value,
+                                                            GParamSpec   *pspec);
+static void gimp_foreground_selection_options_create_view (GtkWidget *source, 
+                                                            GtkWidget **result, 
+                                                            GObject *config);
 
 
 G_DEFINE_TYPE (GimpForegroundSelectOptions, gimp_foreground_select_options,
@@ -252,13 +255,40 @@ gimp_foreground_select_options_get_property (GObject    *object,
     }
 }
 
-GtkWidget *
-gimp_foreground_select_options_gui (GimpToolOptions *tool_options)
+static GtkWidget *
+gimp_foreground_select_options_gui_full (GimpToolOptions *tool_options, 
+                                         gboolean horizontal)
 {
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_selection_options_gui (tool_options);
-  GtkWidget *hbox;
+  GtkWidget *vbox   = gimp_selection_options_gui_full (tool_options, horizontal);
   GtkWidget *button;
+  GtkWidget *frame;
+  GType      tool_type = G_TYPE_NONE;
+
+  gtk_widget_set_sensitive (GIMP_SELECTION_OPTIONS (tool_options)->antialias_toggle,
+                            FALSE);
+
+  /*  single / multiple objects  */
+  button = gimp_prop_check_button_new (config, "contiguous", _("Contiguous"));
+  gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
+  gtk_widget_show (button);
+
+  /* Detail Options */
+  frame = gimp_tool_options_frame_gui_with_popup (config, tool_type,
+                                                  _("Details..."),
+                                                  horizontal, gimp_foreground_selection_options_create_view);
+  gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
+  gtk_widget_show (frame);
+
+  return vbox;
+}
+
+static void
+gimp_foreground_selection_options_create_view (GtkWidget *source, GtkWidget **result, GObject *config)
+{
+  GimpToolOptions *tool_options = GIMP_TOOL_OPTIONS (config);
+  GtkWidget       *vbox         = gimp_tool_options_gui_full (tool_options, FALSE);
+  GtkWidget *hbox;
   GtkWidget *frame;
   GtkWidget *scale;
   GtkWidget *label;
@@ -268,14 +298,6 @@ gimp_foreground_select_options_gui (GimpToolOptions *tool_options)
   GtkObject *adj;
   gchar     *title;
   gint       row = 0;
-
-  gtk_widget_set_sensitive (GIMP_SELECTION_OPTIONS (tool_options)->antialias_toggle,
-                            FALSE);
-
-  /*  single / multiple objects  */
-  button = gimp_prop_check_button_new (config, "contiguous", _("Contiguous"));
-  gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
-  gtk_widget_show (button);
 
   /*  foreground / background  */
   title = g_strdup_printf (_("Interactive refinement  (%s)"),
@@ -369,7 +391,19 @@ gimp_foreground_select_options_gui (GimpToolOptions *tool_options)
   gtk_range_set_update_policy (GTK_RANGE (GIMP_SCALE_ENTRY_SCALE (adj)),
                                GTK_UPDATE_DELAYED);
 
-  return vbox;
+  *result = vbox;
+}
+
+GtkWidget *
+gimp_foreground_select_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_foreground_select_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_foreground_select_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_foreground_select_options_gui_full (tool_options, TRUE);
 }
 
 void

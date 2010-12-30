@@ -53,7 +53,10 @@ static void   gimp_dodge_burn_tool_oper_update   (GimpTool          *tool,
 static void   gimp_dodge_burn_tool_status_update (GimpTool          *tool,
                                                   GimpDodgeBurnType  type);
 
-static GtkWidget * gimp_dodge_burn_options_gui   (GimpToolOptions   *tool_options);
+static GtkWidget * gimp_dodge_burn_options_gui            (GimpToolOptions   *tool_options);
+static GtkWidget * gimp_dodge_burn_options_gui_full       (GimpToolOptions   *tool_options,
+                                                            gboolean           horizontal);
+static GtkWidget * gimp_dodge_burn_options_gui_horizontal (GimpToolOptions   *tool_options);
 
 
 G_DEFINE_TYPE (GimpDodgeBurnTool, gimp_dodge_burn_tool, GIMP_TYPE_BRUSH_TOOL)
@@ -68,7 +71,7 @@ gimp_dodge_burn_tool_register (GimpToolRegisterCallback  callback,
   (* callback) (GIMP_TYPE_DODGE_BURN_TOOL,
                 GIMP_TYPE_DODGE_BURN_OPTIONS,
                 gimp_dodge_burn_options_gui,
-                NULL,
+                gimp_dodge_burn_options_gui_horizontal,
                 GIMP_PAINT_OPTIONS_CONTEXT_MASK,
                 "gimp-dodge-burn-tool",
                 _("Dodge / Burn"),
@@ -191,10 +194,10 @@ gimp_dodge_burn_tool_status_update (GimpTool          *tool,
 /*  tool options stuff  */
 
 static GtkWidget *
-gimp_dodge_burn_options_gui (GimpToolOptions *tool_options)
+gimp_dodge_burn_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_paint_options_gui (tool_options);
+  GtkWidget *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
   GtkWidget *frame;
   GtkWidget *scale;
   gchar     *str;
@@ -223,4 +226,16 @@ gimp_dodge_burn_options_gui (GimpToolOptions *tool_options)
   gtk_widget_show (scale);
 
   return vbox;
+}
+
+static GtkWidget *
+gimp_dodge_burn_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_dodge_burn_options_gui_full (tool_options, FALSE);
+}
+
+static GtkWidget *
+gimp_dodge_burn_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_dodge_burn_options_gui_full (tool_options, TRUE);
 }

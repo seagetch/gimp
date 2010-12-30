@@ -42,9 +42,10 @@ struct _GimpRectangleSelectOptions
 };
 
 
-GType       gimp_rectangle_select_options_get_type (void) G_GNUC_CONST;
+GType       gimp_rectangle_select_options_get_type       (void) G_GNUC_CONST;
 
-GtkWidget * gimp_rectangle_select_options_gui      (GimpToolOptions *tool_options);
+GtkWidget * gimp_rectangle_select_options_gui            (GimpToolOptions *tool_options);
+GtkWidget * gimp_rectangle_select_options_gui_horizontal (GimpToolOptions *tool_options);
 
 
 #endif /* __GIMP_RECTANGLE_SELECT_OPTIONS_H__ */

@@ -41,9 +41,10 @@ struct _GimpMeasureOptions
 };
 
 
-GType       gimp_measure_options_get_type (void) G_GNUC_CONST;
+GType       gimp_measure_options_get_type       (void) G_GNUC_CONST;
 
-GtkWidget * gimp_measure_options_gui      (GimpToolOptions *tool_options);
+GtkWidget * gimp_measure_options_gui            (GimpToolOptions *tool_options);
+GtkWidget * gimp_measure_options_gui_horizontal (GimpToolOptions *tool_options);
 
 
 #endif  /*  __GIMP_MEASURE_OPTIONS_H__  */

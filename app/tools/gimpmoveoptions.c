@@ -160,11 +160,11 @@ gimp_move_options_notify_type (GimpMoveOptions *move_options,
                             move_options->move_type != GIMP_TRANSFORM_TYPE_SELECTION);
 }
 
-GtkWidget *
-gimp_move_options_gui (GimpToolOptions *tool_options)
+static GtkWidget *
+gimp_move_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_tool_options_gui (tool_options);
+  GtkWidget *vbox   = gimp_tool_options_gui_full (tool_options, horizontal);
   GtkWidget *hbox;
   GtkWidget *box;
   GtkWidget *label;
@@ -202,4 +202,16 @@ gimp_move_options_gui (GimpToolOptions *tool_options)
   g_free (title);
 
   return vbox;
+}
+
+GtkWidget *
+gimp_move_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_move_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_move_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_move_options_gui_full (tool_options, TRUE);
 }
