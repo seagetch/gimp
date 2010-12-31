@@ -171,8 +171,11 @@ gimp_magnify_options_gui_full (GimpToolOptions *tool_options, gboolean horizonta
   str = g_strdup_printf (_("Tool Toggle  (%s)"),
                          gimp_get_mod_string (GDK_CONTROL_MASK));
 
-  frame = gimp_prop_enum_radio_frame_new (config, "zoom-type",
-                                          str, 0, 0);
+  frame = gimp_prop_enum_radio_frame_new_with_orientation (config, "zoom-type",
+                                                           str, 0, 0,
+                                                           horizontal ? 
+                                                             GTK_ORIENTATION_HORIZONTAL :
+                                                             GTK_ORIENTATION_VERTICAL);
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 

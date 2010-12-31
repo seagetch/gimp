@@ -242,7 +242,8 @@ gimp_popup_button_press (GtkWidget      *widget,
   if (cancel)
     g_signal_emit (widget, popup_signals[CANCEL], 0);
 
-  return cancel;
+//  return cancel;
+  return FALSE;
 }
 
 static gboolean
@@ -460,7 +461,8 @@ static void     gimp_popup_button_get_property (GObject            *object,
                                                    GParamSpec         *pspec);
 static gboolean gimp_popup_button_scroll_event (GtkWidget          *widget,
                                                    GdkEventScroll     *sevent);
-static void     gimp_popup_button_clicked      (GtkButton          *button);
+static gboolean gimp_popup_button_button_press (GtkWidget          *button,
+                                                 GdkEventButton *bevent);
 
 static void     gimp_popup_button_popup_closed (GimpPopup *popup,
                                                    GimpPopupButton *button);
@@ -477,7 +479,7 @@ gimp_popup_button_class_init (GimpPopupButtonClass *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
-  GtkButtonClass *button_class = GTK_BUTTON_CLASS (klass);
+//  GtkButtonClass *button_class = GTK_BUTTON_CLASS (klass);
 
   object_class->finalize     = gimp_popup_button_finalize;
   object_class->get_property = gimp_popup_button_get_property;
@@ -485,7 +487,7 @@ gimp_popup_button_class_init (GimpPopupButtonClass *klass)
 
   widget_class->scroll_event = gimp_popup_button_scroll_event;
 
-  button_class->clicked      = gimp_popup_button_clicked;
+  widget_class->button_press_event = gimp_popup_button_button_press;
 
   popup_button_signals[CREATE_VIEW] =
     g_signal_new ("create-view",
@@ -568,9 +570,11 @@ gimp_popup_button_scroll_event (GtkWidget      *widget,
   return TRUE;
 }
 
-static void
-gimp_popup_button_clicked (GtkButton *button)
+static gboolean
+gimp_popup_button_button_press (GtkWidget      *widget,
+                                GdkEventButton *bevent)
 {
+  GtkButton       *button       = GTK_BUTTON (widget);
   GimpPopupButton *popup_button = GIMP_POPUP_BUTTON (button);
   GtkWidget       *popup;
   GtkWidget       *view;
@@ -578,7 +582,7 @@ gimp_popup_button_clicked (GtkButton *button)
   
   view = gimp_popup_button_create_view (popup_button);
   
-  g_return_if_fail (GTK_IS_WIDGET (view));
+  g_return_val_if_fail (GTK_IS_WIDGET (view), FALSE );
 
   popup = gimp_popup_new (view);
 
@@ -595,6 +599,8 @@ gimp_popup_button_clicked (GtkButton *button)
     parent = GTK_WIDGET (button);
 
   gimp_popup_show_over_widget (GIMP_POPUP (popup), parent);
+  
+  return FALSE;
 }
 
 static void

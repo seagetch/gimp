@@ -39,6 +39,12 @@ GtkWidget     * gimp_prop_boolean_radio_frame_new (GObject      *config,
                                                    const gchar  *title,
                                                    const gchar  *true_text,
                                                    const gchar  *false_text);
+GtkWidget     * gimp_prop_boolean_radio_frame_new_with_orientation (GObject      *config,
+                                                   const gchar  *property_name,
+                                                   const gchar  *title,
+                                                   const gchar  *true_text,
+                                                   const gchar  *false_text,
+                                                   GtkOrientation orientation);
 
 GtkWidget     * gimp_prop_expander_new            (GObject      *config,
                                                    const gchar  *property_name,
@@ -70,6 +76,12 @@ GtkWidget     * gimp_prop_enum_radio_frame_new    (GObject      *config,
                                                    const gchar  *title,
                                                    gint          minimum,
                                                    gint          maximum);
+GtkWidget     * gimp_prop_enum_radio_frame_new_with_orientation (GObject     *config,
+                                                                 const gchar *property_name,
+                                                                 const gchar *title,
+                                                                 gint         minimum,
+                                                                 gint         maximum,
+                                                                 GtkOrientation orientation);
 GtkWidget     * gimp_prop_enum_radio_box_new      (GObject      *config,
                                                    const gchar  *property_name,
                                                    gint          minimum,
@@ -79,6 +91,12 @@ GtkWidget     * gimp_prop_enum_stock_box_new      (GObject      *config,
                                                    const gchar  *stock_prefix,
                                                    gint          minimum,
                                                    gint          maximum);
+GtkWidget     * gimp_prop_enum_stock_box_new_with_orientation (GObject      *config,
+                                                               const gchar  *property_name,
+                                                               const gchar  *stock_prefix,
+                                                               gint          minimum,
+                                                               gint          maximum,
+                                                               GtkOrientation orientation);
 
 GtkWidget     * gimp_prop_enum_label_new          (GObject      *config,
                                                    const gchar  *property_name);

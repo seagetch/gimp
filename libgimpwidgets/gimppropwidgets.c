@@ -652,6 +652,39 @@ gimp_prop_enum_radio_frame_new (GObject     *config,
                                 gint         minimum,
                                 gint         maximum)
 {
+  return gimp_prop_enum_radio_frame_new_with_orientation (config,
+                                                           property_name,
+                                                           title,
+                                                           minimum,
+                                                           maximum,
+                                                           GTK_ORIENTATION_VERTICAL);
+}
+
+/**
+ * gimp_prop_enum_radio_frame_new_full:
+ * @config:        Object to which property is attached.
+ * @property_name: Name of enum property controlled by the radio buttons.
+ * @title:         Label for the frame holding the buttons
+ * @minimum:       Smallest value of enum to be included.
+ * @maximum:       Largest value of enum to be included.
+ *
+ * Creates a group of radio buttons which function to set and display
+ * the specified enum property.  The @minimum and @maximum arguments
+ * allow only a subset of the enum to be used.  If the two arguments
+ * are equal (e.g., 0, 0), then the full range of the enum will be used.
+ *
+ * Return value: A #GimpFrame containing the radio buttons.
+ *
+ * Since GIMP 2.4
+ */
+GtkWidget *
+gimp_prop_enum_radio_frame_new_with_orientation (GObject     *config,
+                                                 const gchar *property_name,
+                                                 const gchar *title,
+                                                 gint         minimum,
+                                                 gint         maximum,
+                                                 GtkOrientation orientation)
+{
   GParamSpec *param_spec;
   GtkWidget  *frame;
   GtkWidget  *button;
@@ -671,20 +704,22 @@ gimp_prop_enum_radio_frame_new (GObject     *config,
 
   if (minimum != maximum)
     {
-      frame = gimp_enum_radio_frame_new_with_range (param_spec->value_type,
-                                                    minimum, maximum,
-                                                    gtk_label_new (title),
-                                                    G_CALLBACK (gimp_prop_radio_button_callback),
-                                                    config,
-                                                    &button);
+      frame = gimp_enum_radio_frame_new_full (param_spec->value_type,
+                                              minimum, maximum,
+                                              gtk_label_new (title),
+                                              G_CALLBACK (gimp_prop_radio_button_callback),
+                                              config,
+                                              &button,
+                                              orientation);
     }
   else
     {
-      frame = gimp_enum_radio_frame_new (param_spec->value_type,
-                                         gtk_label_new (title),
-                                         G_CALLBACK (gimp_prop_radio_button_callback),
-                                         config,
-                                         &button);
+      frame = gimp_enum_radio_frame_new_with_orientation (param_spec->value_type,
+                                                          gtk_label_new (title),
+                                                          G_CALLBACK (gimp_prop_radio_button_callback),
+                                                          config,
+                                                          &button,
+                                                          orientation);
     }
 
   gimp_int_radio_group_set_active (GTK_RADIO_BUTTON (button), value);
@@ -856,6 +891,38 @@ gimp_prop_boolean_radio_frame_new (GObject     *config,
                                    const gchar *true_text,
                                    const gchar *false_text)
 {
+  return gimp_prop_boolean_radio_frame_new_with_orientation (config,
+                                                              property_name,
+                                                              title,
+                                                              true_text, false_text,
+                                                              GTK_ORIENTATION_VERTICAL);
+}
+
+
+/**
+ * gimp_prop_boolean_radio_frame_new_with_orientation:
+ * @config:        Object to which property is attached.
+ * @property_name: Name of boolean property controlled by the radio buttons.
+ * @title:         Label for the frame.
+ * @true_text:     Label for the button corresponding to %TRUE.
+ * @false_text:    Label for the button corresponding to %FALSE.
+ * @orientation:   Alignment orientation of the radio buttons.
+ *
+ * Creates a pair of radio buttons which function to set and display
+ * the specified boolean property.
+ *
+ * Return value: A #GimpFrame containing the radio buttons.
+ *
+ * Since GIMP 2.4
+ */
+GtkWidget *
+gimp_prop_boolean_radio_frame_new_with_orientation (GObject     *config,
+                                                    const gchar *property_name,
+                                                    const gchar *title,
+                                                    const gchar *true_text,
+                                                    const gchar *false_text,
+                                                    GtkOrientation orientation)
+{
   GParamSpec *param_spec;
   GtkWidget  *frame;
   GtkWidget  *button;
@@ -874,9 +941,9 @@ gimp_prop_boolean_radio_frame_new (GObject     *config,
                 NULL);
 
   frame =
-    gimp_int_radio_group_new (TRUE, title,
+    gimp_int_radio_group_new_with_orientation (TRUE, title,
                               G_CALLBACK (gimp_prop_radio_button_callback),
-                              config, value,
+                              config, orientation, value,
 
                               false_text, FALSE, &button,
                               true_text,  TRUE,  NULL,
@@ -918,6 +985,40 @@ gimp_prop_enum_stock_box_new (GObject     *config,
                               const gchar *stock_prefix,
                               gint         minimum,
                               gint         maximum)
+{
+  return gimp_prop_enum_stock_box_new_with_orientation (config,
+                                                         property_name,
+                                                         stock_prefix,
+                                                         minimum,
+                                                         maximum,
+                                                         GTK_ORIENTATION_VERTICAL);
+}
+
+/**
+ * gimp_prop_enum_stock_box_new_with_orientation:
+ * @config:        Object to which property is attached.
+ * @property_name: Name of enum property controlled by the radio buttons.
+ * @stock_prefix:  The prefix of the group of stock ids to use.
+ * @minimum:       Smallest value of enum to be included.
+ * @maximum:       Largest value of enum to be included.
+ *
+ * Creates a horizontal box of radio buttons with stock icons, which
+ * function to set and display the value of the specified Enum
+ * property.  The stock_id for each icon is created by appending the
+ * enum_value's nick to the given @stock_prefix.  See
+ * gimp_enum_stock_box_new() for more information.
+ *
+ * Return value: A #libgimpwidgets-gimpenumstockbox containing the radio buttons.
+ *
+ * Since GIMP 2.8
+ */
+GtkWidget *
+gimp_prop_enum_stock_box_new_with_orientation (GObject     *config,
+                                               const gchar *property_name,
+                                               const gchar *stock_prefix,
+                                               gint         minimum,
+                                               gint         maximum,
+                                               GtkOrientation orientation)
 {
   GParamSpec *param_spec;
   GtkWidget  *box;

@@ -104,6 +104,21 @@ GtkWidget * gimp_int_radio_group_new (gboolean          in_frame,
 
                                       ...) G_GNUC_NULL_TERMINATED;
 
+GtkWidget * gimp_int_radio_group_new_with_orientation (gboolean          in_frame,
+                                                       const gchar      *frame_title,
+                                                       GCallback         radio_button_callback,
+                                                       gpointer          radio_button_callback_data,
+                                                       GtkOrientation    orientation,
+                                                       gint              initial, /* item_data */
+
+                                                       /* specify radio buttons as va_list:
+                                                        *  const gchar  *label,
+                                                        *  gint          item_data,
+                                                        *  GtkWidget   **widget_ptr,
+                                                        */
+
+                                                       ...) G_GNUC_NULL_TERMINATED;
+
 void        gimp_int_radio_group_set_active (GtkRadioButton *radio_button,
                                              gint            item_data);
 

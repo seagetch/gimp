@@ -151,8 +151,10 @@ gimp_vector_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal
   gchar             *str;
 
   /*  tool toggle  */
-  frame = gimp_prop_enum_radio_frame_new (config, "vectors-edit-mode",
-                                          _("Edit Mode"), 0, 0);
+  frame = gimp_prop_enum_radio_frame_new_with_orientation (config, "vectors-edit-mode",
+                                                           _("Edit Mode"), 0, 0,
+                                                           horizontal ? GTK_ORIENTATION_HORIZONTAL : 
+                                                           GTK_ORIENTATION_VERTICAL);
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 

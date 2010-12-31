@@ -294,8 +294,10 @@ gimp_transform_options_gui_full (GimpToolOptions *tool_options, gboolean horizon
   gtk_box_pack_start (GTK_BOX (hbox), box, FALSE, FALSE, 0);
   gtk_widget_show (box);
 
-  frame = gimp_prop_enum_radio_frame_new (config, "direction",
-                                          _("Direction"), 0, 0);
+  frame = gimp_prop_enum_radio_frame_new_with_orientation (config, "direction",
+                                                           _("Direction"), 0, 0,
+                                                           horizontal ? GTK_ORIENTATION_HORIZONTAL:
+                                                           GTK_ORIENTATION_VERTICAL);
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 

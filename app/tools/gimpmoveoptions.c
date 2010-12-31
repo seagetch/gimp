@@ -187,8 +187,11 @@ gimp_move_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   title = g_strdup_printf (_("Tool Toggle  (%s)"),
                            gimp_get_mod_string (GDK_SHIFT_MASK));
 
-  frame = gimp_prop_boolean_radio_frame_new (config, "move-current",
-                                             title, "true", "false");
+  frame = gimp_prop_boolean_radio_frame_new_with_orientation (config, "move-current",
+                                                              title, "true", "false",
+                                                              horizontal ? 
+                                                                GTK_ORIENTATION_HORIZONTAL :
+                                                                GTK_ORIENTATION_VERTICAL);
 
   gimp_move_options_notify_type (GIMP_MOVE_OPTIONS (config), NULL, frame);
 
