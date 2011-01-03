@@ -68,7 +68,8 @@ static void     gimp_number_pair_entry_history_add            (GtkWidget        
 static void     gimp_rectangle_options_create_view            (GtkWidget *source, 
                                                                GtkWidget **result, 
                                                                GObject *config);
-
+static void     gimp_rectangle_options_destroy_view           (GtkWidget *widget, 
+                                                               gpointer   data);
 
 GType
 gimp_rectangle_options_interface_get_type (void)
@@ -849,6 +850,10 @@ gimp_rectangle_options_create_view (GtkWidget *source, GtkWidget **result, GObje
 
   private = GIMP_RECTANGLE_OPTIONS_GET_PRIVATE (tool_options);
 
+  g_signal_connect (vbox, "destroy",
+                    G_CALLBACK (gimp_rectangle_options_destroy_view),
+                    config);
+
   /* Fixed Center */
   button = gimp_prop_check_button_new (config, "fixed-center",
                                        _("Expand from center"));
@@ -1051,6 +1056,38 @@ gimp_rectangle_options_create_view (GtkWidget *source, GtkWidget **result, GObje
 
   *result = vbox;
 }
+
+static void
+gimp_rectangle_options_destroy_view (GtkWidget *widget, 
+                                     gpointer   data)
+{
+  GimpRectangleOptions *options = GIMP_RECTANGLE_OPTIONS (data);
+  GimpRectangleOptionsPrivate *private;
+  private = GIMP_RECTANGLE_OPTIONS_GET_PRIVATE (options);
+
+/* FIXME: following code should be executed */
+/*
+  g_signal_handlers_disconnect_by_func (config, 
+                                        G_CALLBACK (gimp_rectangle_options_string_current_updates),
+                                        entry);
+*/
+  if (private)
+    {
+      private->x_entry = NULL;
+      private->y_entry = NULL;
+      private->width_entry = NULL;
+      private->height_entry = NULL;
+      private->aspect_button_box = NULL;
+      private->size_button_box = NULL;
+      private->fixed_width_entry = NULL;
+      private->fixed_height_entry = NULL;
+      private->fixed_aspect_hbox = NULL;
+      private->fixed_size_hbox = NULL;
+      private->auto_shrink_button = NULL;
+    }
+
+}
+
 
 /**
  * gimp_rectangle_options_fixed_rule_active:

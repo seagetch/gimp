@@ -50,6 +50,9 @@ static void   gimp_color_options_get_property (GObject      *object,
                                                guint         property_id,
                                                GValue       *value,
                                                GParamSpec   *pspec);
+static void   gimp_color_options_average_create_view (GtkWidget *source, 
+                                                       GtkWidget **result, 
+                                                       GObject *config);
 
 
 G_DEFINE_TYPE (GimpColorOptions, gimp_color_options,
@@ -135,20 +138,19 @@ gimp_color_options_get_property (GObject    *object,
 }
 
 GtkWidget *
-gimp_color_options_gui (GimpToolOptions *tool_options)
+gimp_color_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject   *config = G_OBJECT (tool_options);
   GtkWidget *vbox;
   GtkWidget *frame;
-  GtkWidget *scale;
-  GtkWidget *button;
 
   if (GIMP_IS_HISTOGRAM_OPTIONS (tool_options))
     vbox = gimp_histogram_options_gui (tool_options);
   else
-    vbox = gimp_tool_options_gui (tool_options);
+    vbox = gimp_tool_options_gui_full (tool_options, horizontal);
 
   /*  the sample average options  */
+#if 0
   frame = gimp_frame_new (NULL);
   gtk_box_pack_start (GTK_BOX (vbox), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
@@ -166,7 +168,47 @@ gimp_color_options_gui (GimpToolOptions *tool_options)
 
   gtk_widget_set_sensitive (scale,
                             GIMP_COLOR_OPTIONS (config)->sample_average);
-  g_object_set_data (G_OBJECT (button), "set_sensitive", scale);
+#endif
+  frame = gimp_tool_options_toggle_gui_with_popup (config, G_TYPE_NONE,
+                             "sample-average", _("Average"), _("Sample Average"),
+                             horizontal, gimp_color_options_average_create_view);
+  gtk_box_pack_start (GTK_BOX (vbox), frame, TRUE, TRUE, 0);
+  gtk_widget_show (frame);  
+
+//  g_object_set_data (G_OBJECT (button), "set_sensitive", scale);
 
   return vbox;
+}
+
+
+GtkWidget *
+gimp_color_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_color_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_color_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_color_options_gui_full (tool_options, TRUE);
+}
+
+  
+static void
+gimp_color_options_average_create_view (GtkWidget *source, GtkWidget **result, GObject *config)
+{
+  GimpToolOptions *tool_options = GIMP_TOOL_OPTIONS (config);
+  GtkWidget       *vbox         = gimp_tool_options_gui (tool_options);
+  GtkWidget       *scale;
+  GList *children;
+  scale = gimp_prop_spin_scale_new (config, "average-radius",
+                                    _("Radius"),
+                                    1.0, 10.0, 0);
+  gtk_box_pack_start (GTK_BOX (vbox), scale, FALSE, FALSE, 0);
+  gtk_widget_show (scale);
+
+  children = gtk_container_get_children (GTK_CONTAINER (vbox));  
+  gimp_tool_options_setup_popup_layout (children, FALSE);
+
+  *result = vbox;
 }

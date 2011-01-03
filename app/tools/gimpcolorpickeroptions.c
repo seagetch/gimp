@@ -136,11 +136,11 @@ gimp_color_picker_options_get_property (GObject    *object,
     }
 }
 
-GtkWidget *
-gimp_color_picker_options_gui (GimpToolOptions *tool_options)
+static GtkWidget *
+gimp_color_picker_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_color_options_gui (tool_options);
+  GtkWidget *vbox   = gimp_color_options_gui_full (tool_options, horizontal);
   GtkWidget *button;
   GtkWidget *frame;
   gchar     *str;
@@ -154,7 +154,10 @@ gimp_color_picker_options_gui (GimpToolOptions *tool_options)
   /*  the pick FG/BG frame  */
   str = g_strdup_printf (_("Pick Mode  (%s)"),
                          gimp_get_mod_string (GDK_CONTROL_MASK));
-  frame = gimp_prop_enum_radio_frame_new (config, "pick-mode", str, -1, -1);
+  frame = gimp_prop_enum_radio_frame_new_with_orientation (config, "pick-mode", str, -1, -1,
+                                                           horizontal ?
+                                                             GTK_ORIENTATION_HORIZONTAL:
+                                                             GTK_ORIENTATION_VERTICAL);
   g_free (str);
 
   gtk_box_pack_start (GTK_BOX (vbox), frame, TRUE, TRUE, 0);
@@ -170,4 +173,16 @@ gimp_color_picker_options_gui (GimpToolOptions *tool_options)
   gtk_widget_show (button);
 
   return vbox;
+}
+
+GtkWidget *
+gimp_color_picker_options_gui (GimpToolOptions *tool_options)
+{
+  return gimp_color_picker_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_color_picker_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_color_picker_options_gui_full (tool_options, TRUE);
 }
