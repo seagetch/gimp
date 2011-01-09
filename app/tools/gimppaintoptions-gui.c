@@ -249,7 +249,6 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
       gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
       gtk_widget_show (frame);
     }
-  
 
   /*  the "incremental" toggle  */
   if (tool_type == GIMP_TYPE_PENCIL_TOOL     ||
@@ -491,7 +490,7 @@ smoothing_options_gui (GimpPaintOptions         *paint_options,
                     gboolean                    horizontal)
 {
   return gimp_tool_options_toggle_gui_with_popup (G_OBJECT (paint_options), tool_type,
-                             "use-smoothing", _("Smoothing"), _("Apply Smoothing"),
+                             "use-smoothing", _("Smooth"), _("Smooth stroke"),
                              horizontal, smoothing_options_create_view);
 }
 
@@ -503,14 +502,14 @@ smoothing_options_create_view (GtkWidget *button, GtkWidget **result, GObject *c
   GList     *children;
 
   vbox = gtk_vbox_new (FALSE, 2);
-  scale = gimp_prop_spin_scale_new (config, "smoothing-history",
-                                    _("Quality:"),
+  scale = gimp_prop_spin_scale_new (config, "smoothing-quality",
+                                    _("Quality"),
                                     1, 20, 0);
   gtk_box_pack_start (GTK_BOX (vbox), scale, TRUE, TRUE, 0);
   gtk_widget_show (scale);
 
   scale = gimp_prop_spin_scale_new (config, "smoothing-factor",
-                                    _("Factor:"),
+                                    _("Factor"),
                                     1, 10, 1);
   gtk_box_pack_start (GTK_BOX (vbox), scale, TRUE, TRUE, 0);
   gtk_widget_show (scale);
@@ -519,47 +518,4 @@ smoothing_options_create_view (GtkWidget *button, GtkWidget **result, GObject *c
   gimp_tool_options_setup_popup_layout (children, FALSE);
 
   *result = vbox;
-}
-
-static void       
-aspect_entry_create_view (GtkWidget *table, 
-                         gint column, gint row,
-                         GObject *config)
-{
-  GtkObject *adj;
-  adj   = gimp_prop_scale_entry_new (config, "brush-aspect-ratio",
-                                     GTK_TABLE (table),
-                                     column, row,
-                                     _("Aspect ratio:"),
-                                     0.01, 0.1, 2,
-                                     FALSE, 0.0, 0.0);
-}
-
-static void       
-scale_entry_create_view (GtkWidget *table,
-                         gint column, gint row,
-                         GObject *config)
-{
-  GtkObject *adj;
-  adj = gimp_prop_scale_entry_new (config, "brush-scale",
-                                   GTK_TABLE (table), 
-                                   column, row,
-                                   _("Scale:"),
-                                   0.01, 0.1, 2,
-                                   FALSE, 0.0, 0.0);
-  gimp_scale_entry_set_logarithmic (GTK_OBJECT (adj), TRUE);
-}
-
-
-static void       
-angle_entry_create_view (GtkWidget *table,
-                         gint column, gint row,
-                         GObject *config)
-{
-  GtkObject *adj;
-  adj   = gimp_prop_scale_entry_new (config, "brush-angle",
-                                     GTK_TABLE (table), column, row,
-                                     _("Angle:"),
-                                     1.0, 5.0, 2,
-                                     FALSE, 0.0, 0.0);
 }

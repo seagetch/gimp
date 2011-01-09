@@ -77,7 +77,7 @@ struct _GimpGradientOptions
 struct _GimpSmoothingOptions
 {
   gboolean use_smoothing;
-  gint     smoothing_history;
+  gint     smoothing_quality;
   gdouble  smoothing_factor;
 };
 

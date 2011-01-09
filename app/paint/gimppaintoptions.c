@@ -110,8 +110,9 @@ gpointer gimp_circular_queue_get_last_offset(GimpCircularQueue* queue)
 #define DYNAMIC_MAX_VALUE              1.0
 #define DYNAMIC_MIN_VALUE              0.0
 
-#define DEFAULT_SMOOTHING_HISTORY      20
+#define DEFAULT_SMOOTHING_QUALITY      20
 #define DEFAULT_SMOOTHING_FACTOR       50
+
 
 enum
 {
@@ -148,7 +149,7 @@ enum
   PROP_GRADIENT_VIEW_SIZE,
 
   PROP_USE_SMOOTHING,
-  PROP_SMOOTHING_HISTORY,
+  PROP_SMOOTHING_QUALITY,
   PROP_SMOOTHING_FACTOR
 };
 
@@ -298,20 +299,21 @@ gimp_paint_options_class_init (GimpPaintOptionsClass *klass)
                                 GIMP_VIEW_SIZE_LARGE,
                                 GIMP_PARAM_STATIC_STRINGS);
 
-  GIMP_CONFIG_INSTALL_PROP_INT (object_class, PROP_SMOOTHING_HISTORY,
-                                "smoothing-history", NULL,
-                                1,
-                                100,
-                                DEFAULT_SMOOTHING_HISTORY,
-                                GIMP_PARAM_STATIC_STRINGS);
-
   GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_USE_SMOOTHING,
                                     "use-smoothing", NULL,
                                     FALSE,
                                     GIMP_PARAM_STATIC_STRINGS);
+  GIMP_CONFIG_INSTALL_PROP_INT (object_class, PROP_SMOOTHING_QUALITY,
+                                "smoothing-quality", NULL,
+                                1, 100, DEFAULT_SMOOTHING_QUALITY,
+                                GIMP_PARAM_STATIC_STRINGS);
   GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, PROP_SMOOTHING_FACTOR,
                                    "smoothing-factor", NULL,
-                                   0.0, 1000.0, DEFAULT_SMOOTHING_FACTOR,
+                                   3.0, 1000.0, DEFAULT_SMOOTHING_FACTOR,
+                                   /* Max velocity is set at 3.
+                                    * Allowing for smoothing factor to be
+                                    * less than velcoty results in numeric
+                                    * instablility */
                                    GIMP_PARAM_STATIC_STRINGS);
 }
 
@@ -345,9 +347,9 @@ gimp_paint_options_finalize (GObject *object)
 {
   GimpPaintOptions *options = GIMP_PAINT_OPTIONS (object);
 
-  g_slice_free (GimpJitterOptions,   options->jitter_options);
-  g_slice_free (GimpFadeOptions,     options->fade_options);
-  g_slice_free (GimpGradientOptions, options->gradient_options);
+  g_slice_free (GimpJitterOptions,    options->jitter_options);
+  g_slice_free (GimpFadeOptions,      options->fade_options);
+  g_slice_free (GimpGradientOptions,  options->gradient_options);
   g_slice_free (GimpSmoothingOptions, options->smoothing_options);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
@@ -359,11 +361,11 @@ gimp_paint_options_set_property (GObject      *object,
                                  const GValue *value,
                                  GParamSpec   *pspec)
 {
-  GimpPaintOptions    *options           = GIMP_PAINT_OPTIONS (object);
-  GimpFadeOptions     *fade_options      = options->fade_options;
-  GimpJitterOptions   *jitter_options    = options->jitter_options;
-  GimpGradientOptions *gradient_options  = options->gradient_options;
-  GimpSmoothingOptions *smoothing_options= options->smoothing_options;
+  GimpPaintOptions    *options            = GIMP_PAINT_OPTIONS (object);
+  GimpFadeOptions     *fade_options       = options->fade_options;
+  GimpJitterOptions   *jitter_options     = options->jitter_options;
+  GimpGradientOptions *gradient_options   = options->gradient_options;
+  GimpSmoothingOptions *smoothing_options = options->smoothing_options;
 
   switch (property_id)
     {
@@ -459,8 +461,8 @@ gimp_paint_options_set_property (GObject      *object,
       smoothing_options->use_smoothing = g_value_get_boolean (value);
       break;
 
-    case PROP_SMOOTHING_HISTORY:
-      smoothing_options->smoothing_history = g_value_get_int (value);
+    case PROP_SMOOTHING_QUALITY:
+      smoothing_options->smoothing_quality = g_value_get_int (value);
       break;
 
     case PROP_SMOOTHING_FACTOR:
@@ -479,11 +481,11 @@ gimp_paint_options_get_property (GObject    *object,
                                  GValue     *value,
                                  GParamSpec *pspec)
 {
-  GimpPaintOptions    *options           = GIMP_PAINT_OPTIONS (object);
-  GimpFadeOptions     *fade_options      = options->fade_options;
-  GimpJitterOptions   *jitter_options    = options->jitter_options;
-  GimpGradientOptions *gradient_options  = options->gradient_options;
-  GimpSmoothingOptions *smoothing_options= options->smoothing_options;
+  GimpPaintOptions     *options           = GIMP_PAINT_OPTIONS (object);
+  GimpFadeOptions      *fade_options      = options->fade_options;
+  GimpJitterOptions    *jitter_options    = options->jitter_options;
+  GimpGradientOptions  *gradient_options  = options->gradient_options;
+  GimpSmoothingOptions *smoothing_options = options->smoothing_options;
 
   switch (property_id)
     {
@@ -576,11 +578,11 @@ gimp_paint_options_get_property (GObject    *object,
       break;
     
     case PROP_USE_SMOOTHING:
-      g_value_set_boolean(value, smoothing_options->use_smoothing);
+      g_value_set_boolean (value, smoothing_options->use_smoothing);
       break;
 
-    case PROP_SMOOTHING_HISTORY:
-      g_value_set_int (value, smoothing_options->smoothing_history);
+    case PROP_SMOOTHING_QUALITY:
+      g_value_set_int (value, smoothing_options->smoothing_quality);
       break;
 
     case PROP_SMOOTHING_FACTOR:
@@ -750,64 +752,3 @@ gimp_paint_options_get_brush_mode (GimpPaintOptions *paint_options)
   return GIMP_BRUSH_SOFT;
 }
 
-GimpCoords gimp_paint_options_get_smoothed_coords (GimpPaintOptions  *paint_options,
-                                                   const GimpCoords *original_coords,
-                                                   GimpCircularQueue *history)
-{
-  gdouble PI = 4 * atan(1);
-  GimpSmoothingOptions *smoothing_options = paint_options->smoothing_options;
-  if (smoothing_options->use_smoothing && smoothing_options->smoothing_history > 0) {
-    int i;
-    GimpCoords result = *original_coords;
-    guint length;
-    gdouble gaussian_weight = 0.0;
-    gdouble gaussian_weight2 = SQR (smoothing_options->smoothing_factor);
-    gdouble velocity_sum = 0.0;
-    gint min_index;
-    gdouble scale_sum = 0.0;
-    
-    result.x = result.y = 0.0;
-    gimp_circular_queue_enqueue(history, *original_coords);
-    length = gimp_circular_queue_length(history);
-    
-    min_index = length - MIN(length,  smoothing_options->smoothing_history);
-
-    if (gaussian_weight2 != 0.0)
-      gaussian_weight = 1 / (sqrt (2 * PI) * smoothing_options->smoothing_factor);
-      
-//    g_print("IN:%f-%f\n", original_coords->x, original_coords->y); 
-
-    for (i = (int)(length - 1); i >= min_index; i--) {
-        gdouble rate = 0;
-        GimpCoords* next_coords = &gimp_circular_queue_index(history, GimpCoords, i);
-//        g_print("%d: %f-%f\n", i,  next_coords->x, next_coords->y);
-  
-        if (gaussian_weight2 != 0) 
-          {
-            /* We use gaussian function with velocity as a window function */
-            velocity_sum += next_coords->velocity * 100;
-            rate = gaussian_weight * exp (-velocity_sum*velocity_sum / (2 * gaussian_weight2));
-            /* If i == 0 && rate == 0.0, resulting value becomes zero.
-             * To avoid this, we treat this as a special case.
-             */
-            if (i == 0 && rate == 0.0)
-              rate = 1.0;
-          }
-        else
-          {
-            rate = (i == 0) ? 1.0 : 0.0;
-          }
-        scale_sum += rate;
-        result.x += rate * next_coords->x;
-        result.y += rate * next_coords->y;    
-    }
-    if (scale_sum != 0.0)
-      {
-        result.x /= scale_sum;
-        result.y /= scale_sum;
-      }
-//      g_print("OUT:%f-%f\n", result.x, result.y); 
-    return result;
-  }
-  return *original_coords;  
-}

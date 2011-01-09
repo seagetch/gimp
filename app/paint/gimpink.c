@@ -152,7 +152,6 @@ gimp_ink_paint (GimpPaintCore    *paint_core,
 
     case GIMP_PAINT_STATE_INIT:
       gimp_paint_core_get_last_coords (paint_core, &last_coords);
-      ink->queue = gimp_circular_queue_new(sizeof(GimpCoords), paint_options->smoothing_options->smoothing_history);
 
       if (coords->x == last_coords.x &&
           coords->y == last_coords.y)
@@ -261,7 +260,8 @@ gimp_ink_motion (GimpPaintCore    *paint_core,
 
   image = gimp_item_get_image (GIMP_ITEM (drawable));
   
-  modified_coords = gimp_paint_options_get_smoothed_coords(paint_options, coords, ink->queue);
+  modified_coords = gimp_paint_core_get_smoothed_coords (paint_core,
+                                                         paint_options, coords);
 
   if (! ink->last_blob)
     {
