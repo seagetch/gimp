@@ -899,7 +899,7 @@ gimp_dock_titlebar_button_clicked (GtkWidget   *source,
                                    paned_child, "resize", &resize, NULL);
           gtk_container_child_set (GTK_CONTAINER (parent_paned),
                                    paned_child,
-                                   "resize", TRUE, NULL);
+                                   "resize", FALSE, NULL);
         }
       gtk_widget_show (dock->p->paned_vbox);
       gtk_widget_hide (dock->p->shaded_titlebar.box);
