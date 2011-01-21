@@ -150,7 +150,9 @@ enum
 
   PROP_USE_SMOOTHING,
   PROP_SMOOTHING_QUALITY,
-  PROP_SMOOTHING_FACTOR
+  PROP_SMOOTHING_FACTOR,
+  
+  PROP_USE_TEXTURE
 };
 
 
@@ -315,6 +317,10 @@ gimp_paint_options_class_init (GimpPaintOptionsClass *klass)
                                     * less than velcoty results in numeric
                                     * instablility */
                                    GIMP_PARAM_STATIC_STRINGS);
+  GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_USE_TEXTURE,
+                                    "use-texture", NULL,
+                                    FALSE,
+                                    GIMP_PARAM_STATIC_STRINGS);
 }
 
 static void
@@ -326,6 +332,7 @@ gimp_paint_options_init (GimpPaintOptions *options)
   options->fade_options      = g_slice_new0 (GimpFadeOptions);
   options->gradient_options  = g_slice_new0 (GimpGradientOptions);
   options->smoothing_options = g_slice_new0 (GimpSmoothingOptions);
+  options->texture_options   = g_slice_new0 (GimpTextureOptions);
 }
 
 static void
@@ -366,6 +373,7 @@ gimp_paint_options_set_property (GObject      *object,
   GimpJitterOptions   *jitter_options     = options->jitter_options;
   GimpGradientOptions *gradient_options   = options->gradient_options;
   GimpSmoothingOptions *smoothing_options = options->smoothing_options;
+  GimpTextureOptions   *texture_options   = options->texture_options;
 
   switch (property_id)
     {
@@ -469,6 +477,10 @@ gimp_paint_options_set_property (GObject      *object,
       smoothing_options->smoothing_factor = g_value_get_double (value);
       break;
 
+    case PROP_USE_TEXTURE:
+      texture_options->use_texture = g_value_get_boolean (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -486,6 +498,7 @@ gimp_paint_options_get_property (GObject    *object,
   GimpJitterOptions    *jitter_options    = options->jitter_options;
   GimpGradientOptions  *gradient_options  = options->gradient_options;
   GimpSmoothingOptions *smoothing_options = options->smoothing_options;
+  GimpTextureOptions   *texture_options   = options->texture_options;
 
   switch (property_id)
     {
@@ -587,6 +600,10 @@ gimp_paint_options_get_property (GObject    *object,
 
     case PROP_SMOOTHING_FACTOR:
       g_value_set_double (value, smoothing_options->smoothing_factor);
+      break;
+
+    case PROP_USE_TEXTURE:
+      g_value_set_boolean (value, texture_options->use_texture);
       break;
 
     default:

@@ -43,6 +43,7 @@ struct _GimpBrushCore
 
   GimpBrush     *main_brush;
   GimpBrush     *brush;
+  GimpPattern   *texture;
   GimpDynamics  *dynamics;
   gdouble        spacing;
   gdouble        scale;
@@ -80,6 +81,8 @@ struct _GimpBrushCore
   gdouble        jitter;
   gdouble        jitter_lut_x[BRUSH_CORE_JITTER_LUTSIZE];
   gdouble        jitter_lut_y[BRUSH_CORE_JITTER_LUTSIZE];
+  
+  TempBuf       *texturized_brush;
 
   GRand         *rand;
   
@@ -111,6 +114,8 @@ struct _GimpBrushCoreClass
                          GimpBrush     *brush);
   void (* set_dynamics) (GimpBrushCore *core,
                          GimpDynamics  *brush);
+  void (* set_texture)  (GimpBrushCore *core,
+                         GimpPattern  *texture);
 };
 
 
@@ -121,6 +126,9 @@ void    gimp_brush_core_set_brush      (GimpBrushCore            *core,
 
 void    gimp_brush_core_set_dynamics   (GimpBrushCore            *core,
                                         GimpDynamics             *dynamics);
+
+void    gimp_brush_core_set_texture    (GimpBrushCore            *core,
+                                        GimpPattern               *texture);
 
 void    gimp_brush_core_create_boundary(GimpBrushCore            *core,
                                         GimpPaintOptions         *options);

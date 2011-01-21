@@ -53,6 +53,7 @@ typedef struct _GimpJitterOptions   GimpJitterOptions;
 typedef struct _GimpFadeOptions     GimpFadeOptions;
 typedef struct _GimpGradientOptions GimpGradientOptions;
 typedef struct _GimpSmoothingOptions GimpSmoothingOptions;
+typedef struct _GimpTextureOptions  GimpTextureOptions;
 
 struct _GimpJitterOptions
 {
@@ -81,6 +82,10 @@ struct _GimpSmoothingOptions
   gdouble  smoothing_factor;
 };
 
+struct _GimpTextureOptions
+{
+  gboolean use_texture;
+};
 
 #define GIMP_TYPE_PAINT_OPTIONS            (gimp_paint_options_get_type ())
 #define GIMP_PAINT_OPTIONS(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), GIMP_TYPE_PAINT_OPTIONS, GimpPaintOptions))
@@ -113,6 +118,7 @@ struct _GimpPaintOptions
   GimpFadeOptions          *fade_options;
   GimpGradientOptions      *gradient_options;
   GimpSmoothingOptions     *smoothing_options;
+  GimpTextureOptions       *texture_options;
 
   GimpViewType              brush_view_type;
   GimpViewSize              brush_view_size;

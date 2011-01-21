@@ -40,6 +40,7 @@
 #include "core/gimpimage.h"
 #include "core/gimpmarshal.h"
 #include "core/gimpbrush-transform.h"
+#include "core/gimppattern.h"
 
 #include "gimpbrushcore.h"
 #include "gimpbrushcore-kernels.h"
@@ -57,6 +58,7 @@ enum
 {
   SET_BRUSH,
   SET_DYNAMICS,
+  SET_TEXTURE,
   LAST_SIGNAL
 };
 
@@ -94,6 +96,8 @@ static void     gimp_brush_core_real_set_brush     (GimpBrushCore    *core,
                                                     GimpBrush        *brush);
 static void     gimp_brush_core_real_set_dynamics  (GimpBrushCore    *core,
                                                     GimpDynamics     *dynamics);
+static void     gimp_brush_core_real_set_texture   (GimpBrushCore    *core,
+                                                    GimpPattern       *texture);
 
 static inline void rotate_pointers                 (gulong          **p,
                                                     guint32           n);
@@ -119,7 +123,6 @@ static TempBuf * gimp_brush_core_transform_pixmap  (GimpBrushCore    *core,
 
 static void      gimp_brush_core_invalidate_cache  (GimpBrush        *brush,
                                                     GimpBrushCore    *core);
-
 
 /*  brush pipe utility functions  */
 static void      paint_line_pixmap_mask            (GimpImage        *dest,
@@ -167,6 +170,16 @@ gimp_brush_core_class_init (GimpBrushCoreClass *klass)
                   G_TYPE_NONE, 1,
                   GIMP_TYPE_DYNAMICS);
 
+  core_signals[SET_TEXTURE] =
+    g_signal_new ("set-texture",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_LAST,
+                  G_STRUCT_OFFSET (GimpBrushCoreClass, set_texture),
+                  NULL, NULL,
+                  gimp_marshal_VOID__OBJECT,
+                  G_TYPE_NONE, 1,
+                  GIMP_TYPE_PATTERN);
+
   object_class->finalize                    = gimp_brush_core_finalize;
 
   paint_core_class->start                   = gimp_brush_core_start;
@@ -181,6 +194,7 @@ gimp_brush_core_class_init (GimpBrushCoreClass *klass)
 
   klass->set_brush                          = gimp_brush_core_real_set_brush;
   klass->set_dynamics                       = gimp_brush_core_real_set_dynamics;
+  klass->set_texture                        = gimp_brush_core_real_set_texture;
 }
 
 static void
@@ -191,6 +205,7 @@ gimp_brush_core_init (GimpBrushCore *core)
   core->main_brush                   = NULL;
   core->brush                        = NULL;
   core->dynamics                     = NULL;
+  core->texture                      = NULL;
   core->spacing                      = 1.0;
   core->scale                        = 1.0;
   core->angle                        = 1.0;
@@ -215,6 +230,8 @@ gimp_brush_core_init (GimpBrushCore *core)
 
   core->last_brush_mask              = NULL;
   core->cache_invalid                = FALSE;
+  
+  core->texturized_brush             = NULL;
 
   core->rand                         = g_rand_new ();
   
@@ -284,6 +301,12 @@ gimp_brush_core_finalize (GObject *object)
       temp_buf_free (core->transform_pixmap);
       core->transform_pixmap = NULL;
     }
+    
+  if (core->texturized_brush)
+    {
+      temp_buf_free (core->texturized_brush);
+      core->texturized_brush = NULL;
+    }
 
   if (core->rand)
     {
@@ -312,6 +335,12 @@ gimp_brush_core_finalize (GObject *object)
     {
       g_object_unref (core->dynamics);
       core->dynamics = NULL;
+    }
+    
+  if (core->texture)
+    {
+      g_object_unref (core->texture);
+      core->texture = NULL;
     }
 
   if (core->brush_bound_segs)
@@ -417,6 +446,7 @@ gimp_brush_core_start (GimpPaintCore     *paint_core,
   GimpBrushCore *core = GIMP_BRUSH_CORE (paint_core);
   GimpBrush     *brush;
   GimpDynamics  *dynamics;
+  GimpPattern   *texture;
 
   brush = gimp_context_get_brush (GIMP_CONTEXT (paint_options));
 
@@ -427,6 +457,17 @@ gimp_brush_core_start (GimpPaintCore     *paint_core,
 
   if (core->dynamics != dynamics)
     gimp_brush_core_set_dynamics (core, dynamics);
+
+
+  if (paint_options->texture_options->use_texture)
+    {
+      texture = gimp_context_get_pattern (GIMP_CONTEXT (paint_options));
+
+      if (core->texture != texture)
+        gimp_brush_core_set_texture (core, texture);
+    }
+  else
+        gimp_brush_core_set_texture (core, NULL);
 
   if (! core->main_brush)
     {
@@ -928,6 +969,19 @@ gimp_brush_core_real_set_dynamics (GimpBrushCore *core,
     g_object_ref (core->dynamics);
 }
 
+static void
+gimp_brush_core_real_set_texture (GimpBrushCore *core,
+                                  GimpPattern   *texture)
+{
+  if (core->texture)
+    g_object_unref (core->texture);
+
+  core->texture = texture;
+
+  if (core->texture)
+    g_object_ref (core->texture);
+}
+
 void
 gimp_brush_core_set_brush (GimpBrushCore *core,
                            GimpBrush     *brush)
@@ -946,6 +1000,16 @@ gimp_brush_core_set_dynamics (GimpBrushCore *core,
   g_return_if_fail (dynamics == NULL || GIMP_IS_DYNAMICS (dynamics));
 
   g_signal_emit (core, core_signals[SET_DYNAMICS], 0, dynamics);
+}
+
+void
+gimp_brush_core_set_texture (GimpBrushCore *core,
+                             GimpPattern   *texture)
+{
+  g_return_if_fail (GIMP_IS_BRUSH_CORE (core));
+  g_return_if_fail (texture == NULL || GIMP_IS_PATTERN (texture));
+
+  g_signal_emit (core, core_signals[SET_TEXTURE], 0, texture);
 }
 
 void
@@ -1661,6 +1725,60 @@ gimp_brush_core_transform_pixmap (GimpBrushCore *core,
   return core->transform_pixmap;
 }
 
+static TempBuf *
+gimp_brush_core_texturize_mask (GimpBrushCore *core,
+                               TempBuf       *brush_mask,
+                               gdouble        x,
+                               gdouble        y)
+{
+  TempBuf *texturized_mask;
+  TempBuf *pattern;
+  gint offset_x, offset_y;
+  PixelRegion srcPR;
+  PixelRegion maskPR;
+    
+  g_return_val_if_fail (brush_mask != NULL, NULL);
+  
+  if (!core->texture)
+    return brush_mask;
+
+  if (core->texturized_brush)
+    temp_buf_free (core->texturized_brush);
+  
+  texturized_mask = temp_buf_new (brush_mask->width, brush_mask->height,
+                                  brush_mask->bytes, brush_mask->x, brush_mask->y, NULL);
+
+  core->texturized_brush = texturized_mask;
+  pattern = gimp_pattern_get_mask (core->texture);
+
+  x = (gint) floor (x) - (brush_mask->width  >> 1);
+  y = (gint) floor (y) - (brush_mask->height >> 1);
+
+  offset_x = (gint)(x - brush_mask->x) % pattern->width;
+  offset_y = (gint)(y - brush_mask->y) % pattern->height;
+
+  /* fill texture pattern */
+  pixel_region_init_temp_buf (&srcPR, core->texturized_brush,
+                              core->texturized_brush->x,
+                              core->texturized_brush->y,
+                              core->texturized_brush->width, core->texturized_brush->height);
+  pattern_region (&srcPR, NULL, pattern, offset_x, offset_y);
+
+  /* re-initialize pixel regions */
+  pixel_region_init_temp_buf (&srcPR, core->texturized_brush,
+                              core->texturized_brush->x,
+                              core->texturized_brush->y,
+                              core->texturized_brush->width, core->texturized_brush->height);
+  pixel_region_init_temp_buf (&maskPR, brush_mask,
+                              brush_mask->x,
+                              brush_mask->y,
+                              brush_mask->width, brush_mask->height);
+  /* apply mask to texture */
+  apply_mask_to_region (&srcPR, &maskPR, 255);
+
+  return texturized_mask; 
+}
+
 TempBuf *
 gimp_brush_core_get_brush_mask (GimpBrushCore            *core,
                                 const GimpCoords         *coords,
@@ -1698,6 +1816,8 @@ gimp_brush_core_get_brush_mask (GimpBrushCore            *core,
     default:
       break;
     }
+
+  mask = gimp_brush_core_texturize_mask (core, mask, coords->x, coords->y);
 
   return mask;
 }
