@@ -260,14 +260,14 @@ create_dynamics_popup_dialog (GtkWidget  *button,
   *result    = gtk_hbox_new (FALSE, 1);
   gtk_widget_show (*result);
   
-  editor = GIMP_CONTAINER_EDITOR (g_object_new (GIMP_TYPE_CONTAINER_EDITOR, NULL));
-  gimp_container_editor_construct (editor,
-                                   view_type,
-                                   container,
-                                   context,
-                                   view_size,
-                                   view_border_width,
-                                   NULL, NULL, NULL);
+  editor = GIMP_CONTAINER_EDITOR (
+    g_object_new (GIMP_TYPE_CONTAINER_EDITOR, 
+      "view-type", view_type,
+      "container", container,
+      "context",   context,
+      "view-size", view_size,
+      "view-border-width", view_border_width,
+      NULL));
 
   gimp_container_view_set_reorderable (GIMP_CONTAINER_VIEW (editor->view),
                                        FALSE);

@@ -356,7 +356,7 @@ gimp_dynamics_set_property (GObject      *object,
 
     case PROP_BLENDING_OUTPUT:
       src_output  = g_value_get_object (value);
-      dest_output = dynamics->blending_output;
+      dest_output = private->blending_output;
       break;
 
     default:
@@ -431,7 +431,7 @@ gimp_dynamics_get_property (GObject    *object,
       break;
 
     case PROP_BLENDING_OUTPUT:
-      g_value_set_object (value, dynamics->blending_output);
+      g_value_set_object (value, private->blending_output);
       break;
 
     default:
@@ -568,7 +568,7 @@ gimp_dynamics_get_output (GimpDynamics           *dynamics,
       break;
 
     case GIMP_DYNAMICS_OUTPUT_BLENDING:
-      return dynamics->blending_output;
+      return private->blending_output;
       break;
 
     default:

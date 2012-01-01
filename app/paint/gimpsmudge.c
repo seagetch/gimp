@@ -179,8 +179,6 @@ gimp_smudge_start (GimpPaintCore    *paint_core,
 {
 #if 0
   GimpSmudge        *smudge     = GIMP_SMUDGE (paint_core);
-  GimpBrushCore     *brush_core = GIMP_BRUSH_CORE (paint_core);
-  GimpSmudgeOptions *options    = GIMP_SMUDGE_OPTIONS (paint_options);
   GimpImage         *image;
   TempBuf           *area;
   PixelRegion        srcPR;
@@ -192,6 +190,8 @@ gimp_smudge_start (GimpPaintCore    *paint_core,
   PixelRegion  srcPR;
   gint         bytes;
   gint         x, y, w, h;
+  GimpBrushCore *brush_core  = GIMP_BRUSH_CORE (paint_core);        /* gimp-painter-2.7 */
+  GimpSmudgeOptions *options = GIMP_SMUDGE_OPTIONS (paint_options); /* gimp-painter-2.7 */
 
   if (gimp_drawable_is_indexed (drawable))
     return FALSE;
@@ -269,9 +269,6 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
                     GimpPaintOptions *paint_options,
                     const GimpCoords *coords)
 {
-#if 0
-  GimpBrushCore     *brush_core = GIMP_BRUSH_CORE (paint_core);
-#endif
   GimpSmudge         *smudge   = GIMP_SMUDGE (paint_core);
   GimpSmudgeOptions  *options  = GIMP_SMUDGE_OPTIONS (paint_options);
   GimpContext        *context  = GIMP_CONTEXT (paint_options);
@@ -279,6 +276,7 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
   GimpDynamicsOutput *opacity_output;
   GimpDynamicsOutput *rate_output;
   GimpDynamicsOutput *hardness_output;
+  GimpDynamicsOutput *blending_output;
   GimpImage          *image;
   TempBuf            *area;
   PixelRegion         srcPR, destPR, tempPR;
@@ -288,7 +286,8 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
   gdouble             dynamic_rate;
   gint                x, y, w, h;
   gdouble             hardness;
-  TempBuf           *old_canvas_buf = NULL; /* gimp-painter-2.7 */
+  TempBuf            *old_canvas_buf = NULL; /* gimp-painter-2.7 */
+  GimpBrushCore      *brush_core = GIMP_BRUSH_CORE (paint_core); /* gimp-painter-2.7 */
 
   if (gimp_drawable_is_indexed (drawable))
     return;
@@ -380,7 +379,10 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
                               area->width,
                               area->height);
 
-      blending_rate *= gimp_dynamics_output_get_linear_value (dynamics->blending_output,
+      blending_output = gimp_dynamics_get_output (dynamics,
+                                                  GIMP_DYNAMICS_OUTPUT_BLENDING);
+
+      blending_rate *= gimp_dynamics_output_get_linear_value (blending_output,
                                                               coords,
                                                               paint_options,
                                                               fade_point);

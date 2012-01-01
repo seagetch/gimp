@@ -121,12 +121,14 @@ void   gimp_brush_core_set_dynamics   (GimpBrushCore            *core,
 void    gimp_brush_core_set_texture    (GimpBrushCore            *core,
                                         GimpPattern               *texture);
 
+#if 0
 /* for gimp-painter-2.7 */
 void    gimp_brush_core_create_boundary(GimpBrushCore            *core,
                                         GimpPaintOptions         *options);
 /* for gimp-painter-2.7 */
 gboolean gimp_brush_core_get_transform (GimpBrushCore            *core,
                                         GimpMatrix3              *matrix);
+#endif
 
 void   gimp_brush_core_paste_canvas   (GimpBrushCore            *core,
                                        GimpDrawable             *drawable,

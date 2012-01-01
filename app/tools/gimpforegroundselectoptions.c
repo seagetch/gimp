@@ -275,9 +275,6 @@ gimp_foreground_select_options_gui_full (GimpToolOptions *tool_options,
   GtkWidget       *table;
   gchar           *title;
   gint             row = 0;
-  GdkModifierType  toggle_mask;
-
-  toggle_mask = gimp_get_toggle_behavior_mask ();
 
   gtk_widget_set_sensitive (GIMP_SELECTION_OPTIONS (tool_options)->antialias_toggle,
                             FALSE);
@@ -312,6 +309,9 @@ gimp_foreground_selection_options_create_view (GtkWidget *source, GtkWidget **re
   GtkObject *adj;
   gchar     *title;
   gint       row = 0;
+  GdkModifierType  toggle_mask;
+
+  toggle_mask = gimp_get_toggle_behavior_mask ();
 
   /*  foreground / background  */
   title = g_strdup_printf (_("Interactive refinement  (%s)"),

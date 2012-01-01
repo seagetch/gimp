@@ -338,6 +338,7 @@ gimp_transform_options_create_view (GtkWidget *source, GtkWidget **result, GObje
   GtkWidget            *scale;
   GtkWidget            *preview_box;
   GtkWidget            *label;
+  GtkWidget            *grid_box;
   const gchar          *constrain = NULL;
   
 
@@ -392,12 +393,11 @@ gimp_transform_options_create_view (GtkWidget *source, GtkWidget **result, GObje
                                             _("Opacity"));
   gtk_box_pack_start (GTK_BOX (preview_box), scale, FALSE, FALSE, 0);
   gtk_widget_show (scale);
-#if 0
+
   /*  the guides frame  */
   frame = gimp_frame_new (_("Guides"));
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
-#endif
 
   grid_box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
   gtk_container_add (GTK_CONTAINER (frame), grid_box);

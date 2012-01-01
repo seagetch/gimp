@@ -109,7 +109,9 @@ static gboolean   gimp_dock_dropped_cb             (GtkWidget    *source,
 static void              gimp_dock_titlebar_init          (GimpDockTitlebar *titlebar, 
                                                             gboolean           shaded, 
                                                             GObject           *dock);
+#if 0
 static GimpDockColumns * gimp_dock_get_dock_columns       (GimpDock     *dock);
+#endif
 static void              gimp_dock_titlebar_button_clicked (GtkWidget   *source, GimpDock *data);
 static void              gimp_dock_titlebar_update_description (GimpDockTitlebar* titlebar, GimpDock *dock);
 

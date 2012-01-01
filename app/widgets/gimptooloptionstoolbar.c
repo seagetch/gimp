@@ -31,7 +31,7 @@
 #include "core/gimplist.h"
 #include "core/gimptoolinfo.h"
 #include "core/gimptooloptions.h"
-#include "core/gimptoolpresets.h"
+#include "core/gimptoolpreset.h"
 
 #include "gimpdnd.h"
 #include "gimpdocked.h"

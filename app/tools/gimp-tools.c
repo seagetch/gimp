@@ -82,6 +82,7 @@
 #include "gimpsmudgetool.h"
 #include "gimptexttool.h"
 #include "gimpvectortool.h"
+#include "core/gimptoolpreset-load.h" /* gimp-painter-2.7 */
 
 #include "gimp-intl.h"
 
@@ -397,8 +398,8 @@ gimp_tools_restore (Gimp *gimp)
                               g_object_ref_sink (toolbar_gui),
                               (GDestroyNotify) g_object_unref);
 
-      if (tool_info->presets)
-        gimp_tool_presets_load (tool_info->presets, NULL);
+//      if (tool_info->presets)
+//        gimp_tool_preset_load (tool_info->presets, NULL);
     }
 }
 

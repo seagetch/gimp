@@ -20,7 +20,8 @@
 
 #ifndef __GIMP_POPUP_BUTTON_H__
 #define __GIMP_POPUP_BUTTON_H__
-
+#define __GIMP_WIDGETS_H_INSIDE__
+#define GIMP_WIDGETS_COMPILATION
 #include "libgimpwidgets/gimpbutton.h"
 
 
@@ -131,5 +132,8 @@ void         gimp_popup_button_set_view_size (GimpPopupButton *button,
 GtkWidget* gimp_popup_button_create_view (GimpPopupButton *button);
 
 G_END_DECLS
+
+#undef __GIMP_WIDGETS_H_INSIDE__
+#undef GIMP_WIDGETS_COMPILATION
 
 #endif  /*  __GIMP_POPUP_BUTTON_H__  */

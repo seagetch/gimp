@@ -109,7 +109,7 @@ static const TempBuf * gimp_brush_core_pressurize_mask  (GimpBrushCore    *core,
                                                          gdouble           y,
                                                          gdouble           pressure);
 /* gimp-painter-2.7 */
-static TempBuf *       gimp_brush_core_texturize_mask   (GimpBrushCore *core,
+const static TempBuf * gimp_brush_core_texturize_mask   (GimpBrushCore *core,
                                                          const TempBuf       *brush_mask,
                                                          gdouble        x,
                                                          gdouble        y);
@@ -1011,7 +1011,7 @@ gimp_brush_core_set_texture (GimpBrushCore *core,
   g_signal_emit (core, core_signals[SET_TEXTURE], 0, texture);
 }
 
-#if 1
+#if 0
 void
 gimp_brush_core_create_boundary (GimpBrushCore    *core,
                                  GimpPaintOptions *paint_options)
@@ -1657,7 +1657,7 @@ gimp_brush_core_transform_pixmap (GimpBrushCore *core,
 }
 
 /* gimp-painter-2.7 */
-static TempBuf *
+const static TempBuf *
 gimp_brush_core_texturize_mask (GimpBrushCore *core,
                                const TempBuf       *brush_mask,
                                gdouble        x,
