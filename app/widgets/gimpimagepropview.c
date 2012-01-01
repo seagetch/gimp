@@ -63,9 +63,7 @@ enum
 };
 
 
-static GObject   * gimp_image_prop_view_constructor  (GType              type,
-                                                      guint              n_params,
-                                                      GObjectConstructParam *params);
+static void        gimp_image_prop_view_constructed  (GObject           *object);
 static void        gimp_image_prop_view_set_property (GObject           *object,
                                                       guint              property_id,
                                                       const GValue      *value,
@@ -96,7 +94,7 @@ gimp_image_prop_view_class_init (GimpImagePropViewClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
-  object_class->constructor  = gimp_image_prop_view_constructor;
+  object_class->constructed  = gimp_image_prop_view_constructed;
   object_class->set_property = gimp_image_prop_view_set_property;
   object_class->get_property = gimp_image_prop_view_get_property;
 
@@ -172,6 +170,46 @@ gimp_image_prop_view_init (GimpImagePropView *view)
 }
 
 static void
+gimp_image_prop_view_constructed (GObject *object)
+{
+  GimpImagePropView *view = GIMP_IMAGE_PROP_VIEW (object);
+
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
+
+  g_assert (view->image != NULL);
+
+  g_signal_connect_object (view->image, "name-changed",
+                           G_CALLBACK (gimp_image_prop_view_file_update),
+                           G_OBJECT (view),
+                           G_CONNECT_SWAPPED);
+
+  g_signal_connect_object (view->image, "size-changed",
+                           G_CALLBACK (gimp_image_prop_view_update),
+                           G_OBJECT (view),
+                           G_CONNECT_SWAPPED);
+  g_signal_connect_object (view->image, "resolution-changed",
+                           G_CALLBACK (gimp_image_prop_view_update),
+                           G_OBJECT (view),
+                           G_CONNECT_SWAPPED);
+  g_signal_connect_object (view->image, "unit-changed",
+                           G_CALLBACK (gimp_image_prop_view_update),
+                           G_OBJECT (view),
+                           G_CONNECT_SWAPPED);
+  g_signal_connect_object (view->image, "mode-changed",
+                           G_CALLBACK (gimp_image_prop_view_update),
+                           G_OBJECT (view),
+                           G_CONNECT_SWAPPED);
+  g_signal_connect_object (view->image, "undo-event",
+                           G_CALLBACK (gimp_image_prop_view_undo_event),
+                           G_OBJECT (view),
+                           0);
+
+  gimp_image_prop_view_update (view);
+  gimp_image_prop_view_file_update (view);
+}
+
+static void
 gimp_image_prop_view_set_property (GObject      *object,
                                    guint         property_id,
                                    const GValue *value,
@@ -207,52 +245,6 @@ gimp_image_prop_view_get_property (GObject    *object,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
     }
-}
-
-static GObject *
-gimp_image_prop_view_constructor (GType                  type,
-                                  guint                  n_params,
-                                  GObjectConstructParam *params)
-{
-  GimpImagePropView *view;
-  GObject           *object;
-
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
-
-  view = GIMP_IMAGE_PROP_VIEW (object);
-
-  g_assert (view->image != NULL);
-
-  g_signal_connect_object (view->image, "name-changed",
-                           G_CALLBACK (gimp_image_prop_view_file_update),
-                           G_OBJECT (view),
-                           G_CONNECT_SWAPPED);
-
-  g_signal_connect_object (view->image, "size-changed",
-                           G_CALLBACK (gimp_image_prop_view_update),
-                           G_OBJECT (view),
-                           G_CONNECT_SWAPPED);
-  g_signal_connect_object (view->image, "resolution-changed",
-                           G_CALLBACK (gimp_image_prop_view_update),
-                           G_OBJECT (view),
-                           G_CONNECT_SWAPPED);
-  g_signal_connect_object (view->image, "unit-changed",
-                           G_CALLBACK (gimp_image_prop_view_update),
-                           G_OBJECT (view),
-                           G_CONNECT_SWAPPED);
-  g_signal_connect_object (view->image, "mode-changed",
-                           G_CALLBACK (gimp_image_prop_view_update),
-                           G_OBJECT (view),
-                           G_CONNECT_SWAPPED);
-  g_signal_connect_object (view->image, "undo-event",
-                           G_CALLBACK (gimp_image_prop_view_undo_event),
-                           G_OBJECT (view),
-                           0);
-
-  gimp_image_prop_view_update (view);
-  gimp_image_prop_view_file_update (view);
-
-  return object;
 }
 
 
@@ -309,8 +301,7 @@ static void
 gimp_image_prop_view_label_set_memsize (GtkWidget  *label,
                                         GimpObject *object)
 {
-  gchar *str = g_format_size_for_display (gimp_object_get_memsize (object,
-                                                                   NULL));
+  gchar *str = g_format_size (gimp_object_get_memsize (object, NULL));
   gtk_label_set_text (GTK_LABEL (label), str);
   g_free (str);
 }
@@ -319,7 +310,7 @@ static void
 gimp_image_prop_view_label_set_filename (GtkWidget *label,
                                          GimpImage *image)
 {
-  const gchar *uri = gimp_object_get_name (image);
+  const gchar *uri = gimp_image_get_uri (image);
 
   if (uri)
     {
@@ -347,7 +338,7 @@ gimp_image_prop_view_label_set_filesize (GtkWidget *label,
 
       if (g_stat (filename, &buf) == 0)
         {
-          gchar *str = g_format_size_for_display (buf.st_size);
+          gchar *str = g_format_size (buf.st_size);
 
           gtk_label_set_text (GTK_LABEL (label), str);
           g_free (str);
@@ -404,7 +395,7 @@ gimp_image_prop_view_label_set_undo (GtkWidget     *label,
       gchar      *str;
       gchar       buf[256];
 
-      str = g_format_size_for_display (gimp_object_get_memsize (object, NULL));
+      str = g_format_size (gimp_object_get_memsize (object, NULL));
       g_snprintf (buf, sizeof (buf), "%d (%s)", steps, str);
       g_free (str);
 

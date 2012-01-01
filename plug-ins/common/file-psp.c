@@ -28,6 +28,7 @@
 #define LOAD_PROC      "file-psp-load"
 #define SAVE_PROC      "file-psp-save"
 #define PLUG_IN_BINARY "file-psp"
+#define PLUG_IN_ROLE   "gimp-file-psp"
 
 /* set to the level of debugging output you want, 0 for none */
 #define PSP_DEBUG 0
@@ -643,9 +644,9 @@ save_dialog (void)
                                     G_CALLBACK (gimp_radio_button_update),
                                     &psvals.compression, psvals.compression,
 
-                                    _("None"), PSP_COMP_NONE, NULL,
-                                    _("RLE"),  PSP_COMP_RLE,  NULL,
-                                    _("LZ77"), PSP_COMP_LZ77, NULL,
+                                    C_("compression", "None"), PSP_COMP_NONE, NULL,
+                                    _("RLE"),                  PSP_COMP_RLE,  NULL,
+                                    _("LZ77"),                 PSP_COMP_LZ77, NULL,
 
                                     NULL);
 
@@ -964,7 +965,7 @@ read_creator_block (FILE     *f,
                                             GIMP_PARASITE_PERSISTENT,
                                             strlen (comment->str) + 1,
                                             comment->str);
-      gimp_image_parasite_attach(image_ID, comment_parasite);
+      gimp_image_attach_parasite (image_ID, comment_parasite);
       gimp_parasite_free (comment_parasite);
     }
 
@@ -1140,7 +1141,7 @@ read_channel_data (FILE       *f,
 {
   gint i, y, width = drawable->width, height = drawable->height;
   gint npixels = width * height;
-  guchar *buf, *p, *q, *endq;
+  guchar *buf;
   guchar *buf2 = NULL;  /* please the compiler */
   guchar runcount, byte;
   z_stream zstream;
@@ -1166,6 +1167,8 @@ read_channel_data (FILE       *f,
           buf = g_malloc (width);
           for (y = 0; y < height; y++)
             {
+              guchar *p, *q;
+
               fread (buf, width, 1, f);
               if (width % 4)
                 fseek (f, 4 - (width % 4), SEEK_CUR);
@@ -1182,37 +1185,45 @@ read_channel_data (FILE       *f,
       break;
 
     case PSP_COMP_RLE:
-      q = pixels[0] + offset;
-      endq = q + npixels * bytespp;
-      buf = g_malloc (127);
-      while (q < endq)
-        {
-          p = buf;
-          fread (&runcount, 1, 1, f);
-          if (runcount > 128)
-            {
-              runcount -= 128;
-              fread (&byte, 1, 1, f);
-              memset (buf, byte, runcount);
-            }
-          else
-            fread (buf, runcount, 1, f);
-          if (bytespp == 1)
-            {
-              memmove (q, buf, runcount);
-              q += runcount;
-            }
-          else
-            {
-              p = buf;
-              for (i = 0; i < runcount; i++)
-                {
-                  *q = *p++;
-                  q += bytespp;
-                }
-            }
-        }
-      g_free (buf);
+      {
+        guchar *q, *endq;
+
+        q = pixels[0] + offset;
+        endq = q + npixels * bytespp;
+        buf = g_malloc (127);
+        while (q < endq)
+          {
+            fread (&runcount, 1, 1, f);
+            if (runcount > 128)
+              {
+                runcount -= 128;
+                fread (&byte, 1, 1, f);
+                memset (buf, byte, runcount);
+              }
+            else
+              fread (buf, runcount, 1, f);
+
+            /* prevent buffer overflow for bogus data */
+            runcount = MIN (runcount, (endq - q) / bytespp);
+
+            if (bytespp == 1)
+              {
+                memmove (q, buf, runcount);
+                q += runcount;
+              }
+            else
+              {
+                guchar *p = buf;
+
+                for (i = 0; i < runcount; i++)
+                  {
+                    *q = *p++;
+                    q += bytespp;
+                  }
+              }
+          }
+        g_free (buf);
+      }
       break;
 
     case PSP_COMP_LZ77:
@@ -1247,6 +1258,8 @@ read_channel_data (FILE       *f,
 
       if (bytespp > 1)
         {
+          guchar *p, *q;
+
           p = buf2;
           q = pixels[0] + offset;
           for (i = 0; i < npixels; i++)
@@ -1653,7 +1666,7 @@ read_tube_block (FILE     *f,
   pipe_parasite = gimp_parasite_new ("gimp-brush-pipe-parameters",
                                      GIMP_PARASITE_PERSISTENT,
                                      strlen (parasite_text) + 1, parasite_text);
-  gimp_image_parasite_attach (image_ID, pipe_parasite);
+  gimp_image_attach_parasite (image_ID, pipe_parasite);
   gimp_parasite_free (pipe_parasite);
   g_free (parasite_text);
 

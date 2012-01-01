@@ -13,6 +13,7 @@ INCLUDES = \
 	-I$(top_srcdir)		\
 	-I$(top_builddir)/app	\
 	-I$(top_srcdir)/app	\
+	$(CAIRO_CFLAGS)		\
 	$(GLIB_CFLAGS)		\
 	-I$(includedir)
 
@@ -30,5 +31,3 @@ libapppaint_funcs_a_SOURCES = \
 	scale-region.h		\
 	subsample-region.c	\
 	subsample-region.h
-
-EXTRA_DIST = makefile.msc

@@ -35,7 +35,9 @@
 #include "gimpdocumentview.h"
 #include "gimpdnd.h"
 #include "gimpeditor.h"
+#include "gimpmenufactory.h"
 #include "gimpuimanager.h"
+#include "gimpviewrenderer.h"
 #include "gimpwidgets-utils.h"
 
 #include "gimp-intl.h"
@@ -80,18 +82,26 @@ gimp_document_view_new (GimpViewType     view_type,
   GimpDocumentView    *document_view;
   GimpContainerEditor *editor;
 
-  document_view = g_object_new (GIMP_TYPE_DOCUMENT_VIEW, NULL);
+  g_return_val_if_fail (GIMP_IS_CONTAINER (container), NULL);
+  g_return_val_if_fail (GIMP_IS_CONTEXT (context), NULL);
+  g_return_val_if_fail (view_size > 0 &&
+                        view_size <= GIMP_VIEWABLE_MAX_PREVIEW_SIZE, FALSE);
+  g_return_val_if_fail (view_border_width >= 0 &&
+                        view_border_width <= GIMP_VIEW_MAX_BORDER_WIDTH,
+                        FALSE);
+  g_return_val_if_fail (menu_factory == NULL ||
+                        GIMP_IS_MENU_FACTORY (menu_factory), NULL);
 
-  if (! gimp_container_editor_construct (GIMP_CONTAINER_EDITOR (document_view),
-                                         view_type,
-                                         container, context,
-                                         view_size, view_border_width,
-                                         menu_factory, "<Documents>",
-                                         "/documents-popup"))
-    {
-      g_object_unref (document_view);
-      return NULL;
-    }
+  document_view = g_object_new (GIMP_TYPE_DOCUMENT_VIEW,
+                                "view-type",         view_type,
+                                "container",         container,
+                                "context",           context,
+                                "view-size",         view_size,
+                                "view-border-width", view_border_width,
+                                "menu-factory",      menu_factory,
+                                "menu-identifier",   "<Documents>",
+                                "ui-path",           "/documents-popup",
+                                NULL);
 
   editor = GIMP_CONTAINER_EDITOR (document_view);
 
@@ -101,7 +111,7 @@ gimp_document_view_new (GimpViewType     view_type,
                                    "documents-raise-or-open",
                                    GDK_SHIFT_MASK,
                                    "documents-file-open-dialog",
-                                   GDK_CONTROL_MASK,
+                                   gimp_get_toggle_behavior_mask (),
                                    NULL);
   gimp_container_view_enable_dnd (editor->view,
                                   GTK_BUTTON (document_view->open_button),
@@ -123,7 +133,7 @@ gimp_document_view_new (GimpViewType     view_type,
                                    "documents-reload-previews",
                                    GDK_SHIFT_MASK,
                                    "documents-remove-dangling",
-                                   GDK_CONTROL_MASK,
+                                   gimp_get_toggle_behavior_mask (),
                                    NULL);
 
   if (view_type == GIMP_VIEW_TYPE_LIST)
@@ -137,7 +147,8 @@ gimp_document_view_new (GimpViewType     view_type,
                                     editor);
     }
 
-  gimp_ui_manager_update (GIMP_EDITOR (editor->view)->ui_manager, editor);
+  gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor->view)),
+                          editor);
 
   return GTK_WIDGET (document_view);
 }

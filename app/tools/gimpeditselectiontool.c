@@ -46,6 +46,8 @@
 
 #include "vectors/gimpvectors.h"
 
+#include "widgets/gimpwidgets-utils.h"
+
 #include "display/gimpdisplay.h"
 #include "display/gimpdisplayshell.h"
 #include "display/gimpdisplayshell-appearance.h"
@@ -60,11 +62,13 @@
 #include "gimp-intl.h"
 
 
-#define EDIT_SELECT_SCROLL_LOCK FALSE
-#define ARROW_VELOCITY          25
+#define ARROW_VELOCITY 25
 
 
-typedef struct _GimpEditSelectionTool
+typedef struct _GimpEditSelectionTool      GimpEditSelectionTool;
+typedef struct _GimpEditSelectionToolClass GimpEditSelectionToolClass;
+
+struct _GimpEditSelectionTool
 {
   GimpDrawTool        parent_instance;
 
@@ -91,12 +95,12 @@ typedef struct _GimpEditSelectionTool
   gboolean            constrain;       /*  Constrain the movement            */
   gdouble             start_x, start_y;/*  Coords when button was pressed    */
   gdouble             last_x,  last_y; /*  Previous coords sent to _motion   */
-} GimpEditSelectionTool;
+};
 
-typedef struct _GimpEditSelectionToolClass
+struct _GimpEditSelectionToolClass
 {
   GimpDrawToolClass   parent_class;
-} GimpEditSelectionToolClass;
+};
 
 
 static void       gimp_edit_selection_tool_button_release      (GimpTool                    *tool,
@@ -145,7 +149,6 @@ gimp_edit_selection_tool_init (GimpEditSelectionTool *edit_selection_tool)
 {
   GimpTool *tool = GIMP_TOOL (edit_selection_tool);
 
-  gimp_tool_control_set_scroll_lock (tool->control, EDIT_SELECT_SCROLL_LOCK);
   gimp_tool_control_set_motion_mode (tool->control, GIMP_MOTION_MODE_COMPRESS);
 
   edit_selection_tool->origx      = 0;
@@ -438,10 +441,10 @@ gimp_edit_selection_tool_start (GimpTool          *parent_tool,
     edit_select->center_y = (y1 + y2) / 2.0;
   }
 
+  tool_manager_push_tool (display->gimp, tool);
+
   gimp_tool_control_activate (tool->control);
   tool->display = display;
-
-  tool_manager_push_tool (display->gimp, tool);
 
   /*  pause the current selection  */
   gimp_display_shell_selection_pause (shell);
@@ -472,6 +475,8 @@ gimp_edit_selection_tool_button_release (GimpTool              *tool,
   gimp_display_shell_selection_resume (shell);
 
   gimp_tool_pop_status (tool, display);
+
+  gimp_tool_control_halt (tool->control);
 
   /*  Stop and free the selection core  */
   gimp_draw_tool_stop (GIMP_DRAW_TOOL (edit_select));
@@ -760,7 +765,8 @@ gimp_edit_selection_tool_active_modifier_key (GimpTool        *tool,
 {
   GimpEditSelectionTool *edit_select = GIMP_EDIT_SELECTION_TOOL (tool);
 
-  edit_select->constrain = state & GDK_CONTROL_MASK ? TRUE : FALSE;
+  edit_select->constrain = (state & gimp_get_constrain_behavior_mask () ?
+                            TRUE : FALSE);
 
   /* If we didn't came here due to a mouse release, immediately update
    * the position of the thing we move.
@@ -1099,7 +1105,7 @@ gimp_edit_selection_tool_key_press (GimpTool    *tool,
 
   if (kevent->state & GDK_MOD1_MASK)
     translate_type = GIMP_TRANSFORM_TYPE_SELECTION;
-  else if (kevent->state & GDK_CONTROL_MASK)
+  else if (kevent->state & gimp_get_toggle_behavior_mask ())
     translate_type = GIMP_TRANSFORM_TYPE_PATH;
   else
     translate_type = GIMP_TRANSFORM_TYPE_LAYER;
@@ -1127,10 +1133,10 @@ gimp_edit_selection_tool_translate (GimpTool          *tool,
 
   /* bail out early if it is not an arrow key event */
 
-  if (kevent->keyval != GDK_Left &&
-      kevent->keyval != GDK_Right &&
-      kevent->keyval != GDK_Up &&
-      kevent->keyval != GDK_Down)
+  if (kevent->keyval != GDK_KEY_Left &&
+      kevent->keyval != GDK_KEY_Right &&
+      kevent->keyval != GDK_KEY_Up &&
+      kevent->keyval != GDK_KEY_Down)
     return FALSE;
 
   /*  adapt arrow velocity to the zoom factor when holding <shift>  */
@@ -1143,38 +1149,38 @@ gimp_edit_selection_tool_translate (GimpTool          *tool,
    *  them.
    */
   inc_x = process_event_queue_keys (kevent,
-                                    GDK_Left,
+                                    GDK_KEY_Left,
                                     kevent->state | GDK_SHIFT_MASK,
                                     -1 * velocity,
 
-                                    GDK_Left,
+                                    GDK_KEY_Left,
                                     kevent->state & ~GDK_SHIFT_MASK,
                                     -1,
 
-                                    GDK_Right,
+                                    GDK_KEY_Right,
                                     kevent->state | GDK_SHIFT_MASK,
                                     1 * velocity,
 
-                                    GDK_Right,
+                                    GDK_KEY_Right,
                                     kevent->state & ~GDK_SHIFT_MASK,
                                     1,
 
                                     0);
 
   inc_y = process_event_queue_keys (kevent,
-                                    GDK_Up,
+                                    GDK_KEY_Up,
                                     kevent->state | GDK_SHIFT_MASK,
                                     -1 * velocity,
 
-                                    GDK_Up,
+                                    GDK_KEY_Up,
                                     kevent->state & ~GDK_SHIFT_MASK,
                                     -1,
 
-                                    GDK_Down,
+                                    GDK_KEY_Down,
                                     kevent->state | GDK_SHIFT_MASK,
                                     1 * velocity,
 
-                                    GDK_Down,
+                                    GDK_KEY_Down,
                                     kevent->state & ~GDK_SHIFT_MASK,
                                     1,
 

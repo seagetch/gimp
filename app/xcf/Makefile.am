@@ -8,6 +8,7 @@ INCLUDES = \
 	-I$(top_srcdir)		\
 	-I$(top_builddir)/app	\
 	-I$(top_srcdir)/app	\
+	$(CAIRO_CFLAGS)		\
 	$(GEGL_CFLAGS)		\
 	$(GDK_PIXBUF_CFLAGS)	\
 	-I$(includedir)
@@ -28,5 +29,3 @@ libappxcf_a_SOURCES = \
 	xcf-seek.h	\
 	xcf-write.c	\
 	xcf-write.h
-
-EXTRA_DIST = makefile.msc

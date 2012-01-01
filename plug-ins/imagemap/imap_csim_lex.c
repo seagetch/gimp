@@ -72,6 +72,7 @@ typedef int flex_int32_t;
 typedef unsigned char flex_uint8_t; 
 typedef unsigned short int flex_uint16_t;
 typedef unsigned int flex_uint32_t;
+#endif /* ! C99 */
 
 /* Limits of integral types. */
 #ifndef INT8_MIN
@@ -101,8 +102,6 @@ typedef unsigned int flex_uint32_t;
 #ifndef UINT32_MAX
 #define UINT32_MAX             (4294967295U)
 #endif
-
-#endif /* ! C99 */
 
 #endif /* ! FLEXINT_H */
 
@@ -160,15 +159,7 @@ typedef unsigned int flex_uint32_t;
 
 /* Size of default input buffer. */
 #ifndef YY_BUF_SIZE
-#ifdef __ia64__
-/* On IA-64, the buffer size is 16k, not 8k.
- * Moreover, YY_BUF_SIZE is 2*YY_READ_BUF_SIZE in the general case.
- * Ditto for the __ia64__ case accordingly.
- */
-#define YY_BUF_SIZE 32768
-#else
 #define YY_BUF_SIZE 16384
-#endif /* __ia64__ */
 #endif
 
 /* The state buf must be large enough to hold one state per character in the main buffer.
@@ -642,9 +633,10 @@ char *csim_text;
 #define YY_NO_UNPUT
 #endif /* FLEX_SCANNER */
 
+#define YY_NO_INPUT 1
 
 
-#line 648 "<stdout>"
+#line 640 "<stdout>"
 
 #define INITIAL 0
 #define quoted_string 1
@@ -705,8 +697,6 @@ extern int csim_wrap (void );
 #endif
 #endif
 
-    static void yyunput (int c,char *buf_ptr  );
-    
 #ifndef yytext_ptr
 static void yy_flex_strncpy (char *,yyconst char *,int );
 #endif
@@ -727,12 +717,7 @@ static int input (void );
 
 /* Amount of stuff to slurp up with each read. */
 #ifndef YY_READ_BUF_SIZE
-#ifdef __ia64__
-/* On IA-64, the buffer size is 16k, not 8k */
-#define YY_READ_BUF_SIZE 16384
-#else
 #define YY_READ_BUF_SIZE 8192
-#endif /* __ia64__ */
 #endif
 
 /* Copy whatever the last rule matched to the standard output. */
@@ -751,7 +736,7 @@ static int input (void );
 	if ( YY_CURRENT_BUFFER_LVALUE->yy_is_interactive ) \
 		{ \
 		int c = '*'; \
-		size_t n; \
+		unsigned n; \
 		for ( n = 0; n < max_size && \
 			     (c = getc( csim_in )) != EOF && c != '\n'; ++n ) \
 			buf[n] = (char) c; \
@@ -833,10 +818,10 @@ YY_DECL
 	register char *yy_cp, *yy_bp;
 	register int yy_act;
     
-#line 45 "imap_csim.l"
+#line 47 "imap_csim.l"
 
 
-#line 840 "<stdout>"
+#line 825 "<stdout>"
 
 	if ( !(yy_init) )
 		{
@@ -921,7 +906,7 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 47 "imap_csim.l"
+#line 49 "imap_csim.l"
 {
 				   BEGIN(comment);
 				   return AUTHOR;
@@ -929,7 +914,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 52 "imap_csim.l"
+#line 54 "imap_csim.l"
 {
 				   BEGIN(comment);
 				   return DESCRIPTION;
@@ -937,7 +922,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 57 "imap_csim.l"
+#line 59 "imap_csim.l"
 {
 				   BEGIN(comment);
 				   return BEGIN_COMMENT;
@@ -945,7 +930,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 62 "imap_csim.l"
+#line 64 "imap_csim.l"
 {
 				   BEGIN(INITIAL);
 				   return END_COMMENT;
@@ -956,7 +941,7 @@ case 5:
 (yy_c_buf_p) = yy_cp -= 3;
 YY_DO_BEFORE_ACTION; /* set up csim_text again */
 YY_RULE_SETUP
-#line 67 "imap_csim.l"
+#line 69 "imap_csim.l"
 {
 				   csim_lval.id = g_strndup (csim_text, csim_leng);
    				   return STRING;
@@ -964,114 +949,114 @@ YY_RULE_SETUP
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 72 "imap_csim.l"
+#line 74 "imap_csim.l"
 return IMG;
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 74 "imap_csim.l"
+#line 76 "imap_csim.l"
 return SRC;
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 76 "imap_csim.l"
+#line 78 "imap_csim.l"
 return WIDTH;
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 78 "imap_csim.l"
+#line 80 "imap_csim.l"
 return HEIGHT;
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 80 "imap_csim.l"
+#line 82 "imap_csim.l"
 return BORDER;
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 82 "imap_csim.l"
+#line 84 "imap_csim.l"
 return USEMAP;
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 84 "imap_csim.l"
+#line 86 "imap_csim.l"
 return START_MAP;
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 86 "imap_csim.l"
+#line 88 "imap_csim.l"
 return END_MAP;
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 88 "imap_csim.l"
+#line 90 "imap_csim.l"
 return NAME;
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 90 "imap_csim.l"
+#line 92 "imap_csim.l"
 return AREA;
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 92 "imap_csim.l"
+#line 94 "imap_csim.l"
 return SHAPE;
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 94 "imap_csim.l"
+#line 96 "imap_csim.l"
 return COORDS;
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 96 "imap_csim.l"
+#line 98 "imap_csim.l"
 return TARGET;
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 98 "imap_csim.l"
+#line 100 "imap_csim.l"
 return ONMOUSEOVER;
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 100 "imap_csim.l"
+#line 102 "imap_csim.l"
 return ONMOUSEOUT;
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 102 "imap_csim.l"
+#line 104 "imap_csim.l"
 return ONFOCUS;
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 104 "imap_csim.l"
+#line 106 "imap_csim.l"
 return ONBLUR;
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 106 "imap_csim.l"
+#line 108 "imap_csim.l"
 return ALT;
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 108 "imap_csim.l"
+#line 110 "imap_csim.l"
 return HREF;
 	YY_BREAK
 case 25:
 YY_RULE_SETUP
-#line 110 "imap_csim.l"
+#line 112 "imap_csim.l"
 return NOHREF;
 	YY_BREAK
 case 26:
 YY_RULE_SETUP
-#line 112 "imap_csim.l"
+#line 114 "imap_csim.l"
 {
 				   BEGIN(quoted_string);
 				}
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-#line 116 "imap_csim.l"
+#line 118 "imap_csim.l"
 {
 				   BEGIN(INITIAL);
 				   return STRING;
@@ -1080,14 +1065,14 @@ YY_RULE_SETUP
 case 28:
 /* rule 28 can match eol */
 YY_RULE_SETUP
-#line 121 "imap_csim.l"
+#line 123 "imap_csim.l"
 {
 				  csim_lval.id = g_strndup (csim_text, csim_leng);
 				}
 	YY_BREAK
 case 29:
 YY_RULE_SETUP
-#line 125 "imap_csim.l"
+#line 127 "imap_csim.l"
 {
                                    csim_lval.value = g_ascii_strtod (csim_text, NULL);
 				   return FLOAT;
@@ -1096,20 +1081,20 @@ YY_RULE_SETUP
 case 30:
 /* rule 30 can match eol */
 YY_RULE_SETUP
-#line 130 "imap_csim.l"
+#line 132 "imap_csim.l"
 ; /* Eat white space */
 	YY_BREAK
 case 31:
 YY_RULE_SETUP
-#line 132 "imap_csim.l"
+#line 134 "imap_csim.l"
 return *csim_text;
 	YY_BREAK
 case 32:
 YY_RULE_SETUP
-#line 134 "imap_csim.l"
+#line 136 "imap_csim.l"
 ECHO;
 	YY_BREAK
-#line 1113 "<stdout>"
+#line 1098 "<stdout>"
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(quoted_string):
 case YY_STATE_EOF(comment):
@@ -1438,43 +1423,6 @@ static int yy_get_next_buffer (void)
 	yy_is_jam = (yy_current_state == 153);
 
 	return yy_is_jam ? 0 : yy_current_state;
-}
-
-    static void yyunput (int c, register char * yy_bp )
-{
-	register char *yy_cp;
-    
-    yy_cp = (yy_c_buf_p);
-
-	/* undo effects of setting up csim_text */
-	*yy_cp = (yy_hold_char);
-
-	if ( yy_cp < YY_CURRENT_BUFFER_LVALUE->yy_ch_buf + 2 )
-		{ /* need to shift things up to make room */
-		/* +2 for EOB chars. */
-		register int number_to_move = (yy_n_chars) + 2;
-		register char *dest = &YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[
-					YY_CURRENT_BUFFER_LVALUE->yy_buf_size + 2];
-		register char *source =
-				&YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[number_to_move];
-
-		while ( source > YY_CURRENT_BUFFER_LVALUE->yy_ch_buf )
-			*--dest = *--source;
-
-		yy_cp += (int) (dest - source);
-		yy_bp += (int) (dest - source);
-		YY_CURRENT_BUFFER_LVALUE->yy_n_chars =
-			(yy_n_chars) = YY_CURRENT_BUFFER_LVALUE->yy_buf_size;
-
-		if ( yy_cp < YY_CURRENT_BUFFER_LVALUE->yy_ch_buf + 2 )
-			YY_FATAL_ERROR( "flex scanner push-back overflow" );
-		}
-
-	*--yy_cp = (char) c;
-
-	(yytext_ptr) = yy_bp;
-	(yy_hold_char) = *yy_cp;
-	(yy_c_buf_p) = yy_cp;
 }
 
 #ifndef YY_NO_INPUT
@@ -1869,8 +1817,8 @@ YY_BUFFER_STATE csim__scan_string (yyconst char * yystr )
 
 /** Setup the input buffer state to scan the given bytes. The next call to csim_lex() will
  * scan from a @e copy of @a bytes.
- * @param yybytes the byte buffer to scan
- * @param _yybytes_len the number of bytes in the buffer pointed to by @a bytes.
+ * @param bytes the byte buffer to scan
+ * @param len the number of bytes in the buffer pointed to by @a bytes.
  * 
  * @return the newly allocated buffer state object.
  */
@@ -2109,7 +2057,7 @@ void csim_free (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 134 "imap_csim.l"
+#line 136 "imap_csim.l"
 
 
 

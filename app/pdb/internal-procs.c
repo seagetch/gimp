@@ -46,11 +46,13 @@ internal_procs_init (GimpPDB *pdb)
   register_display_procs (pdb);
   register_drawable_procs (pdb);
   register_drawable_transform_procs (pdb);
+  register_dynamics_procs (pdb);
   register_edit_procs (pdb);
   register_fileops_procs (pdb);
   register_floating_sel_procs (pdb);
   register_font_select_procs (pdb);
   register_fonts_procs (pdb);
+  register_gimp_procs (pdb);
   register_gimprc_procs (pdb);
   register_gradient_procs (pdb);
   register_gradient_select_procs (pdb);
@@ -64,12 +66,10 @@ internal_procs_init (GimpPDB *pdb)
   register_item_transform_procs (pdb);
   register_layer_procs (pdb);
   register_message_procs (pdb);
-  register_misc_procs (pdb);
   register_paint_tools_procs (pdb);
   register_palette_procs (pdb);
   register_palette_select_procs (pdb);
   register_palettes_procs (pdb);
-  register_parasite_procs (pdb);
   register_paths_procs (pdb);
   register_pattern_procs (pdb);
   register_pattern_select_procs (pdb);

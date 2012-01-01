@@ -112,11 +112,25 @@ gimp_convolve_tool_modifier_key (GimpTool        *tool,
                                  GdkModifierType  state,
                                  GimpDisplay     *display)
 {
-  GimpConvolveOptions *options = GIMP_CONVOLVE_TOOL_GET_OPTIONS (tool);
+  GimpConvolveTool    *convolve = GIMP_CONVOLVE_TOOL (tool);
+  GimpConvolveOptions *options  = GIMP_CONVOLVE_TOOL_GET_OPTIONS (tool);
+  GdkModifierType      toggle_mask;
 
-  if ((key == GDK_CONTROL_MASK) &&
-      ! (state & GDK_SHIFT_MASK)) /* leave stuff untouched in line draw mode */
+  toggle_mask = gimp_get_toggle_behavior_mask ();
+
+  if (((key == toggle_mask)       &&
+       ! (state & GDK_SHIFT_MASK) && /* leave stuff untouched in line draw mode */
+       press != convolve->toggled)
+
+      ||
+
+      (key == GDK_SHIFT_MASK && /* toggle back after keypresses CTRL(hold)->  */
+       ! press               && /* SHIFT(hold)->CTRL(release)->SHIFT(release) */
+       convolve->toggled     &&
+       ! (state & toggle_mask)))
     {
+      convolve->toggled = press;
+
       switch (options->type)
         {
         case GIMP_BLUR_CONVOLVE:
@@ -193,15 +207,18 @@ gimp_convolve_tool_status_update (GimpTool         *tool,
 static GtkWidget *
 gimp_convolve_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
-  GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
-  GtkWidget *frame;
-  GtkWidget *scale;
-  gchar     *str;
+  GObject         *config = G_OBJECT (tool_options);
+  GtkWidget       *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
+  GtkWidget       *frame;
+  GtkWidget       *scale;
+  gchar           *str;
+  GdkModifierType  toggle_mask;
+
+  toggle_mask = gimp_get_toggle_behavior_mask ();
 
   /*  the type radio box  */
   str = g_strdup_printf (_("Convolve Type  (%s)"),
-                         gimp_get_mod_string (GDK_CONTROL_MASK));
+                         gimp_get_mod_string (toggle_mask));
 
   frame = gimp_prop_enum_radio_frame_new (config, "type",
                                           str, 0, 0);

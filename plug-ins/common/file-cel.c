@@ -34,6 +34,7 @@
 #define LOAD_PROC      "file-cel-load"
 #define SAVE_PROC      "file-cel-save"
 #define PLUG_IN_BINARY "file-cel"
+#define PLUG_IN_ROLE   "gimp-file-cel"
 
 
 static void query (void);
@@ -447,6 +448,7 @@ load_image (const gchar  *file,
       gimp_pixel_rgn_set_rect (&pixel_rgn, line, 0, i, drawable->width, 1);
       gimp_progress_update ((float) i / (float) height);
     }
+  gimp_progress_update (1.0);
 
   /* Close image files, give back allocated memory */
 
@@ -528,7 +530,7 @@ load_palette (FILE   *fp,
     }
   else
     {
-      colours = 16; bpp = 12;
+      colours = 16;
       fseek (fp, 0, SEEK_SET);
       for (i= 0; i < colours; ++i)
         {
@@ -673,6 +675,7 @@ save_image (const gchar  *file,
 
       gimp_progress_update ((float) i / (float) drawable->height);
     }
+  gimp_progress_update (1.0);
 
   /* Close files, give back allocated memory */
   fclose (fp);

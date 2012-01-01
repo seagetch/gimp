@@ -51,13 +51,19 @@ libappcore_a_sources = \
 	gimp-utils.h				\
 	gimparea.c				\
 	gimparea.h				\
+	gimpbezierdesc.h			\
+	gimpbezierdesc.c			\
 	gimpbrush.c				\
 	gimpbrush.h				\
+	gimpbrush-boundary.c			\
+	gimpbrush-boundary.h			\
 	gimpbrush-header.h			\
 	gimpbrush-load.c			\
 	gimpbrush-load.h			\
 	gimpbrush-transform.c			\
 	gimpbrush-transform.h			\
+	gimpbrushcache.c			\
+	gimpbrushcache.h			\
 	gimpbrushclipboard.c			\
 	gimpbrushclipboard.h			\
 	gimpbrushgenerated.c			\
@@ -199,6 +205,8 @@ libappcore_a_sources = \
 	gimpguide.h				\
 	gimpguideundo.c				\
 	gimpguideundo.h				\
+	gimpidtable.c				\
+	gimpidtable.h				\
 	gimpimage.c				\
 	gimpimage.h				\
 	gimpimage-arrange.c			\
@@ -262,6 +270,8 @@ libappcore_a_sources = \
 	gimpimagemapconfig.h			\
 	gimpitem.c				\
 	gimpitem.h				\
+	gimpitem-exclusive.c			\
+	gimpitem-exclusive.h			\
 	gimpitem-linked.c			\
 	gimpitem-linked.h			\
 	gimpitem-preview.c			\
@@ -353,6 +363,8 @@ libappcore_a_sources = \
 	gimptagcache.h				\
 	gimptagged.c				\
 	gimptagged.h				\
+	gimptaggedcontainer.c			\
+	gimptaggedcontainer.h			\
 	gimptemplate.c				\
 	gimptemplate.h				\
 	gimptoolinfo.c				\
@@ -365,8 +377,6 @@ libappcore_a_sources = \
 	gimptoolpreset-load.h			\
 	gimptoolpreset-save.c			\
 	gimptoolpreset-save.h			\
-	gimptoolpresets.c			\
-	gimptoolpresets.h			\
 	gimptreehandler.c			\
 	gimptreehandler.h			\
 	gimpunit.c				\
@@ -389,7 +399,6 @@ libappcore_a_extra_sources = \
 libappcore_a_SOURCES = $(libappcore_a_built_sources) $(libappcore_a_sources)
 
 EXTRA_DIST = \
-	makefile.msc			\
 	$(libappcore_a_extra_sources)
 
 #

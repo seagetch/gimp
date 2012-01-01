@@ -39,6 +39,7 @@
 #include "gimpdockable.h"
 #include "gimpdockbook.h"
 #include "gimpdockcolumns.h"
+#include "gimpdockcontainer.h"
 #include "gimpdockwindow.h"
 #include "gimppanedbox.h"
 #include "gimpuimanager.h"
@@ -89,23 +90,25 @@ struct _GimpDockPrivate
 };
 
 
+static void       gimp_dock_dispose                (GObject      *object);
+
+static void       gimp_dock_style_set              (GtkWidget    *widget,
+                                                    GtkStyle     *prev_style);
+static gchar    * gimp_dock_real_get_description   (GimpDock     *dock,
+                                                    gboolean      complete);
+static void       gimp_dock_real_book_added        (GimpDock     *dock,
+                                                    GimpDockbook *dockbook);
+static void       gimp_dock_real_book_removed      (GimpDock     *dock,
+                                                    GimpDockbook *dockbook);
+static void       gimp_dock_invalidate_description (GimpDock     *dock);
+static gboolean   gimp_dock_dropped_cb             (GtkWidget    *source,
+                                                    gint          insert_index,
+                                                    gpointer      data);
+
+/* Gimp-painter-2.7: Functions for title bar implementation */
 static void              gimp_dock_titlebar_init          (GimpDockTitlebar *titlebar, 
                                                             gboolean           shaded, 
                                                             GObject           *dock);
-static void              gimp_dock_dispose                (GObject      *object);
-
-static void              gimp_dock_style_set              (GtkWidget    *widget,
-                                                           GtkStyle     *prev_style);
-static gchar           * gimp_dock_real_get_description   (GimpDock     *dock,
-                                                           gboolean      complete);
-static void              gimp_dock_real_book_added        (GimpDock     *dock,
-                                                           GimpDockbook *dockbook);
-static void              gimp_dock_real_book_removed      (GimpDock     *dock,
-                                                           GimpDockbook *dockbook);
-static void              gimp_dock_invalidate_description (GimpDock     *dock);
-static gboolean          gimp_dock_dropped_cb             (GtkWidget    *source,
-                                                           gint          insert_index,
-                                                           gpointer      data);
 static GimpDockColumns * gimp_dock_get_dock_columns       (GimpDock     *dock);
 static void              gimp_dock_titlebar_button_clicked (GtkWidget   *source, GimpDock *data);
 static void              gimp_dock_titlebar_update_description (GimpDockTitlebar* titlebar, GimpDock *dock);
@@ -202,11 +205,11 @@ gimp_dock_init (GimpDock *dock)
   gtk_widget_set_name (GTK_WIDGET (dock), name);
   g_free (name);
 
-  dock->p->temp_vbox = gtk_vbox_new (FALSE, 0);
+  dock->p->temp_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_box_pack_start (GTK_BOX (dock), dock->p->temp_vbox, FALSE, FALSE, 0);
   /* Never show it */
 
-  dock->p->main_vbox = gtk_vbox_new (FALSE, 0);
+  dock->p->main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_box_pack_start (GTK_BOX (dock), dock->p->main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (dock->p->main_vbox);
 
@@ -502,23 +505,6 @@ gimp_dock_dropped_cb (GtkWidget *source,
   return TRUE;
 }
 
-/**
- * gimp_dock_get_dock_columns:
- * @dock:
- *
- * Returns: The first #GimpDockColumns parent for the dock, or %NULL
- *          if there is no #GimpDockColumns parent.
- **/
-static GimpDockColumns *
-gimp_dock_get_dock_columns (GimpDock *dock)
-{
-  GtkWidget *widget = gtk_widget_get_parent (GTK_WIDGET (dock));
-
-  while (widget != NULL && ! GIMP_IS_DOCK_COLUMNS (widget))
-    widget = gtk_widget_get_parent (widget);
-
-  return widget ? GIMP_DOCK_COLUMNS (widget) : NULL;
-}
 
 /*  public functions  */
 
@@ -616,7 +602,11 @@ gimp_dock_get_context (GimpDock *dock)
   /* First try GimpDockColumns */
   if (! context)
     {
-      GimpDockColumns *dock_columns = gimp_dock_get_dock_columns (dock);
+      GimpDockColumns *dock_columns;
+
+      dock_columns =
+        GIMP_DOCK_COLUMNS (gtk_widget_get_ancestor (GTK_WIDGET (dock),
+                                                    GIMP_TYPE_DOCK_COLUMNS));
 
       if (dock_columns)
         context = gimp_dock_columns_get_context (dock_columns);
@@ -651,7 +641,11 @@ gimp_dock_get_dialog_factory (GimpDock *dock)
   /* First try GimpDockColumns */
   if (! dialog_factory)
     {
-      GimpDockColumns *dock_columns = gimp_dock_get_dock_columns (dock);
+      GimpDockColumns *dock_columns;
+
+      dock_columns =
+        GIMP_DOCK_COLUMNS (gtk_widget_get_ancestor (GTK_WIDGET (dock),
+                                                    GIMP_TYPE_DOCK_COLUMNS));
 
       if (dock_columns)
         dialog_factory = gimp_dock_columns_get_dialog_factory (dock_columns);
@@ -686,19 +680,27 @@ gimp_dock_get_ui_manager (GimpDock *dock)
   /* First try GimpDockColumns */
   if (! ui_manager)
     {
-      GimpDockColumns *dock_columns = gimp_dock_get_dock_columns (dock);
+      GimpDockColumns *dock_columns;
+
+      dock_columns =
+        GIMP_DOCK_COLUMNS (gtk_widget_get_ancestor (GTK_WIDGET (dock),
+                                                    GIMP_TYPE_DOCK_COLUMNS));
 
       if (dock_columns)
         ui_manager = gimp_dock_columns_get_ui_manager (dock_columns);
     }
 
-  /* Then GimpDockWindow */
+  /* Then GimpDockContainer */
   if (! ui_manager)
     {
       GimpDockWindow *dock_window = gimp_dock_window_from_dock (dock);
 
       if (dock_window)
-        ui_manager = gimp_dock_window_get_ui_manager (dock_window);
+        {
+          GimpDockContainer *dock_container = GIMP_DOCK_CONTAINER (dock_window);
+
+          ui_manager = gimp_dock_container_get_ui_manager (dock_container);
+        }
     }
 
   return ui_manager;
@@ -740,6 +742,23 @@ gimp_dock_get_vbox (GimpDock *dock)
   g_return_val_if_fail (GIMP_IS_DOCK (dock), NULL);
 
   return dock->p->paned_vbox;
+}
+
+gint
+gimp_dock_get_id (GimpDock *dock)
+{
+  g_return_val_if_fail (GIMP_IS_DOCK (dock), 0);
+
+  return dock->p->ID;
+}
+
+void
+gimp_dock_set_id (GimpDock *dock,
+                  gint      ID)
+{
+  g_return_if_fail (GIMP_IS_DOCK (dock));
+
+  dock->p->ID = ID;
 }
 
 void

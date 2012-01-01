@@ -35,10 +35,11 @@
         )
 
     (gimp-context-push)
+    (gimp-context-set-defaults)
 
     (gimp-image-undo-disable img)
-    (gimp-image-add-layer img bg-layer 1)
-    (gimp-image-add-layer img text-layer -1)
+    (gimp-image-insert-layer img bg-layer 0 1)
+    (gimp-image-insert-layer img text-layer 0 -1)
 
     (gimp-context-set-background bg-color)
     (gimp-edit-clear bg-layer)
@@ -47,7 +48,7 @@
     (gimp-floating-sel-anchor (car (gimp-text-fontname img text-layer 10 10 string 0 TRUE font-size PIXELS font)))
 
     ; save the selection for later
-    (gimp-selection-layer-alpha text-layer)
+    (gimp-image-select-item img CHANNEL-OP-REPLACE text-layer)
     (set! saved-sel (car (gimp-selection-save img)))
 
     ; add layer mask
@@ -62,7 +63,7 @@
 
     ; feather the mask
     (gimp-layer-set-edit-mask text-layer TRUE)
-    (gimp-selection-load saved-sel)
+    (gimp-image-select-item img CHANNEL-OP-REPLACE saved-sel)
     (gimp-selection-feather img 10)
     (gimp-context-set-background (list grey grey grey))
     (gimp-edit-fill text-mask BACKGROUND-FILL)

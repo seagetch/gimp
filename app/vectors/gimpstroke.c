@@ -332,8 +332,7 @@ gimp_stroke_finalize (GObject *object)
 
   if (stroke->anchors)
     {
-      g_list_foreach (stroke->anchors, (GFunc) gimp_anchor_free, NULL);
-      g_list_free (stroke->anchors);
+      g_list_free_full (stroke->anchors, (GDestroyNotify) gimp_anchor_free);
       stroke->anchors = NULL;
     }
 
@@ -1320,8 +1319,6 @@ gimp_stroke_real_control_points_get (const GimpStroke *stroke,
   GList *list;
 
   num_anchors = g_list_length (stroke->anchors);
-  list = g_list_first (stroke->anchors);
-
   ret_array = g_array_sized_new (FALSE, FALSE,
                                  sizeof (GimpAnchor), num_anchors);
 

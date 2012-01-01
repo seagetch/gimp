@@ -62,6 +62,7 @@
 
 #define SAVE_PROC      "file-gtm-save"
 #define PLUG_IN_BINARY "file-html-table"
+#define PLUG_IN_ROLE   "gimp-file-html-table"
 
 /* Typedefs */
 
@@ -373,6 +374,7 @@ save_image (const gchar   *filename,
 
       gimp_progress_update ((double) y / (double) rows);
     }
+  gimp_progress_update (1.0);
 
   if (gtmvals.fulldoc)
     fprintf (fp, "</TABLE></BODY></HTML>\n");
@@ -408,7 +410,7 @@ save_dialog (gint32 image_ID)
 
   dialog = gimp_export_dialog_new (_("HTML table"), PLUG_IN_BINARY, SAVE_PROC);
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
   gtk_box_pack_start (GTK_BOX (gimp_export_dialog_get_content_area (dialog)),
                       main_vbox, TRUE, TRUE, 0);
@@ -423,7 +425,7 @@ save_dialog (gint32 image_ID)
       gtk_frame_set_shadow_type (GTK_FRAME (frame), GTK_SHADOW_IN);
       gtk_box_pack_start (GTK_BOX (main_vbox), frame, FALSE, FALSE, 0);
 
-      hbox = gtk_hbox_new (FALSE, 12);
+      hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
       gtk_container_add (GTK_CONTAINER (frame), hbox);
 
       eek = gtk_image_new_from_stock (GIMP_STOCK_WILBER_EEK,
@@ -442,7 +444,7 @@ save_dialog (gint32 image_ID)
   frame = gimp_frame_new (_("HTML Page Options"));
   gtk_box_pack_start (GTK_BOX (main_vbox), frame, FALSE, FALSE, 0);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -531,8 +533,9 @@ save_dialog (gint32 image_ID)
                     G_CALLBACK (gtm_caption_callback),
                     NULL);
 
-  g_object_set_data (G_OBJECT (toggle), "set_sensitive", entry);
-  gtk_widget_set_sensitive (entry, gtmvals.caption);
+  g_object_bind_property (toggle, "active",
+                          entry,  "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   entry = gtk_entry_new ();
   gtk_widget_set_size_request (entry, 200, -1);
@@ -613,7 +616,7 @@ save_dialog (gint32 image_ID)
                              spinbutton, 1, TRUE);
 
   gimp_help_set_help_data (spinbutton,
-                           _("The amount of cellpadding."), NULL);
+                           _("The amount of cell padding."), NULL);
 
   g_signal_connect (adj, "value-changed",
                     G_CALLBACK (gimp_int_adjustment_update),
@@ -626,7 +629,7 @@ save_dialog (gint32 image_ID)
                              spinbutton, 1, TRUE);
 
   gimp_help_set_help_data (spinbutton,
-                           _("The amount of cellspacing."), NULL);
+                           _("The amount of cell spacing."), NULL);
 
   g_signal_connect (adj, "value-changed",
                     G_CALLBACK (gimp_int_adjustment_update),

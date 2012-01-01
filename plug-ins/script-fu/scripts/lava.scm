@@ -46,6 +46,7 @@
         )
 
     (gimp-context-push)
+    (gimp-context-set-defaults)
     (gimp-image-undo-group-start image)
 
     (if (= (car (gimp-drawable-has-alpha drawable)) FALSE)
@@ -53,7 +54,7 @@
     )
 
     (if (= (car (gimp-selection-is-empty image)) TRUE)
-        (gimp-selection-layer-alpha drawable)
+        (gimp-image-select-item image CHANNEL-OP-REPLACE drawable)
     )
 
     (set! active-selection (car (gimp-selection-save image)))
@@ -75,12 +76,12 @@
                                                 100
                                                 NORMAL-MODE)))
 
-          (gimp-image-add-layer image lava-layer -1)
+          (gimp-image-insert-layer image lava-layer 0 -1)
           (gimp-layer-set-offsets lava-layer select-offset-x select-offset-y)
           (gimp-selection-none image)
           (gimp-edit-clear lava-layer)
 
-          (gimp-selection-load active-selection)
+          (gimp-image-select-item image CHANNEL-OP-REPLACE drawable)
           (gimp-image-set-active-layer image lava-layer)
         )
     )

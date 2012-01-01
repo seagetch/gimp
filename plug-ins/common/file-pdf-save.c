@@ -41,7 +41,6 @@
  */
 
 /* Known Issues (except for the coding style issues):
- * 0. Need to add support for i18n.
  * 1. Grayscale layers are inverted (although layer masks which are not grayscale,
  * are not inverted)
  * 2. Exporting some fonts doesn't work since gimp_text_layer_get_font Returns a
@@ -109,11 +108,12 @@
 #include <libgimp/gimp.h>
 #include <libgimp/gimpui.h>
 
+#include "libgimp/stdplugins-intl.h"
 
 #define SAVE_PROC               "file-pdf-save"
-#define SAVE_DEFAULTS_PROC      "file-pdf-save-defaults"
 #define SAVE_MULTI_PROC         "file-pdf-save-multi"
 #define PLUG_IN_BINARY          "file-pdf-save"
+#define PLUG_IN_ROLE            "gimp-file-pdf-save"
 
 #define DATA_OPTIMIZE           "file-pdf-data-optimize"
 #define DATA_IMAGE_LIST         "file-pdf-data-multi-page"
@@ -125,12 +125,9 @@
 #define THUMB_WIDTH              90
 #define THUMB_HEIGHT             120
 
-#define PDF_DEBUG                FALSE
-
-
 typedef struct {
-  gboolean convert;
-  gboolean ignore;
+  gboolean vectorize;
+  gboolean ignore_hidden;
   gboolean apply_masks;
 } PdfOptimize;
 
@@ -159,7 +156,7 @@ typedef struct {
 } Page;
 
 
-static void               init_vals                  (const gchar *name,
+static gboolean           init_vals                  (const gchar *name,
                                                       gint nparams,
                                                       const GimpParam *param,
                                                       gboolean *single,
@@ -208,8 +205,8 @@ static gboolean dnd_remove = TRUE;
 static PdfMultiPage multi_page;
 
 static PdfOptimize optimize = {
-  TRUE, /* convert */
-  TRUE, /* ignore */
+  TRUE, /* vectorize */
+  TRUE, /* ignore_hidden */
   TRUE  /* apply_masks */
 };
 
@@ -227,28 +224,45 @@ GimpPlugInInfo PLUG_IN_INFO =
 
 MAIN()
 
-  static void
+typedef enum {
+  SA_RUN_MODE,
+  SA_IMAGE,
+  SA_DRAWABLE,
+  SA_FILENAME,
+  SA_RAW_FILENAME,
+  SA_VECTORIZE,
+  SA_IGNORE_HIDDEN,
+  SA_APPLY_MASKS,
+  SA_ARG_COUNT
+} SaveArgs;
+
+#define SA_ARG_COUNT_DEFAULT 5
+
+typedef enum {
+  SMA_RUN_MODE,
+  SMA_IMAGES,
+  SMA_COUNT,
+  SMA_VECTORIZE,
+  SMA_IGNORE_HIDDEN,
+  SMA_APPLY_MASKS,
+  SMA_FILENAME,
+  SMA_RAWFILENAME,
+  SMA_ARG_COUNT
+} SaveMultiArgs;
+
+static void
 query (void)
 {
-  static GimpParamDef save_defaults_args[] =
-    {
-      {GIMP_PDB_INT32,    "run-mode",     "Run mode"},
-      {GIMP_PDB_IMAGE,    "image",        "Input image"},
-      {GIMP_PDB_DRAWABLE, "drawable",     "Input drawable"},
-      {GIMP_PDB_STRING,   "filename",     "The name of the file to save the image in"},
-      {GIMP_PDB_STRING,   "raw-filename", "The name of the file to save the image in"}
-    };
-
   static GimpParamDef save_args[] =
     {
       {GIMP_PDB_INT32,    "run-mode",     "Run mode"},
       {GIMP_PDB_IMAGE,    "image",        "Input image"},
       {GIMP_PDB_DRAWABLE, "drawable",     "Input drawable"},
-      {GIMP_PDB_INT32,    "convert",      "Convert bitmaps to vector where possible? TRUE or FALSE"},
-      {GIMP_PDB_INT32,    "ignore",       "Don't Save layers which are hidden or have their opacity set to zero? TRUE or FALSE"},
-      {GIMP_PDB_INT32,    "apply-masks",  "Apply layer masks before saving? TRUE or FALSE (Keeping the masks will not change the final result)"},
       {GIMP_PDB_STRING,   "filename",     "The name of the file to save the image in"},
-      {GIMP_PDB_STRING,   "raw-filename", "The name of the file to save the image in"}
+      {GIMP_PDB_STRING,   "raw-filename", "The name of the file to save the image in"},
+      {GIMP_PDB_INT32,    "vectorize",    "Convert bitmaps to vector graphics where possible. TRUE or FALSE"},
+      {GIMP_PDB_INT32,    "ignore-hidden","Omit hidden layers and layers with zero opacity. TRUE or FALSE"},
+      {GIMP_PDB_INT32,    "apply-masks",  "Apply layer masks before saving. TRUE or FALSE (Keeping them will not change the output)"}
     };
 
   static GimpParamDef save_multi_args[] =
@@ -256,54 +270,48 @@ query (void)
       {GIMP_PDB_INT32,      "run-mode",     "Run mode"},
       {GIMP_PDB_INT32ARRAY, "images",       "Input image for each page (An image can appear more than once)"},
       {GIMP_PDB_INT32,      "count",        "The amount of images entered (This will be the amount of pages). 1 <= count <= MAX_PAGE_COUNT"},
-      {GIMP_PDB_INT32,      "convert",      "Convert bitmaps to vector where possible? TRUE or FALSE"},
-      {GIMP_PDB_INT32,      "ignore",       "Don't Save layers which are hidden or have their opacity set to zero? TRUE or FALSE"},
-      {GIMP_PDB_INT32,      "apply-masks",  "Apply layer masks before saving? TRUE or FALSE (Keeping the masks will not change the final result)"},
+      {GIMP_PDB_INT32,      "vectorize",    "Convert bitmaps to vector graphics where possible. TRUE or FALSE"},
+      {GIMP_PDB_INT32,      "ignore-hidden","Omit hidden layers and layers with zero opacity. TRUE or FALSE"},
+      {GIMP_PDB_INT32,      "apply-masks",  "Apply layer masks before saving. TRUE or FALSE (Keeping them will not change the output)"},
       {GIMP_PDB_STRING,     "filename",     "The name of the file to save the image in"},
       {GIMP_PDB_STRING,     "raw-filename", "The name of the file to save the image in"}
     };
 
-  gimp_install_procedure (SAVE_DEFAULTS_PROC,
-                          "Save files as PDF",
-                          "Save files in the Portable Document Format (PDF)",
-                          "Barak Itkin",
-                          "Copyright Barak Itkin",
-                          "August 2009",
-                          "_Save as PDF...",
-                          "RGB*, GRAY*, INDEXED*",
-                          GIMP_PLUGIN,
-                          G_N_ELEMENTS (save_defaults_args), 0,
-                          save_defaults_args, NULL);
-
   gimp_install_procedure (SAVE_PROC,
-                          "Save files as PDF",
-                          "Save files in the Portable Document Format (PDF)",
+                          "Save files in PDF format",
+                          "Saves files in Adobe's Portable Document Format. "
+                          "PDF is designed to be easily processed by a variety "
+                          "of different platforms, and is a distant cousin of "
+                          "PostScript.",
                           "Barak Itkin",
                           "Copyright Barak Itkin",
                           "August 2009",
-                          "_Save as PDF...",
+                          N_("Portable Document Format"),
                           "RGB*, GRAY*, INDEXED*",
                           GIMP_PLUGIN,
                           G_N_ELEMENTS (save_args), 0,
                           save_args, NULL);
 
   gimp_install_procedure (SAVE_MULTI_PROC,
-                          "Save files as PDF",
-                          "Save files in the Portable Document Format (PDF)",
+                          "Save files in PDF format",
+                          "Saves files in Adobe's Portable Document Format. "
+                          "PDF is designed to be easily processed by a variety "
+                          "of different platforms, and is a distant cousin of "
+                          "PostScript.",
                           "Barak Itkin",
                           "Copyright Barak Itkin",
                           "August 2009",
-                          "_Create multiple paged PDF...",
+                          N_("_Create multipage PDF..."),
                           "RGB*, GRAY*, INDEXED*",
                           GIMP_PLUGIN,
                           G_N_ELEMENTS (save_multi_args), 0,
                           save_multi_args, NULL);
 
-  gimp_plugin_menu_register (SAVE_MULTI_PROC,
-                             "<Image>/File/Create/PDF");
+/*  gimp_plugin_menu_register (SAVE_MULTI_PROC,
+                             "<Image>/File/Create/PDF"); */
 
-  gimp_register_file_handler_mime (SAVE_DEFAULTS_PROC, "application/pdf");
-  gimp_register_save_handler (SAVE_DEFAULTS_PROC, "pdf", "");
+  gimp_register_file_handler_mime (SAVE_PROC, "application/pdf");
+  gimp_register_save_handler (SAVE_PROC, "pdf", "");
 }
 
 static void
@@ -338,10 +346,6 @@ run (const gchar      *name,
 
   gint32                  temp;
 
-#if PDF_DEBUG
-  const gchar            *cairo_status;
-#endif
-
   gint                   *layers;
   gint32                  num_of_layers;
   GimpDrawable           *layer;
@@ -355,6 +359,8 @@ run (const gchar      *name,
   GimpDrawable           *mask = NULL;
   cairo_surface_t        *mask_image = NULL;
 
+  INIT_I18N ();
+
   /* Setting mandatory output values */
   *nreturn_vals = 1;
   *return_vals  = values;
@@ -365,8 +371,12 @@ run (const gchar      *name,
   /* Initializing all the settings */
   multi_page.image_count = 0;
 
-  init_vals (name, nparams, param, &single_image,
-             &defaults_proc, &run_mode);
+  if (! init_vals (name, nparams, param, &single_image,
+             &defaults_proc, &run_mode))
+    {
+      values[0].data.d_status = GIMP_PDB_CALLING_ERROR;
+      return;
+    }
 
   /* Starting the executions */
   if (run_mode == GIMP_RUN_INTERACTIVE)
@@ -388,7 +398,7 @@ run (const gchar      *name,
       if (file_name == NULL)
         {
           values[0].data.d_status = GIMP_PDB_CALLING_ERROR;
-          gimp_message ("You must select a file to save!");
+          gimp_message (_("You must select a file to save!"));
           return;
         }
     }
@@ -396,14 +406,15 @@ run (const gchar      *name,
   pdf_file = cairo_pdf_surface_create (file_name, 1, 1);
   if (cairo_surface_status (pdf_file) != CAIRO_STATUS_SUCCESS)
     {
-#if PDF_DEBUG
-      cairo_status =  cairo_status_to_string (cairo_surface_status (pdf_file));
-#endif
-      gimp_message ("An error occured while creating the PDF file!\n"
-#if PDF_DEBUG
-                    cairo_status "\n"
-#endif
-                    "Make sure you entered a valid filename and that the selected location isn't read only!");
+      char *str = g_strdup_printf
+        (_("An error occured while creating the PDF file:\n"
+           "%s\n"
+           "Make sure you entered a valid filename and that the selected location isn't read only!"),
+         cairo_status_to_string (cairo_surface_status (pdf_file)));
+
+      gimp_message (str);
+      g_free (str);
+
       values[0].data.d_status = GIMP_PDB_EXECUTION_ERROR;
       return;
     }
@@ -466,7 +477,7 @@ run (const gchar      *name,
             }
 
           if (gimp_item_get_visible (layer->drawable_id)
-              && (! optimize.ignore || (optimize.ignore && opacity > 0.0)))
+              && (! optimize.ignore_hidden || (optimize.ignore_hidden && opacity > 0.0)))
             {
               mask_id = gimp_layer_get_mask (layer->drawable_id);
               if (mask_id != -1)
@@ -483,7 +494,7 @@ run (const gchar      *name,
                   layer_color = get_layer_color (layer, &single_color);
                   cairo_rectangle (cr, x, y, layer->width, layer->height);
 
-                  if (optimize.convert && single_color)
+                  if (optimize.vectorize && single_color)
                     {
                       cairo_set_source_rgba (cr, layer_color.r, layer_color.g, layer_color.b, layer_color.a * opacity);
                       if (mask_id != -1)
@@ -551,7 +562,7 @@ run (const gchar      *name,
 
 /* A function that takes care of loading the basic
  * parameters */
-static void
+static gboolean
 init_vals (const gchar      *name,
            gint              nparams,
            const GimpParam  *param,
@@ -560,27 +571,46 @@ init_vals (const gchar      *name,
            GimpRunMode      *run_mode)
 {
   gboolean had_saved_list = FALSE;
-  gboolean single = TRUE;
+  gboolean single;
   gboolean defaults = FALSE;
   gint32   i;
   gint32   image;
 
-  *run_mode = param[0].data.d_int32;
-
-  if (g_str_equal (name, SAVE_DEFAULTS_PROC))
-    defaults = TRUE;
-  else if (g_str_equal (name, SAVE_MULTI_PROC))
-    single = FALSE;
-
-  if (single)
+  if (g_str_equal (name, SAVE_PROC))
     {
-      image = param[1].data.d_int32;
-      file_name = param[3].data.d_string;
+      single = TRUE;
+      if (nparams != SA_ARG_COUNT && nparams != SA_ARG_COUNT_DEFAULT)
+        return FALSE;
+
+      *run_mode = param[SA_RUN_MODE].data.d_int32;
+      image = param[SA_IMAGE].data.d_int32;
+      file_name = param[SA_FILENAME].data.d_string;
+
+      if (nparams == SA_ARG_COUNT)
+        {
+          optimize.apply_masks = param[SA_APPLY_MASKS].data.d_int32;
+          optimize.vectorize = param[SA_VECTORIZE].data.d_int32;
+          optimize.ignore_hidden = param[SA_IGNORE_HIDDEN].data.d_int32;
+        }
+      else
+        defaults = TRUE;
     }
-  else {
-    image = -1;
-    file_name = param[6].data.d_string;
-  }
+  else if (g_str_equal (name, SAVE_MULTI_PROC))
+    {
+      single = FALSE;
+      if (nparams != SMA_ARG_COUNT)
+        return FALSE;
+
+      *run_mode = param[SMA_RUN_MODE].data.d_int32;
+      image = -1;
+      file_name = param[SA_FILENAME].data.d_string;
+
+      optimize.apply_masks = param[SMA_APPLY_MASKS].data.d_int32;
+      optimize.vectorize = param[SMA_VECTORIZE].data.d_int32;
+      optimize.ignore_hidden = param[SMA_IGNORE_HIDDEN].data.d_int32;
+    }
+  else
+    return FALSE;
 
   switch (*run_mode)
     {
@@ -588,38 +618,28 @@ init_vals (const gchar      *name,
     case GIMP_RUN_NONINTERACTIVE:
       if (single)
         {
-          if (!defaults)
-            {
-              optimize.apply_masks = param[3].data.d_int32;
-              optimize.convert = param[4].data.d_int32;
-              optimize.ignore = param[5].data.d_int32;
-            }
           init_image_list_defaults (image);
         }
       else
         {
-          multi_page.image_count = param[2].data.d_int32;
-          if (param[1].data.d_int32array != NULL)
-            for (i = 0; i < param[2].data.d_int32; i++)
-              multi_page.images[i] = param[1].data.d_int32array[i];
-
-          optimize.apply_masks = param[3].data.d_int32;
-          optimize.convert = param[4].data.d_int32;
-          optimize.ignore = param[5].data.d_int32;
+          multi_page.image_count = param[SMA_COUNT].data.d_int32;
+          if (param[SMA_IMAGES].data.d_int32array != NULL)
+            for (i = 0; i < param[SMA_COUNT].data.d_int32; i++)
+              multi_page.images[i] = param[SMA_IMAGES].data.d_int32array[i];
         }
-
       break;
 
     case GIMP_RUN_INTERACTIVE:
       /* Possibly retrieve data */
       gimp_get_data (DATA_OPTIMIZE, &optimize);
       had_saved_list = gimp_get_data (DATA_IMAGE_LIST, &multi_page);
-      if (had_saved_list)
+
+      if (had_saved_list && (file_name == NULL || strlen (file_name) == 0))
         {
           file_name = multi_page.file_name;
         }
 
-      if (single || !had_saved_list )
+      if (single || ! had_saved_list )
         init_image_list_defaults (image);
 
       break;
@@ -635,7 +655,9 @@ init_vals (const gchar      *name,
             }
         }
       else
-        init_image_list_defaults (image);
+        {
+          init_image_list_defaults (image);
+        }
       gimp_get_data (DATA_OPTIMIZE, &optimize);
 
       break;
@@ -645,6 +667,8 @@ init_vals (const gchar      *name,
   *single_image = single;
 
   validate_image_list ();
+
+  return TRUE;
 }
 
 /* A function that initializes the image list to default values */
@@ -690,40 +714,41 @@ gui_single (void)
   GtkWidget *window;
   GtkWidget *vbox;
 
-  GtkWidget *convert_c;
-  GtkWidget *ignore_c;
+  GtkWidget *vectorize_c;
+  GtkWidget *ignore_hidden_c;
   GtkWidget *apply_c;
 
   gboolean   run;
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  window = gimp_export_dialog_new ("PDF", PLUG_IN_BINARY, SAVE_PROC);
+  window = gimp_export_dialog_new ("PDF", PLUG_IN_ROLE, SAVE_PROC);
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_box_pack_start (GTK_BOX (gimp_export_dialog_get_content_area (window)),
                       vbox, TRUE, TRUE, 0);
 
   gtk_container_set_border_width (GTK_CONTAINER (window), 12);
 
-  ignore_c = gtk_check_button_new_with_label ("Don't Save layers which are hidden or have their opacity set to zero?");
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (ignore_c), optimize.ignore);
-  gtk_box_pack_end (GTK_BOX (vbox), ignore_c, TRUE, TRUE, 0);
+  ignore_hidden_c = gtk_check_button_new_with_label (_("Omit hidden layers and layers with zero opacity"));
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (ignore_hidden_c), optimize.ignore_hidden);
+  gtk_box_pack_end (GTK_BOX (vbox), ignore_hidden_c, TRUE, TRUE, 0);
 
-  convert_c = gtk_check_button_new_with_label ("Convert bitmaps to vector where possible?");
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (convert_c), optimize.convert);
-  gtk_box_pack_end (GTK_BOX (vbox), convert_c, TRUE, TRUE, 0);
+  vectorize_c = gtk_check_button_new_with_label (_("Convert bitmaps to vector graphics where possible"));
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (vectorize_c), optimize.vectorize);
+  gtk_box_pack_end (GTK_BOX (vbox), vectorize_c, TRUE, TRUE, 0);
 
-  apply_c = gtk_check_button_new_with_label ("Apply layer masks before saving? (Keeping the masks will not change the final result)");
+  apply_c = gtk_check_button_new_with_label (_("Apply layer masks before saving"));
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (apply_c), optimize.apply_masks);
   gtk_box_pack_end (GTK_BOX (vbox), apply_c, TRUE, TRUE, 0);
+  gimp_help_set_help_data (apply_c, _("Keeping the masks will not change the output"), NULL);
 
   gtk_widget_show_all (window);
 
   run = gtk_dialog_run (GTK_DIALOG (window)) == GTK_RESPONSE_OK;
 
-  optimize.ignore = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (ignore_c));
-  optimize.convert = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (convert_c));
+  optimize.ignore_hidden = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (ignore_hidden_c));
+  optimize.vectorize = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (vectorize_c));
   optimize.apply_masks = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (apply_c));
 
   gtk_widget_destroy (window);
@@ -741,8 +766,8 @@ gui_multi (void)
   GtkWidget   *file_browse;
   GtkWidget   *file_hbox;
 
-  GtkWidget   *convert_c;
-  GtkWidget   *ignore_c;
+  GtkWidget   *vectorize_c;
+  GtkWidget   *ignore_hidden_c;
   GtkWidget   *apply_c;
 
   GtkWidget   *scroll;
@@ -760,21 +785,21 @@ gui_multi (void)
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  window = gimp_export_dialog_new ("PDF", PLUG_IN_BINARY, SAVE_MULTI_PROC);
+  window = gimp_export_dialog_new ("PDF", PLUG_IN_ROLE, SAVE_MULTI_PROC);
 
-  vbox = gtk_vbox_new (FALSE, 10);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 10);
   gtk_box_pack_start (GTK_BOX (gimp_export_dialog_get_content_area (window)),
                       vbox, TRUE, TRUE, 0);
 
   gtk_container_set_border_width (GTK_CONTAINER (window), 12);
 
-  file_hbox = gtk_hbox_new (FALSE, 5);
-  file_label = gtk_label_new ("Choose the place to save the file in:");
+  file_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 5);
+  file_label = gtk_label_new (_("Save to:"));
   file_entry = gtk_entry_new ();
   if (file_name != NULL)
     gtk_entry_set_text (GTK_ENTRY (file_entry), file_name);
-  file_browse = gtk_button_new_with_label ("Browse...");
-  file_choose = gtk_file_chooser_dialog_new ("Multipage PDF export",
+  file_browse = gtk_button_new_with_label (_("Browse..."));
+  file_choose = gtk_file_chooser_dialog_new (_("Multipage PDF export"),
                                              GTK_WINDOW (window), GTK_FILE_CHOOSER_ACTION_SAVE,
                                              "gtk-save", GTK_RESPONSE_OK,
                                              "gtk-cancel", GTK_RESPONSE_CANCEL,
@@ -804,35 +829,36 @@ gui_multi (void)
 
   gtk_box_pack_start (GTK_BOX (vbox), scroll, TRUE, TRUE, 0);
 
-  h_but_box = gtk_hbutton_box_new ();
+  h_but_box = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
   gtk_button_box_set_layout (GTK_BUTTON_BOX (h_but_box), GTK_BUTTONBOX_START);
 
-  del = gtk_button_new_with_label ("Remove the selected pages");
+  del = gtk_button_new_with_label (_("Remove the selected pages"));
   gtk_box_pack_start (GTK_BOX (h_but_box), del, TRUE, TRUE, 0);
 
   gtk_box_pack_start (GTK_BOX (vbox), h_but_box, FALSE, FALSE, 0);
 
-  h_box = gtk_hbox_new (FALSE, 5);
+  h_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 5);
 
   img_combo = gimp_image_combo_box_new (NULL, NULL);
   gtk_box_pack_start (GTK_BOX (h_box), img_combo, FALSE, FALSE, 0);
 
-  add_image = gtk_button_new_with_label ("Add this image");
+  add_image = gtk_button_new_with_label (_("Add this image"));
   gtk_box_pack_start (GTK_BOX (h_box), add_image, FALSE, FALSE, 0);
 
   gtk_box_pack_start (GTK_BOX (vbox), h_box, FALSE, FALSE, 0);
 
-  ignore_c = gtk_check_button_new_with_label ("Don't Save layers which are hidden or have their opacity set to zero?");
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (ignore_c), optimize.ignore);
-  gtk_box_pack_end (GTK_BOX (vbox), ignore_c, FALSE, FALSE, 0);
+  ignore_hidden_c = gtk_check_button_new_with_label (_("Omit hidden layers and layers with zero opacity"));
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (ignore_hidden_c), optimize.ignore_hidden);
+  gtk_box_pack_end (GTK_BOX (vbox), ignore_hidden_c, FALSE, FALSE, 0);
 
-  convert_c = gtk_check_button_new_with_label ("Convert bitmaps to vector where possible?");
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (convert_c), optimize.convert);
-  gtk_box_pack_end (GTK_BOX (vbox), convert_c, FALSE, FALSE, 0);
+  vectorize_c = gtk_check_button_new_with_label (_("Convert bitmaps to vector graphics where possible"));
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (vectorize_c), optimize.vectorize);
+  gtk_box_pack_end (GTK_BOX (vbox), vectorize_c, FALSE, FALSE, 0);
 
-  apply_c = gtk_check_button_new_with_label ("Apply layer masks before saving? (Keeping the masks will not change the final result)");
+  apply_c = gtk_check_button_new_with_label (_("Apply layer masks before saving"));
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (apply_c), optimize.apply_masks);
   gtk_box_pack_end (GTK_BOX (vbox), apply_c, FALSE, FALSE, 0);
+  gimp_help_set_help_data (apply_c, _("Keeping the masks will not change the output"), NULL);
 
   gtk_widget_show_all (window);
 
@@ -855,8 +881,8 @@ gui_multi (void)
   temp = gtk_entry_get_text (GTK_ENTRY (file_entry));
   g_stpcpy (file_name, temp);
 
-  optimize.ignore = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (ignore_c));
-  optimize.convert = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (convert_c));
+  optimize.ignore_hidden = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (ignore_hidden_c));
+  optimize.vectorize = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (vectorize_c));
   optimize.apply_masks = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (apply_c));
 
   gtk_widget_destroy (window);
@@ -929,7 +955,7 @@ get_image_list (void)
 
   if (!valid)
     {
-      gimp_message ("Error! In order to save the file, at least one image should be added!");
+      gimp_message (_("Error! In order to save the file, at least one image should be added!"));
       return FALSE;
     }
 
@@ -1083,54 +1109,161 @@ recount_pages (void)
 
 /* A function to get a cairo image surface from a drawable.
  * Some of the code was taken from the gimp-print plugin */
+
+/* Gimp RGB (24 bit) to Cairo RGB (24 bit) */
+static inline void
+convert_from_rgb_to_rgb (const guchar *src,
+                         guchar       *dest,
+                         gint          pixels)
+{
+  while (pixels--)
+    {
+      GIMP_CAIRO_RGB24_SET_PIXEL (dest,
+                                  src[0], src[1], src[2]);
+
+      src  += 3;
+      dest += 4;
+    }
+}
+
+/* Gimp RGBA (32 bit) to Cairo RGBA (32 bit) */
+static inline void
+convert_from_rgba_to_rgba (const guchar *src,
+                           guchar       *dest,
+                           gint          pixels)
+{
+  while (pixels--)
+    {
+      GIMP_CAIRO_ARGB32_SET_PIXEL (dest,
+                                   src[0], src[1], src[2], src[3]);
+
+      src  += 4;
+      dest += 4;
+    }
+}
+
+/* Gimp Gray (8 bit) to Cairo RGB (24 bit) */
+static inline void
+convert_from_gray_to_rgb (const guchar *src,
+                           guchar       *dest,
+                           gint          pixels)
+{
+  while (pixels--)
+    {
+      GIMP_CAIRO_RGB24_SET_PIXEL (dest,
+                                  src[0], src[0], src[0]);
+
+      src  += 1;
+      dest += 4;
+    }
+}
+
+/* Gimp GrayA (16 bit) to Cairo RGBA (32 bit) */
+static inline void
+convert_from_graya_to_rgba (const guchar *src,
+                            guchar       *dest,
+                            gint          pixels)
+{
+  while (pixels--)
+    {
+      GIMP_CAIRO_ARGB32_SET_PIXEL (dest,
+                                   src[0], src[0], src[0], src[1]);
+
+      src  += 2;
+      dest += 4;
+    }
+}
+
+/* Gimp Indexed (8 bit) to Cairo RGB (24 bit) */
+static inline void
+convert_from_indexed_to_rgb (const guchar *src,
+                             guchar       *dest,
+                             gint          pixels,
+                             const guchar *cmap)
+{
+  while (pixels--)
+    {
+      const gint i = 3 * src[0];
+
+      GIMP_CAIRO_RGB24_SET_PIXEL (dest,
+                                  cmap[i], cmap[i + 1], cmap[i + 2]);
+
+      src  += 1;
+      dest += 4;
+    }
+}
+
+/* Gimp IndexedA (16 bit) to Cairo RGBA (32 bit) */
+static inline void
+convert_from_indexeda_to_rgba (const guchar *src,
+                               guchar       *dest,
+                               gint          pixels,
+                               const guchar *cmap)
+{
+  while (pixels--)
+    {
+      const gint i = 3 * src[0];
+
+      GIMP_CAIRO_ARGB32_SET_PIXEL (dest,
+                                   cmap[i], cmap[i + 1], cmap[i + 2], src[1]);
+
+      src  += 2;
+      dest += 4;
+    }
+}
+
 static cairo_surface_t *
 get_drawable_image (GimpDrawable *drawable)
 {
+  gint32           drawable_ID   = drawable->drawable_id;
+  GimpPixelRgn     region;
+  GimpImageType    image_type    = gimp_drawable_type (drawable_ID);
   cairo_surface_t *surface;
   cairo_format_t   format;
-  guchar          *data;
-  guchar          *dest;
-  const guchar    *src;
-  gint             dest_stride;
-  gint             y;
-  gint             bpp;
+  const gint       width         = drawable->width;
+  const gint       height        = drawable->height;
+  guchar           cmap[3 * 256] = { 0, };
+  guchar          *pixels;
+  gint             stride;
+  gpointer         pr;
+  gboolean         indexed       = FALSE;
+  int              bpp           = drawable->bpp, cairo_bpp;
 
-  gint32           drawable_id;
-  GimpPixelRgn     region;
-  gint             width;
-  gint             height;
+  if (gimp_drawable_is_indexed (drawable_ID))
+    {
+      guchar *colors;
+      gint    num_colors;
 
-  guchar*          colors = NULL;
-  gint             num_colors;
-  gboolean         indexed;
-
-  drawable_id = drawable->drawable_id;
-  width  = drawable->width;
-  height = drawable->height;
-  gimp_pixel_rgn_init (&region, drawable, 0, 0, width, height, FALSE, FALSE);
-  bpp = region.bpp;
-  data = g_new (guchar, width*height*bpp);
-  gimp_pixel_rgn_get_rect (&region, data, 0, 0, width, height);
-
-  indexed = gimp_drawable_is_indexed (drawable->drawable_id);
-  if (indexed)
-    colors = gimp_image_get_colormap (gimp_item_get_image (drawable->drawable_id), &num_colors);
+      indexed = TRUE;
+      colors = gimp_image_get_colormap (gimp_item_get_image (drawable_ID),
+                                        &num_colors);
+      memcpy (cmap, colors, 3 * num_colors);
+      g_free (colors);
+    }
 
   switch (bpp)
     {
     case 1: /* GRAY or INDEXED */
-      if (!indexed)
-        format = CAIRO_FORMAT_A8;
+      if (! indexed)
+        {
+          format = CAIRO_FORMAT_RGB24;
+          cairo_bpp = 3;
+        }
       else
-        format = CAIRO_FORMAT_RGB24;
+        {
+          format = CAIRO_FORMAT_RGB24;
+          cairo_bpp = 3;
+        }
       break;
     case 3: /* RGB */
       format = CAIRO_FORMAT_RGB24;
+      cairo_bpp = 3;
       break;
 
     case 2: /* GRAYA or INDEXEDA */
     case 4: /* RGBA */
       format = CAIRO_FORMAT_ARGB32;
+      cairo_bpp = 4;
       break;
 
     default:
@@ -1140,85 +1273,54 @@ get_drawable_image (GimpDrawable *drawable)
 
   surface = cairo_image_surface_create (format, width, height);
 
-  src = data;
+  pixels = cairo_image_surface_get_data (surface);
+  stride = cairo_image_surface_get_stride (surface);
 
-  dest        = cairo_image_surface_get_data (surface);
-  dest_stride = cairo_image_surface_get_stride (surface);
+  gimp_pixel_rgn_init (&region, drawable, 0, 0, width, height, FALSE, FALSE);
 
-  for (y = 0; y < height; y++)
+  for (pr = gimp_pixel_rgns_register (1, &region);
+       pr != NULL;
+       pr = gimp_pixel_rgns_process (pr))
     {
-      const guchar *s = src;
-      guchar       *d = dest;
-      gint          w = width;
+      const guchar *src  = region.data;
+      guchar       *dest = pixels + region.y * stride + region.x * 4;
+      gint          y;
 
-      switch (bpp)
+      for (y = 0; y < region.h; y++)
         {
-        case 1:
-          if (!indexed)
+          switch (image_type)
             {
-              while (w--)
-                {
-                  d[0] = s[0];
-                  s += 1;
-                  d += 1;
+            case GIMP_RGB_IMAGE:
+              convert_from_rgb_to_rgb (src, dest, region.w);
+              break;
 
-                }
+            case GIMP_RGBA_IMAGE:
+              convert_from_rgba_to_rgba (src, dest, region.w);
+              break;
+
+            case GIMP_GRAY_IMAGE:
+              convert_from_gray_to_rgb (src, dest, region.w);
+              break;
+
+            case GIMP_GRAYA_IMAGE:
+              convert_from_graya_to_rgba (src, dest, region.w);
+              break;
+
+            case GIMP_INDEXED_IMAGE:
+              convert_from_indexed_to_rgb (src, dest, region.w, cmap);
+              break;
+
+            case GIMP_INDEXEDA_IMAGE:
+              convert_from_indexeda_to_rgba (src, dest, region.w, cmap);
+              break;
             }
-          else {
-            while (w--)
-              {
-                GIMP_CAIRO_RGB24_SET_PIXEL (d, colors[s[0]*3], colors[s[0]*3+1], colors[s[0]*3+2]);
-                s += 1;
-                d += 4;
 
-              }
-          }
-          break;
-
-        case 2:
-          if (!indexed)
-            {
-              while (w--)
-                {
-                  GIMP_CAIRO_ARGB32_SET_PIXEL (d, s[0], s[0], s[0], s[1]);
-                  s += 2;
-                  d += 4;
-                }
-            }
-          else {
-            while (w--)
-              {
-                GIMP_CAIRO_ARGB32_SET_PIXEL (d, colors[s[0]*3], colors[s[0]*3+1], colors[s[0]*3+2], s[1]);
-                s += 2;
-                d += 4;
-              }
-          }
-          break;
-
-        case 3:
-          while (w--)
-            {
-              GIMP_CAIRO_RGB24_SET_PIXEL (d, s[0], s[1], s[2]);
-              s += 3;
-              d += 4;
-            }
-          break;
-
-        case 4:
-          while (w--)
-            {
-              GIMP_CAIRO_ARGB32_SET_PIXEL (d, s[0], s[1], s[2], s[3]);
-              s += 4;
-              d += 4;
-            }
-          break;
+          src  += region.rowstride;
+          dest += stride;
         }
-      src  += width*bpp;
-      dest += dest_stride;
     }
-  if (indexed)
-    g_free (colors);
-  g_free (data);
+
+  cairo_surface_mark_dirty (surface);
 
   return surface;
 }
@@ -1331,7 +1433,7 @@ drawText (GimpDrawable *text_layer,
   gdouble               letter_spacing;
   PangoAttribute       *letter_spacing_at;
   PangoAttrList        *attr_list = pango_attr_list_new ();
-  
+
   cairo_save (cr);
 
   options = cairo_font_options_create ();

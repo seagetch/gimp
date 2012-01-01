@@ -20,6 +20,7 @@
 
 #include "config.h"
 
+#include <cairo.h>
 #include <gegl.h>
 
 #include "libgimpbase/gimpbase.h"
@@ -36,6 +37,7 @@
 #include "paint-funcs/paint-funcs.h"
 
 #include "gimp.h"
+#include "gimpbezierdesc.h"
 #include "gimpchannel.h"
 #include "gimpcontext.h"
 #include "gimpdrawable-stroke.h"
@@ -86,7 +88,8 @@ gimp_drawable_fill_boundary (GimpDrawable    *drawable,
   g_return_if_fail (gimp_item_is_attached (GIMP_ITEM (drawable)));
   g_return_if_fail (GIMP_IS_STROKE_OPTIONS (options));
   g_return_if_fail (bound_segs == NULL || n_bound_segs != 0);
-  g_return_if_fail (options->style != GIMP_FILL_STYLE_PATTERN ||
+  g_return_if_fail (gimp_fill_options_get_style (options) !=
+                    GIMP_FILL_STYLE_PATTERN ||
                     gimp_context_get_pattern (GIMP_CONTEXT (options)) != NULL);
 
   scan_convert = gimp_drawable_render_boundary (drawable,
@@ -116,7 +119,8 @@ gimp_drawable_stroke_boundary (GimpDrawable      *drawable,
   g_return_if_fail (gimp_item_is_attached (GIMP_ITEM (drawable)));
   g_return_if_fail (GIMP_IS_STROKE_OPTIONS (options));
   g_return_if_fail (bound_segs == NULL || n_bound_segs != 0);
-  g_return_if_fail (GIMP_FILL_OPTIONS (options)->style != GIMP_FILL_STYLE_PATTERN ||
+  g_return_if_fail (gimp_fill_options_get_style (GIMP_FILL_OPTIONS (options)) !=
+                    GIMP_FILL_STYLE_PATTERN ||
                     gimp_context_get_pattern (GIMP_CONTEXT (options)) != NULL);
 
   scan_convert = gimp_drawable_render_boundary (drawable,
@@ -144,7 +148,8 @@ gimp_drawable_fill_vectors (GimpDrawable     *drawable,
   g_return_val_if_fail (gimp_item_is_attached (GIMP_ITEM (drawable)), FALSE);
   g_return_val_if_fail (GIMP_IS_FILL_OPTIONS (options), FALSE);
   g_return_val_if_fail (GIMP_IS_VECTORS (vectors), FALSE);
-  g_return_val_if_fail (options->style != GIMP_FILL_STYLE_PATTERN ||
+  g_return_val_if_fail (gimp_fill_options_get_style (options) !=
+                        GIMP_FILL_STYLE_PATTERN ||
                         gimp_context_get_pattern (GIMP_CONTEXT (options)) != NULL,
                         FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
@@ -176,7 +181,8 @@ gimp_drawable_stroke_vectors (GimpDrawable       *drawable,
   g_return_val_if_fail (gimp_item_is_attached (GIMP_ITEM (drawable)), FALSE);
   g_return_val_if_fail (GIMP_IS_STROKE_OPTIONS (options), FALSE);
   g_return_val_if_fail (GIMP_IS_VECTORS (vectors), FALSE);
-  g_return_val_if_fail (GIMP_FILL_OPTIONS (options)->style != GIMP_FILL_STYLE_PATTERN ||
+  g_return_val_if_fail (gimp_fill_options_get_style (GIMP_FILL_OPTIONS (options)) !=
+                        GIMP_FILL_STYLE_PATTERN ||
                         gimp_context_get_pattern (GIMP_CONTEXT (options)) != NULL,
                         FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
@@ -205,68 +211,40 @@ gimp_drawable_render_boundary (GimpDrawable    *drawable,
                                gint             offset_x,
                                gint             offset_y)
 {
-  GimpScanConvert *scan_convert;
-  BoundSeg        *stroke_segs;
-  gint             n_stroke_segs;
-  GimpVector2     *points;
-  gint             n_points;
-  gint             seg;
-  gint             i;
-
-  if (n_bound_segs == 0)
-    return NULL;
-
-  stroke_segs = boundary_sort (bound_segs, n_bound_segs, &n_stroke_segs);
-
-  if (n_stroke_segs == 0)
-    return NULL;
-
-  scan_convert = gimp_scan_convert_new ();
-
-  points = g_new0 (GimpVector2, n_bound_segs + 4);
-
-  seg = 0;
-  n_points = 0;
-
-  points[n_points].x = (gdouble) (stroke_segs[0].x1 + offset_x);
-  points[n_points].y = (gdouble) (stroke_segs[0].y1 + offset_y);
-
-  n_points++;
-
-  for (i = 0; i < n_stroke_segs; i++)
+  if (bound_segs)
     {
-      while (stroke_segs[seg].x1 != -1 ||
-             stroke_segs[seg].x2 != -1 ||
-             stroke_segs[seg].y1 != -1 ||
-             stroke_segs[seg].y2 != -1)
+      BoundSeg *stroke_segs;
+      gint      n_stroke_segs;
+
+      stroke_segs = boundary_sort (bound_segs, n_bound_segs, &n_stroke_segs);
+
+      if (stroke_segs)
         {
-          points[n_points].x = (gdouble) (stroke_segs[seg].x1 + offset_x);
-          points[n_points].y = (gdouble) (stroke_segs[seg].y1 + offset_y);
+          GimpBezierDesc *bezier;
 
-          n_points++;
-          seg++;
+          bezier = gimp_bezier_desc_new_from_bound_segs (stroke_segs,
+                                                         n_bound_segs,
+                                                         n_stroke_segs);
+
+          g_free (stroke_segs);
+
+          if (bezier)
+            {
+              GimpScanConvert *scan_convert;
+
+              scan_convert = gimp_scan_convert_new ();
+
+              gimp_bezier_desc_translate (bezier, offset_x, offset_y);
+              gimp_scan_convert_add_bezier (scan_convert, bezier);
+
+              gimp_bezier_desc_free (bezier);
+
+              return scan_convert;
+            }
         }
-
-      /* Close the stroke points up */
-      points[n_points] = points[0];
-
-      n_points++;
-
-      gimp_scan_convert_add_polyline (scan_convert, n_points, points, TRUE);
-
-      n_points = 0;
-      seg++;
-
-      points[n_points].x = (gdouble) (stroke_segs[seg].x1 + offset_x);
-      points[n_points].y = (gdouble) (stroke_segs[seg].y1 + offset_y);
-
-      n_points++;
     }
 
-  g_free (points);
-  g_free (stroke_segs);
-
-  return scan_convert;
+  return NULL;
 }
 
 static GimpScanConvert *
@@ -275,56 +253,24 @@ gimp_drawable_render_vectors (GimpDrawable  *drawable,
                               gboolean       do_stroke,
                               GError       **error)
 {
-  GimpScanConvert *scan_convert;
-  GimpStroke      *stroke;
-  gint             num_coords = 0;
+  const GimpBezierDesc *bezier;
 
-  scan_convert = gimp_scan_convert_new ();
+  bezier = gimp_vectors_get_bezier (vectors);
 
-  /* For each Stroke in the vector, interpolate it, and add it to the
-   * ScanConvert
-   */
-  for (stroke = gimp_vectors_stroke_get_next (vectors, NULL);
-       stroke;
-       stroke = gimp_vectors_stroke_get_next (vectors, stroke))
+  if (bezier && (do_stroke ? bezier->num_data >= 2 : bezier->num_data > 4))
     {
-      GArray   *coords;
-      gboolean  closed;
+      GimpScanConvert *scan_convert;
 
-      /* Get the interpolated version of this stroke, and add it to our
-       * scanconvert.
-       */
-      coords = gimp_stroke_interpolate (stroke, 0.2, &closed);
+      scan_convert = gimp_scan_convert_new ();
+      gimp_scan_convert_add_bezier (scan_convert, bezier);
 
-      if (coords && coords->len)
-        {
-          GimpVector2 *points = g_new0 (GimpVector2, coords->len);
-          gint         i;
-
-          for (i = 0; i < coords->len; i++)
-            {
-              points[i].x = g_array_index (coords, GimpCoords, i).x;
-              points[i].y = g_array_index (coords, GimpCoords, i).y;
-              num_coords++;
-            }
-
-          gimp_scan_convert_add_polyline (scan_convert, coords->len,
-                                          points, closed || !do_stroke);
-
-          g_free (points);
-        }
-
-      if (coords)
-        g_array_free (coords, TRUE);
+      return scan_convert;
     }
 
-  if (num_coords > 0)
-    return scan_convert;
-
-  gimp_scan_convert_free (scan_convert);
-
   g_set_error_literal (error, GIMP_ERROR, GIMP_FAILED,
-                       _("Not enough points to stroke"));
+                       do_stroke ?
+                       _("Not enough points to stroke") :
+                       _("Not enough points to fill"));
 
   return NULL;
 }
@@ -367,9 +313,13 @@ gimp_drawable_stroke_scan_convert (GimpDrawable    *drawable,
   if (do_stroke)
     {
       GimpStrokeOptions *stroke_options = GIMP_STROKE_OPTIONS (options);
-      gdouble            width          = stroke_options->width;
+      gdouble            width;
+      GimpUnit           unit;
 
-      if (stroke_options->unit != GIMP_UNIT_PIXEL)
+      width = gimp_stroke_options_get_width (stroke_options);
+      unit  = gimp_stroke_options_get_unit (stroke_options);
+
+      if (unit != GIMP_UNIT_PIXEL)
         {
           gdouble xres;
           gdouble yres;
@@ -378,16 +328,15 @@ gimp_drawable_stroke_scan_convert (GimpDrawable    *drawable,
 
           gimp_scan_convert_set_pixel_ratio (scan_convert, yres / xres);
 
-          width = gimp_units_to_pixels (stroke_options->width,
-                                        stroke_options->unit, yres);
+          width = gimp_units_to_pixels (width, unit, yres);
         }
 
       gimp_scan_convert_stroke (scan_convert, width,
-                                stroke_options->join_style,
-                                stroke_options->cap_style,
-                                stroke_options->miter_limit,
-                                stroke_options->dash_offset,
-                                stroke_options->dash_info);
+                                gimp_stroke_options_get_join_style (stroke_options),
+                                gimp_stroke_options_get_cap_style (stroke_options),
+                                gimp_stroke_options_get_miter_limit (stroke_options),
+                                gimp_stroke_options_get_dash_offset (stroke_options),
+                                gimp_stroke_options_get_dash_info (stroke_options));
     }
 
   /* fill a 1-bpp Tilemanager with black, this will describe the shape
@@ -402,7 +351,7 @@ gimp_drawable_stroke_scan_convert (GimpDrawable    *drawable,
 
   gimp_scan_convert_render (scan_convert, mask,
                             x + off_x, y + off_y,
-                            GIMP_FILL_OPTIONS (options)->antialias);
+                            gimp_fill_options_get_antialias (options));
 
   bytes = gimp_drawable_bytes_with_alpha (drawable);
 
@@ -410,7 +359,7 @@ gimp_drawable_stroke_scan_convert (GimpDrawable    *drawable,
   pixel_region_init (&basePR, base, 0, 0, w, h, TRUE);
   pixel_region_init (&maskPR, mask, 0, 0, w, h, FALSE);
 
-  switch (options->style)
+  switch (gimp_fill_options_get_style (options))
     {
     case GIMP_FILL_STYLE_SOLID:
       {

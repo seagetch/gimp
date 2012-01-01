@@ -61,9 +61,7 @@
 
 static void   gimp_palette_editor_docked_iface_init (GimpDockedInterface *face);
 
-static GObject * gimp_palette_editor_constructor   (GType              type,
-                                                    guint              n_params,
-                                                    GObjectConstructParam *params);
+static void   gimp_palette_editor_constructed      (GObject           *object);
 static void   gimp_palette_editor_dispose          (GObject           *object);
 
 static void   gimp_palette_editor_unmap            (GtkWidget         *widget);
@@ -136,7 +134,7 @@ gimp_palette_editor_class_init (GimpPaletteEditorClass *klass)
   GtkWidgetClass      *widget_class = GTK_WIDGET_CLASS (klass);
   GimpDataEditorClass *editor_class = GIMP_DATA_EDITOR_CLASS (klass);
 
-  object_class->constructor = gimp_palette_editor_constructor;
+  object_class->constructed = gimp_palette_editor_constructed;
   object_class->dispose     = gimp_palette_editor_dispose;
 
   widget_class->unmap       = gimp_palette_editor_unmap;
@@ -218,7 +216,7 @@ gimp_palette_editor_init (GimpPaletteEditor *editor)
                               palette_editor_drop_palette,
                               editor);
 
-  hbox = gtk_hbox_new (FALSE, 2);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
   gtk_box_pack_start (GTK_BOX (editor), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -247,17 +245,13 @@ gimp_palette_editor_init (GimpPaletteEditor *editor)
                     editor);
 }
 
-static GObject *
-gimp_palette_editor_constructor (GType                  type,
-                                 guint                  n_params,
-                                 GObjectConstructParam *params)
+static void
+gimp_palette_editor_constructed (GObject *object)
 {
-  GObject           *object;
-  GimpPaletteEditor *editor;
+  GimpPaletteEditor *editor = GIMP_PALETTE_EDITOR (object);
 
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
-
-  editor = GIMP_PALETTE_EDITOR (object);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   gimp_editor_add_action_button (GIMP_EDITOR (editor), "palette-editor",
                                  "palette-editor-edit-color", NULL);
@@ -265,7 +259,7 @@ gimp_palette_editor_constructor (GType                  type,
   gimp_editor_add_action_button (GIMP_EDITOR (editor), "palette-editor",
                                  "palette-editor-new-color-fg",
                                  "palette-editor-new-color-bg",
-                                 GDK_CONTROL_MASK,
+                                 gimp_get_toggle_behavior_mask (),
                                  NULL);
 
   gimp_editor_add_action_button (GIMP_EDITOR (editor), "palette-editor",
@@ -279,8 +273,6 @@ gimp_palette_editor_constructor (GType                  type,
 
   gimp_editor_add_action_button (GIMP_EDITOR (editor), "palette-editor",
                                  "palette-editor-zoom-all", NULL);
-
-  return object;
 }
 
 static void
@@ -664,7 +656,7 @@ palette_editor_entry_clicked (GimpPaletteView   *view,
     {
       GimpDataEditor *data_editor = GIMP_DATA_EDITOR (editor);
 
-      if (state & GDK_CONTROL_MASK)
+      if (state & gimp_get_toggle_behavior_mask ())
         gimp_context_set_background (data_editor->context, &entry->color);
       else
         gimp_context_set_foreground (data_editor->context, &entry->color);
@@ -677,9 +669,6 @@ palette_editor_entry_selected (GimpPaletteView   *view,
                                GimpPaletteEditor *editor)
 {
   GimpDataEditor *data_editor = GIMP_DATA_EDITOR (editor);
-  GimpPalette    *palette;
-
-  palette = GIMP_PALETTE (data_editor->data);
 
   if (editor->color != entry)
     {
@@ -699,8 +688,8 @@ palette_editor_entry_selected (GimpPaletteView   *view,
       gtk_editable_set_editable (GTK_EDITABLE (editor->color_name),
                                  entry && data_editor->data_editable);
 
-      gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                              GIMP_EDITOR (editor)->popup_data);
+      gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                              gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
     }
 }
 
@@ -711,7 +700,7 @@ palette_editor_entry_activated (GimpPaletteView   *view,
 {
   if (GIMP_DATA_EDITOR (editor)->data_editable && entry == editor->color)
     {
-      gimp_ui_manager_activate_action (GIMP_EDITOR (editor)->ui_manager,
+      gimp_ui_manager_activate_action (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
                                        "palette-editor",
                                        "palette-editor-edit-color");
     }

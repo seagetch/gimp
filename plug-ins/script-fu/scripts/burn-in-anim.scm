@@ -55,6 +55,7 @@
         ;--- main program structure starts here, begin of "if-1"
         (begin
           (gimp-context-push)
+          (gimp-context-set-defaults)
 
           (set! img (car (gimp-image-duplicate org-img)))
           (gimp-image-undo-disable img)
@@ -74,14 +75,14 @@
               (set! bl-layer-name (string-append "fr-nr"
                                                  (number->string frame-nr 10) ) )
 
-              (gimp-image-insert-layer img bl-layer -1 -2)
+              (gimp-image-insert-layer img bl-layer 0 -2)
               (gimp-item-set-name bl-layer bl-layer-name)
               (gimp-item-set-visible bl-layer TRUE)
               (gimp-layer-set-lock-alpha bl-layer TRUE)
               (gimp-layer-add-alpha bl-layer)
 
               ;--- add an alpha mask for blending and select it
-              (gimp-item-to-selection bl-layer CHANNEL-OP-REPLACE)
+              (gimp-image-select-item img CHANNEL-OP-REPLACE bl-layer)
               (set! bl-mask (car (gimp-layer-create-mask bl-layer ADD-BLACK-MASK)))
               (gimp-layer-add-mask bl-layer bl-mask)
 
@@ -93,18 +94,18 @@
               (set! bl-y-off             (cadr (gimp-drawable-offsets bl-layer)))
 
               ;--- select a rectangular area to blend
-              (gimp-rect-select img bl-x-off bl-y-off bl-width bl-height CHANNEL-OP-REPLACE 0 0)
+              (gimp-image-select-rectangle img CHANNEL-OP-REPLACE bl-x-off bl-y-off bl-width bl-height)
               ;--- select at least 1 pixel!
-              (gimp-rect-select img bl-x-off bl-y-off (+ bl-width 1) bl-height CHANNEL-OP-ADD 0 0)
+              (gimp-image-select-rectangle img CHANNEL-OP-ADD bl-x-off bl-y-off (+ bl-width 1) bl-height)
 
               (if (= fadeout FALSE)
                   (begin
                     (set! nofadeout-bl-x-off (car (gimp-drawable-offsets bl-layer)))
                     (set! nofadeout-bl-width (+ nofadeout-bl-x-off bl-x))
                     (set! nofadeout-bl-width (max nofadeout-bl-width 1))
-                    (gimp-rect-select img nofadeout-bl-x-off bl-y-off
-                                      nofadeout-bl-width bl-height
-                                      CHANNEL-OP-REPLACE 0 0)
+                    (gimp-image-select-rectangle img CHANNEL-OP-REPLACE
+                                                 nofadeout-bl-x-off bl-y-off
+                                                 nofadeout-bl-width bl-height)
                   )
               )
 
@@ -148,7 +149,7 @@
                    (- (+ bl-x-off bl-width) after-glow) 0)
 
           ;--- add corona effect
-          (gimp-item-to-selection bl-layer CHANNEL-OP-REPLACE)
+          (gimp-image-select-item img CHANNEL-OP-REPLACE bl-layer)
           (gimp-selection-sharpen img)
           (gimp-selection-grow img corona-width)
           (gimp-layer-set-lock-alpha bl-layer FALSE)
@@ -164,7 +165,7 @@
 
               ;--- merge with bg layer
               (set! bg-layer (car (gimp-layer-copy bg-source-layer FALSE)))
-              (gimp-image-insert-layer img bg-layer -1 -1)
+              (gimp-image-insert-layer img bg-layer 0 -1)
               (gimp-image-lower-item img bg-layer)
               (set! bg-layer-name (string-append "bg-"
                                                  (number->string frame-nr 10)))

@@ -44,10 +44,13 @@
 
 
 /*  index into trans_info array  */
-#define ANGLE        0
-#define REAL_ANGLE   1
-#define CENTER_X     2
-#define CENTER_Y     3
+enum
+{
+  ANGLE,
+  REAL_ANGLE,
+  CENTER_X,
+  CENTER_Y
+};
 
 #define FIFTEEN_DEG  (G_PI / 12.0)
 
@@ -56,20 +59,20 @@
 
 /*  local function prototypes  */
 
-static gboolean gimp_rotate_tool_key_press     (GimpTool            *tool,
-                                                GdkEventKey         *kevent,
-                                                GimpDisplay         *display);
-static void     gimp_rotate_tool_dialog        (GimpTransformTool   *tr_tool);
-static void     gimp_rotate_tool_dialog_update (GimpTransformTool   *tr_tool);
-static void     gimp_rotate_tool_prepare       (GimpTransformTool   *tr_tool,
-                                                GimpDisplay         *display);
-static void     gimp_rotate_tool_motion        (GimpTransformTool   *tr_tool,
-                                                GimpDisplay         *display);
-static void     gimp_rotate_tool_recalc        (GimpTransformTool   *tr_tool,
-                                                GimpDisplay         *display);
-static void     rotate_angle_changed           (GtkAdjustment       *adj,
-                                                GimpTransformTool   *tr_tool);
-static void     rotate_center_changed          (GtkWidget           *entry,
+static gboolean  gimp_rotate_tool_key_press     (GimpTool           *tool,
+                                                 GdkEventKey        *kevent,
+                                                 GimpDisplay        *display);
+
+static void      gimp_rotate_tool_dialog        (GimpTransformTool  *tr_tool);
+static void      gimp_rotate_tool_dialog_update (GimpTransformTool  *tr_tool);
+static void      gimp_rotate_tool_prepare       (GimpTransformTool  *tr_tool);
+static void      gimp_rotate_tool_motion        (GimpTransformTool  *tr_tool);
+static void      gimp_rotate_tool_recalc_matrix (GimpTransformTool  *tr_tool);
+static gchar   * gimp_rotate_tool_get_undo_desc (GimpTransformTool  *tr_tool);
+
+static void      rotate_angle_changed           (GtkAdjustment      *adj,
+                                                 GimpTransformTool  *tr_tool);
+static void      rotate_center_changed          (GtkWidget          *entry,
                                                 GimpTransformTool   *tr_tool);
 
 
@@ -108,7 +111,8 @@ gimp_rotate_tool_class_init (GimpRotateToolClass *klass)
   trans_class->dialog_update = gimp_rotate_tool_dialog_update;
   trans_class->prepare       = gimp_rotate_tool_prepare;
   trans_class->motion        = gimp_rotate_tool_motion;
-  trans_class->recalc        = gimp_rotate_tool_recalc;
+  trans_class->recalc_matrix = gimp_rotate_tool_recalc_matrix;
+  trans_class->get_undo_desc = gimp_rotate_tool_get_undo_desc;
 }
 
 static void
@@ -119,7 +123,6 @@ gimp_rotate_tool_init (GimpRotateTool *rotate_tool)
 
   gimp_tool_control_set_tool_cursor (tool->control, GIMP_TOOL_CURSOR_ROTATE);
 
-  tr_tool->undo_desc     = C_("command", "Rotate");
   tr_tool->progress_text = _("Rotating");
 
   tr_tool->use_grid      = TRUE;
@@ -140,19 +143,19 @@ gimp_rotate_tool_key_press (GimpTool    *tool,
 
       switch (kevent->keyval)
         {
-        case GDK_Up:
+        case GDK_KEY_Up:
           gtk_spin_button_spin (angle_spin, GTK_SPIN_STEP_FORWARD, 0.0);
           return TRUE;
 
-        case GDK_Down:
+        case GDK_KEY_Down:
           gtk_spin_button_spin (angle_spin, GTK_SPIN_STEP_BACKWARD, 0.0);
           return TRUE;
 
-        case GDK_Left:
+        case GDK_KEY_Left:
           gtk_spin_button_spin (angle_spin, GTK_SPIN_PAGE_FORWARD, 0.0);
           return TRUE;
 
-        case GDK_Right:
+        case GDK_KEY_Right:
           gtk_spin_button_spin (angle_spin, GTK_SPIN_PAGE_BACKWARD, 0.0);
           return TRUE;
 
@@ -194,7 +197,7 @@ gimp_rotate_tool_dialog (GimpTransformTool *tr_tool)
                     G_CALLBACK (rotate_angle_changed),
                     tr_tool);
 
-  scale = gtk_hscale_new (rotate->angle_adj);
+  scale = gtk_scale_new (GTK_ORIENTATION_HORIZONTAL, rotate->angle_adj);
   gtk_scale_set_draw_value (GTK_SCALE (scale), FALSE);
   gtk_table_attach (GTK_TABLE (table), scale, 1, 2, 1, 2,
                     GTK_EXPAND | GTK_FILL, GTK_SHRINK, 0, 0);
@@ -242,11 +245,11 @@ gimp_rotate_tool_dialog_update (GimpTransformTool *tr_tool)
 }
 
 static void
-gimp_rotate_tool_prepare (GimpTransformTool *tr_tool,
-                          GimpDisplay       *display)
+gimp_rotate_tool_prepare (GimpTransformTool *tr_tool)
 {
-  GimpRotateTool *rotate = GIMP_ROTATE_TOOL (tr_tool);
-  GimpImage      *image  = gimp_display_get_image (display);
+  GimpRotateTool *rotate  = GIMP_ROTATE_TOOL (tr_tool);
+  GimpDisplay    *display = GIMP_TOOL (tr_tool)->display;
+  GimpImage      *image   = gimp_display_get_image (display);
   gdouble         xres;
   gdouble         yres;
 
@@ -289,8 +292,7 @@ gimp_rotate_tool_prepare (GimpTransformTool *tr_tool,
 }
 
 static void
-gimp_rotate_tool_motion (GimpTransformTool *tr_tool,
-                         GimpDisplay       *display)
+gimp_rotate_tool_motion (GimpTransformTool *tr_tool)
 {
   GimpTransformOptions *options = GIMP_TRANSFORM_TOOL_GET_OPTIONS (tr_tool);
   gdouble               angle1, angle2, angle;
@@ -353,8 +355,7 @@ gimp_rotate_tool_motion (GimpTransformTool *tr_tool,
 }
 
 static void
-gimp_rotate_tool_recalc (GimpTransformTool *tr_tool,
-                         GimpDisplay       *display)
+gimp_rotate_tool_recalc_matrix (GimpTransformTool *tr_tool)
 {
   tr_tool->cx = tr_tool->trans_info[CENTER_X];
   tr_tool->cy = tr_tool->trans_info[CENTER_Y];
@@ -364,6 +365,16 @@ gimp_rotate_tool_recalc (GimpTransformTool *tr_tool,
                                        tr_tool->cx,
                                        tr_tool->cy,
                                        tr_tool->trans_info[ANGLE]);
+}
+
+static gchar *
+gimp_rotate_tool_get_undo_desc (GimpTransformTool  *tr_tool)
+{
+  return g_strdup_printf (C_("undo-type",
+                             "Rotate by %-3.3g° around (%g, %g)"),
+                          gimp_rad_to_deg (tr_tool->trans_info[ANGLE]),
+                          tr_tool->trans_info[CENTER_X],
+                          tr_tool->trans_info[CENTER_Y]);
 }
 
 static void
@@ -380,9 +391,7 @@ rotate_angle_changed (GtkAdjustment     *adj,
 
       tr_tool->trans_info[REAL_ANGLE] = tr_tool->trans_info[ANGLE] = value;
 
-      gimp_transform_tool_recalc (tr_tool, GIMP_TOOL (tr_tool)->display);
-
-      gimp_transform_tool_expose_preview (tr_tool);
+      gimp_transform_tool_recalc_matrix (tr_tool);
 
       gimp_draw_tool_resume (GIMP_DRAW_TOOL (tr_tool));
     }
@@ -407,9 +416,7 @@ rotate_center_changed (GtkWidget         *widget,
       tr_tool->cx = cx;
       tr_tool->cy = cy;
 
-      gimp_transform_tool_recalc (tr_tool, GIMP_TOOL (tr_tool)->display);
-
-      gimp_transform_tool_expose_preview (tr_tool);
+      gimp_transform_tool_recalc_matrix (tr_tool);
 
       gimp_draw_tool_resume (GIMP_DRAW_TOOL (tr_tool));
     }

@@ -74,6 +74,7 @@
 
 #define PLUG_IN_PROC   "plug-in-hot"
 #define PLUG_IN_BINARY "hot"
+#define PLUG_IN_ROLE   "gimp-hot"
 
 
 typedef struct
@@ -547,6 +548,7 @@ pluginCore (piArgs *argp)
             }
         }
     }
+  gimp_progress_update (1.0);
 
   gimp_pixel_rgn_set_rect (&dstPr, dst, sel_x1, sel_y1, width, height);
 
@@ -582,7 +584,7 @@ plugin_dialog (piArgs *argp)
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dlg = gimp_dialog_new (_("Hot"), PLUG_IN_BINARY,
+  dlg = gimp_dialog_new (_("Hot"), PLUG_IN_ROLE,
                          NULL, 0,
                          gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -598,13 +600,13 @@ plugin_dialog (piArgs *argp)
 
   gimp_window_set_transient (GTK_WINDOW (dlg));
 
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dlg))),
                       hbox, TRUE, TRUE, 0);
   gtk_widget_show (hbox);
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_box_pack_start (GTK_BOX (hbox), vbox, TRUE, TRUE, 0);
   gtk_widget_show (vbox);
 

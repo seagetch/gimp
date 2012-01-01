@@ -188,7 +188,7 @@ gimp_canvas_cursor_get_extents (GimpCanvasItem   *item,
                                 GimpDisplayShell *shell)
 {
   GimpCanvasCursorPrivate *private = GET_PRIVATE (item);
-  GdkRectangle             rectangle;
+  cairo_rectangle_int_t    rectangle;
   gdouble                  x, y;
 
   x = floor (private->x) + 0.5;
@@ -199,7 +199,7 @@ gimp_canvas_cursor_get_extents (GimpCanvasItem   *item,
   rectangle.width  = ceil (x + GIMP_CURSOR_SIZE + 1.5) - rectangle.x;
   rectangle.height = ceil (y + GIMP_CURSOR_SIZE + 1.5) - rectangle.y;
 
-  return cairo_region_create_rectangle ((cairo_rectangle_int_t *) &rectangle);
+  return cairo_region_create_rectangle (&rectangle);
 }
 
 GimpCanvasItem *
@@ -213,9 +213,9 @@ gimp_canvas_cursor_new (GimpDisplayShell *shell)
 }
 
 void
-gimp_canvas_cursor_set_coords (GimpCanvasCursor *cursor,
-                               gdouble           x,
-                               gdouble           y)
+gimp_canvas_cursor_set (GimpCanvasItem *cursor,
+                        gdouble         x,
+                        gdouble         y)
 {
   GimpCanvasCursorPrivate *private;
 
@@ -225,11 +225,13 @@ gimp_canvas_cursor_set_coords (GimpCanvasCursor *cursor,
 
   if (private->x != x || private->y != y)
     {
-      gimp_canvas_item_begin_change (GIMP_CANVAS_ITEM (cursor));
+      gimp_canvas_item_begin_change (cursor);
+
       g_object_set (cursor,
                     "x", x,
                     "y", y,
                     NULL);
-      gimp_canvas_item_end_change (GIMP_CANVAS_ITEM (cursor));
+
+      gimp_canvas_item_end_change (cursor);
     }
 }

@@ -20,8 +20,6 @@ libappvectors_a_SOURCES = \
 	vectors-types.h		\
 	gimpanchor.c		\
 	gimpanchor.h		\
-	gimpbezierdesc.h	\
-	gimpbezierdesc.c	\
 	gimpbezierstroke.h	\
 	gimpbezierstroke.c	\
 	gimpstroke.h		\
@@ -46,5 +44,3 @@ libappvectors_a_SOURCES = \
 	gimpvectorspropundo.h	\
 	gimpvectorsundo.c	\
 	gimpvectorsundo.h
-
-EXTRA_DIST = makefile.msc

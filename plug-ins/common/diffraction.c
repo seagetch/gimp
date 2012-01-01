@@ -30,6 +30,7 @@
 
 #define PLUG_IN_PROC   "plug-in-diffraction"
 #define PLUG_IN_BINARY "diffraction"
+#define PLUG_IN_ROLE   "gimp-diffraction"
 
 
 /***** Magic numbers *****/
@@ -285,8 +286,8 @@ run (const gchar      *name,
 typedef struct {
   gdouble       dhoriz;
   gdouble       dvert;
-  gint          x1;
-  gint          y1;
+  gint          x;
+  gint          y;
 } DiffractionParam_t;
 
 static void
@@ -300,8 +301,8 @@ diffraction_func (gint x,
   gdouble px, py;
   GimpRGB rgb;
 
-  px = -5.0 + param->dhoriz * (x - param->x1);
-  py = 5.0 + param->dvert * (y - param->y1);
+  px = -5.0 + param->dhoriz * (x - param->x);
+  py = 5.0 + param->dvert * (y - param->y);
 
   diff_diffract (px, py, &rgb);
 
@@ -318,13 +319,18 @@ diffraction (GimpDrawable *drawable)
 {
   GimpRgnIterator *iter;
   DiffractionParam_t param;
-  gint x1, y1, x2, y2;
+  gint x, y, width, height;
 
-  gimp_drawable_mask_bounds (drawable->drawable_id, &x1, &y1, &x2, &y2);
-  param.x1 = x1;
-  param.y1 = y1;
-  param.dhoriz = 10.0 / (x2 - x1 - 1);
-  param.dvert  = -10.0 / (y2 - y1 - 1);
+  if (! gimp_drawable_mask_intersect (drawable->drawable_id, &x, &y,
+                                      &width, &height))
+    {
+      return;
+    }
+
+  param.x = x;
+  param.y = y;
+  param.dhoriz = 10.0 / (width - 1);
+  param.dvert  = -10.0 / (height - 1);
 
   gimp_progress_init (_("Creating diffraction pattern"));
   iter = gimp_rgn_iterator_new (drawable, 0);
@@ -430,7 +436,7 @@ diffraction_dialog (void)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Diffraction Patterns"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Diffraction Patterns"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -446,7 +452,7 @@ diffraction_dialog (void)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       hbox, FALSE, FALSE, 0);
@@ -454,7 +460,7 @@ diffraction_dialog (void)
 
   /* Preview */
 
-  vbox = gtk_vbox_new (FALSE, 2);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
   gtk_box_pack_start (GTK_BOX (hbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 

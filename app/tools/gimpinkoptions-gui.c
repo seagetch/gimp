@@ -125,7 +125,8 @@ sensitivity_create_view (GtkWidget *button, GtkWidget **result, GObject *config)
   GtkWidget *scale;
   GList *children;
 
-  vbox2 = gtk_vbox_new (FALSE, 2);
+  vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
+/*  gtk_container_add (GTK_CONTAINER (frame), vbox2); */
   gtk_widget_show (vbox2);
 
   /* size sens slider */
@@ -166,7 +167,8 @@ blob_create_view (GtkWidget *button, GtkWidget **result, GObject *config)
   GtkWidget *editor;
 
   /* Blob shape widgets */
-  hbox = gtk_hbox_new (FALSE, 2);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
+/*  gtk_container_add (GTK_CONTAINER (frame), hbox); */
   gtk_widget_show (hbox);
 
   /* Blob type radiobuttons */
@@ -177,6 +179,10 @@ blob_create_view (GtkWidget *button, GtkWidget **result, GObject *config)
   gtk_box_pack_start (GTK_BOX (hbox), blob_box, FALSE, FALSE, 0);
   gtk_widget_show (blob_box);
 
+#if 0
+  gtk_size_group_add_widget (size_group, blob_box);
+  g_object_unref (size_group);
+#endif
 
   /* Blob editor */
   frame = gtk_frame_new("");
@@ -191,7 +197,8 @@ blob_create_view (GtkWidget *button, GtkWidget **result, GObject *config)
   gtk_container_add (GTK_CONTAINER (frame), editor);
   gtk_widget_show (editor);
 
-  gimp_config_connect (config, G_OBJECT (editor), NULL);
-  
+  gimp_config_connect (config, G_OBJECT (editor), "blob-type");
+  gimp_config_connect (config, G_OBJECT (editor), "blob-aspect");
+  gimp_config_connect (config, G_OBJECT (editor), "blob-angle");
   *result = hbox;
 }

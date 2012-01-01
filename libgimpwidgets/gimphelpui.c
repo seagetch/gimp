@@ -43,7 +43,9 @@
 
 typedef enum
 {
-  GIMP_WIDGET_HELP_TYPE_HELP = 0xff
+  GIMP_WIDGET_HELP_TOOLTIP    = GTK_WIDGET_HELP_TOOLTIP,
+  GIMP_WIDGET_HELP_WHATS_THIS = GTK_WIDGET_HELP_WHATS_THIS,
+  GIMP_WIDGET_HELP_TYPE_HELP  = 0xff
 } GimpWidgetHelpType;
 
 
@@ -176,11 +178,11 @@ gimp_help_connect (GtkWidget    *widget,
       binding_set =
         gtk_binding_set_by_class (g_type_class_peek (GTK_TYPE_WIDGET));
 
-      gtk_binding_entry_add_signal (binding_set, GDK_F1, 0,
+      gtk_binding_entry_add_signal (binding_set, GDK_KEY_F1, 0,
                                     "show-help", 1,
                                     GTK_TYPE_WIDGET_HELP_TYPE,
                                     GIMP_WIDGET_HELP_TYPE_HELP);
-      gtk_binding_entry_add_signal (binding_set, GDK_KP_F1, 0,
+      gtk_binding_entry_add_signal (binding_set, GDK_KEY_KP_F1, 0,
                                     "show-help", 1,
                                     GTK_TYPE_WIDGET_HELP_TYPE,
                                     GIMP_WIDGET_HELP_TYPE_HELP);
@@ -281,7 +283,7 @@ gimp_context_help (GtkWidget *widget)
 {
   g_return_if_fail (GTK_IS_WIDGET (widget));
 
-  gimp_help_callback (widget, GTK_WIDGET_HELP_WHATS_THIS, NULL);
+  gimp_help_callback (widget, GIMP_WIDGET_HELP_WHATS_THIS, NULL);
 }
 
 /**
@@ -357,7 +359,7 @@ gimp_help_callback (GtkWidget          *widget,
         }
       return TRUE;
 
-    case GTK_WIDGET_HELP_WHATS_THIS:
+    case GIMP_WIDGET_HELP_WHATS_THIS:
       g_idle_add (gimp_context_help_idle_start, widget);
       return TRUE;
 
@@ -416,7 +418,7 @@ gimp_help_menu_item_query_tooltip (GtkWidget  *widget,
   if (! text)
     return FALSE;
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
 
   label = gtk_label_new (text);
   gtk_label_set_use_markup (GTK_LABEL (label), use_markup);
@@ -530,7 +532,7 @@ gimp_context_help_key_press (GtkWidget   *widget,
                              GdkEventKey *kevent,
                              gpointer     data)
 {
-  if (kevent->keyval == GDK_Escape)
+  if (kevent->keyval == GDK_KEY_Escape)
     {
       GdkDisplay *display = gtk_widget_get_display (widget);
 

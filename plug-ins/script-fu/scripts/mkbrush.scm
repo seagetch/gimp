@@ -36,14 +36,15 @@
         )
 
     (gimp-context-push)
+    (gimp-context-set-defaults)
 
     (gimp-image-undo-disable img)
-    (gimp-image-insert-layer img drawable -1 0)
+    (gimp-image-insert-layer img drawable 0 0)
 
     (gimp-context-set-background '(255 255 255))
     (gimp-drawable-fill drawable BACKGROUND-FILL)
 
-    (gimp-rect-select img 0 0 width height CHANNEL-OP-REPLACE FALSE 0)
+    (gimp-image-select-rectangle img CHANNEL-OP-REPLACE 0 0 width height)
 
     (gimp-context-set-background '(0 0 0))
     (gimp-edit-fill drawable BACKGROUND-FILL)
@@ -97,17 +98,21 @@
     (gimp-context-push)
 
     (gimp-image-undo-disable img)
-    (gimp-image-insert-layer img drawable -1 0)
+    (gimp-image-insert-layer img drawable 0 0)
 
     (gimp-context-set-background '(255 255 255))
     (gimp-drawable-fill drawable BACKGROUND-FILL)
 
-    (cond ((< 0 feathering)
-     (gimp-rect-select img
-           (/ feathering 2) (/ feathering 2)
-           width height CHANNEL-OP-REPLACE TRUE feathering))
-    ((>= 0 feathering)
-     (gimp-rect-select img 0 0 width height CHANNEL-OP-REPLACE FALSE 0)))
+    (cond
+      ((< 0 feathering)
+       (gimp-context-set-feather TRUE)
+       (gimp-context-set-feather-radius feathering feathering)
+       (gimp-image-select-rectangle img CHANNEL-OP-REPLACE
+           (/ feathering 2) (/ feathering 2) width height))
+      ((>= 0 feathering)
+      (gimp-context-set-feather FALSE)
+      (gimp-image-select-rectangle img CHANNEL-OP-REPLACE 0 0 width height))
+    )
 
     (gimp-context-set-background '(0 0 0))
     (gimp-edit-fill drawable BACKGROUND-FILL)
@@ -155,14 +160,16 @@
         )
 
     (gimp-context-push)
+    (gimp-context-set-antialias TRUE)
+    (gimp-context-set-feather FALSE)
 
     (gimp-image-undo-disable img)
-    (gimp-image-insert-layer img drawable -1 0)
+    (gimp-image-insert-layer img drawable 0 0)
 
     (gimp-context-set-background '(255 255 255))
     (gimp-drawable-fill drawable BACKGROUND-FILL)
     (gimp-context-set-background '(0 0 0))
-    (gimp-ellipse-select img 0 0 width height CHANNEL-OP-REPLACE TRUE FALSE 0)
+    (gimp-image-select-ellipse img CHANNEL-OP-REPLACE 0 0 width height)
 
     (gimp-edit-fill drawable BACKGROUND-FILL)
 
@@ -214,21 +221,23 @@
         )
 
     (gimp-context-push)
+    (gimp-context-set-antialias TRUE)
 
     (gimp-image-undo-disable img)
-    (gimp-image-insert-layer img drawable -1 0)
+    (gimp-image-insert-layer img drawable 0 0)
 
     (gimp-context-set-background '(255 255 255))
     (gimp-drawable-fill drawable BACKGROUND-FILL)
 
     (cond ((> feathering 0)   ; keep from taking out gimp with stupid entry.
-        (gimp-ellipse-select img
+        (gimp-context-set-feather TRUE)
+        (gimp-context-set-feather-radius feathering feathering)
+        (gimp-image-select-ellipse img CHANNEL-OP-REPLACE
            (/ feathering 2) (/ feathering 2)
-           width height CHANNEL-OP-REPLACE
-           TRUE TRUE feathering))
+           width height))
           ((<= feathering 0)
-        (gimp-ellipse-select img 0 0 width height
-           CHANNEL-OP-REPLACE TRUE FALSE 0)))
+        (gimp-context-set-feather FALSE)
+        (gimp-image-select-ellipse img CHANNEL-OP-REPLACE 0 0 width height)))
 
     (gimp-context-set-background '(0 0 0))
     (gimp-edit-fill drawable BACKGROUND-FILL)

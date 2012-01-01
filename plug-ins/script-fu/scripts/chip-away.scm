@@ -53,6 +53,7 @@
         )
 
     (gimp-context-push)
+    (gimp-context-set-defaults)
 
     (script-fu-util-image-resize-from-layer img logo-layer)
     (script-fu-util-image-add-layers img bump-layer bg-layer)
@@ -72,7 +73,7 @@
     (gimp-selection-all img)
     (gimp-edit-clear bump-layer)
     (gimp-selection-none img)
-    (gimp-selection-layer-alpha logo-layer)
+    (gimp-image-select-item img CHANNEL-OP-REPLACE logo-layer)
     (gimp-edit-fill bump-layer BACKGROUND-FILL)
     (gimp-edit-bucket-fill logo-layer
                            PATTERN-BUCKET-FILL NORMAL-MODE 100 255 FALSE 1 1)
@@ -80,7 +81,7 @@
 
     (gimp-layer-set-lock-alpha bump-layer FALSE)
     (plug-in-spread RUN-NONINTERACTIVE img bump-layer spread-amount spread-amount)
-    (gimp-selection-layer-alpha bump-layer)
+    (gimp-image-select-item img CHANNEL-OP-REPLACE bump-layer)
     (plug-in-gauss-rle RUN-NONINTERACTIVE img bump-layer blur-amount TRUE TRUE)
 
     (gimp-selection-none img)
@@ -98,7 +99,7 @@
             (gimp-selection-all img)
             (gimp-edit-clear shadow-layer)
             (gimp-selection-none img)
-            (gimp-selection-layer-alpha logo-layer)
+            (gimp-image-select-item img CHANNEL-OP-REPLACE logo-layer)
             (gimp-context-set-background '(0 0 0))
             (gimp-edit-fill shadow-layer BACKGROUND-FILL)
             (gimp-selection-none img)

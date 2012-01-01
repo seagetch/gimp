@@ -53,6 +53,8 @@ libapp_sources = \
 	batch.h		\
 	errors.c	\
 	errors.h	\
+	language.c	\
+	language.h	\
 	sanity.c	\
 	sanity.h	\
 	signals.c	\
@@ -87,9 +89,6 @@ libapp_a_SOURCES = $(libapp_sources) $(libapp_generated_sources)
 gimp_2_7_SOURCES = $(libapp_sources) main.c
 
 
-EXTRA_DIST = \
-	makefile.msc
-
 if OS_WIN32
 win32_ldflags = -mwindows $(WIN32_LARGE_ADDRESS_AWARE)
 endif
@@ -112,7 +111,6 @@ INCLUDES = \
 	-I$(top_srcdir)		\
 	$(GTK_CFLAGS)		\
 	$(PANGOCAIRO_CFLAGS)	\
-	$(DBUS_GLIB_CFLAGS)	\
 	$(GEGL_CFLAGS)		\
 	-I$(includedir)
 
@@ -271,21 +269,20 @@ dist-hook: dist-check-gimp-console dist-dump-gimprc
 # in which case the git-version.h we ship is correct.
 git-version.h: update-git-version-header
 	@if test -d "$(top_srcdir)/.git"; then \
-	  git_version="`git describe`"; \
-	  git_last_commit_timestamp="`git log -n1 --reverse --pretty=%ct`"; \
-	  git_last_commit_year="`date --utc -d \"1970-01-01 + $$git_last_commit_timestamp seconds\" '+%Y'`"; \
+	  git_version="`git --git-dir=$(top_srcdir)/.git describe --always`"; \
+	  git_last_commit_year="`git --git-dir=$(top_srcdir)/.git log -n1 --reverse --pretty=%ci | cut -b 1-4`"; \
 	elif test ! -f "$@"; then \
 	  git_version="Unknown, shouldn't happen"; \
 	  git_last_commit_timestamp=-1; \
-	  git_last_commit_year="`date --utc '+%Y'`"; \
+	  git_last_commit_year="`date -u '+%Y'`"; \
 	fi; \
-	echo "#ifndef __GIT_VERSION_H__" > "$@.tmp"; \
-	echo "#define __GIT_VERSION_H__" >> "$@.tmp"; \
-	echo "#include <time.h>" >> "$@.tmp"; \
-	echo "#define GIMP_GIT_VERSION \"$$git_version\"" >> "$@.tmp"; \
-	echo "#define GIMP_GIT_LAST_COMMIT_TIMESTAMP ((time_t)$$git_last_commit_timestamp)" >> "$@.tmp"; \
-	echo "#define GIMP_GIT_LAST_COMMIT_YEAR \"$$git_last_commit_year\"" >> "$@.tmp"; \
-	echo "#endif /* __GIT_VERSION_H__ */" >> "$@.tmp"
+	if test -n "$$git_version"; then \
+	  echo "#ifndef __GIT_VERSION_H__" > "$@.tmp"; \
+	  echo "#define __GIT_VERSION_H__" >> "$@.tmp"; \
+	  echo "#define GIMP_GIT_VERSION \"$$git_version\"" >> "$@.tmp"; \
+	  echo "#define GIMP_GIT_LAST_COMMIT_YEAR \"$$git_last_commit_year\"" >> "$@.tmp"; \
+	  echo "#endif /* __GIT_VERSION_H__ */" >> "$@.tmp"; \
+	fi
 	@if ( test -f "$@.tmp" && test -f "$@" && cmp "$@.tmp" "$@" > /dev/null ); then \
 	  rm -f "$@.tmp"; \
 	elif test -f "$@.tmp"; then \

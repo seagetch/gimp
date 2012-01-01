@@ -64,7 +64,7 @@ static const GimpActionEntry image_actions[] =
   { "colors-components-menu", NULL, NC_("image-action", "C_omponents") },
 
   { "image-new", GTK_STOCK_NEW,
-    NC_("image-action", "_New..."), "<control>N",
+    NC_("image-action", "_New..."), "<primary>N",
     NC_("image-action", "Create a new image"),
     G_CALLBACK (image_new_cmd_callback),
     GIMP_HELP_FILE_NEW },
@@ -106,13 +106,13 @@ static const GimpActionEntry image_actions[] =
     GIMP_HELP_IMAGE_CROP },
 
   { "image-duplicate", GIMP_STOCK_DUPLICATE,
-    NC_("image-action", "_Duplicate"), "<control>D",
+    NC_("image-action", "_Duplicate"), "<primary>D",
     NC_("image-action", "Create a duplicate of this image"),
     G_CALLBACK (image_duplicate_cmd_callback),
     GIMP_HELP_IMAGE_DUPLICATE },
 
   { "image-merge-layers", NULL,
-    NC_("image-action", "Merge Visible _Layers..."), "<control>M",
+    NC_("image-action", "Merge Visible _Layers..."), "<primary>M",
     NC_("image-action", "Merge all visible layers into one layer"),
     G_CALLBACK (image_merge_layers_cmd_callback),
     GIMP_HELP_IMAGE_MERGE_LAYERS },
@@ -213,6 +213,15 @@ image_actions_setup (GimpActionGroup *group)
                                       image_rotate_actions,
                                       G_N_ELEMENTS (image_rotate_actions),
                                       G_CALLBACK (image_rotate_cmd_callback));
+
+#define SET_ALWAYS_SHOW_IMAGE(action,show) \
+        gimp_action_group_set_action_always_show_image (group, action, show)
+
+  SET_ALWAYS_SHOW_IMAGE ("image-rotate-90",  TRUE);
+  SET_ALWAYS_SHOW_IMAGE ("image-rotate-180", TRUE);
+  SET_ALWAYS_SHOW_IMAGE ("image-rotate-270", TRUE);
+
+#undef SET_ALWAYS_SHOW_IMAGE
 }
 
 void
@@ -220,7 +229,6 @@ image_actions_update (GimpActionGroup *group,
                       gpointer         data)
 {
   GimpImage *image  = action_data_get_image (data);
-  gboolean   fs     = FALSE;
   gboolean   aux    = FALSE;
   gboolean   lp     = FALSE;
   gboolean   sel    = FALSE;
@@ -248,7 +256,6 @@ image_actions_update (GimpActionGroup *group,
 
       gimp_action_group_set_action_active (group, action, TRUE);
 
-      fs  = (gimp_image_get_floating_selection (image) != NULL);
       aux = (gimp_image_get_active_channel (image) != NULL);
       lp  = ! gimp_image_is_empty (image);
       sel = ! gimp_channel_is_empty (gimp_image_get_mask (image));
@@ -278,8 +285,8 @@ image_actions_update (GimpActionGroup *group,
   SET_SENSITIVE ("image-scale",               image);
   SET_SENSITIVE ("image-crop",                image && sel);
   SET_SENSITIVE ("image-duplicate",           image);
-  SET_SENSITIVE ("image-merge-layers",        image && !fs && !aux && lp);
-  SET_SENSITIVE ("image-flatten",             image && !fs && !aux && lp);
+  SET_SENSITIVE ("image-merge-layers",        image && !aux && lp);
+  SET_SENSITIVE ("image-flatten",             image && !aux && lp);
   SET_SENSITIVE ("image-configure-grid",      image);
   SET_SENSITIVE ("image-properties",          image);
 

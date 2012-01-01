@@ -53,6 +53,9 @@
 #include "gimp-intl.h"
 
 
+#define UPDATE_DELAY 300 /* From GtkRange in GTK+ 2.22 */
+
+
 static void        gimp_navigation_editor_docked_iface_init (GimpDockedInterface  *iface);
 
 static void        gimp_navigation_editor_dispose           (GObject              *object);
@@ -120,8 +123,9 @@ gimp_navigation_editor_init (GimpNavigationEditor *editor)
 {
   GtkWidget *frame;
 
-  editor->context = NULL;
-  editor->shell   = NULL;
+  editor->context       = NULL;
+  editor->shell         = NULL;
+  editor->scale_timeout = 0;
 
   frame = gtk_frame_new (NULL);
   gtk_frame_set_shadow_type (GTK_FRAME (frame), GTK_SHADOW_IN);
@@ -155,6 +159,12 @@ gimp_navigation_editor_dispose (GObject *object)
 
   if (editor->shell)
     gimp_navigation_editor_set_shell (editor, NULL);
+
+  if (editor->scale_timeout)
+    {
+      g_source_remove (editor->scale_timeout);
+      editor->scale_timeout = 0;
+    }
 
   G_OBJECT_CLASS (parent_class)->dispose (object);
 }
@@ -282,10 +292,10 @@ gimp_navigation_editor_popup (GimpDisplayShell *shell,
 
     screen_click_x = x_origin + click_x;
     screen_click_y = y_origin + click_y;
-    border_width   = style->xthickness * 4;
-    border_height  = style->ythickness * 4;
-    popup_width    = GIMP_VIEW (view)->renderer->width  - border_width;
-    popup_height   = GIMP_VIEW (view)->renderer->height - border_height;
+    border_width   = 2 * style->xthickness;
+    border_height  = 2 * style->ythickness;
+    popup_width    = GIMP_VIEW (view)->renderer->width  - 2 * border_width;
+    popup_height   = GIMP_VIEW (view)->renderer->height - 2 * border_height;
 
     x = screen_click_x -
         border_width -
@@ -405,7 +415,7 @@ gimp_navigation_editor_new_private (GimpMenuFactory  *menu_factory,
 
       /* the zoom scale */
 
-      hbox = gtk_hbox_new (FALSE, 6);
+      hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
       gtk_box_pack_end (GTK_BOX (editor), hbox, FALSE, FALSE, 0);
       gtk_widget_show (hbox);
 
@@ -416,8 +426,8 @@ gimp_navigation_editor_new_private (GimpMenuFactory  *menu_factory,
                         G_CALLBACK (gimp_navigation_editor_zoom_adj_changed),
                         editor);
 
-      hscale = gtk_hscale_new (GTK_ADJUSTMENT (editor->zoom_adjustment));
-      gtk_range_set_update_policy (GTK_RANGE (hscale), GTK_UPDATE_DELAYED);
+      hscale = gtk_scale_new (GTK_ORIENTATION_HORIZONTAL,
+                              editor->zoom_adjustment);
       gtk_scale_set_draw_value (GTK_SCALE (hscale), FALSE);
       gtk_box_pack_start (GTK_BOX (hbox), hscale, TRUE, TRUE, 0);
       gtk_widget_show (hscale);
@@ -490,9 +500,9 @@ gimp_navigation_editor_set_shell (GimpNavigationEditor *editor,
       gtk_widget_set_sensitive (GTK_WIDGET (editor), FALSE);
     }
 
-  if (GIMP_EDITOR (editor)->ui_manager)
-    gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                            GIMP_EDITOR (editor)->popup_data);
+  if (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)))
+    gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                            gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
 }
 
 static gboolean
@@ -591,15 +601,34 @@ gimp_navigation_editor_scroll (GimpNavigationView   *view,
     }
 }
 
-static void
-gimp_navigation_editor_zoom_adj_changed (GtkAdjustment        *adj,
-                                         GimpNavigationEditor *editor)
+static gboolean
+gimp_navigation_editor_zoom_adj_changed_timeout (gpointer data)
 {
+  GimpNavigationEditor *editor = GIMP_NAVIGATION_EDITOR (data);
+  GtkAdjustment        *adj    = editor->zoom_adjustment;
+
   if (gimp_display_get_image (editor->shell->display))
     gimp_display_shell_scale (editor->shell,
                               GIMP_ZOOM_TO,
                               pow (2.0, gtk_adjustment_get_value (adj)),
                               GIMP_ZOOM_FOCUS_BEST_GUESS);
+
+  editor->scale_timeout = 0;
+
+  return FALSE;
+}
+
+static void
+gimp_navigation_editor_zoom_adj_changed (GtkAdjustment        *adj,
+                                         GimpNavigationEditor *editor)
+{
+  if (editor->scale_timeout)
+    g_source_remove (editor->scale_timeout);
+
+  editor->scale_timeout =
+    g_timeout_add (UPDATE_DELAY,
+                   gimp_navigation_editor_zoom_adj_changed_timeout,
+                   editor);
 }
 
 static void
@@ -636,9 +665,9 @@ gimp_navigation_editor_shell_scaled (GimpDisplayShell     *shell,
 
   gimp_navigation_editor_update_marker (editor);
 
-  if (GIMP_EDITOR (editor)->ui_manager)
-    gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                            GIMP_EDITOR (editor)->popup_data);
+  if (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)))
+    gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                            gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
 }
 
 static void
@@ -647,9 +676,9 @@ gimp_navigation_editor_shell_scrolled (GimpDisplayShell     *shell,
 {
   gimp_navigation_editor_update_marker (editor);
 
-  if (GIMP_EDITOR (editor)->ui_manager)
-    gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                            GIMP_EDITOR (editor)->popup_data);
+  if (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)))
+    gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                            gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
 }
 
 static void
@@ -661,9 +690,9 @@ gimp_navigation_editor_shell_reconnect (GimpDisplayShell     *shell,
   gimp_view_set_viewable (GIMP_VIEW (editor->view),
                           GIMP_VIEWABLE (image));
 
-  if (GIMP_EDITOR (editor)->ui_manager)
-    gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                            GIMP_EDITOR (editor)->popup_data);
+  if (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)))
+    gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                            gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
 }
 
 static void

@@ -33,6 +33,7 @@
 
 #define SAVE_PROC      "file-csource-save"
 #define PLUG_IN_BINARY "file-csource"
+#define PLUG_IN_ROLE   "gimp-file-csource"
 
 
 typedef struct
@@ -160,7 +161,7 @@ run (const gchar      *name,
                       drawable_type == GIMP_GRAYA_IMAGE ||
                       drawable_type == GIMP_INDEXEDA_IMAGE);
 
-      parasite = gimp_image_parasite_find (image_ID, "gimp-comment");
+      parasite = gimp_image_get_parasite (image_ID, "gimp-comment");
       if (parasite)
         {
           config.comment = g_strndup (gimp_parasite_data (parasite),
@@ -188,7 +189,7 @@ run (const gchar      *name,
             {
               if (!config.comment || !config.comment[0])
                 {
-                  gimp_image_parasite_detach (image_ID, "gimp-comment");
+                  gimp_image_detach_parasite (image_ID, "gimp-comment");
                 }
               else
                 {
@@ -196,7 +197,7 @@ run (const gchar      *name,
                                                 GIMP_PARASITE_PERSISTENT,
                                                 strlen (config.comment) + 1,
                                                 config.comment);
-                  gimp_image_parasite_attach (image_ID, parasite);
+                  gimp_image_attach_parasite (image_ID, parasite);
                   gimp_parasite_free (parasite);
                 }
             }
@@ -392,7 +393,7 @@ save_image (Config  *config,
   GimpDrawable *drawable      = gimp_drawable_get (drawable_ID);
   GimpImageType drawable_type = gimp_drawable_type (drawable_ID);
   GimpPixelRgn pixel_rgn;
-  gchar  *s_uint_8, *s_uint_32, *s_uint, *s_char, *s_null;
+  gchar  *s_uint_8, *s_uint, *s_char, *s_null;
   FILE   *fp;
   guint   c;
   gchar  *macro_name;
@@ -490,7 +491,6 @@ save_image (Config  *config,
   if (!config->use_macros && config->glib_types)
     {
       s_uint_8 =  "guint8 ";
-      s_uint_32 = "guint32";
       s_uint  =   "guint  ";
       s_char =    "gchar  ";
       s_null =    "NULL";
@@ -498,7 +498,6 @@ save_image (Config  *config,
   else if (!config->use_macros)
     {
       s_uint_8 =  "unsigned char";
-      s_uint_32 = "unsigned int ";
       s_uint =    "unsigned int ";
       s_char =    "char         ";
       s_null =    "(char*) 0";
@@ -506,7 +505,6 @@ save_image (Config  *config,
   else if (config->use_macros && config->glib_types)
     {
       s_uint_8 =  "guint8";
-      s_uint_32 = "guint32";
       s_uint  =   "guint";
       s_char =    "gchar";
       s_null =    "NULL";
@@ -514,7 +512,6 @@ save_image (Config  *config,
   else /* config->use_macros && !config->glib_types */
     {
       s_uint_8 =  "unsigned char";
-      s_uint_32 = "unsigned int";
       s_uint =    "unsigned int";
       s_char =    "char";
       s_null =    "(char*) 0";
@@ -703,10 +700,10 @@ run_save_dialog (Config *config)
 
   dialog = gimp_export_dialog_new (_("C-Source"), PLUG_IN_BINARY, SAVE_PROC);
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gimp_export_dialog_get_content_area (dialog)),
-                     vbox);
+  gtk_box_pack_start (GTK_BOX (gimp_export_dialog_get_content_area (dialog)),
+                      vbox, TRUE, TRUE, 0);
   gtk_widget_show (vbox);
 
   table = gtk_table_new (2, 2, FALSE);

@@ -1,9 +1,5 @@
 ## Process this file with automake to produce Makefile.in
 
-EXTRA_DIST = \
-	makefile.msc
-
-
 if HAVE_WEBKIT
 help_browser = help-browser
 endif
@@ -47,7 +43,7 @@ if BUILD_XJT
 file_xjt = file-xjt
 endif
 
-if BUILD_METADATA
+if HAVE_LIBEXIF
 metadata = metadata
 endif
 

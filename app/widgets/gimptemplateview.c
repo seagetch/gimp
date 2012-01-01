@@ -39,6 +39,7 @@
 #include "gimpcontainertreestore.h"
 #include "gimpcontainertreeview.h"
 #include "gimpcontainerview.h"
+#include "gimpmenufactory.h"
 #include "gimptemplateview.h"
 #include "gimpdnd.h"
 #include "gimphelp-ids.h"
@@ -91,18 +92,26 @@ gimp_template_view_new (GimpViewType     view_type,
   GimpTemplateView    *template_view;
   GimpContainerEditor *editor;
 
-  template_view = g_object_new (GIMP_TYPE_TEMPLATE_VIEW, NULL);
+  g_return_val_if_fail (GIMP_IS_CONTAINER (container), NULL);
+  g_return_val_if_fail (GIMP_IS_CONTEXT (context), NULL);
+  g_return_val_if_fail (view_size > 0 &&
+                        view_size <= GIMP_VIEWABLE_MAX_PREVIEW_SIZE, NULL);
+  g_return_val_if_fail (view_border_width >= 0 &&
+                        view_border_width <= GIMP_VIEW_MAX_BORDER_WIDTH,
+                        NULL);
+  g_return_val_if_fail (menu_factory == NULL ||
+                        GIMP_IS_MENU_FACTORY (menu_factory), NULL);
 
-  if (! gimp_container_editor_construct (GIMP_CONTAINER_EDITOR (template_view),
-                                         view_type,
-                                         container, context,
-                                         view_size, view_border_width,
-                                         menu_factory, "<Templates>",
-                                         "/templates-popup"))
-    {
-      g_object_unref (template_view);
-      return NULL;
-    }
+  template_view = g_object_new (GIMP_TYPE_TEMPLATE_VIEW,
+                                "view-type",         view_type,
+                                "container",         container,
+                                "context",           context,
+                                "view-size",         view_size,
+                                "view-border-width", view_border_width,
+                                "menu-factory",      menu_factory,
+                                "menu-identifier",   "<Templates>",
+                                "ui-path",           "/templates-popup",
+                                NULL);
 
   editor = GIMP_CONTAINER_EDITOR (template_view);
 
@@ -150,7 +159,8 @@ gimp_template_view_new (GimpViewType     view_type,
                                   GTK_BUTTON (template_view->delete_button),
                                   GIMP_TYPE_TEMPLATE);
 
-  gimp_ui_manager_update (GIMP_EDITOR (editor->view)->ui_manager, editor);
+  gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor->view)),
+                          editor);
 
   return GTK_WIDGET (template_view);
 }
@@ -161,13 +171,11 @@ gimp_template_view_activate_item (GimpContainerEditor *editor,
 {
   GimpTemplateView *view = GIMP_TEMPLATE_VIEW (editor);
   GimpContainer    *container;
-  GimpContext      *context;
 
   if (GIMP_CONTAINER_EDITOR_CLASS (parent_class)->activate_item)
     GIMP_CONTAINER_EDITOR_CLASS (parent_class)->activate_item (editor, viewable);
 
   container = gimp_container_view_get_container (editor->view);
-  context   = gimp_container_view_get_context (editor->view);
 
   if (viewable && gimp_container_have (container, GIMP_OBJECT (viewable)))
     {

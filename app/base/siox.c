@@ -555,7 +555,7 @@ depth_first_search (TileManager *mask,
 
       oldx = xx;
 
-      read_pixel_data_1 (mask, xx, yy, &val);
+      tile_manager_read_pixel_data_1 (mask, xx, yy, &val);
 
       if (val && (val != mark))
         {
@@ -566,7 +566,7 @@ depth_first_search (TileManager *mask,
                 b->mustkeep = TRUE;
             }
 
-          write_pixel_data_1 (mask, xx, yy, &mark);
+          tile_manager_write_pixel_data_1 (mask, xx, yy, &mark);
 
           if (yy > y)
             stack = g_slist_prepend (g_slist_prepend
@@ -875,7 +875,13 @@ siox_foreground_extract (SioxState          *state,
   clustersize = get_clustersize (limits);
 
   siox_progress_update (progress_callback, progress_data, 0.0);
-  total = width * height;
+
+  if (refinement & SIOX_REFINEMENT_CHANGE_SENSITIVITY)
+    {
+      /* trigger complete recalculation */
+      refinement = (SIOX_REFINEMENT_ADD_BACKGROUND |
+                    SIOX_REFINEMENT_ADD_FOREGROUND);
+    }
 
   if (refinement & SIOX_REFINEMENT_ADD_FOREGROUND)
     g_hash_table_foreach_remove (state->cache, siox_cache_remove_bg, NULL);
@@ -883,19 +889,11 @@ siox_foreground_extract (SioxState          *state,
   if (refinement & SIOX_REFINEMENT_ADD_BACKGROUND)
     g_hash_table_foreach_remove (state->cache, siox_cache_remove_fg, NULL);
 
-  if (refinement & SIOX_REFINEMENT_CHANGE_SENSITIVITY)
-    {
-      refinement = SIOX_REFINEMENT_RECALCULATE;
-    }
-  else
-    {
-      if (! state->bgsig)
-        refinement |= SIOX_REFINEMENT_ADD_BACKGROUND;
+  if (! state->bgsig)
+    refinement |= SIOX_REFINEMENT_ADD_BACKGROUND;
 
-      if (! state->fgsig)
-        refinement |= SIOX_REFINEMENT_ADD_FOREGROUND;
-    }
-
+  if (! state->fgsig)
+    refinement |= SIOX_REFINEMENT_ADD_FOREGROUND;
 
   if (refinement & (SIOX_REFINEMENT_ADD_FOREGROUND |
                     SIOX_REFINEMENT_ADD_BACKGROUND))
@@ -1076,6 +1074,7 @@ siox_foreground_extract (SioxState          *state,
 
       if (refinement & SIOX_REFINEMENT_ADD_BACKGROUND)
         {
+          g_free (state->bgsig);
           /* Create color signature for the background */
           state->bgsig = create_signature (surebg, surebgcount,
                                            &state->bgsiglen, limits,
@@ -1097,6 +1096,7 @@ siox_foreground_extract (SioxState          *state,
 
       if (refinement & SIOX_REFINEMENT_ADD_FOREGROUND)
         {
+          g_free (state->fgsig);
           /* Create color signature for the foreground */
           state->fgsig = create_signature (surefg, surefgcount,
                                            &state->fgsiglen, limits,

@@ -261,7 +261,6 @@ run (const gchar      *name,
      GimpParam       **return_vals)
 {
   static GimpParam   values[1];
-  gint32             image_ID;
   GimpRunMode        run_mode;
   gint               pwidth;
   gint               pheight;
@@ -281,7 +280,6 @@ run (const gchar      *name,
 
   /*  Get the specified drawable  */
   drawable = gimp_drawable_get (param[2].data.d_drawable);
-  image_ID = param[1].data.d_image;
 
   gimp_drawable_mask_bounds (drawable->drawable_id,
                              &sel_x1, &sel_y1, &sel_x2, &sel_y2);
@@ -469,6 +467,7 @@ explorer (GimpDrawable * drawable)
       if ((row % 10) == 0)
         gimp_progress_update ((double) row / (double) (y2 - y1));
     }
+  gimp_progress_update (1.0);
 
   /*  update the processed region  */
   gimp_drawable_flush (drawable);
@@ -907,8 +906,7 @@ fractalexplorer_free_everything (fractalexplorerOBJ *fractalexplorer)
 static void
 fractalexplorer_list_free_all (void)
 {
-  g_list_foreach (fractalexplorer_list, (GFunc) fractalexplorer_free, NULL);
-  g_list_free (fractalexplorer_list);
+  g_list_free_full (fractalexplorer_list, (GDestroyNotify) fractalexplorer_free);
   fractalexplorer_list = NULL;
 }
 
@@ -1112,7 +1110,7 @@ fractalexplorer_rescan_list (GtkWidget *widget,
       return;
     }
 
-  dlg = gimp_dialog_new (_("Rescan for Fractals"), PLUG_IN_BINARY,
+  dlg = gimp_dialog_new (_("Rescan for Fractals"), PLUG_IN_ROLE,
                          gtk_widget_get_toplevel (view),
                          GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
                          gimp_standard_help_func, PLUG_IN_PROC,

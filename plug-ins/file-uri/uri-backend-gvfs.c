@@ -224,8 +224,8 @@ uri_progress_callback (goffset  current_num_bytes,
   if (total_num_bytes > 0)
     {
       const gchar *format;
-      gchar       *done  = g_format_size_for_display (current_num_bytes);
-      gchar       *total = g_format_size_for_display (total_num_bytes);
+      gchar       *done  = g_format_size (current_num_bytes);
+      gchar       *total = g_format_size (total_num_bytes);
 
       switch (progress->mode)
         {
@@ -251,7 +251,7 @@ uri_progress_callback (goffset  current_num_bytes,
   else
     {
       const gchar *format;
-      gchar       *done = g_format_size_for_display (current_num_bytes);
+      gchar       *done = g_format_size (current_num_bytes);
 
       switch (progress->mode)
         {
@@ -324,6 +324,7 @@ copy_uri (const gchar  *src_uri,
   success = g_file_copy (src_file, dest_file, G_FILE_COPY_OVERWRITE, NULL,
                          uri_progress_callback, &progress,
                          error);
+  gimp_progress_update (1.0);
 
   if (! success &&
       run_mode == GIMP_RUN_INTERACTIVE &&

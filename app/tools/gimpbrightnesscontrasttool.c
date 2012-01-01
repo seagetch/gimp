@@ -130,7 +130,7 @@ gimp_brightness_contrast_tool_class_init (GimpBrightnessContrastToolClass *klass
   tool_class->button_release         = gimp_brightness_contrast_tool_button_release;
   tool_class->motion                 = gimp_brightness_contrast_tool_motion;
 
-  im_tool_class->shell_desc          = _("Adjust Brightness and Contrast");
+  im_tool_class->dialog_desc         = _("Adjust Brightness and Contrast");
   im_tool_class->settings_name       = "brightness-contrast";
   im_tool_class->import_dialog_title = _("Import Brightness-Contrast settings");
   im_tool_class->export_dialog_title = _("Export Brightness-Contrast settings");
@@ -223,7 +223,6 @@ gimp_brightness_contrast_tool_map (GimpImageMapTool *im_tool)
                                  gimp_drawable_bytes (im_tool->drawable));
 }
 
-
 static void
 gimp_brightness_contrast_tool_button_press (GimpTool            *tool,
                                             const GimpCoords    *coords,
@@ -274,8 +273,6 @@ gimp_brightness_contrast_tool_motion (GimpTool         *tool,
 {
   GimpBrightnessContrastTool *bc_tool = GIMP_BRIGHTNESS_CONTRAST_TOOL (tool);
 
-  gimp_tool_control_pause (tool->control);
-
   bc_tool->dx =   (coords->x - bc_tool->x);
   bc_tool->dy = - (coords->y - bc_tool->y);
 
@@ -283,8 +280,6 @@ gimp_brightness_contrast_tool_motion (GimpTool         *tool,
                 "brightness", CLAMP (bc_tool->dy, -127.0, 127.0) / 127.0,
                 "contrast",   CLAMP (bc_tool->dx, -127.0, 127.0) / 127.0,
                 NULL);
-
-  gimp_tool_control_resume (tool->control);
 }
 
 

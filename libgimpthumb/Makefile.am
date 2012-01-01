@@ -40,7 +40,8 @@ endif
 libgimpthumbincludedir = $(includedir)/gimp-$(GIMP_API_VERSION)/libgimpthumb
 
 AM_CPPFLAGS = \
-	-DG_LOG_DOMAIN=\"LibGimpThumb\"
+	-DG_LOG_DOMAIN=\"LibGimpThumb\"	\
+	-DGIMP_THUMB_COMPILATION
 
 INCLUDES = \
 	-I$(top_srcdir)		\
@@ -49,7 +50,6 @@ INCLUDES = \
 	-I$(includedir)
 
 EXTRA_DIST = \
-	makefile.msc	\
 	gimpthumb.def
 
 lib_LTLIBRARIES = libgimpthumb-2.0.la

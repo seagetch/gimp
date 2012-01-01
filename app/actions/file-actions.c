@@ -79,7 +79,7 @@ static const GimpActionEntry file_actions[] =
     GIMP_HELP_FILE_OPEN },
 
   { "file-open-as-layers", GIMP_STOCK_LAYER,
-    NC_("file-action", "Op_en as Layers..."), "<control><alt>O",
+    NC_("file-action", "Op_en as Layers..."), "<primary><alt>O",
     NC_("file-action", "Open an image file as layers"),
     G_CALLBACK (file_open_as_layers_cmd_callback),
     GIMP_HELP_FILE_OPEN_AS_LAYER },
@@ -103,13 +103,13 @@ static const GimpActionEntry file_actions[] =
     GIMP_HELP_FILE_REVERT },
 
   { "file-close-all", GTK_STOCK_CLOSE,
-    NC_("file-action", "Close all"), "<shift><control>W",
+    NC_("file-action", "Close all"), "<primary><shift>W",
     NC_("file-action", "Close all opened images"),
     G_CALLBACK (file_close_all_cmd_callback),
     GIMP_HELP_FILE_CLOSE_ALL },
 
   { "file-quit", GTK_STOCK_QUIT,
-    NC_("file-action", "_Quit"), "<control>Q",
+    NC_("file-action", "_Quit"), "<primary>Q",
     NC_("file-action", "Quit the GNU Image Manipulation Program"),
     G_CALLBACK (file_quit_cmd_callback),
     GIMP_HELP_FILE_QUIT }
@@ -118,13 +118,13 @@ static const GimpActionEntry file_actions[] =
 static const GimpEnumActionEntry file_save_actions[] =
 {
   { "file-save", GTK_STOCK_SAVE,
-    NC_("file-action", "_Save"), "<control>S",
+    NC_("file-action", "_Save"), "<primary>S",
     NC_("file-action", "Save this image"),
     GIMP_SAVE_MODE_SAVE, FALSE,
     GIMP_HELP_FILE_SAVE },
 
   { "file-save-as", GTK_STOCK_SAVE_AS,
-    NC_("file-action", "Save _As..."), "<control><shift>S",
+    NC_("file-action", "Save _As..."), "<primary><shift>S",
     NC_("file-action", "Save this image with a different name"),
     GIMP_SAVE_MODE_SAVE_AS, FALSE,
     GIMP_HELP_FILE_SAVE_AS },
@@ -143,19 +143,19 @@ static const GimpEnumActionEntry file_save_actions[] =
     GIMP_HELP_FILE_SAVE },
 
   { "file-export-to", NULL,
-    NC_("file-action", "Export to"), "<control>E",
+    NC_("file-action", "Export to"), "<primary>E",
     NC_("file-action", "Export the image again"),
     GIMP_SAVE_MODE_EXPORT_TO, FALSE,
     GIMP_HELP_FILE_EXPORT_TO },
 
   { "file-overwrite", NULL,
-    NC_("file-action", "Overwrite"), "",
+    NC_("file-action", "Over_write"), "",
     NC_("file-action", "Export the image back to the imported file in the import format"),
-    GIMP_SAVE_MODE_EXPORT_TO, FALSE,
+    GIMP_SAVE_MODE_OVERWRITE, FALSE,
     GIMP_HELP_FILE_OVERWRITE },
 
   { "file-export", NULL,
-    NC_("file-action", "Export..."), "<control><shift>E",
+    NC_("file-action", "Export..."), "<primary><shift>E",
     NC_("file-action", "Export the image to various file formats such as PNG or JPEG"),
     GIMP_SAVE_MODE_EXPORT, FALSE,
     GIMP_HELP_FILE_EXPORT }
@@ -192,9 +192,9 @@ file_actions_setup (GimpActionGroup *group)
       entries[i].value_variable = FALSE;
 
       if (i < 9)
-        entries[i].accelerator = g_strdup_printf ("<control>%d", i + 1);
+        entries[i].accelerator = g_strdup_printf ("<primary>%d", i + 1);
       else if (i == 9)
-        entries[i].accelerator = "<control>0";
+        entries[i].accelerator = "<primary>0";
       else
         entries[i].accelerator = "";
     }
@@ -207,6 +207,8 @@ file_actions_setup (GimpActionGroup *group)
       GtkAction *action;
 
       gimp_action_group_set_action_visible (group, entries[i].name, FALSE);
+      gimp_action_group_set_action_always_show_image (group, entries[i].name,
+                                                      TRUE);
 
       action = gtk_action_group_get_action (GTK_ACTION_GROUP (group),
                                             entries[i].name);
@@ -254,16 +256,14 @@ file_actions_update (GimpActionGroup *group,
   GimpImage    *image          = action_data_get_image (data);
   GimpDrawable *drawable       = NULL;
   const gchar  *source         = NULL;
-  const gchar  *export_to      = NULL;
+  const gchar  *export         = NULL;
   gboolean      show_overwrite = FALSE;
 
   if (image)
     {
       drawable  = gimp_image_get_active_drawable (image);
-      source    = g_object_get_data (G_OBJECT (image),
-                                     GIMP_FILE_IMPORT_SOURCE_URI_KEY);
-      export_to = g_object_get_data (G_OBJECT (image),
-                                     GIMP_FILE_EXPORT_TO_URI_KEY);
+      source    = gimp_image_get_imported_uri (image);
+      export    = gimp_image_get_exported_uri (image);
     }
 
   show_overwrite =
@@ -276,26 +276,26 @@ file_actions_update (GimpActionGroup *group,
 #define SET_SENSITIVE(action,condition) \
         gimp_action_group_set_action_sensitive (group, action, (condition) != 0)
 
-  SET_SENSITIVE ("file-save",            image && drawable);
-  SET_SENSITIVE ("file-save-as",         image && drawable);
-  SET_SENSITIVE ("file-save-a-copy",     image && drawable);
-  SET_SENSITIVE ("file-revert",          image && (gimp_object_get_name (image) || source));
-  SET_SENSITIVE ("file-export-to",       export_to);
-  SET_VISIBLE   ("file-export-to",       export_to || ! show_overwrite);
+  SET_SENSITIVE ("file-save",            drawable);
+  SET_SENSITIVE ("file-save-as",         drawable);
+  SET_SENSITIVE ("file-save-a-copy",     drawable);
+  SET_SENSITIVE ("file-revert",          image && (gimp_image_get_uri (image) || source));
+  SET_SENSITIVE ("file-export-to",       drawable);
+  SET_VISIBLE   ("file-export-to",       ! show_overwrite);
   SET_SENSITIVE ("file-overwrite",       show_overwrite);
   SET_VISIBLE   ("file-overwrite",       show_overwrite);
-  SET_SENSITIVE ("file-export",          image && drawable);
+  SET_SENSITIVE ("file-export",          drawable);
   SET_SENSITIVE ("file-create-template", image);
 
-  if (export_to)
+  if (export)
     {
-      gchar *label = file_actions_create_label (_("Export to %s"), export_to);
+      gchar *label = file_actions_create_label (_("Export to %s"), export);
       gimp_action_group_set_action_label (group, "file-export-to", label);
       g_free (label);
     }
   else if (show_overwrite)
     {
-      gchar *label = file_actions_create_label (_("Overwrite %s"), source);
+      gchar *label = file_actions_create_label (_("Over_write %s"), source);
       gimp_action_group_set_action_label (group, "file-overwrite", label);
       g_free (label);
 

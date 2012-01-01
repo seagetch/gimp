@@ -37,7 +37,6 @@ struct _GimpGuiConfig
 {
   GimpDisplayConfig    parent_instance;
 
-  gint                 default_threshold;
   gboolean             move_tool_changes_active;
   gint                 image_map_tool_max_recent;
   gboolean             trust_dirty_flag;
@@ -46,8 +45,6 @@ struct _GimpGuiConfig
   gboolean             restore_session;
   gboolean             save_tool_options;
   gboolean             show_tooltips;
-  gboolean             hide_docks;
-  gboolean             single_window_mode;
   gboolean             tearoff_menus;
   gboolean             can_change_accels;
   gboolean             save_accels;
@@ -69,8 +66,12 @@ struct _GimpGuiConfig
   gchar               *user_manual_online_uri;
   GimpWindowHint       dock_window_hint;
   GimpCursorFormat     cursor_format;
+  GimpHandedness       cursor_handedness;
 
-  gint                 last_tip;  /* saved in sessionrc */
+  /* saved in sessionrc */
+  gboolean             hide_docks;
+  gboolean             single_window_mode;
+  gint                 last_tip_shown;
 };
 
 struct _GimpGuiConfigClass

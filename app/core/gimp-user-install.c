@@ -18,6 +18,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/* This file contains functions to help migrate the settings from a
+ * previous GIMP version to be used with the current (newer) version.
+ */
+
 #include "config.h"
 
 #include <errno.h>
@@ -87,6 +91,7 @@ gimp_user_install_items[] =
   { "gradients",       USER_INSTALL_MKDIR },
   { "palettes",        USER_INSTALL_MKDIR },
   { "patterns",        USER_INSTALL_MKDIR },
+  { "tool-presets",    USER_INSTALL_MKDIR },
   { "plug-ins",        USER_INSTALL_MKDIR },
   { "modules",         USER_INSTALL_MKDIR },
   { "interpreters",    USER_INSTALL_MKDIR },

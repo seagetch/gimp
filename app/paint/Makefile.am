@@ -8,6 +8,7 @@ INCLUDES = \
 	-I$(top_srcdir)		\
 	-I$(top_builddir)/app	\
 	-I$(top_srcdir)/app	\
+	$(CAIRO_CFLAGS)		\
 	$(GEGL_CFLAGS)		\
 	$(GDK_PIXBUF_CFLAGS)	\
 	-I$(includedir)
@@ -82,8 +83,6 @@ libapppaint_a_sources = \
 libapppaint_a_built_sources = paint-enums.c
 
 libapppaint_a_SOURCES = $(libapppaint_a_built_sources) $(libapppaint_a_sources)
-
-EXTRA_DIST = makefile.msc
 
 #
 # rules to generate built sources

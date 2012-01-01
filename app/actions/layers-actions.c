@@ -79,7 +79,7 @@ static const GimpActionEntry layers_actions[] =
     GIMP_HELP_LAYER_EDIT },
 
   { "layers-new", GTK_STOCK_NEW,
-    NC_("layers-action", "_New Layer..."), "<control><shift>N",
+    NC_("layers-action", "_New Layer..."), "<primary><shift>N",
     NC_("layers-action", "Create a new layer and add it to the image"),
     G_CALLBACK (layers_new_cmd_callback),
     GIMP_HELP_LAYER_NEW },
@@ -104,7 +104,7 @@ static const GimpActionEntry layers_actions[] =
     GIMP_HELP_LAYER_NEW },
 
   { "layers-duplicate", GIMP_STOCK_DUPLICATE,
-    NC_("layers-action", "D_uplicate Layer"), "<control><shift>D",
+    NC_("layers-action", "D_uplicate Layer"), "<primary><shift>D",
     NC_("layers-action",
         "Create a duplicate of the layer and add it to the image"),
     G_CALLBACK (layers_duplicate_cmd_callback),
@@ -141,7 +141,7 @@ static const GimpActionEntry layers_actions[] =
     GIMP_HELP_LAYER_LOWER_TO_BOTTOM },
 
   { "layers-anchor", GIMP_STOCK_ANCHOR,
-    NC_("layers-action", "_Anchor Layer"), "<control>H",
+    NC_("layers-action", "_Anchor Layer"), "<primary>H",
     NC_("layers-action", "Anchor the floating layer"),
     G_CALLBACK (layers_anchor_cmd_callback),
     GIMP_HELP_LAYER_ANCHOR },
@@ -454,6 +454,17 @@ layers_actions_fix_tooltip (GimpActionGroup *group,
 void
 layers_actions_setup (GimpActionGroup *group)
 {
+  GdkDisplay      *display = gdk_display_get_default ();
+  GdkModifierType  extend_mask;
+  GdkModifierType  modify_mask;
+
+  extend_mask =
+    gdk_keymap_get_modifier_mask (gdk_keymap_get_for_display (display),
+                                  GDK_MODIFIER_INTENT_EXTEND_SELECTION);
+  modify_mask =
+    gdk_keymap_get_modifier_mask (gdk_keymap_get_for_display (display),
+                                  GDK_MODIFIER_INTENT_MODIFY_SELECTION);
+
   gimp_action_group_add_actions (group, "layers-action",
                                  layers_actions,
                                  G_N_ELEMENTS (layers_actions));
@@ -476,14 +487,15 @@ layers_actions_setup (GimpActionGroup *group)
                                       layers_alpha_to_selection_actions,
                                       G_N_ELEMENTS (layers_alpha_to_selection_actions),
                                       G_CALLBACK (layers_alpha_to_selection_cmd_callback));
+
   layers_actions_fix_tooltip (group, "layers-alpha-selection-replace",
                               GDK_MOD1_MASK);
   layers_actions_fix_tooltip (group, "layers-alpha-selection-add",
-                              GDK_SHIFT_MASK | GDK_MOD1_MASK);
+                              extend_mask | GDK_MOD1_MASK);
   layers_actions_fix_tooltip (group, "layers-alpha-selection-subtract",
-                              GDK_CONTROL_MASK | GDK_MOD1_MASK);
+                              modify_mask | GDK_MOD1_MASK);
   layers_actions_fix_tooltip (group, "layers-alpha-selection-intersect",
-                              GDK_SHIFT_MASK | GDK_CONTROL_MASK | GDK_MOD1_MASK);
+                              extend_mask | modify_mask | GDK_MOD1_MASK);
 
   gimp_action_group_add_enum_actions (group, "layers-action",
                                       layers_select_actions,

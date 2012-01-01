@@ -39,6 +39,7 @@
 
 #define PLUG_IN_PROC   "plug-in-wind"
 #define PLUG_IN_BINARY "wind"
+#define PLUG_IN_ROLE   "gimp-wind"
 
 #define COMPARE_WIDTH    3
 
@@ -285,7 +286,7 @@ render_blast (GimpDrawable *drawable,
               edge_t        edge,
               GimpPreview  *preview)
 {
-  gint          x1, x2, y1, y2;
+  gint          x1, y1, y2;
   gint          width;
   gint          height;
   gint          bytes = drawable->bpp;
@@ -301,7 +302,6 @@ render_blast (GimpDrawable *drawable,
       gimp_preview_get_position (preview, &x1, &y1);
       gimp_preview_get_size (preview, &width, &height);
 
-      x2 = x1 + width;
       y2 = y1 + height;
 
       preview_buffer = g_new (guchar, width * height * bytes);
@@ -313,7 +313,6 @@ render_blast (GimpDrawable *drawable,
         {
           gimp_progress_init (_("Rendering blast"));
 
-          x2 = x1 + width;
           y2 = y1 + height;
 
           gimp_pixel_rgn_init (&dest_region, drawable,
@@ -387,7 +386,6 @@ render_blast (GimpDrawable *drawable,
                     }
                 }
             }
-          marker = 0;
         }
     }
 
@@ -401,6 +399,7 @@ render_blast (GimpDrawable *drawable,
     }
   else
     {
+      gimp_progress_update (1.0);
       gimp_drawable_flush (drawable);
       gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);
       gimp_drawable_update (drawable->drawable_id, x1, y1, width, height);
@@ -424,7 +423,7 @@ render_wind (GimpDrawable *drawable,
   gint          row;
   guchar       *sb, *preview_buffer = NULL;
   gint          lpi;
-  gint          x1, y1, x2, y2;
+  gint          x1, y1, y2;
 
   bytes = drawable->bpp;
 
@@ -433,7 +432,6 @@ render_wind (GimpDrawable *drawable,
       gimp_preview_get_position (preview, &x1, &y1);
       gimp_preview_get_size (preview, &width, &height);
 
-      x2 = x1 + width;
       y2 = y1 + height;
 
       preview_buffer = g_new (guchar, width * height * bytes);
@@ -445,7 +443,6 @@ render_wind (GimpDrawable *drawable,
         {
           gimp_progress_init (_("Rendering wind"));
 
-          x2 = x1 + width;
           y2 = y1 + height;
 
           gimp_pixel_rgn_init (&dest_region, drawable,
@@ -500,6 +497,7 @@ render_wind (GimpDrawable *drawable,
     }
   else
     {
+      gimp_progress_update (1.0);
       gimp_drawable_flush (drawable);
       gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);
       gimp_drawable_update (drawable->drawable_id, x1, y1, width, height);
@@ -604,7 +602,6 @@ render_wind_row (guchar *sb,
   gint blend_amt_R, blend_amt_G, blend_amt_B, blend_amt_A = 0 ;
   gint blend_colour_R, blend_colour_G, blend_colour_B, blend_colour_A = 0 ;
   gint target_colour_R, target_colour_G, target_colour_B, target_colour_A = 0;
-  gdouble bleed_length_max;
   gint bleed_variation;
   gint n;
   gint sbi;  /* starting bleed index */
@@ -628,6 +625,8 @@ render_wind_row (guchar *sb,
                               threshold,
                               (bytes > 3)))
         {
+          gdouble bleed_length_max;
+
           /* we have found an edge, do bleeding */
           sbi = Ri + comp_stride;
           blend_colour_R = sb[Ri];
@@ -636,7 +635,6 @@ render_wind_row (guchar *sb,
           target_colour_R = sb[sbi];
           target_colour_G = sb[sbi+1];
           target_colour_B = sb[sbi+2];
-          bleed_length_max = strength;
 
           if (bytes > 3)
             {
@@ -875,7 +873,7 @@ dialog_box (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Wind"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Wind"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -891,10 +889,10 @@ dialog_box (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_drawable_preview_new (drawable, NULL);

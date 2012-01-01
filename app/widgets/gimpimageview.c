@@ -35,7 +35,9 @@
 #include "gimpeditor.h"
 #include "gimpimageview.h"
 #include "gimpdnd.h"
+#include "gimpmenufactory.h"
 #include "gimpuimanager.h"
+#include "gimpviewrenderer.h"
 
 #include "gimp-intl.h"
 
@@ -76,18 +78,26 @@ gimp_image_view_new (GimpViewType     view_type,
   GimpImageView       *image_view;
   GimpContainerEditor *editor;
 
-  image_view = g_object_new (GIMP_TYPE_IMAGE_VIEW, NULL);
+  g_return_val_if_fail (GIMP_IS_CONTAINER (container), NULL);
+  g_return_val_if_fail (GIMP_IS_CONTEXT (context), NULL);
+  g_return_val_if_fail (view_size > 0 &&
+                        view_size <= GIMP_VIEWABLE_MAX_PREVIEW_SIZE, NULL);
+  g_return_val_if_fail (view_border_width >= 0 &&
+                        view_border_width <= GIMP_VIEW_MAX_BORDER_WIDTH,
+                        NULL);
+  g_return_val_if_fail (menu_factory == NULL ||
+                        GIMP_IS_MENU_FACTORY (menu_factory), NULL);
 
-  if (! gimp_container_editor_construct (GIMP_CONTAINER_EDITOR (image_view),
-                                         view_type,
-                                         container, context,
-                                         view_size, view_border_width,
-                                         menu_factory, "<Images>",
-                                         "/images-popup"))
-    {
-      g_object_unref (image_view);
-      return NULL;
-    }
+  image_view = g_object_new (GIMP_TYPE_IMAGE_VIEW,
+                             "view-type",         view_type,
+                             "container",         container,
+                             "context",           context,
+                             "view-size",         view_size,
+                             "view-border-width", view_border_width,
+                             "menu-factory",      menu_factory,
+                             "menu-identifier",   "<Images>",
+                             "ui-path",           "/images-popup",
+                             NULL);
 
   editor = GIMP_CONTAINER_EDITOR (image_view);
 
@@ -124,7 +134,7 @@ gimp_image_view_new (GimpViewType     view_type,
                                   GTK_BUTTON (image_view->delete_button),
                                   GIMP_TYPE_IMAGE);
 
-  gimp_ui_manager_update (GIMP_EDITOR (editor->view)->ui_manager,
+  gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor->view)),
                           editor);
 
   return GTK_WIDGET (image_view);

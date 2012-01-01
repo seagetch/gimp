@@ -79,19 +79,20 @@
        )
 
     (gimp-context-push)
+    (gimp-context-set-defaults)
 
     ; Create image
 
     (gimp-image-undo-disable img)
     (gimp-image-resize img img-width img-height 0 0)
 
-    (gimp-image-add-layer img bg-layer -1)
-    (gimp-image-add-layer img bumpmap-layer -1)
-    (gimp-image-add-layer img fore-layer -1)
-;    (gimp-image-add-layer img text-layer -1)
-    (gimp-image-raise-layer img text-layer)
-    (gimp-image-raise-layer img text-layer)
-    (gimp-image-raise-layer img text-layer)
+    (gimp-image-insert-layer img bg-layer 0 -1)
+    (gimp-image-insert-layer img bumpmap-layer 0 -1)
+    (gimp-image-insert-layer img fore-layer 0 -1)
+;    (gimp-image-insert-layer img text-layer 0 -1)
+    (gimp-image-raise-item img text-layer)
+    (gimp-image-raise-item img text-layer)
+    (gimp-image-raise-item img text-layer)
     (gimp-layer-set-offsets bg-layer 0 0)
     (gimp-layer-set-offsets text-layer text-layers-offset 0)
     (gimp-layer-set-offsets bumpmap-layer text-layers-offset 0)
@@ -101,7 +102,7 @@
 
     (gimp-context-set-background '(0 0 0))
     (gimp-edit-fill bumpmap-layer BACKGROUND-FILL)
-    (gimp-selection-layer-alpha text-layer)
+    (gimp-image-select-item img CHANNEL-OP-REPLACE text-layer)
     (gimp-context-set-background '(255 255 255))
     (gimp-edit-fill bumpmap-layer BACKGROUND-FILL)
     (gimp-selection-none img)
@@ -129,7 +130,7 @@
     (gimp-context-set-background '(0 0 0))
     (gimp-edit-fill bg-layer BACKGROUND-FILL)
 
-    (gimp-ellipse-select img 0 0 text-height text-height CHANNEL-OP-REPLACE TRUE FALSE 0)
+    (gimp-image-select-ellipse img CHANNEL-OP-REPLACE 0 0 text-height text-height)
     (gimp-context-set-background (car (gimp-image-pick-color img text-layer
                                                              text-layers-offset 0
                                                              TRUE FALSE 0)))
@@ -137,8 +138,9 @@
 
     ; Fade-out gradient at the right
 
-    (gimp-rect-select img (- img-width fade-width) 0 fade-width text-height
-                      CHANNEL-OP-REPLACE FALSE 0)
+    (gimp-image-select-rectangle img CHANNEL-OP-REPLACE
+                                 (- img-width fade-width) 0
+                                 fade-width text-height)
     (gimp-context-set-foreground (car (gimp-context-get-background)))
     (gimp-context-set-background '(0 0 0))
 

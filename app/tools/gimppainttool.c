@@ -51,9 +51,7 @@
 #include "gimp-intl.h"
 
 
-static GObject * gimp_paint_tool_constructor (GType                  type,
-                                              guint                  n_params,
-                                              GObjectConstructParam *params);
+static void   gimp_paint_tool_constructed    (GObject               *object);
 static void   gimp_paint_tool_finalize       (GObject               *object);
 
 static void   gimp_paint_tool_control        (GimpTool              *tool,
@@ -110,7 +108,7 @@ gimp_paint_tool_class_init (GimpPaintToolClass *klass)
   GimpToolClass     *tool_class      = GIMP_TOOL_CLASS (klass);
   GimpDrawToolClass *draw_tool_class = GIMP_DRAW_TOOL_CLASS (klass);
 
-  object_class->constructor  = gimp_paint_tool_constructor;
+  object_class->constructed  = gimp_paint_tool_constructed;
   object_class->finalize     = gimp_paint_tool_finalize;
 
   tool_class->control        = gimp_paint_tool_control;
@@ -141,28 +139,19 @@ gimp_paint_tool_init (GimpPaintTool *paint_tool)
   paint_tool->status_line = _("Click to draw the line");
   paint_tool->status_ctrl = _("%s to pick a color");
 
-  /*  Paint tools benefit most from strong smoothing on coordinates  */
-  tool->max_coord_smooth  = 0.80;
-
   paint_tool->core        = NULL;
 }
 
-static GObject *
-gimp_paint_tool_constructor (GType                  type,
-                             guint                  n_params,
-                             GObjectConstructParam *params)
+static void
+gimp_paint_tool_constructed (GObject *object)
 {
-  GObject          *object;
-  GimpTool         *tool;
+  GimpTool         *tool       = GIMP_TOOL (object);
+  GimpPaintTool    *paint_tool = GIMP_PAINT_TOOL (object);
+  GimpPaintOptions *options    = GIMP_PAINT_TOOL_GET_OPTIONS (tool);
   GimpPaintInfo    *paint_info;
-  GimpPaintTool    *paint_tool;
-  GimpPaintOptions *options;
 
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
-
-  tool       = GIMP_TOOL (object);
-  paint_tool = GIMP_PAINT_TOOL (object);
-  options    = GIMP_PAINT_TOOL_GET_OPTIONS (tool);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   g_assert (GIMP_IS_TOOL_INFO (tool->tool_info));
   g_assert (GIMP_IS_PAINT_INFO (tool->tool_info->paint_info));
@@ -180,8 +169,6 @@ gimp_paint_tool_constructor (GType                  type,
                            tool, 0);
 
   gimp_paint_tool_hard_notify (options, NULL, tool);
-
-  return object;
 }
 
 static void
@@ -225,8 +212,6 @@ gimp_paint_tool_control (GimpTool       *tool,
                          GimpDisplay    *display)
 {
   GimpPaintTool *paint_tool = GIMP_PAINT_TOOL (tool);
-  GimpImage     *image      = gimp_display_get_image (display);
-  GimpDrawable  *drawable   = gimp_image_get_active_drawable (image);
 
   switch (action)
     {
@@ -235,10 +220,6 @@ gimp_paint_tool_control (GimpTool       *tool,
       break;
 
     case GIMP_TOOL_ACTION_HALT:
-      gimp_paint_core_paint (paint_tool->core,
-                             drawable,
-                             GIMP_PAINT_TOOL_GET_OPTIONS (tool),
-                             GIMP_PAINT_STATE_FINISH, 0);
       gimp_paint_core_cleanup (paint_tool->core);
       break;
     }
@@ -329,13 +310,14 @@ gimp_paint_tool_button_press (GimpTool            *tool,
     }
   else if (paint_tool->draw_line)
     {
+      gboolean constrain = (state & gimp_get_constrain_behavior_mask ()) != 0;
+
       /*  If shift is down and this is not the first paint
        *  stroke, then draw a line from the last coords to the pointer
        */
       core->start_coords = core->last_coords;
 
-      gimp_paint_core_round_line (core, paint_options,
-                                  (state & GDK_CONTROL_MASK) != 0);
+      gimp_paint_core_round_line (core, paint_options, constrain);
     }
 
   /*  chain up to activate the tool  */
@@ -435,6 +417,8 @@ gimp_paint_tool_motion (GimpTool         *tool,
 
   curr_coords = *coords;
 
+  gimp_paint_core_smooth_coords (core, paint_options, &curr_coords);
+
   gimp_item_get_offset (GIMP_ITEM (drawable), &off_x, &off_y);
 
   curr_coords.x -= off_x;
@@ -468,7 +452,7 @@ gimp_paint_tool_modifier_key (GimpTool        *tool,
   GimpPaintTool *paint_tool = GIMP_PAINT_TOOL (tool);
   GimpDrawTool  *draw_tool  = GIMP_DRAW_TOOL (tool);
 
-  if (key != GDK_CONTROL_MASK)
+  if (key != gimp_get_constrain_behavior_mask ())
     return;
 
   if (paint_tool->pick_colors && ! paint_tool->draw_line)
@@ -608,15 +592,17 @@ gimp_paint_tool_oper_update (GimpTool         *tool,
 
   if (drawable && proximity)
     {
+      gboolean constrain_mask = gimp_get_constrain_behavior_mask ();
+
       if (display == tool->display && (state & GDK_SHIFT_MASK))
         {
           /*  If shift is down and this is not the first paint stroke,
            *  draw a line.
            */
 
-          gchar    *status_help;
-          gdouble   dx, dy, dist;
-          gint      off_x, off_y;
+          gchar   *status_help;
+          gdouble  dx, dy, dist;
+          gint     off_x, off_y;
 
           core->cur_coords = *coords;
 
@@ -626,13 +612,13 @@ gimp_paint_tool_oper_update (GimpTool         *tool,
           core->cur_coords.y -= off_y;
 
           gimp_paint_core_round_line (core, paint_options,
-                                      (state & GDK_CONTROL_MASK) != 0);
+                                      (state & constrain_mask) != 0);
 
           dx = core->cur_coords.x - core->last_coords.x;
           dy = core->cur_coords.y - core->last_coords.y;
 
           status_help = gimp_suggest_modifiers (paint_tool->status_line,
-                                                GDK_CONTROL_MASK & ~state,
+                                                constrain_mask & ~state,
                                                 NULL,
                                                 _("%s for constrained angles"),
                                                 NULL);
@@ -680,7 +666,7 @@ gimp_paint_tool_oper_update (GimpTool         *tool,
            * gimp_suggest_modifiers() would interpret this parameter.
            */
           if (paint_tool->status_ctrl != NULL)
-            modifiers |= GDK_CONTROL_MASK;
+            modifiers |= constrain_mask;
 
           /* suggest drawing lines only after the first point is set
            */

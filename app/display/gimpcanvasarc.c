@@ -149,9 +149,9 @@ gimp_canvas_arc_init (GimpCanvasArc *arc)
 
 static void
 gimp_canvas_arc_set_property (GObject      *object,
-                                    guint         property_id,
-                                    const GValue *value,
-                                    GParamSpec   *pspec)
+                              guint         property_id,
+                              const GValue *value,
+                              GParamSpec   *pspec)
 {
   GimpCanvasArcPrivate *private = GET_PRIVATE (object);
 
@@ -187,9 +187,9 @@ gimp_canvas_arc_set_property (GObject      *object,
 
 static void
 gimp_canvas_arc_get_property (GObject    *object,
-                                    guint       property_id,
-                                    GValue     *value,
-                                    GParamSpec *pspec)
+                              guint       property_id,
+                              GValue     *value,
+                              GParamSpec *pspec)
 {
   GimpCanvasArcPrivate *private = GET_PRIVATE (object);
 
@@ -292,9 +292,9 @@ static cairo_region_t *
 gimp_canvas_arc_get_extents (GimpCanvasItem   *item,
                              GimpDisplayShell *shell)
 {
-  GdkRectangle rectangle;
-  gdouble      center_x, center_y;
-  gdouble      radius_x, radius_y;
+  cairo_rectangle_int_t rectangle;
+  gdouble               center_x, center_y;
+  gdouble               radius_x, radius_y;
 
   gimp_canvas_arc_transform (item, shell,
                              &center_x, &center_y,
@@ -305,7 +305,7 @@ gimp_canvas_arc_get_extents (GimpCanvasItem   *item,
   rectangle.width  = ceil (center_x + radius_x + 1.5) - rectangle.x;
   rectangle.height = ceil (center_y + radius_y + 1.5) - rectangle.y;
 
-  return cairo_region_create_rectangle ((cairo_rectangle_int_t *) &rectangle);
+  return cairo_region_create_rectangle (&rectangle);
 }
 
 GimpCanvasItem *

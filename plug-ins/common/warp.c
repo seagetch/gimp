@@ -75,6 +75,7 @@
 
 #define PLUG_IN_PROC    "plug-in-warp"
 #define PLUG_IN_BINARY  "warp"
+#define PLUG_IN_ROLE    "gimp-warp"
 #define ENTRY_WIDTH     75
 #define TILE_CACHE_SIZE 30  /* was 48. There is a cache flush problem in GIMP preventing sequential updates */
 #define MIN_ARGS         6  /* minimum number of arguments required */
@@ -372,7 +373,7 @@ warp_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dlg = gimp_dialog_new (_("Warp"), PLUG_IN_BINARY,
+  dlg = gimp_dialog_new (_("Warp"), PLUG_IN_ROLE,
                          NULL, 0,
                          gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -388,7 +389,7 @@ warp_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dlg));
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dlg))),
                       vbox, TRUE, TRUE, 0);
@@ -463,7 +464,7 @@ warp_dialog (GimpDrawable *drawable)
                     GTK_FILL, GTK_FILL, 0, 0);
   gtk_widget_show (label);
 
-  toggle_hbox = gtk_hbox_new (FALSE, 6);
+  toggle_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_table_attach (GTK_TABLE (table), toggle_hbox, 1, 3, 2, 3,
                     GTK_FILL, GTK_FILL, 0, 0);
   gtk_widget_show (toggle_hbox);
@@ -600,7 +601,7 @@ warp_dialog (GimpDrawable *drawable)
   gtk_widget_show (combo);
 
   /*  Magnitude Usage  */
-  toggle_hbox = gtk_hbox_new (FALSE, 4);
+  toggle_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 4);
   gtk_container_set_border_width (GTK_CONTAINER (toggle_hbox), 1);
   gtk_table_attach (GTK_TABLE (table), toggle_hbox, 2, 3, 2, 3,
                     GTK_FILL, GTK_FILL, 0, 0);
@@ -809,6 +810,7 @@ blur16 (GimpDrawable *drawable)
         gimp_progress_update ((double) row / (double) (y2 - y1));
     }
 
+  gimp_progress_update (1.0);
   /*  update the region  */
   gimp_drawable_flush (drawable);
   gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);
@@ -894,7 +896,6 @@ diff (GimpDrawable *drawable,
   gdouble gscalefac;                /* scaling factor for x,y differential of 'gradient' map */
   gdouble r, theta, dtheta;         /* rectangular<-> spherical coordinate transform for vector rotation */
   gdouble scale_vec_x, scale_vec_y; /* fixed vector X,Y component scaling factors */
-  gint has_alpha, ind;
 
   /* ----------------------------------------------------------------------- */
 
@@ -925,7 +926,6 @@ diff (GimpDrawable *drawable,
   width     = drawable->width;
   height    = drawable->height;
   src_bytes = drawable->bpp;
-  has_alpha = gimp_drawable_has_alpha (drawable->drawable_id);
 
   /* -- Add two layers: X and Y Displacement vectors -- */
   /* -- I'm using a RGB  drawable and using the first two bytes for a
@@ -1053,7 +1053,6 @@ diff (GimpDrawable *drawable,
 
       dx = destx;
       dy = desty;
-      ind = 0;
 
       for (col = 0; col < (x2 - x1); col++) /* over columns of pixels */
         {
@@ -1166,6 +1165,7 @@ diff (GimpDrawable *drawable,
 
     } /* for (row..) */
 
+  gimp_progress_update (1.0);
   /*  update the region  */
   gimp_drawable_flush (draw_xd);
   gimp_drawable_flush (draw_yd);
@@ -1212,9 +1212,6 @@ warp (GimpDrawable *orig_draw)
   gboolean      first_time = TRUE;
   gint          width;
   gint          height;
-  gint          bytes;
-  gint          orig_image_id;
-  gint          image_type;
   gint          x1, y1, x2, y2;
   gint32        xdlayer = -1;
   gint32        ydlayer = -1;
@@ -1240,16 +1237,12 @@ warp (GimpDrawable *orig_draw)
 
   width  = orig_draw->width;
   height = orig_draw->height;
-  bytes  = orig_draw->bpp;
-  image_type = gimp_drawable_type (orig_draw->drawable_id);
 
   /* generate x,y differential images (arrays) */
   diff (disp_map, &xdlayer, &ydlayer);
 
   map_x = gimp_drawable_get (xdlayer);
   map_y = gimp_drawable_get (ydlayer);
-
-  orig_image_id = gimp_item_get_image (orig_draw->drawable_id);
 
   for (warp_iter = 0; warp_iter < dvals.iter; warp_iter++)
     {
@@ -1307,10 +1300,9 @@ warp_one (GimpDrawable *draw,
   gint    width = -1;
   gint    height = -1;
   gint    dest_bytes=-1;
-  gint    dmap_bytes=-1;
 
   guchar *destrow, *dest;
-  guchar *srcrow, *src;
+  guchar *srcrow;
   guchar *mxrow=NULL, *mx;  /* NULL ptr. to make gcc's -Wall fn. happy */
   guchar *myrow=NULL, *my;
 
@@ -1336,8 +1328,6 @@ warp_one (GimpDrawable *draw,
 
   gdouble dx, dy;           /* X and Y Displacement, integer from GRAY map */
 
-  gint    xm_alpha = 0;
-  gint    ym_alpha = 0;
   gint    mmag_alpha = 0;
   gint    xm_bytes = 1;
   gint    ym_bytes = 1;
@@ -1362,8 +1352,6 @@ warp_one (GimpDrawable *draw,
   height = draw->height;
   dest_bytes = draw->bpp;
 
-  dmap_bytes = map_x->bpp;
-
    max_progress = (x2 - x1) * (y2 - y1);
 
 
@@ -1384,16 +1372,10 @@ warp_one (GimpDrawable *draw,
    gimp_pixel_rgn_init (&map_x_rgn,
                         map_x, x1, y1, (x2 - x1), (y2 - y1), FALSE, FALSE);
 
-   if (gimp_drawable_has_alpha(map_x->drawable_id))
-     xm_alpha = 1;
-
    xm_bytes = gimp_drawable_bpp(map_x->drawable_id);
 
    gimp_pixel_rgn_init (&map_y_rgn,
                         map_y, x1, y1, (x2 - x1), (y2 - y1), FALSE, FALSE);
-
-   if (gimp_drawable_has_alpha(map_y->drawable_id))
-     ym_alpha = 1;
 
    ym_bytes = gimp_drawable_bpp(map_y->drawable_id);
 
@@ -1434,7 +1416,6 @@ warp_one (GimpDrawable *draw,
        /* loop over destination pixels */
        for (y = dest_rgn.y; y < (dest_rgn.y + dest_rgn.h); y++)
          {
-           src = srcrow;
            dest = destrow;
            mx = mxrow;
            my = myrow;
@@ -1573,6 +1554,7 @@ warp_one (GimpDrawable *draw,
       gimp_progress_update ((double) progress / (double) max_progress);
 
     } /* for pr */
+   gimp_progress_update (1.0);
 
    if (tile != NULL)
     gimp_tile_unref (tile, FALSE);

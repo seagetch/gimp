@@ -74,13 +74,11 @@ struct _Gimp
   GimpPlugInManager      *plug_in_manager;
 
   GimpContainer          *images;
-  gint                    next_image_ID;
   guint32                 next_guide_ID;
   guint32                 next_sample_point_ID;
-  GHashTable             *image_table;
+  GimpIdTable            *image_table;
 
-  gint                    next_item_ID;
-  GHashTable             *item_table;
+  GimpIdTable            *item_table;
 
   GimpContainer          *displays;
   gint                    next_display_ID;
@@ -173,6 +171,7 @@ void           gimp_exit                 (Gimp                *gimp,
 GList        * gimp_get_image_iter       (Gimp                *gimp);
 GList        * gimp_get_display_iter     (Gimp                *gimp);
 GList        * gimp_get_image_windows    (Gimp                *gimp);
+GList        * gimp_get_paint_info_iter  (Gimp                *gimp);
 GList        * gimp_get_tool_info_iter   (Gimp                *gimp);
 
 void           gimp_set_global_buffer    (Gimp                *gimp,

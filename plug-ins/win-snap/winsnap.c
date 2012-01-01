@@ -61,6 +61,7 @@
 #define PLUG_IN_COPYRIGHT   "Craig Setera"
 #define PLUG_IN_VERSION     "v0.70 (07/16/1999)"
 #define PLUG_IN_BINARY      "win-snap"
+#define PLUG_IN_ROLE        "gimp-win-snap"
 
 /*
  * Application definitions
@@ -72,6 +73,12 @@
 #define SHOW_WINDOW		FALSE
 #define APP_NAME		PLUG_IN_NAME
 #define WM_DOCAPTURE		(WM_USER + 100)
+
+/* Prototypes */
+void setCaptureType(int capType);
+BOOL InitApplication(HINSTANCE hInstance);
+BOOL InitInstance(HINSTANCE hInstance, int nCmdShow);
+int winsnapWinMain(void);
 
 /* File variables */
 static int			captureType;
@@ -856,7 +863,7 @@ snap_dialog (void)
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
   /* Main Dialog */
-  dialog = gimp_dialog_new (PLUG_IN_PRINT_NAME, PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (PLUG_IN_PRINT_NAME, PLUG_IN_ROLE,
                             NULL, 0,
 			    gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -870,7 +877,7 @@ snap_dialog (void)
                                            GTK_RESPONSE_CANCEL,
                                            -1);
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       vbox, TRUE, TRUE, 0);
@@ -904,7 +911,7 @@ snap_dialog (void)
   radio_group = gtk_radio_button_get_group (GTK_RADIO_BUTTON (winsnapintf.root_button));
 
   /* with delay */
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 

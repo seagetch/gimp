@@ -38,6 +38,7 @@
 #endif
 
 #include <libgimp/gimp.h>
+#undef GDK_DISABLE_DEPRECATED
 #include <libgimp/gimpui.h>
 
 #include "libgimp/stdplugins-intl.h"
@@ -71,6 +72,8 @@
 #define OBJ_SELECT_GT       1
 #define OBJ_SELECT_LT       2
 #define OBJ_SELECT_EQ       4
+
+#define UPDATE_DELAY 300 /* From GtkRange in GTK+ 2.22 */
 
 /* Globals */
 gint   undo_level;  /* Last slot filled in -1 = no undo */
@@ -137,6 +140,7 @@ static gchar          *gfig_path       = NULL;
 static GtkWidget      *page_menu_bg;
 static GtkWidget      *tool_options_notebook;
 static GtkWidget      *fill_type_notebook;
+static guint           paint_timeout   = 0;
 
 static GtkActionGroup *gfig_actions    = NULL;
 
@@ -225,7 +229,7 @@ gfig_dialog (void)
    */
   gfig_list = NULL;
   undo_level = -1;
-  parasite = gimp_item_parasite_find (gfig_context->drawable_id, "gfig");
+  parasite = gimp_item_get_parasite (gfig_context->drawable_id, "gfig");
   gfig_context->enable_repaint = FALSE;
 
   /* debug */
@@ -282,7 +286,7 @@ gfig_dialog (void)
     }
 
   /* Start building the dialog up */
-  top_level_dlg = gimp_dialog_new (_("Gfig"), PLUG_IN_BINARY,
+  top_level_dlg = gimp_dialog_new (_("Gfig"), PLUG_IN_ROLE,
                                    NULL, 0,
                                    gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -299,9 +303,6 @@ gfig_dialog (void)
   g_signal_connect (top_level_dlg, "response",
                     G_CALLBACK (gfig_response),
                     top_level_dlg);
-  g_signal_connect (top_level_dlg, "destroy",
-                    G_CALLBACK (gtk_main_quit),
-                    NULL);
 
   /* build the menu */
   ui_manager = create_ui_manager (top_level_dlg);
@@ -318,7 +319,7 @@ gfig_dialog (void)
   gfig_dialog_action_set_sensitive ("undo", undo_level >= 0);
 
   /* Main box */
-  main_hbox = gtk_hbox_new (FALSE, 12);
+  main_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_hbox), 12);
   gtk_box_pack_end (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (top_level_dlg))),
                     main_hbox, TRUE, TRUE, 0);
@@ -328,7 +329,7 @@ gfig_dialog (void)
 
   gtk_widget_show (gfig_context->preview);
 
-  right_vbox = gtk_vbox_new (FALSE, 12);
+  right_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_box_pack_start (GTK_BOX (main_hbox), right_vbox, FALSE, FALSE, 0);
   gtk_widget_show (right_vbox);
 
@@ -356,11 +357,11 @@ gfig_dialog (void)
   gtk_frame_set_label_widget (GTK_FRAME (frame), toggle);
   gtk_widget_show (toggle);
 
-  hbox = gtk_hbox_new (FALSE, 0);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_container_add (GTK_CONTAINER (frame), hbox);
   gtk_widget_show (hbox);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_box_pack_start (GTK_BOX (hbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 
@@ -401,11 +402,11 @@ gfig_dialog (void)
   gtk_box_pack_start (GTK_BOX (right_vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  hbox = gtk_hbox_new (FALSE, 0);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_container_add (GTK_CONTAINER (frame), hbox);
   gtk_widget_show (hbox);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_box_pack_start (GTK_BOX (hbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 
@@ -471,7 +472,7 @@ gfig_dialog (void)
                             gfig_context->gradient_select, NULL);
 
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_box_pack_start (GTK_BOX (right_vbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 
@@ -549,6 +550,7 @@ gfig_response (GtkWidget *widget,
 
   switch (response_id)
     {
+    case GTK_RESPONSE_DELETE_EVENT:
     case GTK_RESPONSE_CANCEL:
       /* if we created a new layer, delete it */
       if (gfig_context->using_new_layer)
@@ -580,6 +582,7 @@ gfig_response (GtkWidget *widget,
     }
 
   gtk_widget_destroy (widget);
+  gtk_main_quit ();
 }
 
 void
@@ -837,8 +840,7 @@ gfig_list_load_all (const gchar *path)
 static void
 gfig_list_free_all (void)
 {
-  g_list_foreach (gfig_list, (GFunc) gfig_free, NULL);
-  g_list_free (gfig_list);
+  g_list_free_full (gfig_list, (GDestroyNotify) gfig_free);
   gfig_list = NULL;
 }
 
@@ -1188,6 +1190,26 @@ select_filltype_callback (GtkWidget *widget)
   gfig_paint_callback ();
 }
 
+static gboolean
+gfig_paint_timeout (gpointer data)
+{
+  gfig_paint_callback ();
+
+  paint_timeout = 0;
+  
+  return FALSE;
+}
+
+static void
+gfig_paint_delayed (void)
+{
+  if (paint_timeout)
+    g_source_remove (paint_timeout);
+
+  paint_timeout =
+    g_timeout_add (UPDATE_DELAY, gfig_paint_timeout, NULL);
+}
+
 static void
 gfig_prefs_action_callback (GtkAction *widget,
                             gpointer   data)
@@ -1196,14 +1218,14 @@ gfig_prefs_action_callback (GtkAction *widget,
 
   if (!dialog)
     {
-      GtkWidget *main_vbox;
-      GtkWidget *table;
-      GtkWidget *toggle;
-      GtkObject *size_data;
-      GtkWidget *scale;
-      GtkObject *scale_data;
+      GtkWidget     *main_vbox;
+      GtkWidget     *table;
+      GtkWidget     *toggle;
+      GtkObject     *size_data;
+      GtkWidget     *scale;
+      GtkAdjustment *scale_data;
 
-      dialog = gimp_dialog_new (_("Options"), "gfig-options",
+      dialog = gimp_dialog_new (_("Options"), "gimp-gfig-options",
                                 GTK_WIDGET (data), 0, NULL, NULL,
 
                                 GTK_STOCK_CLOSE,  GTK_RESPONSE_CLOSE,
@@ -1218,10 +1240,10 @@ gfig_prefs_action_callback (GtkAction *widget,
                         G_CALLBACK (gtk_widget_destroy),
                         NULL);
 
-      main_vbox = gtk_vbox_new (FALSE, 0);
+      main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
       gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-      gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                         main_vbox);
+      gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                          main_vbox, TRUE, TRUE, 0);
       gtk_widget_show (main_vbox);
 
       /* Put buttons in */
@@ -1313,17 +1335,16 @@ gfig_prefs_action_callback (GtkAction *widget,
                         NULL);
       gtk_widget_show (toggle);
 
-      scale_data =
+      scale_data = (GtkAdjustment *)
         gtk_adjustment_new (selopt.feather_radius, 0.0, 100.0, 1.0, 1.0, 0.0);
-      scale = gtk_hscale_new (GTK_ADJUSTMENT (scale_data));
+      scale = gtk_scale_new (GTK_ORIENTATION_HORIZONTAL, scale_data);
       gtk_scale_set_value_pos (GTK_SCALE (scale), GTK_POS_TOP);
-      gtk_range_set_update_policy (GTK_RANGE (scale), GTK_UPDATE_DELAYED);
 
       g_signal_connect (scale_data, "value-changed",
                         G_CALLBACK (gimp_double_adjustment_update),
                         &selopt.feather_radius);
       g_signal_connect (scale_data, "value-changed",
-                        G_CALLBACK (gfig_paint_callback),
+                        G_CALLBACK (gfig_paint_delayed),
                         NULL);
       gimp_table_attach_aligned (GTK_TABLE (table), 0, 2,
                                  _("Radius:"), 0.0, 1.0, scale, 1, FALSE);
@@ -1352,7 +1373,7 @@ gfig_grid_action_callback (GtkAction *action,
       GtkObject *sectors_data;
       GtkObject *radius_data;
 
-      dialog = gimp_dialog_new (_("Grid"), "gfig-grid",
+      dialog = gimp_dialog_new (_("Grid"), "gimp-gfig-grid",
                                 GTK_WIDGET (data), 0, NULL, NULL,
 
                                 GTK_STOCK_CLOSE,  GTK_RESPONSE_CLOSE,
@@ -1367,13 +1388,13 @@ gfig_grid_action_callback (GtkAction *action,
                         G_CALLBACK (gtk_widget_destroy),
                         NULL);
 
-      main_vbox = gtk_vbox_new (FALSE, 0);
+      main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
       gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-      gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                         main_vbox);
+      gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                          main_vbox, TRUE, TRUE, 0);
       gtk_widget_show (main_vbox);
 
-      hbox = gtk_hbox_new (FALSE, 6);
+      hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
       gtk_box_pack_start (GTK_BOX (main_vbox), hbox, FALSE, FALSE, 0);
       gtk_widget_show (hbox);
 
@@ -1579,13 +1600,11 @@ save_file_chooser_response (GtkFileChooser *chooser,
   if (response_id == GTK_RESPONSE_OK)
     {
       gchar   *filename;
-      GFigObj *real_current;
 
       filename = gtk_file_chooser_get_filename (chooser);
 
       obj->filename = filename;
 
-      real_current = gfig_context->current_obj;
       gfig_context->current_obj = obj;
       gfig_save_callbk ();
       gfig_context->current_obj = gfig_context->current_obj;

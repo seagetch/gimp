@@ -43,6 +43,7 @@
 #define DRAWABLE_COMPOSE_PROC "plug-in-drawable-compose"
 #define RECOMPOSE_PROC        "plug-in-recompose"
 #define PLUG_IN_BINARY        "compose"
+#define PLUG_IN_ROLE          "gimp-compose"
 
 
 typedef struct
@@ -479,8 +480,8 @@ run (const gchar      *name,
 
   if (strcmp (name, RECOMPOSE_PROC) == 0)
     {
-      GimpParasite *parasite = gimp_image_parasite_find (param[1].data.d_image,
-                                                         "decompose-data");
+      GimpParasite *parasite = gimp_image_get_parasite (param[1].data.d_image,
+                                                        "decompose-data");
 
       if (! parasite)
         {
@@ -884,6 +885,7 @@ compose (const gchar  *compose_type,
 
       gimp_progress_update ((gdouble) i / (gdouble) height);
     }
+  gimp_progress_update (1.0);
 
   for (j = 0; j < num_images; j++)
     {
@@ -1478,7 +1480,7 @@ compose_dialog (const gchar *compose_type,
   layer_list = gimp_image_get_layers (gimp_item_get_image (drawable_ID),
                                       &nlayers);
 
-  dialog = gimp_dialog_new (_("Compose"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Compose"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, COMPOSE_PROC,
 
@@ -1498,10 +1500,10 @@ compose_dialog (const gchar *compose_type,
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   /* Compose type combo */
@@ -1510,7 +1512,7 @@ compose_dialog (const gchar *compose_type,
   gtk_box_pack_start (GTK_BOX (main_vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), hbox);
   gtk_widget_show (hbox);
 
@@ -1552,7 +1554,7 @@ compose_dialog (const gchar *compose_type,
   gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -1572,7 +1574,7 @@ compose_dialog (const gchar *compose_type,
       GtkTreeModel *model;
       GdkPixbuf    *ico;
 
-      hbox = gtk_hbox_new (FALSE, 6);
+      hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
       gtk_table_attach (GTK_TABLE (table), hbox, 0, 1, j, j + 1,
                         GTK_FILL, GTK_FILL, 0, 0);
       gtk_widget_show (hbox);

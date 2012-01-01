@@ -64,16 +64,21 @@ gimp_color_picker_options_class_init (GimpColorPickerOptionsClass *klass)
 
   /* override a GimpColorOptions property to get a different default value */
   GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_SAMPLE_AVERAGE,
-                                    "sample-average", NULL,
+                                    "sample-average",
+                                    N_("Use accumulated color value from "
+                                       "all composited visible layers"),
                                     FALSE,
                                     GIMP_PARAM_STATIC_STRINGS);
   GIMP_CONFIG_INSTALL_PROP_ENUM (object_class, PROP_PICK_MODE,
-                                 "pick-mode", NULL,
+                                 "pick-mode",
+                                 N_("Choose what color picker will do"),
                                  GIMP_TYPE_COLOR_PICK_MODE,
                                  GIMP_COLOR_PICK_MODE_FOREGROUND,
                                  GIMP_PARAM_STATIC_STRINGS);
   GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_USE_INFO_WINDOW,
-                                    "use-info-window", NULL,
+                                    "use-info-window",
+                                    N_("Open a floating dialog to view picked "
+                                       "color values in various color models"),
                                     FALSE,
                                     GIMP_PARAM_STATIC_STRINGS);
 }
@@ -139,11 +144,14 @@ gimp_color_picker_options_get_property (GObject    *object,
 static GtkWidget *
 gimp_color_picker_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
-  GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_color_options_gui_full (tool_options, horizontal);
-  GtkWidget *button;
-  GtkWidget *frame;
-  gchar     *str;
+  GObject         *config = G_OBJECT (tool_options);
+  GtkWidget       *vbox   = gimp_color_options_gui_full (tool_options, horizontal);
+  GtkWidget       *button;
+  GtkWidget       *frame;
+  gchar           *str;
+  GdkModifierType  toggle_mask;
+
+  toggle_mask = gimp_get_toggle_behavior_mask ();
 
   /*  the sample merged toggle button  */
   button = gimp_prop_check_button_new (config, "sample-merged",
@@ -153,11 +161,14 @@ gimp_color_picker_options_gui_full (GimpToolOptions *tool_options, gboolean hori
 
   /*  the pick FG/BG frame  */
   str = g_strdup_printf (_("Pick Mode  (%s)"),
-                         gimp_get_mod_string (GDK_CONTROL_MASK));
+                         gimp_get_mod_string (toggle_mask));
   frame = gimp_prop_enum_radio_frame_new_with_orientation (config, "pick-mode", str, -1, -1,
                                                            horizontal ?
                                                              GTK_ORIENTATION_HORIZONTAL:
                                                              GTK_ORIENTATION_VERTICAL);
+#if 0
+  frame = gimp_prop_enum_radio_frame_new (config, "pick-mode", str, -1, -1);
+#endif
   g_free (str);
 
   gtk_box_pack_start (GTK_BOX (vbox), frame, TRUE, TRUE, 0);

@@ -140,6 +140,7 @@ static const guint8 screenshot_icon[] =
 /* Defines */
 #define PLUG_IN_PROC   "plug-in-screenshot"
 #define PLUG_IN_BINARY "screenshot"
+#define PLUG_IN_ROLE   "gimp-screenshot"
 
 #ifdef __GNUC__
 #ifdef GDK_NATIVE_WINDOW_POINTER
@@ -183,23 +184,23 @@ static ScreenshotValues shootvals =
 };
 
 
-static void      query (void);
-static void      run   (const gchar      *name,
-                        gint              nparams,
-                        const GimpParam  *param,
-                        gint             *nreturn_vals,
-                        GimpParam       **return_vals);
+static void       query                (void);
+static void       run                  (const gchar      *name,
+                                        gint              nparams,
+                                        const GimpParam  *param,
+                                        gint             *nreturn_vals,
+                                        GimpParam       **return_vals);
 
-static GdkNativeWindow   select_window (GdkScreen    *screen);
-static gint32            create_image  (GdkPixbuf    *pixbuf,
-                                        GdkRegion    *shape,
-                                        const gchar  *name);
+static guint32    select_window        (GdkScreen        *screen);
+static gint32     create_image         (cairo_surface_t  *surface,
+                                        cairo_region_t   *shape,
+                                        const gchar      *name);
 
-static gint32     shoot                (GdkScreen    *screen);
-static gboolean   shoot_dialog         (GdkScreen   **screen);
-static void       shoot_delay          (gint32        delay);
-static gboolean   shoot_delay_callback (gpointer      data);
-static gboolean   shoot_quit_timeout   (gpointer      data);
+static gint32     shoot                (GdkScreen        *screen);
+static gboolean   shoot_dialog         (GdkScreen       **screen);
+static void       shoot_delay          (gint32            delay);
+static gboolean   shoot_delay_callback (gpointer          data);
+static gboolean   shoot_quit_timeout   (gpointer          data);
 
 
 /* Global Variables */
@@ -381,7 +382,7 @@ run (const gchar      *name,
 
 #ifdef GDK_WINDOWING_X11
 
-static GdkNativeWindow
+static guint32
 select_window_x11 (GdkScreen *screen)
 {
   Display      *x_dpy       = GDK_SCREEN_XDISPLAY (screen);
@@ -390,6 +391,7 @@ select_window_x11 (GdkScreen *screen)
   Window        x_win       = None;
   GC            x_gc        = NULL;
   Cursor        x_cursor    = XCreateFontCursor (x_dpy, GDK_CROSSHAIR);
+  GdkKeymap    *keymap;
   GdkKeymapKey *keys        = NULL;
   gint          status;
   gint          i, num_keys;
@@ -444,7 +446,10 @@ select_window_x11 (GdkScreen *screen)
                         &gc_values);
     }
 
-  if (gdk_keymap_get_entries_for_keyval (NULL, GDK_Escape, &keys, &num_keys))
+  keymap = gdk_keymap_get_for_display (gdk_screen_get_display (screen));
+
+  if (gdk_keymap_get_entries_for_keyval (keymap, GDK_KEY_Escape,
+                                         &keys, &num_keys))
     {
       gdk_error_trap_push ();
 
@@ -467,7 +472,11 @@ select_window_x11 (GdkScreen *screen)
 #undef X_GRAB_KEY
 
       gdk_flush ();
-      gdk_error_trap_pop ();
+
+      if (gdk_error_trap_pop ())
+        {
+          /* ignore errors */
+        }
     }
 
   while (! cancel && ((x_win == None) || (buttons != 0)))
@@ -553,7 +562,7 @@ select_window_x11 (GdkScreen *screen)
                 gint i;
 
                 for (i = 0; i < n && ! cancel; i++)
-                  if (keyvals[i] == GDK_Escape)
+                  if (keyvals[i] == GDK_KEY_Escape)
                     cancel = TRUE;
 
                 g_free (keyvals);
@@ -603,7 +612,7 @@ select_window_x11 (GdkScreen *screen)
 
 #ifdef GDK_WINDOWING_WIN32
 
-static GdkNativeWindow
+static guint32
 select_window_win32 (GdkScreen *screen)
 {
   /* MS Windows specific code goes here (yet to be written) */
@@ -628,7 +637,7 @@ select_window_win32 (GdkScreen *screen)
 #endif
 
 
-static GdkNativeWindow
+static guint32
 select_window (GdkScreen *screen)
 {
 #if defined(GDK_WINDOWING_X11)
@@ -642,9 +651,9 @@ select_window (GdkScreen *screen)
 }
 
 static gchar *
-window_get_utf8_property (GdkDisplay      *display,
-                          GdkNativeWindow  window,
-                          const gchar     *name)
+window_get_utf8_property (GdkDisplay  *display,
+                          guint32      window,
+                          const gchar *name)
 {
   gchar   *retval = NULL;
 
@@ -680,8 +689,8 @@ window_get_utf8_property (GdkDisplay      *display,
 }
 
 static gchar *
-window_get_title (GdkDisplay      *display,
-                  GdkNativeWindow  window)
+window_get_title (GdkDisplay *display,
+                  guint       window)
 {
 #if defined(GDK_WINDOWING_X11)
 #ifdef HAVE_X11_XMU_WINUTIL_H
@@ -694,11 +703,11 @@ window_get_title (GdkDisplay      *display,
 #endif
 }
 
-static GdkRegion *
-window_get_shape (GdkScreen       *screen,
-                  GdkNativeWindow  window)
+static cairo_region_t *
+window_get_shape (GdkScreen *screen,
+                  guint32    window)
 {
-  GdkRegion  *shape = NULL;
+  cairo_region_t *shape = NULL;
 
 #if defined(GDK_WINDOWING_X11) && defined(HAVE_X11_EXTENSIONS_SHAPE_H)
   XRectangle *rects;
@@ -715,16 +724,16 @@ window_get_shape (GdkScreen       *screen,
         {
           gint i;
 
-          shape = gdk_region_new ();
+          shape = cairo_region_create ();
 
           for (i = 0; i < rect_count; i++)
             {
-              GdkRectangle rect = { rects[i].x,
-                                    rects[i].y,
-                                    rects[i].width,
-                                    rects[i].height };
+              cairo_rectangle_int_t rect = { rects[i].x,
+                                             rects[i].y,
+                                             rects[i].width,
+                                             rects[i].height };
 
-              gdk_region_union_with_rect (shape, &rect);
+              cairo_region_union_rectangle (shape, &rect);
             }
         }
 
@@ -736,25 +745,26 @@ window_get_shape (GdkScreen       *screen,
 }
 
 static void
-image_select_shape (gint32     image,
-                    GdkRegion *shape)
+image_select_shape (gint32          image,
+                    cairo_region_t *shape)
 {
-  GdkRectangle *rects;
-  gint          num_rects;
-  gint          i;
+  gint num_rects;
+  gint i;
 
   gimp_selection_none (image);
 
-  gdk_region_get_rectangles (shape, &rects, &num_rects);
+  num_rects = cairo_region_num_rectangles (shape);
 
   for (i = 0; i < num_rects; i++)
     {
-      gimp_rect_select (image,
-                        rects[i].x, rects[i].y, rects[i].width, rects[i].height,
-                        GIMP_CHANNEL_OP_ADD, FALSE, 0);
-    }
+      cairo_rectangle_int_t rect;
 
-  g_free (rects);
+      cairo_region_get_rectangle (shape, i, &rect);
+
+      gimp_image_select_rectangle (image, GIMP_CHANNEL_OP_ADD,
+                                   rect.x, rect.y,
+                                   rect.width, rect.height);
+    }
 
   gimp_selection_invert (image);
 }
@@ -763,21 +773,20 @@ image_select_shape (gint32     image,
 /* Create a GimpImage from a GdkPixbuf */
 
 static gint32
-create_image (GdkPixbuf   *pixbuf,
-              GdkRegion   *shape,
-              const gchar *name)
+create_image (cairo_surface_t *surface,
+              cairo_region_t  *shape,
+              const gchar     *name)
 {
   gint32     image;
   gint32     layer;
   gdouble    xres, yres;
   gchar     *comment;
   gint       width, height;
-  gboolean   status;
 
-  status = gimp_progress_init (_("Importing screenshot"));
+  gimp_progress_init (_("Importing screenshot"));
 
-  width  = gdk_pixbuf_get_width (pixbuf);
-  height = gdk_pixbuf_get_height (pixbuf);
+  width  = cairo_image_surface_get_width (surface);
+  height = cairo_image_surface_get_height (surface);
 
   image = gimp_image_new (width, height, GIMP_RGB);
   gimp_image_undo_disable (image);
@@ -793,19 +802,19 @@ create_image (GdkPixbuf   *pixbuf,
       parasite = gimp_parasite_new ("gimp-comment", GIMP_PARASITE_PERSISTENT,
                                     strlen (comment) + 1, comment);
 
-      gimp_image_parasite_attach (image, parasite);
+      gimp_image_attach_parasite (image, parasite);
       gimp_parasite_free (parasite);
 
       g_free (comment);
     }
 
-  layer = gimp_layer_new_from_pixbuf (image,
-                                      name ? name : _("Screenshot"),
-                                      pixbuf,
-                                      100, GIMP_NORMAL_MODE, 0.0, 1.0);
+  layer = gimp_layer_new_from_surface (image,
+                                       name ? name : _("Screenshot"),
+                                       surface,
+                                       0.0, 1.0);
   gimp_image_insert_layer (image, layer, -1, 0);
 
-  if (shape && ! gdk_region_empty (shape))
+  if (shape && ! cairo_region_is_empty (shape))
     {
       image_select_shape (image, shape);
 
@@ -895,23 +904,39 @@ add_cursor_image (gint32      image,
 #endif
 }
 
+static GdkWindow *
+get_foreign_window (GdkDisplay *display,
+                    guint32     window)
+{
+#ifdef GDK_WINDOWING_X11
+  return gdk_x11_window_foreign_new_for_display (display, window);
+#endif
+
+#ifdef GDK_WINDOWING_WIN32
+  return gdk_win32_window_foreign_new_for_display (display, window);
+#endif
+
+  return NULL;
+}
+
 
 /* The main Screenshot function */
 
 static gint32
 shoot (GdkScreen *screen)
 {
-  GdkDisplay   *display;
-  GdkWindow    *window;
-  GdkPixbuf    *screenshot;
-  GdkRegion    *shape = NULL;
-  GdkRectangle  rect;
-  GdkRectangle  screen_rect;
-  gchar        *name  = NULL;
-  gint32        image;
-  gint          screen_x;
-  gint          screen_y;
-  gint          x, y;
+  GdkDisplay      *display;
+  GdkWindow       *window;
+  cairo_surface_t *screenshot;
+  cairo_region_t  *shape = NULL;
+  cairo_t         *cr;
+  GdkRectangle     rect;
+  GdkRectangle     screen_rect;
+  gchar           *name  = NULL;
+  gint32           image;
+  gint             screen_x;
+  gint             screen_y;
+  gint             x, y;
 
   /* use default screen if we are running non-interactively */
   if (screen == NULL)
@@ -939,8 +964,7 @@ shoot (GdkScreen *screen)
         }
       else
         {
-          window = gdk_window_foreign_new_for_display (display,
-                                                       shootvals.window_id);
+          window = get_foreign_window (display, shootvals.window_id);
         }
 
       if (! window)
@@ -949,7 +973,8 @@ shoot (GdkScreen *screen)
           return -1;
         }
 
-      gdk_drawable_get_size (GDK_DRAWABLE (window), &rect.width, &rect.height);
+      rect.width  = gdk_window_get_width (window);
+      rect.height = gdk_window_get_height (window);
       gdk_window_get_origin (window, &x, &y);
 
       rect.x = x;
@@ -962,18 +987,19 @@ shoot (GdkScreen *screen)
   window = gdk_screen_get_root_window (screen);
   gdk_window_get_origin (window, &screen_x, &screen_y);
 
-  screenshot = gdk_pixbuf_get_from_drawable (NULL, window, NULL,
-                                             rect.x - screen_x,
-                                             rect.y - screen_y,
-                                             0, 0, rect.width, rect.height);
+  screenshot = cairo_image_surface_create (CAIRO_FORMAT_RGB24,
+                                           rect.width, rect.height);
+
+  cr = cairo_create (screenshot);
+
+  gdk_cairo_set_source_window (cr, window,
+                               - (rect.x - screen_x),
+                               - (rect.y - screen_y));
+  cairo_paint (cr);
+
+  cairo_destroy (cr);
 
   gdk_display_beep (display);
-
-  if (! screenshot)
-    {
-      g_message (_("There was an error taking the screenshot."));
-      return -1;
-    }
 
   if (shootvals.shoot_type == SHOOT_WINDOW)
     {
@@ -982,15 +1008,15 @@ shoot (GdkScreen *screen)
       shape = window_get_shape (screen, shootvals.window_id);
 
       if (shape)
-        gdk_region_offset (shape, x - rect.x, y - rect.y);
+        cairo_region_translate (shape, x - rect.x, y - rect.y);
     }
 
   image = create_image (screenshot, shape, name);
 
-  g_object_unref (screenshot);
+  cairo_surface_destroy (screenshot);
 
   if (shape)
-    gdk_region_destroy (shape);
+    cairo_region_destroy (shape);
 
   g_free (name);
 
@@ -1056,7 +1082,7 @@ shoot_dialog (GdkScreen **screen)
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("Screenshot"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Screenshot"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -1080,7 +1106,7 @@ shoot_dialog (GdkScreen **screen)
       g_object_unref (pixbuf);
     }
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       main_vbox, FALSE, FALSE, 0);
@@ -1110,7 +1136,7 @@ shoot_dialog (GdkScreen **screen)
   gtk_box_pack_start (GTK_BOX (main_vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -1132,7 +1158,7 @@ shoot_dialog (GdkScreen **screen)
 
 #ifdef HAVE_X11_XMU_WINUTIL_H
   /*  window decorations  */
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -1141,11 +1167,13 @@ shoot_dialog (GdkScreen **screen)
   gtk_box_pack_start (GTK_BOX (hbox), toggle, TRUE, TRUE, 24);
   gtk_widget_show (toggle);
 
-  g_object_set_data (G_OBJECT (button), "set_sensitive", toggle);
-
   g_signal_connect (toggle, "toggled",
                     G_CALLBACK (gimp_toggle_button_update),
                     &shootvals.decorate);
+
+  g_object_bind_property (button, "active",
+                          toggle, "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
 #endif /* HAVE_X11_XMU_WINUTIL_H */
 
@@ -1169,7 +1197,7 @@ shoot_dialog (GdkScreen **screen)
 
 #ifdef HAVE_XFIXES
   /*  mouse pointer  */
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -1179,12 +1207,13 @@ shoot_dialog (GdkScreen **screen)
   gtk_box_pack_start (GTK_BOX (hbox), toggle, TRUE, TRUE, 24);
   gtk_widget_show (toggle);
 
-  gtk_widget_set_sensitive (toggle, FALSE);
-  g_object_set_data (G_OBJECT (button), "set_sensitive", toggle);
-
   g_signal_connect (toggle, "toggled",
                     G_CALLBACK (gimp_toggle_button_update),
                     &shootvals.show_cursor);
+
+  g_object_bind_property (button, "active",
+                          toggle, "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
 #endif
 
@@ -1212,11 +1241,11 @@ shoot_dialog (GdkScreen **screen)
   gtk_box_pack_start (GTK_BOX (main_vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 

@@ -24,9 +24,9 @@
 #include <jpeglib.h>
 #include <jerror.h>
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
 #include <libexif/exif-data.h>
-#endif /* HAVE_EXIF */
+#endif /* HAVE_LIBEXIF */
 
 #include <libgimp/gimp.h>
 #include <libgimp/gimpui.h>
@@ -37,7 +37,10 @@
 #include "jpeg-settings.h"
 #include "jpeg-load.h"
 #include "jpeg-save.h"
+#ifdef HAVE_LIBEXIF
+#include "jpeg-exif.h"
 #include "gimpexif.h"
+#endif
 
 
 /* Declare local functions.
@@ -63,7 +66,7 @@ JpegSubsampling  orig_subsmp;
 gint             num_quant_tables;
 
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
 ExifData        *exif_data = NULL;
 #endif
 
@@ -93,7 +96,7 @@ query (void)
     { GIMP_PDB_IMAGE,   "image",         "Output image" }
   };
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
 
   static const GimpParamDef thumb_args[] =
   {
@@ -107,7 +110,7 @@ query (void)
     { GIMP_PDB_INT32,  "image-height", "Height of full-sized image"    }
   };
 
-#endif /* HAVE_EXIF */
+#endif /* HAVE_LIBEXIF */
 
   static const GimpParamDef save_args[] =
   {
@@ -123,7 +126,7 @@ query (void)
     { GIMP_PDB_STRING,   "comment",      "Image comment" },
     { GIMP_PDB_INT32,    "subsmp",       "The subsampling option number" },
     { GIMP_PDB_INT32,    "baseline",     "Force creation of a baseline JPEG (non-baseline JPEGs can't be read by all decoders) (0/1)" },
-    { GIMP_PDB_INT32,    "restart",      "Frequency of restart markers (in rows, 0 = no restart markers)" },
+    { GIMP_PDB_INT32,    "restart",      "Interval of restart markers (in MCU rows, 0 = no restart markers)" },
     { GIMP_PDB_INT32,    "dct",          "DCT algorithm to use (speed/quality tradeoff)" }
   };
 
@@ -146,7 +149,7 @@ query (void)
                                     "",
                                     "6,string,JFIF,6,string,Exif");
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
 
   gimp_install_procedure (LOAD_THUMB_PROC,
                           "Loads a thumbnail from a JPEG image",
@@ -163,7 +166,7 @@ query (void)
 
   gimp_register_thumbnail_loader (LOAD_PROC, LOAD_THUMB_PROC);
 
-#endif /* HAVE_EXIF */
+#endif /* HAVE_LIBEXIF */
 
   gimp_install_procedure (SAVE_PROC,
                           "saves files in the JPEG file format",
@@ -212,7 +215,7 @@ run (const gchar      *name,
 
   has_metadata = FALSE;
   orig_quality = 0;
-  orig_subsmp = JPEG_SUPSAMPLING_2x2_1x1_1x1;
+  orig_subsmp = JPEG_SUBSAMPLING_2x2_1x1_1x1;
   num_quant_tables = 0;
 
   if (strcmp (name, LOAD_PROC) == 0)
@@ -244,7 +247,7 @@ run (const gchar      *name,
 
     }
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
 
   else if (strcmp (name, LOAD_THUMB_PROC) == 0)
     {
@@ -277,7 +280,7 @@ run (const gchar      *name,
         }
     }
 
-#endif /* HAVE_EXIF */
+#endif /* HAVE_LIBEXIF */
 
   else if (strcmp (name, SAVE_PROC) == 0)
     {
@@ -323,7 +326,7 @@ run (const gchar      *name,
       g_free (image_comment);
       image_comment = NULL;
 
-      parasite = gimp_image_parasite_find (orig_image_ID, "gimp-comment");
+      parasite = gimp_image_get_parasite (orig_image_ID, "gimp-comment");
       if (parasite)
         {
           image_comment = g_strndup (gimp_parasite_data (parasite),
@@ -331,22 +334,22 @@ run (const gchar      *name,
           gimp_parasite_free (parasite);
         }
 
-      parasite = gimp_image_parasite_find (orig_image_ID, "gimp-metadata");
+      parasite = gimp_image_get_parasite (orig_image_ID, "gimp-metadata");
       if (parasite)
         {
           has_metadata = TRUE;
           gimp_parasite_free (parasite);
         }
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
 
       exif_data = gimp_metadata_generate_exif (orig_image_ID);
       if (exif_data)
         jpeg_setup_exif_for_save (exif_data, orig_image_ID);
 
-#endif /* HAVE_EXIF */
+#endif /* HAVE_LIBEXIF */
 
-      load_save_defaults ();
+      load_defaults ();
 
       switch (run_mode)
         {
@@ -399,8 +402,8 @@ run (const gchar      *name,
                                           &num_quant_tables);
 
           /* load up the previously used values (if file was saved once) */
-          parasite = gimp_image_parasite_find (orig_image_ID,
-                                               "jpeg-save-options");
+          parasite = gimp_image_get_parasite (orig_image_ID,
+                                              "jpeg-save-options");
           if (parasite)
             {
               const JpegSaveVals *save_vals = gimp_parasite_data (parasite);
@@ -440,9 +443,9 @@ run (const gchar      *name,
                   jsvals.use_orig_quality = TRUE;
                 }
 
-              if (orig_subsmp == JPEG_SUPSAMPLING_1x1_1x1_1x1 ||
+              if (orig_subsmp == JPEG_SUBSAMPLING_1x1_1x1_1x1 ||
                   ((gint) orig_subsmp > 0 &&
-                   jsvals.subsmp == JPEG_SUPSAMPLING_1x1_1x1_1x1))
+                   jsvals.subsmp == JPEG_SUBSAMPLING_1x1_1x1_1x1))
                 {
                   jsvals.subsmp = orig_subsmp;
                 }
@@ -505,21 +508,21 @@ run (const gchar      *name,
            * was used to save this image.  Dump the old parasites
            * and add new ones. */
 
-          gimp_image_parasite_detach (orig_image_ID, "gimp-comment");
+          gimp_image_detach_parasite (orig_image_ID, "gimp-comment");
           if (image_comment && strlen (image_comment))
             {
               parasite = gimp_parasite_new ("gimp-comment",
                                             GIMP_PARASITE_PERSISTENT,
                                             strlen (image_comment) + 1,
                                             image_comment);
-              gimp_image_parasite_attach (orig_image_ID, parasite);
+              gimp_image_attach_parasite (orig_image_ID, parasite);
               gimp_parasite_free (parasite);
             }
-          gimp_image_parasite_detach (orig_image_ID, "jpeg-save-options");
 
+          gimp_image_detach_parasite (orig_image_ID, "jpeg-save-options");
           parasite = gimp_parasite_new ("jpeg-save-options",
-                                    0, sizeof (jsvals), &jsvals);
-          gimp_image_parasite_attach (orig_image_ID, parasite);
+                                        0, sizeof (jsvals), &jsvals);
+          gimp_image_attach_parasite (orig_image_ID, parasite);
           gimp_parasite_free (parasite);
         }
     }

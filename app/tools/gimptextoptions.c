@@ -27,6 +27,7 @@
 
 #include "config/gimpconfig-utils.h"
 
+#include "core/gimp.h"
 #include "core/gimpviewable.h"
 
 #include "text/gimptext.h"
@@ -70,28 +71,33 @@ enum
 };
 
 
-static void  gimp_text_options_finalize           (GObject      *object);
-static void  gimp_text_options_set_property       (GObject      *object,
-                                                   guint         property_id,
-                                                   const GValue *value,
-                                                   GParamSpec   *pspec);
-static void  gimp_text_options_get_property       (GObject      *object,
-                                                   guint         property_id,
-                                                   GValue       *value,
-                                                   GParamSpec   *pspec);
+static void  gimp_text_options_finalize           (GObject         *object);
+static void  gimp_text_options_set_property       (GObject         *object,
+                                                   guint            property_id,
+                                                   const GValue    *value,
+                                                   GParamSpec      *pspec);
 
-static void  gimp_text_options_notify_font        (GimpContext  *context,
-                                                   GParamSpec   *pspec,
-                                                   GimpText     *text);
-static void  gimp_text_options_notify_text_font   (GimpText     *text,
-                                                   GParamSpec   *pspec,
-                                                   GimpContext  *context);
-static void  gimp_text_options_notify_color       (GimpContext  *context,
-                                                   GParamSpec   *pspec,
-                                                   GimpText     *text);
-static void  gimp_text_options_notify_text_color  (GimpText     *text,
-                                                   GParamSpec   *pspec,
-                                                   GimpContext  *context);
+static void  gimp_text_options_get_property       (GObject         *object,
+                                                   guint            property_id,
+                                                   GValue          *value,
+                                                   GParamSpec      *pspec);
+
+static void  gimp_text_options_reset              (GimpToolOptions *tool_options);
+
+static void  gimp_text_options_notify_font        (GimpContext     *context,
+                                                   GParamSpec      *pspec,
+                                                   GimpText        *text);
+static void  gimp_text_options_notify_text_font   (GimpText        *text,
+                                                   GParamSpec      *pspec,
+                                                   GimpContext     *context);
+static void  gimp_text_options_notify_color       (GimpContext     *context,
+                                                   GParamSpec      *pspec,
+                                                   GimpText        *text);
+static void  gimp_text_options_notify_text_color  (GimpText        *text,
+                                                   GParamSpec      *pspec,
+                                                   GimpContext     *context);
+
+/* gimp-painter-2.7 */
 static void  gimp_text_options_create_view        (GtkWidget *source, 
                                                    GtkWidget **result, 
                                                    GObject *config);
@@ -107,11 +113,14 @@ G_DEFINE_TYPE_WITH_CODE (GimpTextOptions, gimp_text_options,
 static void
 gimp_text_options_class_init (GimpTextOptionsClass *klass)
 {
-  GObjectClass *object_class = G_OBJECT_CLASS (klass);
+  GObjectClass         *object_class  = G_OBJECT_CLASS (klass);
+  GimpToolOptionsClass *options_class = GIMP_TOOL_OPTIONS_CLASS (klass);
 
   object_class->finalize     = gimp_text_options_finalize;
   object_class->set_property = gimp_text_options_set_property;
   object_class->get_property = gimp_text_options_get_property;
+
+  options_class->reset       = gimp_text_options_reset;
 
   /* The 'highlight' property is defined here because we want different
    * default values for the Crop, Text and the Rectangle Select tools.
@@ -123,11 +132,13 @@ gimp_text_options_class_init (GimpTextOptionsClass *klass)
                                     GIMP_PARAM_STATIC_STRINGS);
 
   GIMP_CONFIG_INSTALL_PROP_UNIT (object_class, PROP_UNIT,
-                                 "font-size-unit", NULL,
+                                 "font-size-unit",
+                                 N_("Font size unit"),
                                  TRUE, FALSE, GIMP_UNIT_PIXEL,
                                  GIMP_PARAM_STATIC_STRINGS);
   GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, PROP_FONT_SIZE,
-                                   "font-size", NULL,
+                                   "font-size",
+                                   N_("Font size"),
                                    0.0, 8192.0, 18.0,
                                    GIMP_PARAM_STATIC_STRINGS);
   GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_ANTIALIAS,
@@ -154,7 +165,8 @@ gimp_text_options_class_init (GimpTextOptionsClass *klass)
                                  GIMP_TEXT_DIRECTION_LTR,
                                  GIMP_PARAM_STATIC_STRINGS);
   GIMP_CONFIG_INSTALL_PROP_ENUM (object_class, PROP_JUSTIFICATION,
-                                "justify", NULL,
+                                "justify",
+                                N_("Text alignment"),
                                  GIMP_TYPE_TEXT_JUSTIFICATION,
                                  GIMP_TEXT_JUSTIFY_LEFT,
                                  GIMP_PARAM_STATIC_STRINGS);
@@ -178,7 +190,8 @@ gimp_text_options_class_init (GimpTextOptionsClass *klass)
                                    GIMP_CONFIG_PARAM_DEFAULTS);
   GIMP_CONFIG_INSTALL_PROP_ENUM (object_class, PROP_BOX_MODE,
                                 "box-mode",
-                                 N_("Text box resize mode"),
+                                 N_("Whether text flows into rectangular shape or "
+                                    "moves into a new line when you press Enter"),
                                  GIMP_TYPE_TEXT_BOX_MODE,
                                  GIMP_TEXT_BOX_DYNAMIC,
                                  GIMP_PARAM_STATIC_STRINGS);
@@ -186,8 +199,7 @@ gimp_text_options_class_init (GimpTextOptionsClass *klass)
   GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_USE_EDITOR,
                                     "use-editor",
                                     N_("Use an external editor window for text "
-                                       "entry, instead of direct-on-canvas "
-                                       "editing"),
+                                       "entry"),
                                     FALSE,
                                     GIMP_PARAM_STATIC_STRINGS);
 
@@ -350,6 +362,34 @@ gimp_text_options_set_property (GObject      *object,
 }
 
 static void
+gimp_text_options_reset (GimpToolOptions *tool_options)
+{
+  GObject *object = G_OBJECT (tool_options);
+
+  /*  implement reset() ourselves because the default impl would
+   *  reset *all* properties, including all rectangle properties
+   *  of the text box
+   */
+
+  /* context */
+  gimp_config_reset_property (object, "font");
+  gimp_config_reset_property (object, "foreground");
+
+  /* text options */
+  gimp_config_reset_property (object, "font-size-unit");
+  gimp_config_reset_property (object, "font-size");
+  gimp_config_reset_property (object, "antialias");
+  gimp_config_reset_property (object, "hint-style");
+  gimp_config_reset_property (object, "language");
+  gimp_config_reset_property (object, "base-direction");
+  gimp_config_reset_property (object, "justify");
+  gimp_config_reset_property (object, "indent");
+  gimp_config_reset_property (object, "line-spacing");
+  gimp_config_reset_property (object, "box-mode");
+  gimp_config_reset_property (object, "use-editor");
+}
+
+static void
 gimp_text_options_notify_font (GimpContext *context,
                                GParamSpec  *pspec,
                                GimpText    *text)
@@ -468,7 +508,6 @@ gimp_text_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   GtkWidget       *entry;
 /*
   GtkWidget       *box;
-  GtkWidget       *label;
   GtkWidget       *spinbutton;
   GtkWidget       *combo;
   GtkSizeGroup    *size_group;
@@ -489,7 +528,7 @@ gimp_text_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   gtk_widget_show (table);
 
   entry = gimp_prop_size_entry_new (config,
-                                    "font-size", FALSE, "font-size-unit", "%a",
+                                    "font-size", FALSE, "font-size-unit", "%p",
                                     GIMP_SIZE_ENTRY_UPDATE_SIZE, 72.0);
   gimp_table_attach_aligned (GTK_TABLE (table), 0, row++,
                              _("Size:"), 0.0, 0.5,
@@ -497,7 +536,6 @@ gimp_text_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 
   options->size_entry = entry;
 
-//  vbox = gtk_vbox_new (FALSE, 2);
   vbox = gimp_tool_options_gui_full (tool_options, horizontal);
   gtk_box_pack_start (GTK_BOX (main_vbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
@@ -611,21 +649,25 @@ gimp_text_options_create_view (GtkWidget *source, GtkWidget **result, GObject *c
   /*  Only add the language entry if the iso-codes package is available.  */
 
 #ifdef HAVE_ISO_CODES
-  vbox = gtk_vbox_new (FALSE, 2);
-  gtk_box_pack_start (GTK_BOX (main_vbox), vbox, FALSE, FALSE, 0);
-  gtk_widget_show (vbox);
+  {
+    GtkWidget *label;
 
-  hbox = gtk_hbox_new (FALSE, 0);
-  gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
-  gtk_widget_show (hbox);
+    vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
+    gtk_box_pack_start (GTK_BOX (main_vbox), vbox, FALSE, FALSE, 0);
+    gtk_widget_show (vbox);
 
-  label = gtk_label_new (_("Language:"));
-  gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, FALSE, 0);
-  gtk_widget_show (label);
+    hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
+    gtk_widget_show (hbox);
 
-  entry = gimp_prop_language_entry_new (config, "language");
-  gtk_box_pack_start (GTK_BOX (vbox), entry, FALSE, FALSE, 0);
-  gtk_widget_show (entry);
+    label = gtk_label_new (_("Language:"));
+    gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, FALSE, 0);
+    gtk_widget_show (label);
+
+    entry = gimp_prop_language_entry_new (config, "language");
+    gtk_box_pack_start (GTK_BOX (vbox), entry, FALSE, FALSE, 0);
+    gtk_widget_show (entry);
+  }
 #endif
 
   *result = main_vbox;
@@ -680,20 +722,27 @@ gimp_text_options_editor_notify_font (GimpTextOptions *options,
 
 GtkWidget *
 gimp_text_options_editor_new (GtkWindow       *parent,
+                              Gimp            *gimp,
                               GimpTextOptions *options,
                               GimpMenuFactory *menu_factory,
                               const gchar     *title,
-                              GimpTextBuffer  *text_buffer)
+                              GimpText        *text,
+                              GimpTextBuffer  *text_buffer,
+                              gdouble          xres,
+                              gdouble          yres)
 {
   GtkWidget   *editor;
   const gchar *font_name;
 
+  g_return_val_if_fail (GIMP_IS_GIMP (gimp), NULL);
   g_return_val_if_fail (GIMP_IS_TEXT_OPTIONS (options), NULL);
   g_return_val_if_fail (GIMP_IS_MENU_FACTORY (menu_factory), NULL);
   g_return_val_if_fail (title != NULL, NULL);
+  g_return_val_if_fail (GIMP_IS_TEXT (text), NULL);
   g_return_val_if_fail (GIMP_IS_TEXT_BUFFER (text_buffer), NULL);
 
-  editor = gimp_text_editor_new (title, parent, menu_factory, text_buffer);
+  editor = gimp_text_editor_new (title, parent, gimp, menu_factory,
+                                 text, text_buffer, xres, yres);
 
   font_name = gimp_context_get_font_name (GIMP_CONTEXT (options));
 

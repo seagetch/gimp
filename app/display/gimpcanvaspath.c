@@ -28,9 +28,8 @@
 
 #include "display-types.h"
 
+#include "core/gimpbezierdesc.h"
 #include "core/gimpparamspecs.h"
-
-#include "vectors/gimpbezierdesc.h"
 
 #include "gimpcanvaspath.h"
 #include "gimpdisplayshell.h"
@@ -42,6 +41,8 @@ enum
 {
   PROP_0,
   PROP_PATH,
+  PROP_X,
+  PROP_Y,
   PROP_FILLED,
   PROP_PATH_STYLE
 };
@@ -52,15 +53,16 @@ typedef struct _GimpCanvasPathPrivate GimpCanvasPathPrivate;
 struct _GimpCanvasPathPrivate
 {
   cairo_path_t *path;
+  gdouble       x;
+  gdouble       y;
   gboolean      filled;
-  gboolean      path_style;
+  GimpPathStyle path_style;
 };
 
 #define GET_PRIVATE(path) \
         G_TYPE_INSTANCE_GET_PRIVATE (path, \
                                      GIMP_TYPE_CANVAS_PATH, \
                                      GimpCanvasPathPrivate)
-
 
 /*  local function prototypes  */
 
@@ -108,16 +110,29 @@ gimp_canvas_path_class_init (GimpCanvasPathClass *klass)
                                                        GIMP_TYPE_BEZIER_DESC,
                                                        GIMP_PARAM_READWRITE));
 
+  g_object_class_install_property (object_class, PROP_X,
+                                   g_param_spec_double ("x", NULL, NULL,
+                                                        -GIMP_MAX_IMAGE_SIZE,
+                                                        GIMP_MAX_IMAGE_SIZE, 0,
+                                                        GIMP_PARAM_READWRITE));
+
+  g_object_class_install_property (object_class, PROP_Y,
+                                   g_param_spec_double ("y", NULL, NULL,
+                                                        -GIMP_MAX_IMAGE_SIZE,
+                                                        GIMP_MAX_IMAGE_SIZE, 0,
+                                                        GIMP_PARAM_READWRITE));
+
   g_object_class_install_property (object_class, PROP_FILLED,
                                    g_param_spec_boolean ("filled", NULL, NULL,
                                                          FALSE,
                                                          GIMP_PARAM_READWRITE));
 
+
   g_object_class_install_property (object_class, PROP_PATH_STYLE,
-                                   g_param_spec_boolean ("path-style",
-                                                         NULL, NULL,
-                                                         FALSE,
-                                                         GIMP_PARAM_READWRITE));
+                                   g_param_spec_enum ("path-style", NULL, NULL,
+                                                      GIMP_TYPE_PATH_STYLE,
+                                                      GIMP_PATH_STYLE_DEFAULT,
+                                                      GIMP_PARAM_READWRITE));
 
   g_type_class_add_private (klass, sizeof (GimpCanvasPathPrivate));
 }
@@ -156,11 +171,17 @@ gimp_canvas_path_set_property (GObject      *object,
         gimp_bezier_desc_free (private->path);
       private->path = g_value_dup_boxed (value);
       break;
+    case PROP_X:
+      private->x = g_value_get_double (value);
+      break;
+    case PROP_Y:
+      private->y = g_value_get_double (value);
+      break;
     case PROP_FILLED:
       private->filled = g_value_get_boolean (value);
       break;
     case PROP_PATH_STYLE:
-      private->path_style = g_value_get_boolean (value);
+      private->path_style = g_value_get_enum (value);
       break;
 
     default:
@@ -182,11 +203,17 @@ gimp_canvas_path_get_property (GObject    *object,
     case PROP_PATH:
       g_value_set_boxed (value, private->path);
       break;
+    case PROP_X:
+      g_value_set_double (value, private->x);
+      break;
+    case PROP_Y:
+      g_value_set_double (value, private->y);
+      break;
     case PROP_FILLED:
       g_value_set_boolean (value, private->filled);
       break;
     case PROP_PATH_STYLE:
-      g_value_set_boolean (value, private->path_style);
+      g_value_set_enum (value, private->path_style);
       break;
 
     default:
@@ -205,8 +232,9 @@ gimp_canvas_path_draw (GimpCanvasItem   *item,
   if (private->path)
     {
       cairo_save (cr);
-      cairo_translate (cr, - shell->offset_x, - shell->offset_y);
+      cairo_translate (cr, -shell->offset_x, -shell->offset_y);
       cairo_scale (cr, shell->scale_x, shell->scale_y);
+      cairo_translate (cr, private->x, private->y);
 
       cairo_append_path (cr, private->path);
       cairo_restore (cr);
@@ -224,17 +252,18 @@ gimp_canvas_path_get_extents (GimpCanvasItem   *item,
 {
   GimpCanvasPathPrivate *private = GET_PRIVATE (item);
 
-  if (private->path)
+  if (private->path && gtk_widget_get_realized (shell->canvas))
     {
-      cairo_t      *cr;
-      GdkRectangle  rectangle;
-      gdouble       x1, y1, x2, y2;
+      cairo_t               *cr;
+      cairo_rectangle_int_t  rectangle;
+      gdouble                x1, y1, x2, y2;
 
       cr = gdk_cairo_create (gtk_widget_get_window (shell->canvas));
 
       cairo_save (cr);
-      cairo_translate (cr, - shell->offset_x, - shell->offset_y);
+      cairo_translate (cr, -shell->offset_x, -shell->offset_y);
       cairo_scale (cr, shell->scale_x, shell->scale_y);
+      cairo_translate (cr, private->x, private->y);
 
       cairo_append_path (cr, private->path);
       cairo_restore (cr);
@@ -258,7 +287,7 @@ gimp_canvas_path_get_extents (GimpCanvasItem   *item,
           rectangle.height = ceil (y2 + 1.5) - rectangle.y;
         }
 
-      return cairo_region_create_rectangle ((cairo_rectangle_int_t *) &rectangle);
+      return cairo_region_create_rectangle (&rectangle);
     }
 
   return NULL;
@@ -270,35 +299,65 @@ gimp_canvas_path_stroke (GimpCanvasItem   *item,
                          cairo_t          *cr)
 {
   GimpCanvasPathPrivate *private = GET_PRIVATE (item);
+  gboolean               active;
 
-  if (private->path_style)
+  switch (private->path_style)
     {
-      gboolean active = gimp_canvas_item_get_highlight (item);
+    case GIMP_PATH_STYLE_VECTORS:
+      active = gimp_canvas_item_get_highlight (item);
 
       gimp_display_shell_set_vectors_bg_style (shell, cr, active);
       cairo_stroke_preserve (cr);
 
       gimp_display_shell_set_vectors_fg_style (shell, cr, active);
       cairo_stroke (cr);
-    }
-  else
-    {
+      break;
+
+    case GIMP_PATH_STYLE_OUTLINE:
+      gimp_display_shell_set_outline_bg_style (shell, cr);
+      cairo_stroke_preserve (cr);
+
+      gimp_display_shell_set_outline_fg_style (shell, cr);
+      cairo_stroke (cr);
+      break;
+
+    case GIMP_PATH_STYLE_DEFAULT:
       GIMP_CANVAS_ITEM_CLASS (parent_class)->stroke (item, shell, cr);
+      break;
     }
 }
 
 GimpCanvasItem *
 gimp_canvas_path_new (GimpDisplayShell     *shell,
-                      const GimpBezierDesc *path,
+                      const GimpBezierDesc *bezier,
+                      gdouble               x,
+                      gdouble               y,
                       gboolean              filled,
-                      gboolean              path_style)
+                      GimpPathStyle         style)
 {
   g_return_val_if_fail (GIMP_IS_DISPLAY_SHELL (shell), NULL);
 
   return g_object_new (GIMP_TYPE_CANVAS_PATH,
                        "shell",      shell,
-                       "path",       path,
+                       "path",       bezier,
+                       "x",          x,
+                       "y",          y,
                        "filled",     filled,
-                       "path-style", path_style,
+                       "path-style", style,
                        NULL);
+}
+
+void
+gimp_canvas_path_set (GimpCanvasItem       *path,
+                      const GimpBezierDesc *bezier)
+{
+  g_return_if_fail (GIMP_IS_CANVAS_PATH (path));
+
+  gimp_canvas_item_begin_change (path);
+
+  g_object_set (path,
+                "path", bezier,
+                NULL);
+
+  gimp_canvas_item_end_change (path);
 }

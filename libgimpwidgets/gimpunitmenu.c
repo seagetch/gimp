@@ -23,6 +23,8 @@
 
 #undef GSEAL_ENABLE
 
+/* FIXME: #undef GTK_DISABLE_DEPRECATED */
+#undef GTK_DISABLE_DEPRECATED
 #include <gtk/gtk.h>
 
 #include "libgimpbase/gimpbase.h"
@@ -34,6 +36,7 @@
 #include "gimpwidgets.h"
 
 #undef GIMP_DISABLE_DEPRECATED
+#include "gimpoldwidgets.h"
 #include "gimpunitmenu.h"
 
 #include "libgimp/libgimp-intl.h"
@@ -511,7 +514,7 @@ gimp_unit_menu_create_selection (GimpUnitMenu *menu)
                            menu->selection, G_CONNECT_SWAPPED);
 
   /*  the main vbox  */
-  vbox = gtk_vbox_new (FALSE, 0);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 2);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (menu->selection))),
                       vbox, TRUE, TRUE, 0);

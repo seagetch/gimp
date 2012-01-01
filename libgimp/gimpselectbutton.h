@@ -18,6 +18,10 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#if !defined (__GIMP_UI_H_INSIDE__) && !defined (GIMP_COMPILATION)
+#error "Only <libgimp/gimpui.h> can be included directly."
+#endif
+
 #ifndef __GIMP_SELECT_BUTTON_H__
 #define __GIMP_SELECT_BUTTON_H__
 
@@ -38,16 +42,16 @@ typedef struct _GimpSelectButtonClass   GimpSelectButtonClass;
 
 struct _GimpSelectButton
 {
-  GtkHBox      parent_instance;
+  GtkBox       parent_instance;
 
   const gchar *temp_callback;
 };
 
 struct _GimpSelectButtonClass
 {
-  GtkHBoxClass  parent_class;
+  GtkBoxClass  parent_class;
 
-  gchar        *default_title;
+  gchar       *default_title;
 
   void (*select_destroy) (const gchar *callback);
 

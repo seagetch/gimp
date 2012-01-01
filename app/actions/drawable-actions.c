@@ -60,7 +60,7 @@ static const GimpActionEntry drawable_actions[] =
     GIMP_HELP_LAYER_WHITE_BALANCE},
 
   { "drawable-offset", NULL,
-    NC_("drawable-action", "_Offset..."), "<control><shift>O",
+    NC_("drawable-action", "_Offset..."), "<primary><shift>O",
     NC_("drawable-action",
         "Shift the pixels, optionally wrapping them at the borders"),
     G_CALLBACK (drawable_offset_cmd_callback),
@@ -149,6 +149,15 @@ drawable_actions_setup (GimpActionGroup *group)
                                       drawable_rotate_actions,
                                       G_N_ELEMENTS (drawable_rotate_actions),
                                       G_CALLBACK (drawable_rotate_cmd_callback));
+
+#define SET_ALWAYS_SHOW_IMAGE(action,show) \
+        gimp_action_group_set_action_always_show_image (group, action, show)
+
+  SET_ALWAYS_SHOW_IMAGE ("drawable-rotate-90",  TRUE);
+  SET_ALWAYS_SHOW_IMAGE ("drawable-rotate-180", TRUE);
+  SET_ALWAYS_SHOW_IMAGE ("drawable-rotate-270", TRUE);
+
+#undef SET_ALWAYS_SHOW_IMAGE
 }
 
 void
@@ -158,7 +167,6 @@ drawable_actions_update (GimpActionGroup *group,
   GimpImage    *image;
   GimpDrawable *drawable   = NULL;
   gboolean      is_rgb     = FALSE;
-  gboolean      is_gray    = FALSE;
   gboolean      is_indexed = FALSE;
   gboolean      visible    = FALSE;
   gboolean      linked     = FALSE;
@@ -179,7 +187,6 @@ drawable_actions_update (GimpActionGroup *group,
           GimpItem      *item;
 
           is_rgb     = GIMP_IMAGE_TYPE_IS_RGB     (drawable_type);
-          is_gray    = GIMP_IMAGE_TYPE_IS_GRAY    (drawable_type);
           is_indexed = GIMP_IMAGE_TYPE_IS_INDEXED (drawable_type);
 
           if (GIMP_IS_LAYER_MASK (drawable))

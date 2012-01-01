@@ -94,9 +94,9 @@
 #include <jpeglib.h>
 #include <jerror.h>
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
 #include <libexif/exif-data.h>
-#endif /* HAVE_EXIF */
+#endif /* HAVE_LIBEXIF */
 #ifdef HAVE_IPTCDATA
 #include <libiptcdata/iptc-data.h>
 #endif /* HAVE_IPTCDATA */
@@ -320,6 +320,10 @@ load_image_resource (PSDimageres   *res_a,
             load_resource_1024 (res_a, image_id, img_a, f, error);
             break;
 
+          case PSD_WORKING_PATH:
+            load_resource_2000 (res_a, image_id, f, error);
+            break;
+
           case PSD_IPTC_NAA_DATA:
             load_resource_1028 (res_a, image_id, f, error);
             break;
@@ -446,7 +450,7 @@ load_resource_unknown (const PSDimageres  *res_a,
   IFDBG(2) g_debug ("Parasite name: %s", name);
 
   parasite = gimp_parasite_new (name, 0, res_a->data_len, data);
-  gimp_image_parasite_attach (image_id, parasite);
+  gimp_image_attach_parasite (image_id, parasite);
   gimp_parasite_free (parasite);
   g_free (data);
   g_free (name);
@@ -481,7 +485,7 @@ load_resource_ps_only (const PSDimageres  *res_a,
   IFDBG(2) g_debug ("Parasite name: %s", name);
 
   parasite = gimp_parasite_new (name, 0, res_a->data_len, data);
-  gimp_image_parasite_attach (image_id, parasite);
+  gimp_image_attach_parasite (image_id, parasite);
   gimp_parasite_free (parasite);
   g_free (data);
   g_free (name);
@@ -723,7 +727,7 @@ load_resource_1008 (const PSDimageres  *res_a,
   IFDBG(3) g_debug ("Caption: %s", caption);
   parasite = gimp_parasite_new (GIMP_PARASITE_COMMENT, GIMP_PARASITE_PERSISTENT,
                                 write_len, caption);
-  gimp_image_parasite_attach (image_id, parasite);
+  gimp_image_attach_parasite (image_id, parasite);
   gimp_parasite_free (parasite);
   g_free (caption);
 
@@ -820,7 +824,7 @@ load_resource_1028 (const PSDimageres  *res_a,
       parasite = gimp_parasite_new (GIMP_PARASITE_IPTC,
                                     GIMP_PARASITE_PERSISTENT,
                                     iptc_buf_len, iptc_buf);
-      gimp_image_parasite_attach (image_id, parasite);
+      gimp_image_attach_parasite (image_id, parasite);
       gimp_parasite_free (parasite);
     }
 
@@ -835,7 +839,7 @@ load_resource_1028 (const PSDimageres  *res_a,
   IFDBG(3) g_debug ("Parasite name: %s", name);
 
   parasite = gimp_parasite_new (name, 0, res_a->data_len, res_data);
-  gimp_image_parasite_attach (image_id, parasite);
+  gimp_image_attach_parasite (image_id, parasite);
   gimp_parasite_free (parasite);
   g_free (name);
 
@@ -1077,7 +1081,7 @@ load_resource_1039 (const PSDimageres  *res_a,
   parasite = gimp_parasite_new (GIMP_PARASITE_ICC_PROFILE,
                                 GIMP_PARASITE_PERSISTENT,
                                 res_a->data_len, icc_profile);
-  gimp_image_parasite_attach (image_id, parasite);
+  gimp_image_attach_parasite (image_id, parasite);
   gimp_parasite_free (parasite);
   g_free (icc_profile);
 
@@ -1207,7 +1211,7 @@ load_resource_1058 (const PSDimageres  *res_a,
 {
   /* Load EXIF data block */
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
   ExifData     *exif_data;
   ExifEntry    *exif_entry;
   guchar       *exif_buf;
@@ -1219,7 +1223,7 @@ load_resource_1058 (const PSDimageres  *res_a,
   gint          nreturn_vals;
 #else
   gchar        *name;
-#endif /* HAVE_EXIF */
+#endif /* HAVE_LIBEXIF */
 
   GimpParasite *parasite;
   gchar        *res_data;
@@ -1234,7 +1238,7 @@ load_resource_1058 (const PSDimageres  *res_a,
       return -1;
     }
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
   /* Add JPEG header & trailer to the TIFF Exif data held in PSD
      resource to allow us to use libexif to serialize the data
      in the same manner as the JPEG load.
@@ -1300,7 +1304,7 @@ load_resource_1058 (const PSDimageres  *res_a,
       parasite = gimp_parasite_new (GIMP_PARASITE_EXIF,
                                     GIMP_PARASITE_PERSISTENT,
                                     exif_buf_len, exif_buf);
-      gimp_image_parasite_attach (image_id, parasite);
+      gimp_image_attach_parasite (image_id, parasite);
       gimp_parasite_free (parasite);
     }
   exif_data_unref (exif_data);
@@ -1314,11 +1318,11 @@ load_resource_1058 (const PSDimageres  *res_a,
   IFDBG(3) g_debug ("Parasite name: %s", name);
 
   parasite = gimp_parasite_new (name, 0, res_a->data_len, res_data);
-  gimp_image_parasite_attach (image_id, parasite);
+  gimp_image_attach_parasite (image_id, parasite);
   gimp_parasite_free (parasite);
   g_free (name);
 
-#endif /* HAVE_EXIF */
+#endif /* HAVE_LIBEXIF */
 
   g_free (res_data);
   return 0;
@@ -1376,7 +1380,6 @@ load_resource_2000 (const PSDimageres  *res_a,
   gint          image_height;
   gint          i;
   gboolean      closed;
-  gboolean      fill;
 
   /* Load path data from image resources 2000-2998 */
 
@@ -1396,8 +1399,6 @@ load_resource_2000 (const PSDimageres  *res_a,
       IFDBG(1) g_debug ("Unexpected path record type: %d", type);
       return -1;
     }
-  else
-    fill = FALSE;
 
   if (fseek (f, 24, SEEK_CUR) < 0)
     {
@@ -1413,7 +1414,17 @@ load_resource_2000 (const PSDimageres  *res_a,
   image_height = gimp_image_height (image_id);
 
   /* Create path */
-  vector_id = gimp_vectors_new (image_id, res_a->name);
+  if (res_a->id == PSD_WORKING_PATH)
+    {
+      /* use "Working Path" for the path name to match the Photoshop display */
+      vector_id = gimp_vectors_new (image_id, "Working Path");
+    }
+  else
+    {
+      /* Use the name stored in the PSD to name the path */
+      vector_id = gimp_vectors_new (image_id, res_a->name);
+    }
+
   gimp_image_insert_vectors (image_id, vector_id, -1, -1);
 
   while (path_rec > 0)
@@ -1428,7 +1439,6 @@ load_resource_2000 (const PSDimageres  *res_a,
 
       if (type == PSD_PATH_FILL_RULE)
         {
-          fill = FALSE;
           if (fseek (f, 24, SEEK_CUR) < 0)
             {
               psd_set_error (feof (f), errno, error);
@@ -1443,8 +1453,6 @@ load_resource_2000 (const PSDimageres  *res_a,
               psd_set_error (feof (f), errno, error);
               return -1;
             }
-          if (init_fill != 0)
-            fill = TRUE;
 
           if (fseek (f, 22, SEEK_CUR) < 0)
             {

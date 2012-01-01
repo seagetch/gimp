@@ -21,6 +21,10 @@
 
 #ifndef GIMP_DISABLE_DEPRECATED
 
+#if !defined (__GIMP_WIDGETS_H_INSIDE__) && !defined (GIMP_WIDGETS_COMPILATION)
+#error "Only <libgimpwidgets/gimpwidgets.h> can be included directly."
+#endif
+
 #ifndef __GIMP_FILE_ENTRY_H__
 #define __GIMP_FILE_ENTRY_H__
 
@@ -41,7 +45,7 @@ typedef struct _GimpFileEntryClass  GimpFileEntryClass;
 
 struct _GimpFileEntry
 {
-  GtkHBox    parent_instance;
+  GtkBox     parent_instance;
 
   GtkWidget *file_exists;
   GtkWidget *entry;
@@ -56,7 +60,7 @@ struct _GimpFileEntry
 
 struct _GimpFileEntryClass
 {
-  GtkHBoxClass  parent_class;
+  GtkBoxClass  parent_class;
 
   void (* filename_changed) (GimpFileEntry *entry);
 

@@ -21,6 +21,7 @@
 
 #include "config.h"
 
+#include <cairo.h>
 #include <glib-object.h>
 
 #include "libgimpbase/gimpbase.h"
@@ -408,7 +409,6 @@ gimp_config_deserialize_fundamental (GValue     *value,
       break;
 
     default:
-      token = G_TOKEN_NONE;
       g_assert_not_reached ();
       break;
     }

@@ -38,6 +38,7 @@
 #define LOAD_PROC      "file-dicom-load"
 #define SAVE_PROC      "file-dicom-save"
 #define PLUG_IN_BINARY "file-dicom"
+#define PLUG_IN_ROLE   "gimp-file-dicom"
 
 
 /* A lot of Dicom images are wrongly encoded. By guessing the endian
@@ -304,7 +305,7 @@ add_parasites_to_image (gpointer data,
   GimpParasite *parasite = (GimpParasite *) data;
   gint32       *image_ID = (gint32 *) user_data;
 
-  gimp_image_parasite_attach (*image_ID, parasite);
+  gimp_image_attach_parasite (*image_ID, parasite);
   gimp_parasite_free (parasite);
 }
 
@@ -378,7 +379,6 @@ load_image (const gchar  *filename,
       guint16  element_word;
       gchar    value_rep[3];
       guint32  element_length;
-      guint32  ctx_ul;
       guint16  ctx_us;
       guint8  *value;
       guint32  tag;
@@ -489,7 +489,6 @@ load_image (const gchar  *filename,
           continue;
         }
       /* Some special casts that are used below */
-      ctx_ul = *(guint32 *) value;
       ctx_us = *(guint16 *) value;
 
       /* Recognize some critical tags */
@@ -549,7 +548,7 @@ load_image (const gchar  *filename,
           GimpParasite *parasite;
           gchar         pname[255];
 
-          /* all elements are retrievable using gimp_parasite_list() */
+          /* all elements are retrievable using gimp_get_parasite_list() */
           g_snprintf (pname, sizeof (pname),
                       "dcm/%04x-%04x-%s", group_word, element_word, value_rep);
           if ((parasite = gimp_parasite_new (pname,
@@ -755,6 +754,7 @@ dicom_loader (guint8       *pix_buffer,
       gimp_pixel_rgn_set_rect (pixel_rgn, data, 0, row_idx, width, scanlines);
       row_idx += scanlines;
     }
+  gimp_progress_update (1.0);
 
   g_free (data);
 }
@@ -905,13 +905,11 @@ dicom_add_element_int (GSList  *elements,
 /**
  * dicom_element_done:
  * @data: pointer to a DICOMELEMENT structure which is to be destroyed.
- * @user_data: unused.
  *
  * Destroys the DICOMELEMENT passed as @data
 **/
 static void
-dicom_element_done (gpointer data,
-                    gpointer user_data)
+dicom_element_done (gpointer data)
 {
   if (data)
     {
@@ -934,10 +932,7 @@ static void
 dicom_elements_destroy (GSList *elements)
 {
   if (elements)
-    {
-      g_slist_foreach (elements, dicom_element_done, NULL);
-      g_slist_free (elements);
-    }
+    g_slist_free_full (elements, dicom_element_done);
 }
 
 /**
@@ -1043,7 +1038,7 @@ dicom_get_elements_list (gint32 image_ID)
   gchar        **parasites = NULL;
   gint           count = 0;
 
-  gimp_image_parasite_list (image_ID,&count,&parasites);
+  parasites = gimp_image_get_parasite_list (image_ID, &count);
 
   if (parasites && count > 0)
     {
@@ -1053,7 +1048,7 @@ dicom_get_elements_list (gint32 image_ID)
         {
           if (strncmp (parasites[i], "dcm", 3) == 0)
             {
-              parasite = gimp_image_parasite_find (image_ID, parasites[i]);
+              parasite = gimp_image_get_parasite (image_ID, parasites[i]);
 
               if (parasite)
                 {

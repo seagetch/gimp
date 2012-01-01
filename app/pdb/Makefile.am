@@ -8,6 +8,7 @@ INCLUDES = \
 	-I$(top_srcdir)		\
 	-I$(top_builddir)/app	\
 	-I$(top_srcdir)/app	\
+	$(CAIRO_CFLAGS)		\
 	$(GEGL_CFLAGS)		\
 	$(GDK_PIXBUF_CFLAGS)	\
 	-I$(includedir)
@@ -46,11 +47,13 @@ libappinternal_procs_a_SOURCES = \
 	display-cmds.c			\
 	drawable-cmds.c			\
 	drawable-transform-cmds.c	\
+	dynamics-cmds.c			\
 	edit-cmds.c			\
 	fileops-cmds.c			\
 	floating-sel-cmds.c		\
 	font-select-cmds.c		\
 	fonts-cmds.c			\
+	gimp-cmds.c			\
 	gimprc-cmds.c			\
 	gradient-cmds.c			\
 	gradient-select-cmds.c		\
@@ -64,12 +67,10 @@ libappinternal_procs_a_SOURCES = \
 	item-transform-cmds.c		\
 	layer-cmds.c			\
 	message-cmds.c			\
-	misc-cmds.c			\
 	paint-tools-cmds.c		\
 	palette-cmds.c			\
 	palette-select-cmds.c		\
 	palettes-cmds.c			\
-	parasite-cmds.c			\
 	paths-cmds.c			\
 	pattern-cmds.c			\
 	pattern-select-cmds.c		\
@@ -85,5 +86,3 @@ libappinternal_procs_a_SOURCES = \
 	undo-cmds.c			\
 	unit-cmds.c			\
 	vectors-cmds.c
-
-EXTRA_DIST = makefile.msc

@@ -41,16 +41,20 @@ struct _GimpTransformOptions
   GimpTransformDirection    direction;
   GimpInterpolationType     interpolation;
   gint                      recursion_level;
-  gboolean                  clip;
-  GimpTransformPreviewType  preview_type;
+  GimpTransformResize       clip;
+  gboolean                  show_preview;
   gdouble                   preview_opacity;
-  GimpTransformGridType     grid_type;
+  GimpGuidesType            grid_type;
   gint                      grid_size;
   gboolean                  constrain;
 };
 
 
-GType       gimp_transform_options_get_type       (void) G_GNUC_CONST;
+GType       gimp_transform_options_get_type     (void) G_GNUC_CONST;
+
+GtkWidget * gimp_transform_options_gui          (GimpToolOptions *tool_options);
+
+gboolean    gimp_transform_options_show_preview (GimpTransformOptions *options);
 
 GtkWidget * gimp_transform_options_gui            (GimpToolOptions *tool_options);
 GtkWidget * gimp_transform_options_gui_horizontal (GimpToolOptions *tool_options);

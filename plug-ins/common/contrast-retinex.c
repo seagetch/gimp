@@ -27,6 +27,7 @@
 
 #define PLUG_IN_PROC        "plug-in-retinex"
 #define PLUG_IN_BINARY      "contrast-retinex"
+#define PLUG_IN_ROLE        "gimp-contrast-retinex"
 #define MAX_RETINEX_SCALES    8
 #define MIN_GAUSSIAN_SCALE   16
 #define MAX_GAUSSIAN_SCALE  250
@@ -281,7 +282,7 @@ retinex_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("Retinex Image Enhancement"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Retinex Image Enhancement"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -297,10 +298,10 @@ retinex_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_zoom_preview_new (drawable);
@@ -518,8 +519,6 @@ compute_coefs3 (gauss3_coefs *c, gfloat sigma)
    */
   gfloat q, q2, q3;
 
-  q = 0;
-
   if (sigma >= 2.5)
     {
       q = 0.98711 * sigma - 0.96330;
@@ -614,7 +613,6 @@ MSRCR (guchar *src, gint width, gint height, gint bytes, gboolean preview_mode)
   gint          scale,row,col;
   gint          i,j;
   gint          size;
-  gint          pos;
   gint          channel;
   guchar       *psrc = NULL;            /* backup pointer for src buffer */
   gfloat       *dst  = NULL;            /* float buffer for algorithm */
@@ -684,9 +682,10 @@ MSRCR (guchar *src, gint width, gint height, gint bytes, gboolean preview_mode)
     The recursive filtering algorithm needs different coefficients according
     to the selected scale (~ = standard deviation of Gaussian).
    */
-  pos = 0;
   for (channel = 0; channel < 3; channel++)
     {
+      gint pos;
+
       for (i = 0, pos = channel; i < channelsize ; i++, pos += bytes)
          {
             /* 0-255 => 1-256 */

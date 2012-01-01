@@ -16,7 +16,7 @@ SCANGOBJ_OPTIONS =
 SCAN_OPTIONS = --deprecated-guards="GIMP_DISABLE_DEPRECATED"
 
 # Extra options to supply to gtkdoc-mkdb
-MKDB_OPTIONS = --sgml-mode --output-format=xml
+MKDB_OPTIONS = --sgml-mode --output-format=xml --name-space=gimp
 
 # Extra options to supply to gtkdoc-fixref
 FIXXREF_OPTIONS = --extra-dir=../libgimpbase/html --extra-dir=../libgimpcolor/html --extra-dir=../libgimpmath/html
@@ -47,10 +47,10 @@ GTKDOC_CFLAGS = \
 	@GLIB_CFLAGS@
 
 GTKDOC_LIBS = \
-        $(top_builddir)/libgimpbase/libgimpbase-$(GIMP_API_VERSION).la	\
-        $(top_builddir)/libgimpcolor/libgimpcolor-$(GIMP_API_VERSION).la\
-        $(top_builddir)/libgimpmath/libgimpmath-$(GIMP_API_VERSION).la	\
-        $(top_builddir)/libgimpconfig/libgimpconfig-$(GIMP_API_VERSION).la
+        $(top_builddir)/libgimpbase/libgimpbase-$(GIMP_API_VERSION).la \
+        $(top_builddir)/libgimpcolor/libgimpcolor-$(GIMP_API_VERSION).la \
+        $(top_builddir)/libgimpmath/libgimpmath-$(GIMP_API_VERSION).la \
+        $(top_builddir)/libgimpconfig/libgimpconfig-$(GIMP_API_VERSION).la \
 	@GLIB_LIBS@
 
 

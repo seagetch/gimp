@@ -50,6 +50,7 @@
 
 #define PLUG_IN_PROC   "plug-in-spheredesigner"
 #define PLUG_IN_BINARY "sphere-designer"
+#define PLUG_IN_ROLE   "gimp-sphere-designer"
 
 #define RESPONSE_RESET 1
 
@@ -523,6 +524,18 @@ vdist (GimpVector4 *a, GimpVector4 *b)
 }
 
 static inline gdouble
+vdist2 (GimpVector4 *a, GimpVector4 *b)
+{
+  gdouble x, y, z;
+
+  x = a->x - b->x;
+  y = a->y - b->y;
+  z = a->z - b->z;
+
+  return x * x + y * y + z * z;
+}
+
+static inline gdouble
 vlen (GimpVector4 *a)
 {
   return sqrt (a->x * a->x + a->y * a->y + a->z * a->z);
@@ -715,7 +728,7 @@ static gdouble
 checkdisc (ray * r, disc * disc)
 {
   GimpVector4 p, *v = &disc->a;
-  gdouble t, d;
+  gdouble t, d2;
   gdouble i, j, k;
 
   i = r->v2.x - r->v1.x;
@@ -729,9 +742,9 @@ checkdisc (ray * r, disc * disc)
   p.y = r->v1.y + j * t;
   p.z = r->v1.z + k * t;
 
-  d = vdist (&p, v);
+  d2 = vdist2 (&p, v);
 
-  if (d > disc->r)
+  if (d2 > disc->r * disc->r)
     t = 0.0;
 
   return t;
@@ -1301,7 +1314,7 @@ calclight (GimpVector4 * col, GimpVector4 * point, common * obj)
 {
   gint i, j;
   ray r;
-  gdouble d, b, a;
+  gdouble b, a;
   GimpVector4 lcol;
   GimpVector4 norm;
   GimpVector4 pcol;
@@ -1345,7 +1358,6 @@ calclight (GimpVector4 * col, GimpVector4 * point, common * obj)
       vcopy (&r.v1, point);
       vcopy (&r.v2, &world.light[i].a);
       vmix (&r.v1, &r.v1, &r.v2, 0.9999);
-      d = vdist (&r.v1, &r.v2);
 
       vsub (&r.v1, &r.v2);
       vnorm (&r.v1, 1.0);
@@ -1379,9 +1391,9 @@ calclight (GimpVector4 * col, GimpVector4 * point, common * obj)
 static void
 calcphong (common * obj, ray * r2, GimpVector4 * col)
 {
-  gint    i, j, o;
+  gint    i, j;
   ray     r;
-  gdouble d, b;
+  gdouble b;
   GimpVector4  lcol;
   GimpVector4  norm;
   GimpVector4  pcol;
@@ -1401,13 +1413,9 @@ calcphong (common * obj, ray * r2, GimpVector4 * col)
       vcopy (&r.v1, &r2->v1);
       vcopy (&r.v2, &world.light[i].a);
       vmix (&r.v1, &r.v1, &r.v2, 0.9999);
-      d = vdist (&r.v1, &r.v2);
 
-      o = traceray (&r, NULL, -1, 1.0);
-      if (o)
-        {
-          continue;
-        }
+      if (traceray (&r, NULL, -1, 1.0))
+        continue;
 
       /* OK, light is visible */
 
@@ -1439,7 +1447,6 @@ traceray (ray * r, GimpVector4 * col, gint level, gdouble imp)
 {
   gint     i, b = -1;
   gdouble  t = -1.0, min = 0.0;
-  gint     type = -1;
   common  *obj, *bobj = NULL;
   gint     hits = 0;
   GimpVector4   p;
@@ -1487,7 +1494,6 @@ traceray (ray * r, GimpVector4 * col, gint level, gdouble imp)
 
           min = t;
           b = i;
-          type = obj->type;
           bobj = obj;
         }
     }
@@ -1993,6 +1999,7 @@ loadit (const gchar * fn)
   gchar    endbuf[21 * (G_ASCII_DTOSTR_BUF_SIZE + 1)];
   gchar   *end = endbuf;
   gchar    line[1024];
+  gchar    fmt_str[16];
   gint     i;
   texture *t;
   gint     majtype, type;
@@ -2017,6 +2024,8 @@ loadit (const gchar * fn)
 
   s.com.numtexture = 0;
 
+  snprintf (fmt_str, sizeof (fmt_str), "%%d %%d %%%" G_GSIZE_FORMAT "s", sizeof (endbuf) - 1);
+
   while (!feof (f))
     {
 
@@ -2027,7 +2036,7 @@ loadit (const gchar * fn)
       t = &s.com.texture[i];
       setdefaults (t);
 
-      if (sscanf (line, "%d %d %s", &t->majtype, &t->type, end) != 3)
+      if (sscanf (line, fmt_str, &t->majtype, &t->type, end) != 3)
         t->color1.x = g_ascii_strtod (end, &end);
       if (end && errno != ERANGE)
         t->color1.y = g_ascii_strtod (end, &end);
@@ -2544,7 +2553,7 @@ makewindow (void)
   GtkWidget  *list;
   GimpRGB     rgb = { 0, 0, 0, 0 };
 
-  window = gimp_dialog_new (_("Sphere Designer"), PLUG_IN_BINARY,
+  window = gimp_dialog_new (_("Sphere Designer"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -2566,17 +2575,17 @@ makewindow (void)
                     G_CALLBACK (sphere_response),
                     NULL);
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (window))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (window))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
-  main_hbox = gtk_hbox_new (FALSE, 12);
+  main_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_box_pack_start (GTK_BOX (main_vbox), main_hbox, TRUE, TRUE, 0);
   gtk_widget_show (main_hbox);
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_box_pack_start (GTK_BOX (main_hbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 
@@ -2593,7 +2602,8 @@ makewindow (void)
   g_signal_connect (drawarea, "expose-event",
                     G_CALLBACK (expose_event), NULL);
 
-  hbox = gtk_hbox_new (TRUE, 0);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+  gtk_box_set_homogeneous (GTK_BOX (hbox), TRUE);
   gtk_box_pack_end (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -2613,7 +2623,7 @@ makewindow (void)
                     G_CALLBACK (savepreset),
                     window);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_box_pack_end (GTK_BOX (main_hbox), vbox, TRUE, TRUE, 0);
   gtk_widget_show (vbox);
 
@@ -2650,7 +2660,8 @@ makewindow (void)
                                                   NULL);
   gtk_tree_view_append_column (texturelist, col);
 
-  hbox = gtk_hbox_new (TRUE, 0);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+  gtk_box_set_homogeneous (GTK_BOX (hbox), TRUE);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -2672,7 +2683,7 @@ makewindow (void)
                             G_CALLBACK (deltexture), NULL);
   gtk_widget_show (button);
 
-  main_hbox = gtk_hbox_new (FALSE, 12);
+  main_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_box_pack_start (GTK_BOX (main_vbox), main_hbox, FALSE, FALSE, 0);
   gtk_widget_show (main_hbox);
 
@@ -2680,7 +2691,7 @@ makewindow (void)
   gtk_box_pack_start (GTK_BOX (main_hbox), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 0);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -2722,7 +2733,7 @@ makewindow (void)
                              _("Texture:"), 0.0, 0.5,
                              texturemenu, 2, FALSE);
 
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gimp_table_attach_aligned (GTK_TABLE (table), 0, 2,
                              _("Colors:"), 0.0, 0.5,
                              hbox, 2, FALSE);
@@ -2782,7 +2793,7 @@ makewindow (void)
   gtk_box_pack_start (GTK_BOX (main_hbox), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 0);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -2879,7 +2890,6 @@ render (void)
   guchar *dest_row;
   ray     r;
   gint    x, y, p;
-  gint    hit;
   gint    tx  = PREVIEWSIZE;
   gint    ty  = PREVIEWSIZE;
   gint    bpp = 4;
@@ -2910,7 +2920,7 @@ render (void)
 
               p = x * bpp;
 
-              hit = traceray (&r, &col, 10, 1.0);
+              traceray (&r, &col, 10, 1.0);
 
               if (col.w < 0.0)
                 col.w = 0.0;
@@ -2998,6 +3008,7 @@ realrender (GimpDrawable *drawable)
       gimp_pixel_rgn_set_row (&dpr, ibuffer, x1, y1 + y, x2 - x1);
       gimp_progress_update ((gdouble) y / (gdouble) ty);
     }
+  gimp_progress_update (1.0);
   g_free (buffer);
   g_free (ibuffer);
   gimp_drawable_flush (drawable);

@@ -58,7 +58,8 @@ endif
 gimpincludedir = $(includedir)/gimp-$(GIMP_API_VERSION)/libgimp
 
 AM_CPPFLAGS = \
-	-DG_LOG_DOMAIN=\"LibGimp\"
+	-DG_LOG_DOMAIN=\"LibGimp\"	\
+	-DGIMP_COMPILATION
 
 INCLUDES = \
 	-I$(top_srcdir)	\
@@ -68,6 +69,7 @@ INCLUDES = \
 lib_LTLIBRARIES = libgimp-2.0.la libgimpui-2.0.la
 
 PDB_WRAPPERS_C = \
+	gimp_pdb.c			\
 	gimpbrush_pdb.c			\
 	gimpbrushes_pdb.c		\
 	gimpbrushselect_pdb.c		\
@@ -79,6 +81,7 @@ PDB_WRAPPERS_C = \
 	gimpdisplay_pdb.c		\
 	gimpdrawable_pdb.c		\
 	gimpdrawabletransform_pdb.c	\
+	gimpdynamics_pdb.c		\
 	gimpedit_pdb.c			\
 	gimpfileops_pdb.c		\
 	gimpfloatingsel_pdb.c		\
@@ -97,12 +100,10 @@ PDB_WRAPPERS_C = \
 	gimpitemtransform_pdb.c		\
 	gimplayer_pdb.c			\
 	gimpmessage_pdb.c		\
-	gimpmisc_pdb.c			\
 	gimppainttools_pdb.c		\
 	gimppalette_pdb.c		\
 	gimppalettes_pdb.c		\
 	gimppaletteselect_pdb.c		\
-	gimpparasite_pdb.c		\
 	gimppaths_pdb.c			\
 	gimppattern_pdb.c		\
 	gimppatterns_pdb.c		\
@@ -120,6 +121,7 @@ PDB_WRAPPERS_C = \
 	gimpvectors_pdb.c
 
 PDB_WRAPPERS_H = \
+	gimp_pdb_headers.h		\
 	gimp_pdb.h			\
 	gimpbrush_pdb.h			\
 	gimpbrushes_pdb.h		\
@@ -132,6 +134,7 @@ PDB_WRAPPERS_H = \
 	gimpdisplay_pdb.h		\
 	gimpdrawable_pdb.h		\
 	gimpdrawabletransform_pdb.h	\
+	gimpdynamics_pdb.h		\
 	gimpedit_pdb.h			\
 	gimpfileops_pdb.h		\
 	gimpfloatingsel_pdb.h		\
@@ -150,12 +153,10 @@ PDB_WRAPPERS_H = \
 	gimpitemtransform_pdb.h		\
 	gimplayer_pdb.h			\
 	gimpmessage_pdb.h		\
-	gimpmisc_pdb.h			\
 	gimppainttools_pdb.h		\
 	gimppalette_pdb.h		\
 	gimppalettes_pdb.h		\
 	gimppaletteselect_pdb.h		\
-	gimpparasite_pdb.h		\
 	gimppaths_pdb.h			\
 	gimppattern_pdb.h		\
 	gimppatterns_pdb.h		\
@@ -210,6 +211,8 @@ libgimp_2_0_la_sources = \
 	gimppatterns.h		\
 	gimppatternselect.c	\
 	gimppatternselect.h	\
+	gimppixbuf.c		\
+	gimppixbuf.h		\
 	gimppixelfetcher.c	\
 	gimppixelfetcher.h	\
 	gimppixelrgn.c		\
@@ -278,8 +281,6 @@ libgimpui_2_0_la_sources = \
 	gimppatternmenu.h		\
 	gimppatternselectbutton.c	\
 	gimppatternselectbutton.h	\
-	gimppixbuf.c			\
-	gimppixbuf.h			\
 	gimpprocbrowserdialog.c		\
 	gimpprocbrowserdialog.h		\
 	gimpprocview.c			\
@@ -362,26 +363,45 @@ libgimp_2_0_la_LDFLAGS = \
 	$(no_undefined)				\
 	$(libgimp_export_symbols)
 
-libgimp_2_0_la_LIBADD = $(libgimpconfig) $(libgimpcolor) $(libgimpbase) $(GLIB_LIBS) $(RT_LIBS)
+libgimp_2_0_la_LIBADD = \
+	$(libgimpconfig)	\
+	$(libgimpcolor)		\
+	$(libgimpbase)		\
+	$(CAIRO_LIBS)		\
+	$(GDK_PIXBUF_LIBS)	\
+	$(RT_LIBS)
 
-libgimp_2_0_la_DEPENDENCIES = $(gimp_def) $(libgimpconfig) $(libgimpcolor) $(libgimpbase)
+libgimp_2_0_la_DEPENDENCIES = \
+	$(gimp_def)		\
+	$(libgimpconfig)	\
+	$(libgimpcolor)		\
+	$(libgimpbase)
 
 libgimpui_2_0_la_LDFLAGS = \
 	-version-info $(LT_VERSION_INFO)	\
 	$(no_undefined)				\
 	$(libgimpui_export_symbols)
 
-libgimpui_2_0_la_LIBADD = $(libgimp) $(libgimpwidgets) $(libgimpcolor) \
-	 $(libgimpbase) $(libgimpmodule) $(GTK_LIBS) $(RT_LIBS)
+libgimpui_2_0_la_LIBADD = \
+	$(libgimp)		\
+	$(libgimpwidgets)	\
+	$(libgimpcolor)		\
+	$(libgimpbase)		\
+	$(libgimpmodule)	\
+	$(GTK_LIBS)		\
+	$(RT_LIBS)
 
-libgimpui_2_0_la_DEPENDENCIES = $(gimpui_def) $(libgimp) $(libgimpwidgets) $(libgimpbase)
+libgimpui_2_0_la_DEPENDENCIES = \
+	$(gimpui_def)		\
+	$(libgimp)		\
+	$(libgimpwidgets)	\
+	$(libgimpbase)
 
 EXTRA_DIST = \
-	COPYING					\
-	makefile.msc				\
-	gimp.def				\
-	gimpui.def				\
-	$(libgimp_2_0_la_extra_sources)		\
+	COPYING				\
+	gimp.def			\
+	gimpui.def			\
+	$(libgimp_2_0_la_extra_sources)	\
 	$(libgimpui_2_0_la_extra_sources)
 
 install-data-local: install-ms-lib install-libtool-import-lib

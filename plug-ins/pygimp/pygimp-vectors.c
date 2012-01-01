@@ -493,7 +493,7 @@ vbs_init(PyGimpVectorsStroke *self, PyObject *args, PyObject *kwargs)
                                      "O!O|i:gimp.VectorsBezierStroke.__init__",
                                      kwlist,
                                      &PyGimpVectors_Type, &vectors,
-                                     &py_controlpoints, &closed));
+                                     &py_controlpoints, &closed))
         return -1;
 
     if (!PySequence_Check(py_controlpoints)) {
@@ -635,7 +635,7 @@ vectors_to_selection(PyGimpVectors *self, PyObject *args, PyObject *kwargs)
     gimp_context_set_antialias(antialias);
     gimp_context_set_feather(feather);
     gimp_context_set_feather_radius(feather_radius_x, feather_radius_y);
-    gimp_image_select_item(gimp_item_get_image(self->ID), self->ID, operation);
+    gimp_image_select_item(gimp_item_get_image(self->ID), operation, self->ID);
     gimp_context_pop();
 
     Py_INCREF(Py_None);
@@ -650,7 +650,7 @@ vectors_parasite_find(PyGimpVectors *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s:parasite_find", &name))
         return NULL;
 
-    return pygimp_parasite_new(gimp_item_parasite_find(self->ID, name));
+    return pygimp_parasite_new(gimp_item_get_parasite(self->ID, name));
 }
 
 static PyObject *
@@ -662,7 +662,7 @@ vectors_parasite_attach(PyGimpVectors *self, PyObject *args)
                           &parasite))
         return NULL;
 
-    if (!gimp_item_parasite_attach(self->ID, parasite->para)) {
+    if (!gimp_item_attach_parasite(self->ID, parasite->para)) {
         PyErr_Format(pygimp_error,
                      "could not attach parasite '%s' to vectors (ID %d)",
                      parasite->para->name, self->ID);
@@ -681,7 +681,7 @@ vectors_parasite_detach(PyGimpVectors *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s:parasite_detach", &name))
         return NULL;
 
-    if (!gimp_item_parasite_detach(self->ID, name)) {
+    if (!gimp_item_detach_parasite(self->ID, name)) {
         PyErr_Format(pygimp_error,
                      "could not detach parasite '%s' from vectors (ID %d)",
                      name, self->ID);
@@ -698,7 +698,8 @@ vectors_parasite_list(PyGimpVectors *self)
     gint num_parasites;
     gchar **parasites;
 
-    if (gimp_item_parasite_list(self->ID, &num_parasites, &parasites)) {
+    parasites = gimp_item_get_parasite_list(self->ID, &num_parasites);
+    if (parasites) {
         PyObject *ret;
         gint i;
 
@@ -968,7 +969,7 @@ PyTypeObject PyGimpVectors_Type = {
     vectors_methods,                    /* tp_methods */
     0,                                  /* tp_members */
     vectors_getsets,                    /* tp_getset */
-    (PyTypeObject *)0,                  /* tp_base */
+    &PyGimpItem_Type,                   /* tp_base */
     (PyObject *)0,                      /* tp_dict */
     0,                                  /* tp_descr_get */
     0,                                  /* tp_descr_set */

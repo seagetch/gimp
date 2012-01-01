@@ -24,7 +24,7 @@
 
 #include "tools-types.h"
 
-#include "config/gimpguiconfig.h"
+#include "config/gimpcoreconfig.h"
 
 #include "core/gimp.h"
 #include "core/gimptoolinfo.h"
@@ -97,7 +97,8 @@ gimp_region_select_options_class_init (GimpRegionSelectOptionsClass *klass)
                                    GIMP_PARAM_STATIC_STRINGS);
 
   GIMP_CONFIG_INSTALL_PROP_ENUM (object_class, PROP_SELECT_CRITERION,
-                                 "select-criterion", NULL,
+                                 "select-criterion",
+                                 N_("Selection criterion"),
                                  GIMP_TYPE_SELECT_CRITERION,
                                  GIMP_SELECT_CRITERION_COMPOSITE,
                                  GIMP_PARAM_STATIC_STRINGS);
@@ -182,7 +183,7 @@ gimp_region_select_options_reset (GimpToolOptions *tool_options)
 
   if (pspec)
     G_PARAM_SPEC_DOUBLE (pspec)->default_value =
-      GIMP_GUI_CONFIG (tool_options->tool_info->gimp->config)->default_threshold;
+      tool_options->tool_info->gimp->config->default_threshold;
 
   GIMP_TOOL_OPTIONS_CLASS (parent_class)->reset (tool_options);
 }

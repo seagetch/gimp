@@ -38,6 +38,7 @@
 
 #define PLUG_IN_PROC   "plug-in-sel-gauss"
 #define PLUG_IN_BINARY "blur-gauss-selective"
+#define PLUG_IN_ROLE   "gimp-blur-gauss-selective"
 
 #ifndef ALWAYS_INLINE
 #if defined(__GNUC__) && (__GNUC__ > 3 || __GNUC__ == 3 && __GNUC_MINOR__ > 0)
@@ -228,7 +229,7 @@ sel_gauss_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("Selective Gaussian Blur"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Selective Gaussian Blur"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -244,10 +245,10 @@ sel_gauss_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_drawable_preview_new (drawable, NULL);
@@ -762,6 +763,7 @@ sel_gauss (GimpDrawable *drawable,
 
   matrixmult (src, dest, width, height, mat, numrad,
               bytes, has_alpha, maxdelta, FALSE);
+  gimp_progress_update (1.0);
 
   gimp_pixel_rgn_init (&dest_rgn,
                        drawable, x, y, width, height, TRUE, TRUE);

@@ -120,11 +120,11 @@ print_page_layout_gui (PrintData   *data,
     }
 
   /*  main hbox  */
-  main_hbox = gtk_hbox_new (FALSE, 12);
+  main_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_hbox), 12);
 
   /*  main vbox  */
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_box_pack_start (GTK_BOX (main_hbox), main_vbox, FALSE, FALSE, 0);
   gtk_widget_show (main_vbox);
 
@@ -230,13 +230,13 @@ print_size_frame (PrintData    *data,
 
   frame = gimp_frame_new (_("Size"));
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
   /*  the print size entry  */
 
-  hbox = gtk_hbox_new (FALSE, 0);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -277,7 +277,7 @@ print_size_frame (PrintData    *data,
 
   /*  the resolution entry  */
 
-  hbox = gtk_hbox_new (FALSE, 0);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -354,7 +354,7 @@ print_offset_frame (PrintData    *data,
 
   frame = gimp_frame_new (_("Position"));
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -447,7 +447,7 @@ print_offset_frame (PrintData    *data,
                     G_CALLBACK (print_size_info_size_changed),
                     NULL);
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -458,10 +458,10 @@ print_offset_frame (PrintData    *data,
   gtk_widget_show (label);
 
   /*  if and how to center the image on the page  */
-  combo = gimp_int_combo_box_new (_("None"),         CENTER_NONE,
-                                  _("Horizontally"), CENTER_HORIZONTALLY,
-                                  _("Vertically"),   CENTER_VERTICALLY,
-                                  _("Both"),         CENTER_BOTH,
+  combo = gimp_int_combo_box_new (C_("center-mode", "None"), CENTER_NONE,
+                                  _("Horizontally"),         CENTER_HORIZONTALLY,
+                                  _("Vertically"),           CENTER_VERTICALLY,
+                                  _("Both"),                 CENTER_BOTH,
                                   NULL);
   gtk_box_pack_start (GTK_BOX (hbox), combo, TRUE, TRUE, 0);
   gtk_widget_show (combo);
@@ -818,14 +818,11 @@ print_size_info_set_resolution (PrintSizeInfo *info,
 static void
 print_size_info_set_page_setup (PrintSizeInfo *info)
 {
-  GtkPageSetup *setup;
   PrintData    *data = info->data;
   gdouble       page_width;
   gdouble       page_height;
   gdouble       x;
   gdouble       y;
-
-  setup = gtk_print_operation_get_default_page_setup (data->operation);
 
   print_size_info_get_page_dimensions (info,
                                        &page_width, &page_height,

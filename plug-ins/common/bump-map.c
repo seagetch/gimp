@@ -41,6 +41,7 @@
 #define PLUG_IN_PROC       "plug-in-bump-map"
 #define PLUG_IN_TILED_PROC "plug-in-bump-map-tiled"
 #define PLUG_IN_BINARY     "bumpmap"
+#define PLUG_IN_ROLE       "gimp-bumpmap"
 #define PLUG_IN_VERSION    "April 2000, 3.0-pre1-ac2"
 
 #define SCALE_WIDTH       100
@@ -316,11 +317,15 @@ run (const gchar      *name,
   /* Get drawable information */
   drawable = gimp_drawable_get (param[2].data.d_drawable);
 
-  gimp_drawable_mask_bounds (drawable->drawable_id,
-                             &sel_x1, &sel_y1, &sel_x2, &sel_y2);
+  if (! gimp_drawable_mask_intersect (drawable->drawable_id,
+                                      &sel_x1, &sel_y1,
+                                      &sel_width, &sel_height))
+    {
+      return;
+    }
 
-  sel_width     = sel_x2 - sel_x1;
-  sel_height    = sel_y2 - sel_y1;
+  sel_x2 = sel_width + sel_x1;
+  sel_y2 = sel_height + sel_y1;
   img_bpp       = gimp_drawable_bpp (drawable->drawable_id);
   img_has_alpha = gimp_drawable_has_alpha (drawable->drawable_id);
 
@@ -523,6 +528,7 @@ bumpmap (void)
     }
 
   /* Done */
+  gimp_progress_update (1.0);
 
   g_free (bm_row1);
   g_free (bm_row2);
@@ -762,7 +768,7 @@ bumpmap_dialog (void)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Bump Map"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Bump Map"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -778,23 +784,23 @@ bumpmap_dialog (void)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  paned = gtk_hpaned_new ();
+  paned = gtk_paned_new (GTK_ORIENTATION_HORIZONTAL);
   gtk_container_set_border_width (GTK_CONTAINER (paned), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     paned);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      paned, TRUE, TRUE, 0);
   gtk_widget_show (paned);
 
-  hbox = gtk_hbox_new (FALSE, 0);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_paned_pack1 (GTK_PANED (paned), hbox, TRUE, FALSE);
   gtk_widget_show (hbox);
 
-  vbox = gtk_vbox_new (FALSE, 0);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 4);
   gtk_box_pack_end (GTK_BOX (hbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 
   preview = gimp_drawable_preview_new (drawable, NULL);
-  gtk_container_add (GTK_CONTAINER (hbox), preview);
+  gtk_box_pack_start (GTK_BOX (hbox), preview, TRUE, TRUE, 0);
   gtk_widget_show (preview);
 
   g_signal_connect (preview, "invalidated",
@@ -803,17 +809,17 @@ bumpmap_dialog (void)
   g_signal_connect (GIMP_PREVIEW (preview)->area, "event",
                     G_CALLBACK (dialog_preview_events), preview);
 
-  hbox = gtk_hbox_new (FALSE, 0);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_paned_pack2 (GTK_PANED (paned), hbox, FALSE, FALSE);
   gtk_widget_show (hbox);
 
-  vbox = gtk_vbox_new (FALSE, 0);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 4);
   gtk_box_pack_start (GTK_BOX (hbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 
-  vbox = gtk_vbox_new (FALSE, 0);
-  gtk_container_add (GTK_CONTAINER (hbox), vbox);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+  gtk_box_pack_start (GTK_BOX (hbox), vbox, TRUE, TRUE, 0);
   gtk_widget_show (vbox);
 
   table = gtk_table_new (12, 3, FALSE);
@@ -1170,11 +1176,9 @@ dialog_update_preview (GimpPreview *preview)
   gint    y;
   gint    x1, y1;
   gint    width, height;
-  gint    bytes;
 
   gimp_preview_get_position (preview, &x1, &y1);
   gimp_preview_get_size (preview, &width, &height);
-  bytes = drawable->bpp;
 
   /* Initialize source rows */
   gimp_pixel_rgn_init (&bmint.src_rgn, drawable,

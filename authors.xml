@@ -11,6 +11,9 @@
   <creator role="author" last-active="2.2">Spencer Kimball</creator>
   <creator role="author" last-active="1.0">Peter Mattis</creator>
 
+  <maintainer role="author" last-active="2.8">Sven Neumann</maintainer>
+  <maintainer role="author" last-active="2.8">Michael Natterer</maintainer>
+
   <contributor role="author" last-active="1.2">Lauri Alanko</contributor>
   <contributor role="author" last-active="2.8">Fredrik Alströmer</contributor>
   <contributor role="author" last-active="1.2">Shawn Amundson</contributor>
@@ -97,6 +100,7 @@
   <contributor role="author" last-active="2.4">Saul Goode</contributor>
   <contributor role="author" last-active="2.6">David Gowers</contributor>
   <contributor role="author" last-active="2.0">Cameron Gregory</contributor>
+  <contributor role="author" last-active="2.8">Eric Grivel</contributor>
   <contributor role="author" last-active="2.8">Stephen Griffiths</contributor>
   <contributor role="author" last-active="1.2">Pavel Grinfeld</contributor>
   <contributor role="author" last-active="2.4">Dov Grobgeld</contributor>
@@ -163,6 +167,7 @@
   <contributor role="author" last-active="1.0">Josh MacDonald</contributor>
   <contributor role="author documenter" last-active="1.0">Ed Mackey</contributor>
   <contributor role="author" last-active="1.2">Vidar Madsen</contributor>
+  <contributor role="author" last-active="2.8">Mikael Magnusson</contributor>
   <contributor role="author" last-active="2.8">Luidnel Maignan</contributor>
   <contributor role="author documenter" last-active="1.2">Ian Main</contributor>
   <contributor role="author" last-active="2.4">Kjartan Maraas</contributor>
@@ -172,6 +177,7 @@
   <contributor role="author" last-active="2.8">Takeshi Matsuyama</contributor>
   <contributor role="author" last-active="1.0">Gordon Matzigkeit</contributor>
   <contributor role="author" last-active="1.2">Gregory McLean</contributor>
+  <contributor role="author" last-active="2.8">Mike Melancon</contributor>
   <contributor role="author" last-active="1.2">Federico Mena Quintero</contributor>
   <contributor role="author" last-active="2.4">Loren Merritt</contributor>
   <contributor role="author" last-active="2.0">Jim Meyer</contributor>
@@ -187,10 +193,8 @@
   <contributor role="author" last-active="1.2">Yukihiro Nakai</contributor>
   <contributor role="author" last-active="1.2">Shuji Narazaki</contributor>
   <contributor role="author" last-active="1.2">Felix Natter</contributor>
-  <contributor role="author" last-active="2.8">Michael Natterer</contributor>
   <contributor role="author" last-active="2.4">David Neary</contributor>
   <contributor role="author" last-active="2.2">David Necas</contributor>
-  <contributor role="author" last-active="2.8">Sven Neumann</contributor>
   <contributor role="author" last-active="2.8">Andreas Neustifter</contributor>
   <contributor role="artist" last-active="2.4">Andreas Nilsson</contributor>
   <contributor role="author" last-active="1.0">Stephen Robert Norris</contributor>
@@ -204,6 +208,7 @@
   <contributor role="author" last-active="2.8">Nelson A. de Oliveira</contributor>
   <contributor role="author" last-active="1.2">Thom van Os</contributor>
   <contributor role="author" last-active="2.0">Garry R. Osgood</contributor>
+  <contributor role="author" last-active="2.8">Benjamin Otte</contributor>
   <contributor role="author" last-active="1.0">Alan Paeth</contributor>
   <contributor role="author" last-active="1.2">Jay Painter</contributor>
   <contributor role="artist author" last-active="2.6">Ville Pätsi</contributor>

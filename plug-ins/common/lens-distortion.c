@@ -33,6 +33,7 @@
 
 #define PLUG_IN_PROC     "plug-in-lens-distortion"
 #define PLUG_IN_BINARY   "lens-distortion"
+#define PLUG_IN_ROLE     "gimp-lens-distortion"
 
 #define RESPONSE_RESET   1
 
@@ -132,13 +133,11 @@ run (const gchar      *name,
 {
   static GimpParam   values[1];
   GimpDrawable      *drawable;
-  gint32             image_ID;
   GimpRGB            background;
   GimpPDBStatusType  status   = GIMP_PDB_SUCCESS;
   GimpRunMode        run_mode;
 
   run_mode = param[0].data.d_int32;
-  image_ID = param[1].data.d_int32;
 
   values[0].type = GIMP_PDB_STATUS;
   values[0].data.d_status = status;
@@ -477,7 +476,7 @@ lens_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("Lens Distortion"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Lens Distortion"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -495,10 +494,10 @@ lens_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_zoom_preview_new (drawable);

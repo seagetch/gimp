@@ -109,9 +109,9 @@ rcm_create_previews (void)
   GtkWidget *button;
   GtkWidget *combo;
 
-  top_vbox = gtk_vbox_new (FALSE, 12);
+  top_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_box_pack_start (GTK_BOX (top_vbox), vbox, TRUE, TRUE, 0);
   gtk_widget_show (vbox);
 
@@ -129,7 +129,7 @@ rcm_create_previews (void)
                           G_CALLBACK (rcm_render_preview),
                           NULL);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_box_pack_start (GTK_BOX (top_vbox), vbox, TRUE, TRUE, 0);
   gtk_widget_show (vbox);
 
@@ -147,7 +147,7 @@ rcm_create_previews (void)
                           G_CALLBACK (rcm_render_preview),
                           NULL);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_box_pack_start (GTK_BOX (top_vbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 
@@ -160,7 +160,7 @@ rcm_create_previews (void)
                     G_CALLBACK (rcm_preview_as_you_drag),
                     &(Current.RealTime));
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -294,7 +294,7 @@ rcm_create_one_circle (gint         height,
   gtk_widget_show (legend_table);
 
   /* spinbutton 1 */
-  label = gtk_label_new (_("From:"));
+  label = gtk_label_new (C_("color-range", "From:"));
   gtk_widget_show (label);
   gtk_table_attach (GTK_TABLE (legend_table), label, 0, 1, 0, 1,
                     0, GTK_EXPAND, 5, 5);
@@ -320,7 +320,7 @@ rcm_create_one_circle (gint         height,
                     0, GTK_EXPAND, 4, 4);
 
   /* spinbutton 2 */
-  label = gtk_label_new (_("To:"));
+  label = gtk_label_new (C_("color-range", "To:"));
   gtk_widget_show (label);
   gtk_table_attach (GTK_TABLE (legend_table), label, 3,4, 0,1,
                     0, GTK_EXPAND, 4, 4);
@@ -375,7 +375,7 @@ rcm_create_main (void)
   Current.From = rcm_create_one_circle (SUM, C_("color-rotate", "From:"));
   Current.To   = rcm_create_one_circle (SUM, C_("color-rotate", "To:"));
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
   gtk_widget_show (vbox);
 
@@ -409,7 +409,7 @@ rcm_create_gray (void)
   st->hue   = 0;
   st->satur = 0;
 
-  top_vbox = gtk_vbox_new (FALSE, 12);
+  top_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (top_vbox), 12);
   gtk_widget_show (top_vbox);
 
@@ -417,11 +417,11 @@ rcm_create_gray (void)
   gtk_box_pack_start (GTK_BOX (top_vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
-  hbox = gtk_hbox_new (FALSE, 0);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -512,7 +512,7 @@ rcm_create_gray (void)
   gtk_box_pack_start (GTK_BOX (top_vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  radio_box = gtk_vbox_new (FALSE, 6);
+  radio_box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), radio_box);
   gtk_widget_show (radio_box);
 
@@ -546,7 +546,7 @@ rcm_create_gray (void)
   gtk_box_pack_start (GTK_BOX (top_vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), hbox);
   gtk_widget_show (hbox);
 
@@ -586,7 +586,7 @@ rcm_create_units (void)
   gtk_container_set_border_width (GTK_CONTAINER (frame), 12);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -646,7 +646,7 @@ color_rotate_dialog (void)
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
   color_rotate_stock_init ();
 
-  dialog = gimp_dialog_new (_("Rotate Colors"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Rotate Colors"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -671,7 +671,7 @@ color_rotate_dialog (void)
   Current.Bna->bna_frame = previews = rcm_create_previews ();
 
   /* H-Box */
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       hbox, TRUE, TRUE, 0);

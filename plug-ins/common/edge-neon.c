@@ -38,6 +38,7 @@
 
 #define PLUG_IN_PROC   "plug-in-neon"
 #define PLUG_IN_BINARY "edge-neon"
+#define PLUG_IN_ROLE   "gimp-edge-neon"
 
 
 typedef struct
@@ -489,6 +490,7 @@ neon (GimpDrawable *drawable,
     }
   else
     {
+      gimp_progress_update (1.0);
       /*  now, merge horizontal and vertical into a magnitude  */
       gimp_pixel_rgn_init (&src_rgn, drawable,
                            0, 0, drawable->width, drawable->height,
@@ -572,7 +574,6 @@ find_constants (gdouble n_p[],
 {
   gdouble a0, a1, b0, b1, c0, c1, w0, w1;
   gdouble w0n, w1n, cos0, cos1, sin0, sin1, b0n, b1n;
-  gdouble div;
 
   /* coefficients for Gaussian 1st derivative filter */
   a0 =  0.6472;
@@ -606,8 +607,9 @@ find_constants (gdouble n_p[],
   b0n  = b0 / std_dev;
   b1n  = b1 / std_dev;
 
-  div = sqrt (2 * G_PI) * std_dev;
   /*
+  gdouble div;
+  div = sqrt (2 * G_PI) * std_dev;
   a0 = a0 / div;
   a1 = a1 / div;
   c0 = c0 / div;
@@ -691,7 +693,7 @@ neon_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("Neon Detection"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Neon Detection"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -707,10 +709,10 @@ neon_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_drawable_preview_new (drawable, NULL);

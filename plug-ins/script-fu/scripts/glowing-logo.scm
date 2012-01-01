@@ -19,6 +19,7 @@
         )
 
     (gimp-context-push)
+    (gimp-context-set-defaults)
 
     (script-fu-util-image-resize-from-layer img logo-layer)
     (script-fu-util-image-add-layers img glow-layer bg-layer)
@@ -32,20 +33,20 @@
     (gimp-context-set-background '(0 0 0))
     (gimp-edit-fill logo-layer BACKGROUND-FILL)
 
-    (gimp-selection-layer-alpha logo-layer)
+    (gimp-image-select-item img CHANNEL-OP-REPLACE logo-layer)
     (gimp-selection-feather img feather1)
     (gimp-context-set-background '(221 0 0))
     (gimp-edit-fill glow-layer BACKGROUND-FILL)
     (gimp-edit-fill glow-layer BACKGROUND-FILL)
     (gimp-edit-fill glow-layer BACKGROUND-FILL)
 
-    (gimp-selection-layer-alpha logo-layer)
+    (gimp-image-select-item img CHANNEL-OP-REPLACE logo-layer)
     (gimp-selection-feather img feather2)
     (gimp-context-set-background '(232 217 18))
     (gimp-edit-fill glow-layer BACKGROUND-FILL)
     (gimp-edit-fill glow-layer BACKGROUND-FILL)
 
-    (gimp-selection-layer-alpha logo-layer)
+    (gimp-image-select-item img CHANNEL-OP-REPLACE logo-layer)
     (gimp-selection-feather img feather3)
     (gimp-context-set-background '(255 255 255))
     (gimp-edit-fill glow-layer BACKGROUND-FILL)

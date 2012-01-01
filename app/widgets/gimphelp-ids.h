@@ -414,7 +414,7 @@
 #define GIMP_HELP_TOOL_OPTIONS_DIALOG             "gimp-tool-options-dialog"
 #define GIMP_HELP_TOOL_OPTIONS_SAVE               "gimp-tool-options-save"
 #define GIMP_HELP_TOOL_OPTIONS_RESTORE            "gimp-tool-options-restore"
-#define GIMP_HELP_TOOL_OPTIONS_RENAME             "gimp-tool-options-rename"
+#define GIMP_HELP_TOOL_OPTIONS_EDIT               "gimp-tool-options-edit"
 #define GIMP_HELP_TOOL_OPTIONS_DELETE             "gimp-tool-options-delete"
 #define GIMP_HELP_TOOL_OPTIONS_RESET              "gimp-tool-options-reset"
 
@@ -449,6 +449,7 @@
 #define GIMP_HELP_PREFS_FOLDERS_PALETTES          "gimp-prefs-folders-palettes"
 #define GIMP_HELP_PREFS_FOLDERS_GRADIENTS         "gimp-prefs-folders-gradients"
 #define GIMP_HELP_PREFS_FOLDERS_FONTS             "gimp-prefs-folders-fonts"
+#define GIMP_HELP_PREFS_FOLDERS_TOOL_PRESETS      "gimp-prefs-folders-tool-presets"
 #define GIMP_HELP_PREFS_FOLDERS_PLUG_INS          "gimp-prefs-folders-plug-ins"
 #define GIMP_HELP_PREFS_FOLDERS_SCRIPTS           "gimp-prefs-folders-scripts"
 #define GIMP_HELP_PREFS_FOLDERS_MODULES           "gimp-prefs-folders-modules"
@@ -524,6 +525,7 @@
 #define GIMP_HELP_CONTROLLER_KEYBOARD             "gimp-controller-keyboard"
 #define GIMP_HELP_CONTROLLER_LINUX_INPUT          "gimp-controller-linux-input"
 #define GIMP_HELP_CONTROLLER_MIDI                 "gimp-controller-midi"
+#define GIMP_HELP_CONTROLLER_MOUSE                "gimp-controller-mouse"
 #define GIMP_HELP_CONTROLLER_WHEEL                "gimp-controller-wheel"
 
 #define GIMP_HELP_CONFIG_USE_GEGL                 "gimp-config-use-gegl"

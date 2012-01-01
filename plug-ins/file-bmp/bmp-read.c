@@ -26,10 +26,8 @@
 #include <string.h>
 
 #include <glib/gstdio.h>
-#include <gdk-pixbuf/gdk-pixbuf.h>
 
 #include <libgimp/gimp.h>
-#include <libgimp/gimppixbuf.h>
 
 #include "bmp.h"
 
@@ -934,7 +932,7 @@ ReadImage (FILE                  *fd,
         gimp_cmap[j++] = cmap[i][2];
       }
 
-  gimp_progress_update (1);
+  gimp_progress_update (1.0);
 
   gimp_pixel_rgn_init (&pixel_rgn, drawable,
                        0, 0, drawable->width, drawable->height, TRUE, FALSE);

@@ -49,6 +49,7 @@
 #define LOAD_PROC      "file-raw-load"
 #define SAVE_PROC      "file-raw-save"
 #define PLUG_IN_BINARY "file-raw"
+#define PLUG_IN_ROLE   "gimp-file-raw"
 #define PREVIEW_SIZE   350
 
 
@@ -434,9 +435,9 @@ rgb_565_to_888 (guint16 *in,
 
   for (i = 0, j = 0; i < num_pixels; i++)
     {
-      out[j++] = 0x00FF & ((in[i] >> 8) | ((in[i] >> 13) & 0x0007));
-      out[j++] = 0x00FF & ((in[i] >> 3) | ((in[i] >>  9) & 0x0003));
-      out[j++] = 0x00FF & ((in[i] << 3) | ((in[i] >>  2) & 0x0007));
+      out[j++] = ((((in[i] >> 11) & 0x1f) * 0x21) >> 2);
+      out[j++] = ((((in[i] >>  5) & 0x3f) * 0x41) >> 4);
+      out[j++] = ((((in[i] >>  0) & 0x1f) * 0x21) >> 2);
     }
 }
 
@@ -481,6 +482,7 @@ raw_load_planar (RawGimpData *data)
       gimp_pixel_rgn_set_row (&data->region, row, 0, i, runtime->image_width);
       gimp_progress_update ((gfloat) i / (gfloat) runtime->image_height);
     }
+  gimp_progress_update (1.0);
 
   g_free (row);
   g_free (r_row);
@@ -1051,7 +1053,7 @@ load_dialog (const gchar *filename)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Load Image from Raw Data"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Load Image from Raw Data"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, LOAD_PROC,
 
@@ -1065,10 +1067,10 @@ load_dialog (const gchar *filename)
                                            GTK_RESPONSE_CANCEL,
                                            -1);
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   frame = gtk_frame_new (NULL);
@@ -1230,7 +1232,7 @@ save_dialog (const gchar *filename,
 
   dialog = gimp_export_dialog_new (_("Raw Image"), PLUG_IN_BINARY, SAVE_PROC);
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
   gtk_box_pack_start (GTK_BOX (gimp_export_dialog_get_content_area (dialog)),
                       main_vbox, FALSE, FALSE, 0);

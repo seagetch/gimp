@@ -1,5 +1,11 @@
 ## Process this file with automake to produce Makefile.in
 
+if OS_WIN32
+mwindows = -mwindows
+else
+libm = -lm
+endif
+
 libgimpui = $(top_builddir)/libgimp/libgimpui-$(GIMP_API_VERSION).la
 libgimpconfig = $(top_builddir)/libgimpconfig/libgimpconfig-$(GIMP_API_VERSION).la
 libgimpwidgets = $(top_builddir)/libgimpwidgets/libgimpwidgets-$(GIMP_API_VERSION).la
@@ -9,10 +15,6 @@ libgimpbase = $(top_builddir)/libgimpbase/libgimpbase-$(GIMP_API_VERSION).la
 libgimpmath = $(top_builddir)/libgimpmath/libgimpmath-$(GIMP_API_VERSION).la
 
 SUBDIRS = Brushes Paper Presets
-
-if OS_WIN32
-mwindows = -mwindows
-endif
 
 if HAVE_WINDRES
 include $(top_srcdir)/build/windows/gimprc-plug-ins.rule
@@ -68,6 +70,7 @@ gimpressionist_SOURCES = \
 	utils.c
 
 LDADD = \
+	$(libm)			\
 	$(libgimpui)		\
 	$(libgimpwidgets)	\
 	$(libgimpconfig)	\

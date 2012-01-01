@@ -31,13 +31,10 @@
 #include <glib-object.h>
 #include <glib/gstdio.h>
 
-#ifndef LIBGIMP_COMPILATION
-#define LIBGIMP_COMPILATION
-#endif
-
 #undef GIMP_DISABLE_DEPRECATED
 #include "gimpbasetypes.h"
 
+#define __GIMP_ENV_C__
 #include "gimpenv.h"
 #include "gimpversion.h"
 #include "gimpreloc.h"
@@ -732,8 +729,7 @@ gimp_path_to_str (GList *path)
 void
 gimp_path_free (GList *path)
 {
-  g_list_foreach (path, (GFunc) g_free, NULL);
-  g_list_free (path);
+  g_list_free_full (path, (GDestroyNotify) g_free);
 }
 
 /**

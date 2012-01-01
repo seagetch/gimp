@@ -50,9 +50,12 @@
       <xi:include href="xml/gimpgrid.xml" />
       <xi:include href="xml/gimpguides.xml" />
       <xi:include href="xml/gimpimage.xml" />
+      <xi:include href="xml/gimpimageselect.xml" />
       <xi:include href="xml/gimpitem.xml" />
+      <xi:include href="xml/gimpitemtransform.xml" />
       <xi:include href="xml/gimplayer.xml" />
       <xi:include href="xml/gimppaths.xml" />
+      <xi:include href="xml/gimppixbuf.xml" />
       <xi:include href="xml/gimppixelfetcher.xml" />
       <xi:include href="xml/gimppixelrgn.xml" />
       <xi:include href="xml/gimpregioniterator.xml" />
@@ -71,6 +74,7 @@
       <title>Data Objects</title>
       <xi:include href="xml/gimpbrush.xml" />
       <xi:include href="xml/gimpbrushes.xml" />
+      <xi:include href="xml/gimpdynamics.xml" />
       <xi:include href="xml/gimpfonts.xml" />
       <xi:include href="xml/gimpgradient.xml" />
       <xi:include href="xml/gimpgradients.xml" />
@@ -112,7 +116,6 @@
     <xi:include href="xml/gimpzoompreview.xml" />
     <xi:include href="xml/gimpitemcombobox.xml" />
     <xi:include href="xml/gimpimagecombobox.xml" />
-    <xi:include href="xml/gimppixbuf.xml" />
     <xi:include href="xml/gimpprogressbar.xml" />
     <xi:include href="xml/gimpmenu.xml" />
     <xi:include href="xml/gimpbrushmenu.xml" />

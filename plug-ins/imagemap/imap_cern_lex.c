@@ -72,6 +72,7 @@ typedef int flex_int32_t;
 typedef unsigned char flex_uint8_t; 
 typedef unsigned short int flex_uint16_t;
 typedef unsigned int flex_uint32_t;
+#endif /* ! C99 */
 
 /* Limits of integral types. */
 #ifndef INT8_MIN
@@ -101,8 +102,6 @@ typedef unsigned int flex_uint32_t;
 #ifndef UINT32_MAX
 #define UINT32_MAX             (4294967295U)
 #endif
-
-#endif /* ! C99 */
 
 #endif /* ! FLEXINT_H */
 
@@ -160,15 +159,7 @@ typedef unsigned int flex_uint32_t;
 
 /* Size of default input buffer. */
 #ifndef YY_BUF_SIZE
-#ifdef __ia64__
-/* On IA-64, the buffer size is 16k, not 8k.
- * Moreover, YY_BUF_SIZE is 2*YY_READ_BUF_SIZE in the general case.
- * Ditto for the __ia64__ case accordingly.
- */
-#define YY_BUF_SIZE 32768
-#else
 #define YY_BUF_SIZE 16384
-#endif /* __ia64__ */
 #endif
 
 /* The state buf must be large enough to hold one state per character in the main buffer.
@@ -619,8 +610,9 @@ char *cern_text;
 #define YY_NO_UNPUT
 #endif /* FLEX_SCANNER */
 
+#define YY_NO_INPUT 1
 
-#line 624 "<stdout>"
+#line 616 "<stdout>"
 
 #define INITIAL 0
 #define comment 1
@@ -680,8 +672,6 @@ extern int cern_wrap (void );
 #endif
 #endif
 
-    static void yyunput (int c,char *buf_ptr  );
-    
 #ifndef yytext_ptr
 static void yy_flex_strncpy (char *,yyconst char *,int );
 #endif
@@ -702,12 +692,7 @@ static int input (void );
 
 /* Amount of stuff to slurp up with each read. */
 #ifndef YY_READ_BUF_SIZE
-#ifdef __ia64__
-/* On IA-64, the buffer size is 16k, not 8k */
-#define YY_READ_BUF_SIZE 16384
-#else
 #define YY_READ_BUF_SIZE 8192
-#endif /* __ia64__ */
 #endif
 
 /* Copy whatever the last rule matched to the standard output. */
@@ -726,7 +711,7 @@ static int input (void );
 	if ( YY_CURRENT_BUFFER_LVALUE->yy_is_interactive ) \
 		{ \
 		int c = '*'; \
-		size_t n; \
+		unsigned n; \
 		for ( n = 0; n < max_size && \
 			     (c = getc( cern_in )) != EOF && c != '\n'; ++n ) \
 			buf[n] = (char) c; \
@@ -808,10 +793,10 @@ YY_DECL
 	register char *yy_cp, *yy_bp;
 	register int yy_act;
     
-#line 44 "imap_cern.l"
+#line 46 "imap_cern.l"
 
 
-#line 815 "<stdout>"
+#line 800 "<stdout>"
 
 	if ( !(yy_init) )
 		{
@@ -897,7 +882,7 @@ do_action:	/* This label is used only to access EOF actions. */
 case 1:
 /* rule 1 can match eol */
 YY_RULE_SETUP
-#line 46 "imap_cern.l"
+#line 48 "imap_cern.l"
 {
 				   BEGIN(comment);
 				   return AUTHOR;
@@ -906,7 +891,7 @@ YY_RULE_SETUP
 case 2:
 /* rule 2 can match eol */
 YY_RULE_SETUP
-#line 51 "imap_cern.l"
+#line 53 "imap_cern.l"
 {
 				   BEGIN(comment);
 				   return DESCRIPTION;
@@ -915,7 +900,7 @@ YY_RULE_SETUP
 case 3:
 /* rule 3 can match eol */
 YY_RULE_SETUP
-#line 56 "imap_cern.l"
+#line 58 "imap_cern.l"
 {
 				   BEGIN(comment);
 				   return BEGIN_COMMENT;
@@ -926,7 +911,7 @@ case 4:
 (yy_c_buf_p) = yy_cp -= 1;
 YY_DO_BEFORE_ACTION; /* set up cern_text again */
 YY_RULE_SETUP
-#line 61 "imap_cern.l"
+#line 63 "imap_cern.l"
 {
 				   BEGIN(INITIAL);
    				   cern_lval.id = g_strndup (cern_text, cern_leng);
@@ -935,22 +920,22 @@ YY_RULE_SETUP
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 67 "imap_cern.l"
+#line 69 "imap_cern.l"
 return RECTANGLE;
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 69 "imap_cern.l"
+#line 71 "imap_cern.l"
 return CIRCLE;
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 71 "imap_cern.l"
+#line 73 "imap_cern.l"
 return POLYGON;
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 73 "imap_cern.l"
+#line 75 "imap_cern.l"
 return DEFAULT;
 	YY_BREAK
 case 9:
@@ -958,7 +943,7 @@ case 9:
 (yy_c_buf_p) = yy_cp -= 1;
 YY_DO_BEFORE_ACTION; /* set up cern_text again */
 YY_RULE_SETUP
-#line 75 "imap_cern.l"
+#line 77 "imap_cern.l"
 {
    				   cern_lval.id = g_strndup (cern_text, cern_leng);
 				   return LINK;
@@ -966,7 +951,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 80 "imap_cern.l"
+#line 82 "imap_cern.l"
 {
                                    cern_lval.value = g_ascii_strtod (cern_text, NULL);
 				   return FLOAT;
@@ -975,20 +960,20 @@ YY_RULE_SETUP
 case 11:
 /* rule 11 can match eol */
 YY_RULE_SETUP
-#line 85 "imap_cern.l"
+#line 87 "imap_cern.l"
 ; /* Eat white space */
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 87 "imap_cern.l"
+#line 89 "imap_cern.l"
 return *cern_text;
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 89 "imap_cern.l"
+#line 91 "imap_cern.l"
 ECHO;
 	YY_BREAK
-#line 992 "<stdout>"
+#line 977 "<stdout>"
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(comment):
 	yyterminate();
@@ -1316,43 +1301,6 @@ static int yy_get_next_buffer (void)
 	yy_is_jam = (yy_current_state == 93);
 
 	return yy_is_jam ? 0 : yy_current_state;
-}
-
-    static void yyunput (int c, register char * yy_bp )
-{
-	register char *yy_cp;
-    
-    yy_cp = (yy_c_buf_p);
-
-	/* undo effects of setting up cern_text */
-	*yy_cp = (yy_hold_char);
-
-	if ( yy_cp < YY_CURRENT_BUFFER_LVALUE->yy_ch_buf + 2 )
-		{ /* need to shift things up to make room */
-		/* +2 for EOB chars. */
-		register int number_to_move = (yy_n_chars) + 2;
-		register char *dest = &YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[
-					YY_CURRENT_BUFFER_LVALUE->yy_buf_size + 2];
-		register char *source =
-				&YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[number_to_move];
-
-		while ( source > YY_CURRENT_BUFFER_LVALUE->yy_ch_buf )
-			*--dest = *--source;
-
-		yy_cp += (int) (dest - source);
-		yy_bp += (int) (dest - source);
-		YY_CURRENT_BUFFER_LVALUE->yy_n_chars =
-			(yy_n_chars) = YY_CURRENT_BUFFER_LVALUE->yy_buf_size;
-
-		if ( yy_cp < YY_CURRENT_BUFFER_LVALUE->yy_ch_buf + 2 )
-			YY_FATAL_ERROR( "flex scanner push-back overflow" );
-		}
-
-	*--yy_cp = (char) c;
-
-	(yytext_ptr) = yy_bp;
-	(yy_hold_char) = *yy_cp;
-	(yy_c_buf_p) = yy_cp;
 }
 
 #ifndef YY_NO_INPUT
@@ -1747,8 +1695,8 @@ YY_BUFFER_STATE cern__scan_string (yyconst char * yystr )
 
 /** Setup the input buffer state to scan the given bytes. The next call to cern_lex() will
  * scan from a @e copy of @a bytes.
- * @param yybytes the byte buffer to scan
- * @param _yybytes_len the number of bytes in the buffer pointed to by @a bytes.
+ * @param bytes the byte buffer to scan
+ * @param len the number of bytes in the buffer pointed to by @a bytes.
  * 
  * @return the newly allocated buffer state object.
  */
@@ -1987,7 +1935,7 @@ void cern_free (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 89 "imap_cern.l"
+#line 91 "imap_cern.l"
 
 
 

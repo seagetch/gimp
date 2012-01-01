@@ -21,12 +21,15 @@
 #ifndef __GIMP_H__
 #define __GIMP_H__
 
-#include <glib-object.h>
+#include <cairo.h>
+#include <gdk-pixbuf/gdk-pixbuf.h>
 
 #include <libgimpbase/gimpbase.h>
 #include <libgimpcolor/gimpcolor.h>
 #include <libgimpconfig/gimpconfig.h>
 #include <libgimpmath/gimpmath.h>
+
+#define __GIMP_H_INSIDE__
 
 #include <libgimp/gimpenums.h>
 #include <libgimp/gimptypes.h>
@@ -46,6 +49,7 @@
 #include <libgimp/gimppaletteselect.h>
 #include <libgimp/gimppatterns.h>
 #include <libgimp/gimppatternselect.h>
+#include <libgimp/gimppixbuf.h>
 #include <libgimp/gimppixelfetcher.h>
 #include <libgimp/gimppixelrgn.h>
 #include <libgimp/gimpplugin.h>
@@ -56,12 +60,13 @@
 #include <libgimp/gimptile.h>
 #include <libgimp/gimpvectors.h>
 
-#include <libgimp/gimp_pdb.h>
+#include <libgimp/gimp_pdb_headers.h>
+
+#undef __GIMP_H_INSIDE__
 
 #ifdef G_OS_WIN32
 #include <stdlib.h> /* For __argc and __argv */
 #endif
-
 
 G_BEGIN_DECLS
 
@@ -333,10 +338,15 @@ const gchar  * gimp_get_progname        (void) G_GNUC_CONST;
 gboolean       gimp_install_cmap        (void) G_GNUC_CONST;
 gint           gimp_min_colors          (void) G_GNUC_CONST;
 
-gboolean       gimp_attach_new_parasite (const gchar    *name,
-                                         gint            flags,
-                                         gint            size,
-                                         gconstpointer   data);
+GimpParasite * gimp_parasite_find       (const gchar        *name);
+gboolean       gimp_parasite_attach     (const GimpParasite *parasite);
+gboolean       gimp_parasite_detach     (const gchar        *name);
+gboolean       gimp_parasite_list       (gint               *num_parasites,
+                                         gchar            ***parasites);
+gboolean       gimp_attach_new_parasite (const gchar        *name,
+                                         gint                flags,
+                                         gint                size,
+                                         gconstpointer       data);
 #endif /* GIMP_DISABLE_DEPRECATED */
 
 

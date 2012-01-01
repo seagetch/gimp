@@ -43,8 +43,10 @@ libexec_PROGRAMS = help
 help_SOURCES = help.c
 
 INCLUDES = \
-	-I$(top_srcdir)	\
-	$(GIO_CFLAGS)	\
+	-I$(top_srcdir)		\
+	$(CAIRO_CFLAGS)		\
+	$(GIO_CFLAGS)		\
+	$(GDK_PIXBUF_CFLAGS)	\
 	-I$(includedir)
 
 LDADD = \
@@ -54,7 +56,9 @@ LDADD = \
 	$(libgimpcolor)		\
 	$(libgimpbase)		\
 	$(libgimpmath)		\
+	$(CAIRO_LIBS)		\
 	$(GIO_LIBS)		\
+	$(GDK_PIXBUF_LIBS)	\
 	$(RT_LIBS)		\
 	$(INTLLIBS)		\
 	$(help_RC)

@@ -4,6 +4,9 @@
  *
  * Copyright (C) 2005 Nathan Summers
  *
+ * Some code in render_page_to_surface() borrowed from
+ * poppler.git/glib/poppler-page.cc.
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
@@ -35,6 +38,7 @@
 #define LOAD_PROC       "file-pdf-load"
 #define LOAD_THUMB_PROC "file-pdf-load-thumb"
 #define PLUG_IN_BINARY  "file-pdf-load"
+#define PLUG_IN_ROLE    "gimp-file-pdf-load"
 
 #define THUMBNAIL_SIZE  128
 
@@ -73,22 +77,26 @@ static gint32            load_image        (PopplerDocument        *doc,
                                             guint32                 resolution,
                                             PdfSelectedPages       *pages);
 
-static gboolean          load_dialog       (PopplerDocument        *doc,
+static GimpPDBStatusType load_dialog       (PopplerDocument        *doc,
                                             PdfSelectedPages       *pages);
 
 static PopplerDocument * open_document     (const gchar            *filename,
                                             GError                **error);
 
-static GdkPixbuf *       get_thumbnail     (PopplerDocument        *doc,
+static cairo_surface_t * get_thumb_surface (PopplerDocument        *doc,
                                             gint                    page,
                                             gint                    preferred_size);
 
-static gint32            layer_from_pixbuf (gint32                  image,
-                                            const gchar            *layer_name,
-                                            gint                    position,
-                                            GdkPixbuf              *buf,
-                                            gdouble                 progress_start,
-                                            gdouble                 progress_scale);
+static GdkPixbuf *       get_thumb_pixbuf  (PopplerDocument        *doc,
+                                            gint                    page,
+                                            gint                    preferred_size);
+
+static gint32            layer_from_surface (gint32                  image,
+					     const gchar            *layer_name,
+					     gint                    position,
+					     cairo_surface_t        *surface,
+					     gdouble                 progress_start,
+					     gdouble                 progress_scale);
 
 /**
  ** the following was formerly part of
@@ -277,12 +285,11 @@ query (void)
   };
 
   gimp_install_procedure (LOAD_PROC,
-                          "Load file in PDF format.",
-                          "Load file in PDF format. "
-                          "PDF is a portable document format created by Adobe. "
-                          "It is designed to be easily processed by a variety "
+                          "Load file in PDF format",
+                          "Loads files in Adobe's Portable Document Format. "
+                          "PDF is designed to be easily processed by a variety "
                           "of different platforms, and is a distant cousin of "
-                          "postscript. ",
+                          "PostScript.",
                           "Nathan Summers",
                           "Nathan Summers",
                           "2005",
@@ -362,10 +369,9 @@ run (const gchar      *name,
               break;
             }
 
-          if (load_dialog (doc, &pages))
+          status = load_dialog (doc, &pages);
+          if (status == GIMP_PDB_SUCCESS)
             gimp_set_data (LOAD_PROC, &loadvals, sizeof(loadvals));
-          else
-            status = GIMP_PDB_CANCEL;
           break;
 
         case GIMP_RUN_WITH_LAST_VALS:
@@ -434,12 +440,12 @@ run (const gchar      *name,
         }
       else
         {
-          gdouble      width     = 0;
-          gdouble      height    = 0;
-          gdouble      scale;
-          gint32       image     = -1;
-          gint         num_pages = 0;
-          GdkPixbuf   *pixbuf    = NULL;
+          gdouble          width     = 0;
+          gdouble          height    = 0;
+          gdouble          scale;
+          gint32           image     = -1;
+          gint             num_pages = 0;
+          cairo_surface_t *surface   = NULL;
 
           /* Possibly retrieve last settings */
           gimp_get_data (LOAD_PROC, &loadvals);
@@ -459,21 +465,21 @@ run (const gchar      *name,
 
               num_pages = poppler_document_get_n_pages (doc);
 
-              pixbuf = get_thumbnail (doc, 0, param[1].data.d_int32);
+              surface = get_thumb_surface (doc, 0, param[1].data.d_int32);
 
               g_object_unref (doc);
             }
 
-          if (pixbuf)
+          if (surface)
             {
-              image = gimp_image_new (gdk_pixbuf_get_width  (pixbuf),
-                                      gdk_pixbuf_get_height (pixbuf),
+              image = gimp_image_new (cairo_image_surface_get_width (surface),
+                                      cairo_image_surface_get_height (surface),
                                       GIMP_RGB);
 
               gimp_image_undo_disable (image);
 
-              layer_from_pixbuf (image, "thumbnail", 0, pixbuf, 0.0, 1.0);
-              g_object_unref (pixbuf);
+              layer_from_surface (image, "thumbnail", 0, surface, 0.0, 1.0);
+              cairo_surface_destroy (surface);
 
               gimp_image_undo_enable (image);
               gimp_image_clean_all (image);
@@ -534,7 +540,7 @@ open_document (const gchar  *filename,
   if (! mapped_file)
     {
       g_set_error (load_error, 0, 0,
-                   "Could not load '%s' %s",
+                   _("Could not load '%s': %s"),
                    gimp_filename_to_utf8 (filename), error->message);
       g_error_free (error);
       return NULL;
@@ -563,23 +569,258 @@ open_document (const gchar  *filename,
   return doc;
 }
 
-static gint32
-layer_from_pixbuf (gint32        image,
-                   const gchar  *layer_name,
-                   gint          position,
-                   GdkPixbuf    *pixbuf,
-                   gdouble       progress_start,
-                   gdouble       progress_scale)
+/* FIXME: Remove this someday when we depend fully on GTK+ >= 3 */
+
+#if (!GTK_CHECK_VERSION (3, 0, 0))
+
+static cairo_format_t
+gdk_cairo_format_for_content (cairo_content_t content)
 {
-  gint32 layer = gimp_layer_new_from_pixbuf (image, layer_name, pixbuf,
-                                             100.0, GIMP_NORMAL_MODE,
-                                             progress_start,
-                                             progress_start + progress_scale);
+  switch (content)
+    {
+    case CAIRO_CONTENT_COLOR:
+      return CAIRO_FORMAT_RGB24;
+    case CAIRO_CONTENT_ALPHA:
+      return CAIRO_FORMAT_A8;
+    case CAIRO_CONTENT_COLOR_ALPHA:
+    default:
+      return CAIRO_FORMAT_ARGB32;
+    }
+}
+
+static cairo_surface_t *
+gdk_cairo_surface_coerce_to_image (cairo_surface_t *surface,
+                                   cairo_content_t  content,
+                                   int              src_x,
+                                   int              src_y,
+                                   int              width,
+                                   int              height)
+{
+  cairo_surface_t *copy;
+  cairo_t *cr;
+
+  copy = cairo_image_surface_create (gdk_cairo_format_for_content (content),
+                                     width,
+                                     height);
+
+  cr = cairo_create (copy);
+  cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
+  cairo_set_source_surface (cr, surface, -src_x, -src_y);
+  cairo_paint (cr);
+  cairo_destroy (cr);
+
+  return copy;
+}
+
+static void
+convert_alpha (guchar *dest_data,
+               int     dest_stride,
+               guchar *src_data,
+               int     src_stride,
+               int     src_x,
+               int     src_y,
+               int     width,
+               int     height)
+{
+  int x, y;
+
+  src_data += src_stride * src_y + src_x * 4;
+
+  for (y = 0; y < height; y++) {
+    guint32 *src = (guint32 *) src_data;
+
+    for (x = 0; x < width; x++) {
+      guint alpha = src[x] >> 24;
+
+      if (alpha == 0)
+        {
+          dest_data[x * 4 + 0] = 0;
+          dest_data[x * 4 + 1] = 0;
+          dest_data[x * 4 + 2] = 0;
+        }
+      else
+        {
+          dest_data[x * 4 + 0] = (((src[x] & 0xff0000) >> 16) * 255 + alpha / 2) / alpha;
+          dest_data[x * 4 + 1] = (((src[x] & 0x00ff00) >>  8) * 255 + alpha / 2) / alpha;
+          dest_data[x * 4 + 2] = (((src[x] & 0x0000ff) >>  0) * 255 + alpha / 2) / alpha;
+        }
+      dest_data[x * 4 + 3] = alpha;
+    }
+
+    src_data += src_stride;
+    dest_data += dest_stride;
+  }
+}
+
+static void
+convert_no_alpha (guchar *dest_data,
+                  int     dest_stride,
+                  guchar *src_data,
+                  int     src_stride,
+                  int     src_x,
+                  int     src_y,
+                  int     width,
+                  int     height)
+{
+  int x, y;
+
+  src_data += src_stride * src_y + src_x * 4;
+
+  for (y = 0; y < height; y++) {
+    guint32 *src = (guint32 *) src_data;
+
+    for (x = 0; x < width; x++) {
+      dest_data[x * 3 + 0] = src[x] >> 16;
+      dest_data[x * 3 + 1] = src[x] >>  8;
+      dest_data[x * 3 + 2] = src[x];
+    }
+
+    src_data += src_stride;
+    dest_data += dest_stride;
+  }
+}
+
+/**
+ * gdk_pixbuf_get_from_surface:
+ * @surface: surface to copy from
+ * @src_x: Source X coordinate within @surface
+ * @src_y: Source Y coordinate within @surface
+ * @width: Width in pixels of region to get
+ * @height: Height in pixels of region to get
+ *
+ * Transfers image data from a #cairo_surface_t and converts it to an RGB(A)
+ * representation inside a #GdkPixbuf. This allows you to efficiently read
+ * individual pixels from cairo surfaces. For #GdkWindows, use
+ * gdk_pixbuf_get_from_window() instead.
+ *
+ * This function will create an RGB pixbuf with 8 bits per channel.
+ * The pixbuf will contain an alpha channel if the @surface contains one.
+ *
+ * Return value: (transfer full): A newly-created pixbuf with a reference
+ *     count of 1, or %NULL on error
+ */
+static GdkPixbuf *
+gdk_pixbuf_get_from_surface  (cairo_surface_t *surface,
+                              gint             src_x,
+                              gint             src_y,
+                              gint             width,
+                              gint             height)
+{
+  cairo_content_t content;
+  GdkPixbuf *dest;
+
+  /* General sanity checks */
+  g_return_val_if_fail (surface != NULL, NULL);
+  g_return_val_if_fail (width > 0 && height > 0, NULL);
+
+  content = cairo_surface_get_content (surface) | CAIRO_CONTENT_COLOR;
+  dest = gdk_pixbuf_new (GDK_COLORSPACE_RGB,
+                         !!(content & CAIRO_CONTENT_ALPHA),
+                         8,
+                         width, height);
+
+  surface = gdk_cairo_surface_coerce_to_image (surface, content,
+                                               src_x, src_y,
+                                               width, height);
+  cairo_surface_flush (surface);
+  if (cairo_surface_status (surface) || dest == NULL)
+    {
+      cairo_surface_destroy (surface);
+      return NULL;
+    }
+
+  if (gdk_pixbuf_get_has_alpha (dest))
+    convert_alpha (gdk_pixbuf_get_pixels (dest),
+                   gdk_pixbuf_get_rowstride (dest),
+                   cairo_image_surface_get_data (surface),
+                   cairo_image_surface_get_stride (surface),
+                   0, 0,
+                   width, height);
+  else
+    convert_no_alpha (gdk_pixbuf_get_pixels (dest),
+                      gdk_pixbuf_get_rowstride (dest),
+                      cairo_image_surface_get_data (surface),
+                      cairo_image_surface_get_stride (surface),
+                      0, 0,
+                      width, height);
+
+  cairo_surface_destroy (surface);
+  return dest;
+}
+
+#endif
+
+static gint32
+layer_from_surface (gint32           image,
+                    const gchar     *layer_name,
+                    gint             position,
+                    cairo_surface_t *surface,
+                    gdouble          progress_start,
+                    gdouble          progress_scale)
+{
+  gint32 layer = gimp_layer_new_from_surface (image, layer_name, surface,
+                                              progress_start,
+                                              progress_start + progress_scale);
 
   gimp_image_insert_layer (image, layer, -1, position);
 
   return layer;
 }
+
+static cairo_surface_t *
+render_page_to_surface (PopplerPage *page,
+                        int          width,
+                        int          height,
+                        double       scale)
+{
+  cairo_surface_t *surface;
+  cairo_t *cr;
+
+  surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height);
+  cr = cairo_create (surface);
+
+  cairo_save (cr);
+  cairo_translate (cr, 0.0, 0.0);
+
+  if (scale != 1.0)
+    cairo_scale (cr, scale, scale);
+
+  poppler_page_render (page, cr);
+  cairo_restore (cr);
+
+  cairo_set_operator (cr, CAIRO_OPERATOR_DEST_OVER);
+  cairo_set_source_rgb (cr, 1.0, 1.0, 1.0);
+  cairo_paint (cr);
+
+  cairo_destroy (cr);
+
+  return surface;
+}
+
+#if 0
+
+/* This is currently unused, but we'll have it here in case the military
+   wants it. */
+
+static GdkPixbuf *
+render_page_to_pixbuf (PopplerPage *page,
+                       int          width,
+                       int          height,
+                       double       scale)
+{
+  GdkPixbuf *pixbuf;
+  cairo_surface_t *surface;
+
+  surface = render_page_to_surface (page, width, height, scale);
+  pixbuf = gdk_pixbuf_get_from_surface (surface, 0, 0,
+                                        cairo_image_surface_get_width (surface),
+                                        cairo_image_surface_get_height (surface));
+  cairo_surface_destroy (surface);
+
+  return pixbuf;
+}
+
+#endif
 
 static gint32
 load_image (PopplerDocument        *doc,
@@ -612,9 +853,9 @@ load_image (PopplerDocument        *doc,
       gdouble      page_width;
       gdouble      page_height;
 
-      GdkPixbuf   *buf;
-      gint         width;
-      gint         height;
+      cairo_surface_t *surface;
+      gint             width;
+      gint             height;
 
       page = poppler_document_get_page (doc, pages->pages[i]);
 
@@ -642,15 +883,13 @@ load_image (PopplerDocument        *doc,
           gimp_image_set_resolution (image_ID, resolution, resolution);
         }
 
-      buf = gdk_pixbuf_new (GDK_COLORSPACE_RGB, FALSE, 8, width, height);
+      surface = render_page_to_surface (page, width, height, scale);
 
-      poppler_page_render_to_pixbuf (page, 0, 0, width, height, scale, 0, buf);
-
-      layer_from_pixbuf (image_ID, page_label, i, buf,
-                         doc_progress, 1.0 / pages->n_pages);
+      layer_from_surface (image_ID, page_label, i, surface,
+                          doc_progress, 1.0 / pages->n_pages);
 
       g_free (page_label);
-      g_object_unref (buf);
+      cairo_surface_destroy (surface);
 
       doc_progress = (double) (i + 1) / pages->n_pages;
       gimp_progress_update (doc_progress);
@@ -664,7 +903,8 @@ load_image (PopplerDocument        *doc,
 
           image_ID = 0;
         }
-   }
+    }
+  gimp_progress_update (1.0);
 
   if (image_ID)
     {
@@ -691,30 +931,22 @@ load_image (PopplerDocument        *doc,
   return image_ID;
 }
 
-static GdkPixbuf *
-get_thumbnail (PopplerDocument *doc,
-               gint             page_num,
-               gint             preferred_size)
+static cairo_surface_t *
+get_thumb_surface (PopplerDocument *doc,
+                   gint             page_num,
+                   gint             preferred_size)
 {
   PopplerPage *page;
-  GdkPixbuf   *pixbuf;
+  cairo_surface_t *surface;
 
   page = poppler_document_get_page (doc, page_num);
 
   if (! page)
     return NULL;
 
-  /* XXX: Remove conditional when we depend on poppler 0.8.0, but also
-   * add configure check to make sure POPPLER_WITH_GDK is enabled!
-   */
-#ifdef POPPLER_WITH_GDK
-  pixbuf = poppler_page_get_thumbnail_pixbuf (page);
-#else
-  pixbuf = poppler_page_get_thumbnail (page);
-#endif
+  surface = poppler_page_get_thumbnail (page);
 
-
-  if (! pixbuf)
+  if (! surface)
     {
       gdouble width;
       gdouble height;
@@ -727,14 +959,27 @@ get_thumbnail (PopplerDocument *doc,
       width  *= scale;
       height *= scale;
 
-      pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB, FALSE, 8,
-                               width, height);
-
-      poppler_page_render_to_pixbuf (page,
-                                     0, 0, width, height, scale, 0, pixbuf);
+      surface = render_page_to_surface (page, width, height, scale);
     }
 
   g_object_unref (page);
+
+  return surface;
+}
+
+static GdkPixbuf *
+get_thumb_pixbuf (PopplerDocument *doc,
+                  gint             page_num,
+                  gint             preferred_size)
+{
+  cairo_surface_t *surface;
+  GdkPixbuf *pixbuf;
+
+  surface = get_thumb_surface (doc, page_num, preferred_size);
+  pixbuf = gdk_pixbuf_get_from_surface (surface, 0, 0,
+                                        cairo_image_surface_get_width (surface),
+                                        cairo_image_surface_get_height (surface));
+  cairo_surface_destroy (surface);
 
   return pixbuf;
 }
@@ -784,8 +1029,8 @@ thumbnail_thread (gpointer data)
       idle_data->page_no  = i;
 
       /* FIXME get preferred size from somewhere? */
-      idle_data->pixbuf = get_thumbnail (thread_data->document, i,
-                                         THUMBNAIL_SIZE);
+      idle_data->pixbuf = get_thumb_pixbuf (thread_data->document, i,
+                                            THUMBNAIL_SIZE);
 
       g_idle_add (idle_set_thumbnail, idle_data);
 
@@ -796,7 +1041,7 @@ thumbnail_thread (gpointer data)
   return NULL;
 }
 
-static gboolean
+static GimpPDBStatusType
 load_dialog (PopplerDocument  *doc,
              PdfSelectedPages *pages)
 {
@@ -820,7 +1065,7 @@ load_dialog (PopplerDocument  *doc,
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("Import from PDF"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Import from PDF"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, LOAD_PROC,
 
@@ -836,10 +1081,10 @@ load_dialog (PopplerDocument  *doc,
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      vbox, TRUE, TRUE, 0);
   gtk_widget_show (vbox);
 
   /* Title */
@@ -855,6 +1100,13 @@ load_dialog (PopplerDocument  *doc,
   gtk_widget_show (selector);
 
   n_pages = poppler_document_get_n_pages (doc);
+
+  if (n_pages <= 0)
+    {
+      g_message (_("Error getting number of pages from the given PDF file."));
+      return GIMP_PDB_EXECUTION_ERROR;
+    }
+
   gimp_page_selector_set_n_pages (GIMP_PAGE_SELECTOR (selector), n_pages);
   gimp_page_selector_set_target (GIMP_PAGE_SELECTOR (selector),
                                  loadvals.target);
@@ -889,7 +1141,7 @@ load_dialog (PopplerDocument  *doc,
 
   /* Resolution */
 
-  hbox = gtk_hbox_new (FALSE, 0);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -933,7 +1185,7 @@ load_dialog (PopplerDocument  *doc,
   thread_data.stop_thumbnailing = TRUE;
   g_thread_join (thread);
 
-  return run;
+  return run ? GIMP_PDB_SUCCESS : GIMP_PDB_CANCEL;
 }
 
 
@@ -1175,6 +1427,10 @@ gimp_resolution_entry_new (const gchar *width_label,
   model = gtk_combo_box_get_model (GTK_COMBO_BOX (gre->unitmenu));
   gimp_unit_store_set_has_pixels (GIMP_UNIT_STORE (model), FALSE);
   gimp_unit_store_set_has_percent (GIMP_UNIT_STORE (model), FALSE);
+  g_object_set (model,
+                "short-format", _("pixels/%a"),
+                "long-format",  _("pixels/%a"),
+                NULL);
   gimp_unit_combo_box_set_active (GIMP_UNIT_COMBO_BOX (gre->unitmenu),
                                   initial_unit);
 

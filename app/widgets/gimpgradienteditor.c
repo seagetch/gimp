@@ -105,9 +105,7 @@
 
 static void  gimp_gradient_editor_docked_iface_init (GimpDockedInterface *face);
 
-static GObject * gimp_gradient_editor_constructor   (GType               type,
-                                                     guint               n_params,
-                                                     GObjectConstructParam *params);
+static void   gimp_gradient_editor_constructed      (GObject            *object);
 static void   gimp_gradient_editor_dispose          (GObject            *object);
 
 static void   gimp_gradient_editor_unmap            (GtkWidget          *widget);
@@ -262,7 +260,7 @@ gimp_gradient_editor_class_init (GimpGradientEditorClass *klass)
   GtkWidgetClass      *widget_class = GTK_WIDGET_CLASS (klass);
   GimpDataEditorClass *editor_class = GIMP_DATA_EDITOR_CLASS (klass);
 
-  object_class->constructor = gimp_gradient_editor_constructor;
+  object_class->constructed = gimp_gradient_editor_constructed;
   object_class->dispose     = gimp_gradient_editor_dispose;
 
   widget_class->unmap       = gimp_gradient_editor_unmap;
@@ -300,7 +298,7 @@ gimp_gradient_editor_init (GimpGradientEditor *editor)
   gtk_box_pack_start (GTK_BOX (editor), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 0);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -365,10 +363,10 @@ gimp_gradient_editor_init (GimpGradientEditor *editor)
   /*  Scrollbar  */
   editor->zoom_factor = 1;
 
-  editor->scroll_data = gtk_adjustment_new (0.0, 0.0, 1.0,
-                                            GRAD_SCROLLBAR_STEP_SIZE,
-                                            GRAD_SCROLLBAR_PAGE_SIZE,
-                                            1.0);
+  editor->scroll_data = GTK_ADJUSTMENT (gtk_adjustment_new (0.0, 0.0, 1.0,
+                                                            GRAD_SCROLLBAR_STEP_SIZE,
+                                                            GRAD_SCROLLBAR_PAGE_SIZE,
+                                                            1.0));
 
   g_signal_connect (editor->scroll_data, "value-changed",
                     G_CALLBACK (gradient_editor_scrollbar_update),
@@ -377,12 +375,13 @@ gimp_gradient_editor_init (GimpGradientEditor *editor)
                     G_CALLBACK (gradient_editor_scrollbar_update),
                     editor);
 
-  editor->scrollbar = gtk_hscrollbar_new (GTK_ADJUSTMENT (editor->scroll_data));
+  editor->scrollbar = gtk_scrollbar_new (GTK_ORIENTATION_HORIZONTAL,
+                                         editor->scroll_data);
   gtk_box_pack_start (GTK_BOX (editor), editor->scrollbar, FALSE, FALSE, 0);
   gtk_widget_show (editor->scrollbar);
 
   /* Box for current color and the hint labels */
-  hbox = gtk_hbox_new (FALSE, 2);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
   gtk_box_pack_start (GTK_BOX (editor), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -402,7 +401,7 @@ gimp_gradient_editor_init (GimpGradientEditor *editor)
   gtk_widget_show (editor->current_color);
 
   /* Hint box */
-  hint_vbox = gtk_vbox_new (FALSE, 0);
+  hint_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_box_pack_start (GTK_BOX (hbox), hint_vbox, TRUE, TRUE, 0);
   gtk_widget_show (hint_vbox);
 
@@ -433,17 +432,13 @@ gimp_gradient_editor_init (GimpGradientEditor *editor)
   gimp_rgba_set (&editor->saved_colors[9], 1.0, 0.0, 1.0, GIMP_OPACITY_OPAQUE);
 }
 
-static GObject *
-gimp_gradient_editor_constructor (GType                  type,
-                                  guint                  n_params,
-                                  GObjectConstructParam *params)
+static void
+gimp_gradient_editor_constructed (GObject *object)
 {
-  GObject            *object;
-  GimpGradientEditor *editor;
+  GimpGradientEditor *editor = GIMP_GRADIENT_EDITOR (object);
 
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
-
-  editor = GIMP_GRADIENT_EDITOR (object);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   gimp_editor_add_action_button (GIMP_EDITOR (editor), "gradient-editor",
                                  "gradient-editor-zoom-out", NULL);
@@ -453,8 +448,6 @@ gimp_gradient_editor_constructor (GType                  type,
 
   gimp_editor_add_action_button (GIMP_EDITOR (editor), "gradient-editor",
                                  "gradient-editor-zoom-all", NULL);
-
-  return object;
 }
 
 static void
@@ -568,7 +561,7 @@ gimp_gradient_editor_zoom (GimpGradientEditor *editor,
 
   g_return_if_fail (GIMP_IS_GRADIENT_EDITOR (editor));
 
-  adjustment = GTK_ADJUSTMENT (editor->scroll_data);
+  adjustment = editor->scroll_data;
 
   old_value     = gtk_adjustment_get_value (adjustment);
   old_page_size = gtk_adjustment_get_page_size (adjustment);
@@ -824,7 +817,7 @@ view_events (GtkWidget          *widget,
             if (editor->view_button_down)
               {
                 view_pick_color (editor,
-                                 (mevent->state & GDK_CONTROL_MASK) ?
+                                 (mevent->state & gimp_get_toggle_behavior_mask ()) ?
                                  GIMP_COLOR_PICK_MODE_BACKGROUND :
                                  GIMP_COLOR_PICK_MODE_FOREGROUND,
                                  mevent->x);
@@ -843,25 +836,20 @@ view_events (GtkWidget          *widget,
       {
         GdkEventButton *bevent = (GdkEventButton *) event;
 
-        switch (bevent->button)
+        if (gdk_event_triggers_context_menu ((GdkEvent *) bevent))
           {
-          case 1:
+            gimp_editor_popup_menu (GIMP_EDITOR (editor), NULL, NULL);
+          }
+        else if (bevent->button == 1)
+          {
             editor->view_last_x      = bevent->x;
             editor->view_button_down = TRUE;
 
             view_pick_color (editor,
-                             (bevent->state & GDK_CONTROL_MASK) ?
+                             (bevent->state & gimp_get_toggle_behavior_mask ()) ?
                              GIMP_COLOR_PICK_MODE_BACKGROUND :
                              GIMP_COLOR_PICK_MODE_FOREGROUND,
                              bevent->x);
-            break;
-
-          case 3:
-            gimp_editor_popup_menu (GIMP_EDITOR (editor), NULL, NULL);
-            break;
-
-          default:
-            break;
           }
       }
       break;
@@ -870,7 +858,7 @@ view_events (GtkWidget          *widget,
       {
         GdkEventScroll *sevent = (GdkEventScroll *) event;
 
-        if (sevent->state & GDK_CONTROL_MASK)
+        if (sevent->state & gimp_get_toggle_behavior_mask ())
           {
             switch (sevent->direction)
               {
@@ -888,7 +876,7 @@ view_events (GtkWidget          *widget,
           }
         else
           {
-            GtkAdjustment *adj   = GTK_ADJUSTMENT (editor->scroll_data);
+            GtkAdjustment *adj   = editor->scroll_data;
             gfloat         value = gtk_adjustment_get_value (adj);
 
             switch (sevent->direction)
@@ -924,7 +912,7 @@ view_events (GtkWidget          *widget,
           editor->view_button_down = FALSE;
 
           view_pick_color (editor,
-                           (bevent->state & GDK_CONTROL_MASK) ?
+                           (bevent->state & gimp_get_toggle_behavior_mask ()) ?
                            GIMP_COLOR_PICK_MODE_BACKGROUND :
                            GIMP_COLOR_PICK_MODE_FOREGROUND,
                            bevent->x);
@@ -1075,7 +1063,7 @@ control_events (GtkWidget          *widget,
       {
         GdkEventScroll *sevent = (GdkEventScroll *) event;
 
-        if (sevent->state & GDK_SHIFT_MASK)
+        if (sevent->state & gimp_get_toggle_behavior_mask ())
           {
             if (sevent->direction == GDK_SCROLL_UP)
               gimp_gradient_editor_zoom (editor, GIMP_ZOOM_IN);
@@ -1084,7 +1072,7 @@ control_events (GtkWidget          *widget,
           }
         else
           {
-            GtkAdjustment *adj = GTK_ADJUSTMENT (editor->scroll_data);
+            GtkAdjustment *adj = editor->scroll_data;
 
             gfloat new_value;
 
@@ -1191,17 +1179,17 @@ control_expose (GtkWidget          *widget,
                 GdkEventExpose     *event,
                 GimpGradientEditor *editor)
 {
-  GtkAdjustment *adj = GTK_ADJUSTMENT (editor->scroll_data);
+  GtkAdjustment *adj = editor->scroll_data;
   cairo_t       *cr  = gdk_cairo_create (gtk_widget_get_window (widget));
-  gint           width;
-  gint           height;
+  GtkAllocation  allocation;
 
-  gdk_drawable_get_size (gtk_widget_get_window (widget), &width, &height);
+  gtk_widget_get_allocation (widget, &allocation);
 
   control_draw (editor,
                 GIMP_GRADIENT (GIMP_DATA_EDITOR (editor)->data),
                 cr,
-                width, height,
+                allocation.width,
+                allocation.height,
                 gtk_adjustment_get_value (adj),
                 gtk_adjustment_get_value (adj) +
                 gtk_adjustment_get_page_size (adj));
@@ -1244,9 +1232,8 @@ control_do_hint (GimpGradientEditor *editor,
             {
               if (seg->prev != NULL)
                 {
-                  str = g_strdup_printf (_("%s%sDrag: move & compress"),
-                                         gimp_get_mod_string (GDK_SHIFT_MASK),
-                                         gimp_get_mod_separator ());
+                  str = g_strdup_printf (_("%s-Drag: move & compress"),
+                                         gimp_get_mod_string (GDK_SHIFT_MASK));
 
                   gradient_editor_set_hint (editor,
                                             NULL,
@@ -1257,9 +1244,8 @@ control_do_hint (GimpGradientEditor *editor,
                 }
               else
                 {
-                  str = g_strdup_printf (_("%s%sClick: extend selection"),
-                                         gimp_get_mod_string (GDK_SHIFT_MASK),
-                                         gimp_get_mod_separator ());
+                  str = g_strdup_printf (_("%s-Click: extend selection"),
+                                         gimp_get_mod_string (GDK_SHIFT_MASK));
 
                   gradient_editor_set_hint (editor,
                                             NULL,
@@ -1271,9 +1257,8 @@ control_do_hint (GimpGradientEditor *editor,
             }
           else
             {
-              str = g_strdup_printf (_("%s%sClick: extend selection"),
-                                     gimp_get_mod_string (GDK_SHIFT_MASK),
-                                     gimp_get_mod_separator ());
+              str = g_strdup_printf (_("%s-Click: extend selection"),
+                                     gimp_get_mod_string (GDK_SHIFT_MASK));
 
               gradient_editor_set_hint (editor,
                                         NULL,
@@ -1285,9 +1270,8 @@ control_do_hint (GimpGradientEditor *editor,
           break;
 
         case GRAD_DRAG_MIDDLE:
-          str = g_strdup_printf (_("%s%sClick: extend selection"),
-                                 gimp_get_mod_string (GDK_SHIFT_MASK),
-                                 gimp_get_mod_separator ());
+          str = g_strdup_printf (_("%s-Click: extend selection"),
+                                 gimp_get_mod_string (GDK_SHIFT_MASK));
 
           gradient_editor_set_hint (editor,
                                     NULL,
@@ -1307,12 +1291,10 @@ control_do_hint (GimpGradientEditor *editor,
     {
       gchar *str2;
 
-      str  = g_strdup_printf (_("%s%sClick: extend selection"),
-                              gimp_get_mod_string (GDK_SHIFT_MASK),
-                              gimp_get_mod_separator ());
-      str2 = g_strdup_printf (_("%s%sDrag: move & compress"),
-                              gimp_get_mod_string (GDK_SHIFT_MASK),
-                              gimp_get_mod_separator ());
+      str  = g_strdup_printf (_("%s-Click: extend selection"),
+                              gimp_get_mod_string (GDK_SHIFT_MASK));
+      str2 = g_strdup_printf (_("%s-Drag: move & compress"),
+                              gimp_get_mod_string (GDK_SHIFT_MASK));
 
       gradient_editor_set_hint (editor,
                                 _("Click: select    Drag: move"),
@@ -1854,7 +1836,7 @@ static gint
 control_calc_p_pos (GimpGradientEditor *editor,
                     gdouble             pos)
 {
-  GtkAdjustment *adjustment = GTK_ADJUSTMENT (editor->scroll_data);
+  GtkAdjustment *adjustment = editor->scroll_data;
   GtkAllocation  allocation;
   gint           pwidth;
 
@@ -1876,7 +1858,7 @@ static gdouble
 control_calc_g_pos (GimpGradientEditor *editor,
                     gint                pos)
 {
-  GtkAdjustment *adjustment = GTK_ADJUSTMENT (editor->scroll_data);
+  GtkAdjustment *adjustment = editor->scroll_data;
   GtkAllocation  allocation;
   gint           pwidth;
 

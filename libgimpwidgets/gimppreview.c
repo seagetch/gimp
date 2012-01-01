@@ -115,7 +115,7 @@ static void      gimp_preview_real_untransform    (GimpPreview      *preview,
 
 static guint preview_signals[LAST_SIGNAL] = { 0 };
 
-static GtkVBoxClass *parent_class = NULL;
+static GtkBoxClass *parent_class = NULL;
 
 
 GType
@@ -138,7 +138,7 @@ gimp_preview_get_type (void)
         (GInstanceInitFunc) gimp_preview_init,
       };
 
-      preview_type = g_type_register_static (GTK_TYPE_VBOX,
+      preview_type = g_type_register_static (GTK_TYPE_BOX,
                                              "GimpPreview",
                                              &preview_info,
                                              G_TYPE_FLAG_ABSTRACT);
@@ -202,6 +202,9 @@ gimp_preview_init (GimpPreview *preview)
   GimpPreviewPrivate *priv = GIMP_PREVIEW_GET_PRIVATE (preview);
   GtkWidget          *frame;
   gdouble             xalign = 0.0;
+
+  gtk_orientable_set_orientation (GTK_ORIENTABLE (preview),
+                                  GTK_ORIENTATION_VERTICAL);
 
   gtk_box_set_homogeneous (GTK_BOX (preview), FALSE);
   gtk_box_set_spacing (GTK_BOX (preview), 6);
@@ -278,7 +281,7 @@ gimp_preview_init (GimpPreview *preview)
                          G_CALLBACK (gimp_preview_area_set_cursor),
                          preview, NULL, G_CONNECT_AFTER | G_CONNECT_SWAPPED);
 
-  priv->controls = gtk_hbox_new (FALSE, 6);
+  priv->controls = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_table_attach (GTK_TABLE (preview->table), priv->controls, 0, 2, 2, 3,
                     GTK_FILL | GTK_EXPAND, GTK_FILL, 0, 0);
   gtk_widget_show (priv->controls);

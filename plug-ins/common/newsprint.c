@@ -57,6 +57,7 @@
 
 #define PLUG_IN_PROC       "plug-in-newsprint"
 #define PLUG_IN_BINARY     "newsprint"
+#define PLUG_IN_ROLE       "gimp-newsprint"
 
 #define TILE_CACHE_SIZE     16
 #define SCALE_WIDTH        125
@@ -976,7 +977,7 @@ new_channel (const chan_tmpl *ct, GtkWidget *preview)
   /* create the channel state record */
   chst = new_preview (ct->spotfn);
 
-  chst->vbox = gtk_vbox_new (FALSE, 6);
+  chst->vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_set_border_width (GTK_CONTAINER (chst->vbox), 12);
 
   table = gtk_table_new (1, 3, FALSE);
@@ -1006,7 +1007,7 @@ new_channel (const chan_tmpl *ct, GtkWidget *preview)
                             preview);
 
   /* spot function popup */
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (chst->vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -1014,7 +1015,7 @@ new_channel (const chan_tmpl *ct, GtkWidget *preview)
   gtk_box_pack_start (GTK_BOX (hbox), abox, FALSE, FALSE, 0);
   gtk_widget_show (abox);
 
-  hbox2 = gtk_hbox_new (FALSE, 6);
+  hbox2 = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_container_add (GTK_CONTAINER (abox), hbox2);
   gtk_widget_show (hbox2);
 
@@ -1175,7 +1176,7 @@ newsprint_dialog (GimpDrawable *drawable)
         pvals.colourspace = CS_RGB;
     }
 
-  dialog = gimp_dialog_new (_("Newsprint"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Newsprint"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -1191,17 +1192,17 @@ newsprint_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  paned = gtk_hpaned_new ();
+  paned = gtk_paned_new (GTK_ORIENTATION_HORIZONTAL);
   gtk_container_set_border_width (GTK_CONTAINER (paned), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     paned);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      paned, TRUE, TRUE, 0);
   gtk_widget_show (paned);
 
-  hbox = gtk_hbox_new (FALSE, 0);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_paned_pack1 (GTK_PANED (paned), hbox, TRUE, FALSE);
   gtk_widget_show (hbox);
 
-  vbox = gtk_vbox_new (FALSE, 0);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 6);
   gtk_box_pack_end (GTK_BOX (hbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
@@ -1214,17 +1215,17 @@ newsprint_dialog (GimpDrawable *drawable)
                             G_CALLBACK (newsprint),
                             drawable);
 
-  hbox = gtk_hbox_new (FALSE, 0);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_paned_pack2 (GTK_PANED (paned), hbox, FALSE, FALSE);
   gtk_widget_show (hbox);
 
-  vbox = gtk_vbox_new (FALSE, 0);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 6);
   gtk_box_pack_start (GTK_BOX (hbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 
-  vbox = gtk_vbox_new (FALSE, 12);
-  gtk_container_add (GTK_CONTAINER (hbox), vbox);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
+  gtk_box_pack_start (GTK_BOX (hbox), vbox, TRUE, TRUE, 0);
   gtk_widget_show (vbox);
 
   /* resolution settings  */
@@ -1290,7 +1291,7 @@ newsprint_dialog (GimpDrawable *drawable)
   frame = gimp_frame_new (_("Screen"));
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
 
-  st.vbox = gtk_vbox_new (FALSE, 12);
+  st.vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_add (GTK_CONTAINER (frame), st.vbox);
 
   /* optional portion begins */
@@ -1322,7 +1323,7 @@ newsprint_dialog (GimpDrawable *drawable)
                                 preview);
 
       /* RGB / CMYK / Luminance select */
-      hbox = gtk_hbox_new (FALSE, 6);
+      hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
       gtk_box_pack_start (GTK_BOX (st.vbox), hbox, FALSE, FALSE, 0);
 
       /*  pack the scaleentry table  */
@@ -1386,7 +1387,7 @@ newsprint_dialog (GimpDrawable *drawable)
       gtk_widget_show (hbox);
 
       /* channel lock & factory defaults button */
-      hbox = gtk_hbutton_box_new ();
+      hbox = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
       gtk_box_set_spacing (GTK_BOX (hbox), 6);
       gtk_box_pack_start (GTK_BOX (st.vbox), hbox, FALSE, FALSE, 0);
       gtk_widget_show (hbox);
@@ -2063,6 +2064,7 @@ do {                                                            \
     }
   else
     {
+      gimp_progress_update (1.0);
       /* update the affected region */
       gimp_drawable_flush (drawable);
       gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);

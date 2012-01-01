@@ -11,11 +11,13 @@
     display
     drawable
     drawable_transform
+    dynamics
     edit
     fileops
     floating_sel
     font_select
     fonts
+    gimp
     gimprc
     gradient
     gradient_select
@@ -29,12 +31,10 @@
     item_transform
     layer
     message
-    misc
     paint_tools
     palette
     palette_select
     palettes
-    parasite
     paths
     pattern
     pattern_select

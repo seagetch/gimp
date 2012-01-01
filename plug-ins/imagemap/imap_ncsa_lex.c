@@ -72,6 +72,7 @@ typedef int flex_int32_t;
 typedef unsigned char flex_uint8_t; 
 typedef unsigned short int flex_uint16_t;
 typedef unsigned int flex_uint32_t;
+#endif /* ! C99 */
 
 /* Limits of integral types. */
 #ifndef INT8_MIN
@@ -101,8 +102,6 @@ typedef unsigned int flex_uint32_t;
 #ifndef UINT32_MAX
 #define UINT32_MAX             (4294967295U)
 #endif
-
-#endif /* ! C99 */
 
 #endif /* ! FLEXINT_H */
 
@@ -160,15 +159,7 @@ typedef unsigned int flex_uint32_t;
 
 /* Size of default input buffer. */
 #ifndef YY_BUF_SIZE
-#ifdef __ia64__
-/* On IA-64, the buffer size is 16k, not 8k.
- * Moreover, YY_BUF_SIZE is 2*YY_READ_BUF_SIZE in the general case.
- * Ditto for the __ia64__ case accordingly.
- */
-#define YY_BUF_SIZE 32768
-#else
 #define YY_BUF_SIZE 16384
-#endif /* __ia64__ */
 #endif
 
 /* The state buf must be large enough to hold one state per character in the main buffer.
@@ -582,9 +573,10 @@ char *ncsa_text;
 #define YY_NO_UNPUT
 #endif /* FLEX_SCANNER */
 
+#define YY_NO_INPUT 1
 
 
-#line 588 "<stdout>"
+#line 580 "<stdout>"
 
 #define INITIAL 0
 #define imap_link 1
@@ -645,8 +637,6 @@ extern int ncsa_wrap (void );
 #endif
 #endif
 
-    static void yyunput (int c,char *buf_ptr  );
-    
 #ifndef yytext_ptr
 static void yy_flex_strncpy (char *,yyconst char *,int );
 #endif
@@ -667,12 +657,7 @@ static int input (void );
 
 /* Amount of stuff to slurp up with each read. */
 #ifndef YY_READ_BUF_SIZE
-#ifdef __ia64__
-/* On IA-64, the buffer size is 16k, not 8k */
-#define YY_READ_BUF_SIZE 16384
-#else
 #define YY_READ_BUF_SIZE 8192
-#endif /* __ia64__ */
 #endif
 
 /* Copy whatever the last rule matched to the standard output. */
@@ -691,7 +676,7 @@ static int input (void );
 	if ( YY_CURRENT_BUFFER_LVALUE->yy_is_interactive ) \
 		{ \
 		int c = '*'; \
-		size_t n; \
+		unsigned n; \
 		for ( n = 0; n < max_size && \
 			     (c = getc( ncsa_in )) != EOF && c != '\n'; ++n ) \
 			buf[n] = (char) c; \
@@ -773,10 +758,10 @@ YY_DECL
 	register char *yy_cp, *yy_bp;
 	register int yy_act;
     
-#line 45 "imap_ncsa.l"
+#line 47 "imap_ncsa.l"
 
 
-#line 780 "<stdout>"
+#line 765 "<stdout>"
 
 	if ( !(yy_init) )
 		{
@@ -861,7 +846,7 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 47 "imap_ncsa.l"
+#line 49 "imap_ncsa.l"
 {
 				   BEGIN(comment);
 				   return AUTHOR;
@@ -869,7 +854,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 52 "imap_ncsa.l"
+#line 54 "imap_ncsa.l"
 {
 				   BEGIN(comment);
 				   return TITLE;
@@ -877,7 +862,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 57 "imap_ncsa.l"
+#line 59 "imap_ncsa.l"
 {
 				   BEGIN(comment);
 				   return DESCRIPTION;
@@ -885,7 +870,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 62 "imap_ncsa.l"
+#line 64 "imap_ncsa.l"
 {
 				   BEGIN(comment);
 				   return BEGIN_COMMENT;
@@ -893,7 +878,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 67 "imap_ncsa.l"
+#line 69 "imap_ncsa.l"
 {
 				   BEGIN(INITIAL);
    				   ncsa_lval.id = g_strndup (ncsa_text, ncsa_leng);
@@ -902,7 +887,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 73 "imap_ncsa.l"
+#line 75 "imap_ncsa.l"
 {
 				   BEGIN(imap_link);
    				   return RECTANGLE;
@@ -910,7 +895,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 78 "imap_ncsa.l"
+#line 80 "imap_ncsa.l"
 {
 				   BEGIN(imap_link);
 				   return CIRCLE;
@@ -918,7 +903,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 83 "imap_ncsa.l"
+#line 85 "imap_ncsa.l"
 {
 				   BEGIN(imap_link);
 				   return POLYGON;
@@ -926,7 +911,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 88 "imap_ncsa.l"
+#line 90 "imap_ncsa.l"
 {
 				   BEGIN(imap_link);
 				   return DEFAULT;
@@ -934,7 +919,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 93 "imap_ncsa.l"
+#line 95 "imap_ncsa.l"
 {
    				   BEGIN(INITIAL);
    				   ncsa_lval.id = g_strndup (ncsa_text, ncsa_leng);
@@ -943,7 +928,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 99 "imap_ncsa.l"
+#line 101 "imap_ncsa.l"
 {
                                    ncsa_lval.value = g_ascii_strtod (ncsa_text, NULL);
 				   return FLOAT;
@@ -952,20 +937,20 @@ YY_RULE_SETUP
 case 12:
 /* rule 12 can match eol */
 YY_RULE_SETUP
-#line 104 "imap_ncsa.l"
+#line 106 "imap_ncsa.l"
 ; /* Eat white space */
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 106 "imap_ncsa.l"
+#line 108 "imap_ncsa.l"
 return *ncsa_text;
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 108 "imap_ncsa.l"
+#line 110 "imap_ncsa.l"
 ECHO;
 	YY_BREAK
-#line 969 "<stdout>"
+#line 954 "<stdout>"
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(imap_link):
 case YY_STATE_EOF(comment):
@@ -1294,43 +1279,6 @@ static int yy_get_next_buffer (void)
 	yy_is_jam = (yy_current_state == 75);
 
 	return yy_is_jam ? 0 : yy_current_state;
-}
-
-    static void yyunput (int c, register char * yy_bp )
-{
-	register char *yy_cp;
-    
-    yy_cp = (yy_c_buf_p);
-
-	/* undo effects of setting up ncsa_text */
-	*yy_cp = (yy_hold_char);
-
-	if ( yy_cp < YY_CURRENT_BUFFER_LVALUE->yy_ch_buf + 2 )
-		{ /* need to shift things up to make room */
-		/* +2 for EOB chars. */
-		register int number_to_move = (yy_n_chars) + 2;
-		register char *dest = &YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[
-					YY_CURRENT_BUFFER_LVALUE->yy_buf_size + 2];
-		register char *source =
-				&YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[number_to_move];
-
-		while ( source > YY_CURRENT_BUFFER_LVALUE->yy_ch_buf )
-			*--dest = *--source;
-
-		yy_cp += (int) (dest - source);
-		yy_bp += (int) (dest - source);
-		YY_CURRENT_BUFFER_LVALUE->yy_n_chars =
-			(yy_n_chars) = YY_CURRENT_BUFFER_LVALUE->yy_buf_size;
-
-		if ( yy_cp < YY_CURRENT_BUFFER_LVALUE->yy_ch_buf + 2 )
-			YY_FATAL_ERROR( "flex scanner push-back overflow" );
-		}
-
-	*--yy_cp = (char) c;
-
-	(yytext_ptr) = yy_bp;
-	(yy_hold_char) = *yy_cp;
-	(yy_c_buf_p) = yy_cp;
 }
 
 #ifndef YY_NO_INPUT
@@ -1725,8 +1673,8 @@ YY_BUFFER_STATE ncsa__scan_string (yyconst char * yystr )
 
 /** Setup the input buffer state to scan the given bytes. The next call to ncsa_lex() will
  * scan from a @e copy of @a bytes.
- * @param yybytes the byte buffer to scan
- * @param _yybytes_len the number of bytes in the buffer pointed to by @a bytes.
+ * @param bytes the byte buffer to scan
+ * @param len the number of bytes in the buffer pointed to by @a bytes.
  * 
  * @return the newly allocated buffer state object.
  */
@@ -1965,7 +1913,7 @@ void ncsa_free (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 108 "imap_ncsa.l"
+#line 110 "imap_ncsa.l"
 
 
 

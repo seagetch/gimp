@@ -1,20 +1,22 @@
 ## Process this file with automake to produce Makefile.in
 
+if OS_WIN32
+mwindows = -mwindows
+WINSOCK_LIBS = -lws2_32
+else
+libm = -lm
+endif
+
 libgimpui = $(top_builddir)/libgimp/libgimpui-$(GIMP_API_VERSION).la
 libgimpwidgets = $(top_builddir)/libgimpwidgets/libgimpwidgets-$(GIMP_API_VERSION).la
 libgimp = $(top_builddir)/libgimp/libgimp-$(GIMP_API_VERSION).la
 libgimpcolor = $(top_builddir)/libgimpcolor/libgimpcolor-$(GIMP_API_VERSION).la
 libgimpbase = $(top_builddir)/libgimpbase/libgimpbase-$(GIMP_API_VERSION).la
 libgimpconfig = $(top_builddir)/libgimpconfig/libgimpconfig-$(GIMP_API_VERSION).la
-libgimpmath = $(top_builddir)/libgimpmath/libgimpmath-$(GIMP_API_VERSION).la
+libgimpmath = $(top_builddir)/libgimpmath/libgimpmath-$(GIMP_API_VERSION).la $(libm)
 
-libtinyscheme=tinyscheme/libtinyscheme.a
+libtinyscheme=tinyscheme/libtinyscheme.a $(libm)
 libftx=ftx/libftx.a
-
-if OS_WIN32
-mwindows = -mwindows
-WINSOCK_LIBS = -lws2_32
-endif
 
 if HAVE_WINDRES
 include $(top_srcdir)/build/windows/gimprc-plug-ins.rule
@@ -81,3 +83,18 @@ LDADD = \
 	$(RT_LIBS)		\
 	$(INTLLIBS)		\
 	$(script_fu_RC)
+
+
+# Perform static analysis on all *.scm files and look for usage of
+# deprecated pdb procedures
+check-for-deprecated-procedures-in-script-fu:
+	@echo "Looking for deprecated procedures in *.scm files"
+	@scm_files=`find $(top_srcdir)/plug-ins/script-fu -name "*.scm"`;       \
+	deprecated_procs=`$(top_builddir)/app/gimp-$(GIMP_APP_VERSION)$(EXEEXT) --dump-pdb-procedures-deprecated`; \
+	for scm_file in $$scm_files; do                                         \
+	  for proc in $$deprecated_procs; do                                    \
+	    if grep -qw $$proc $$scm_file; then                                 \
+	      echo "$${scm_file} uses deprecated procedure '$${proc}'";         \
+	    fi                                                                  \
+	  done                                                                  \
+	done

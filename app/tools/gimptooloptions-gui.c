@@ -21,6 +21,8 @@
 #include <glib/gprintf.h>
 #include <gtk/gtk.h>
 
+#include "libgimpwidgets/gimpwidgets.h"
+
 #include "tools-types.h"
 
 #include "libgimpwidgets/gimpwidgets.h"
@@ -50,11 +52,11 @@ gimp_tool_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 
   if (horizontal)
     {
-      vbox = gtk_hbox_new (FALSE, 4);
+      vbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 4);
     }
   else
     {
-      vbox = gtk_vbox_new (FALSE, 4);
+      vbox = gtk_vbox_new (GTK_ORIENTATION_VERTICAL, 4);
     }
 
   return vbox;

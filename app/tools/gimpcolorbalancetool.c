@@ -110,7 +110,7 @@ gimp_color_balance_tool_class_init (GimpColorBalanceToolClass *klass)
 
   tool_class->initialize             = gimp_color_balance_tool_initialize;
 
-  im_tool_class->shell_desc          = _("Adjust Color Balance");
+  im_tool_class->dialog_desc         = _("Adjust Color Balance");
   im_tool_class->settings_name       = "color-balance";
   im_tool_class->import_dialog_title = _("Import Color Balance Settings");
   im_tool_class->export_dialog_title = _("Export Color Balance Settings");
@@ -214,10 +214,10 @@ create_levels_scale (gdouble        value,
                      GtkWidget     *table,
                      gint           col)
 {
-  GtkWidget *label;
-  GtkWidget *slider;
-  GtkWidget *spinbutton;
-  GtkObject *adj;
+  GtkWidget     *label;
+  GtkWidget     *slider;
+  GtkWidget     *spinbutton;
+  GtkAdjustment *adj;
 
   label = gtk_label_new (left);
   gtk_misc_set_alignment (GTK_MISC (label), 1.0, 0.5);
@@ -225,11 +225,11 @@ create_levels_scale (gdouble        value,
                     GTK_SHRINK | GTK_FILL, GTK_SHRINK | GTK_FILL, 0, 0);
   gtk_widget_show (label);
 
-  spinbutton = gimp_spin_button_new (&adj,
+  spinbutton = gimp_spin_button_new ((GtkObject **) &adj,
                                      value, -100.0, 100.0,
                                      1.0, 10.0, 0.0, 1.0, 0);
 
-  slider = gtk_hscale_new (GTK_ADJUSTMENT (adj));
+  slider = gtk_scale_new (GTK_ORIENTATION_HORIZONTAL, adj);
   gtk_scale_set_draw_value (GTK_SCALE (slider), FALSE);
   gtk_widget_set_size_request (slider, 100, -1);
   gtk_table_attach_defaults (GTK_TABLE (table), slider, 1, 2, col, col + 1);
@@ -245,7 +245,7 @@ create_levels_scale (gdouble        value,
                     GTK_SHRINK | GTK_FILL, GTK_SHRINK | GTK_FILL, 0, 0);
   gtk_widget_show (spinbutton);
 
-  return GTK_ADJUSTMENT (adj);
+  return adj;
 }
 
 static void
@@ -276,7 +276,7 @@ gimp_color_balance_tool_dialog (GimpImageMapTool *image_map_tool)
   gtk_box_pack_start (GTK_BOX (main_vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 4);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 4);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -314,7 +314,7 @@ gimp_color_balance_tool_dialog (GimpImageMapTool *image_map_tool)
                     G_CALLBACK (color_balance_yb_changed),
                     cb_tool);
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 

@@ -50,6 +50,7 @@
 /* Defines */
 #define PLUG_IN_PROC        "plug-in-curve-bend"
 #define PLUG_IN_BINARY      "curve-bend"
+#define PLUG_IN_ROLE        "gimp-curve-bend"
 #define PLUG_IN_VERSION     "v1.3.18 (2003/08/26)"
 #define PLUG_IN_IMAGE_TYPES "RGB*, GRAY*"
 #define PLUG_IN_AUTHOR      "Wolfgang Hofer (hof@hotbot.com)"
@@ -1221,7 +1222,7 @@ bender_new_dialog (GimpDrawable *drawable)
   p_retrieve_values(cd);       /* Possibly retrieve data from a previous run */
 
   /*  The shell and main vbox  */
-  cd->shell = gimp_dialog_new (_("Curve Bend"), PLUG_IN_BINARY,
+  cd->shell = gimp_dialog_new (_("Curve Bend"), PLUG_IN_ROLE,
                                NULL, 0,
                                gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -1246,15 +1247,15 @@ bender_new_dialog (GimpDrawable *drawable)
   cd->cursor_busy = gdk_cursor_new_for_display (display, GDK_WATCH);
 
   /*  The main hbox  */
-  main_hbox = gtk_hbox_new (FALSE, 12);
+  main_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_hbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (cd->shell))),
-                     main_hbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (cd->shell))),
+                      main_hbox, TRUE, TRUE, 0);
   gtk_widget_show (main_hbox);
 
   /* Left side column */
-  vbox =  gtk_vbox_new (FALSE, 12);
-  gtk_container_add (GTK_CONTAINER (main_hbox), vbox);
+  vbox =  gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
+  gtk_box_pack_start (GTK_BOX (main_hbox), vbox, TRUE, TRUE, 0);
   gtk_widget_show (vbox);
 
   /* Preview area, top of column */
@@ -1262,7 +1263,7 @@ bender_new_dialog (GimpDrawable *drawable)
   gtk_box_pack_start (GTK_BOX (vbox), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 
-  vbox2 = gtk_vbox_new (FALSE, 6);
+  vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox2);
   gtk_widget_show (vbox2);
 
@@ -1282,7 +1283,7 @@ bender_new_dialog (GimpDrawable *drawable)
   gtk_container_add (GTK_CONTAINER (frame), cd->pv_widget);
   gtk_widget_show (cd->pv_widget);
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_end (GTK_BOX (vbox2), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -1310,12 +1311,12 @@ bender_new_dialog (GimpDrawable *drawable)
   gtk_box_pack_end (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
   /* Render Options  */
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -1370,10 +1371,10 @@ bender_new_dialog (GimpDrawable *drawable)
 
   /*  The curves graph  */
   frame = gimp_frame_new (_("Modify Curves"));
-  gtk_container_add (GTK_CONTAINER (main_hbox), frame);
+  gtk_box_pack_start (GTK_BOX (main_hbox), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -1393,7 +1394,7 @@ bender_new_dialog (GimpDrawable *drawable)
                     G_CALLBACK (bender_graph_events),
                     cd);
 
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -1427,7 +1428,7 @@ bender_new_dialog (GimpDrawable *drawable)
   gtk_widget_show (frame);
 
   /*  hbox for curve options  */
-  hbox = gtk_hbox_new (FALSE, 4);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 4);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -1481,7 +1482,7 @@ bender_new_dialog (GimpDrawable *drawable)
                     cd);
 
   /*  hbox for curve load and save  */
-  hbox = gtk_hbox_new (FALSE, 4);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 4);
   gtk_box_pack_end (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -2157,7 +2158,6 @@ bender_graph_events (GtkWidget    *widget,
 {
   static GdkCursorType cursor_type = GDK_TOP_LEFT_ARROW;
   GdkCursorType new_type;
-  GdkEventButton *bevent;
   GdkEventMotion *mevent;
   int i;
   int tx, ty;
@@ -2199,7 +2199,6 @@ bender_graph_events (GtkWidget    *widget,
       break;
 
     case GDK_BUTTON_PRESS:
-      bevent = (GdkEventButton *) event;
       new_type = GDK_TCROSS;
 
       switch (cd->curve_type)
@@ -2443,11 +2442,6 @@ p_stretch_curves (BenderDialog *cd,
          l_ya = cd->curve[l_outline][l_x2];        /* y of this point */
          l_yb = cd->curve[l_outline][l_x2 +1];     /* y of next point */
          cd->curve_ptr[l_outline][l_x1] = ROUND (((l_ya + ((l_yb -l_ya) * l_rest)) * ymax) / 255);
-       }
-
-       {
-        int      l_debugY;
-        l_debugY = ROUND((cd->curve[l_outline][l_x2] * ymax) / 255);
        }
     }
   }
@@ -2930,14 +2924,12 @@ p_vertical_bend (BenderDialog *cd,
   t_Last  *first_arr;
   guchar   color[4];
   guchar   mixcolor[4];
-  guchar   l_alpha_lo;
   gint     l_alias_dir;
   guchar   l_mixmask;
 
   l_topshift = p_upper_curve_extend (cd, src_gdrw->drawable->width,
                                      src_gdrw->drawable->height);
   l_diff = l_curvy = l_nb_curvy = l_nb2_curvy= l_miny = l_maxy = 0;
-  l_alpha_lo = 20;
 
   /* allocate array of last values (one element foreach x koordinate) */
   last_arr  = g_new (t_Last, src_gdrw->x2);
@@ -3079,12 +3071,13 @@ p_vertical_bend (BenderDialog *cd,
 
                       if (l_alias_dir != 0)
                         {
+                          guchar l_alpha_lo;
+
                           l_alpha_lo = 20;
                           if (gimp_drawable_has_alpha(src_gdrw->drawable->drawable_id))
                             {
                               l_alpha_lo = MIN(20, mixcolor[src_gdrw->index_alpha]);
                             }
-
 
                           for(l_dy = 0; l_dy < l_diff; l_dy++)
                             {
@@ -3191,6 +3184,7 @@ p_vertical_bend (BenderDialog *cd,
             }
         }
     }
+  gimp_progress_update (1.0);
 
   g_free (last_arr);
   g_free (first_arr);

@@ -19,9 +19,12 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#if !defined (__GIMP_H_INSIDE__) && !defined (GIMP_COMPILATION)
+#error "Only <libgimp/gimp.h> can be included directly."
+#endif
+
 #ifndef __GIMP_PIXBUF_H__
 #define __GIMP_PIXBUF_H__
-
 
 G_BEGIN_DECLS
 
@@ -52,15 +55,6 @@ GdkPixbuf * gimp_drawable_get_sub_thumbnail (gint32                  drawable_ID
                                              gint                    dest_width,
                                              gint                    dest_height,
                                              GimpPixbufTransparency  alpha);
-
-gint32      gimp_layer_new_from_pixbuf      (gint32                  image_ID,
-                                             const gchar            *name,
-                                             GdkPixbuf              *pixbuf,
-                                             gdouble                 opacity,
-                                             GimpLayerModeEffects    mode,
-                                             gdouble                 progress_start,
-                                             gdouble                 progress_end);
-
 
 G_END_DECLS
 

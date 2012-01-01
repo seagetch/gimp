@@ -27,38 +27,36 @@
 #include "widgets-types.h"
 
 #include "core/gimpcontainer.h"
-#include "core/gimpfilteredcontainer.h"
 #include "core/gimpcontext.h"
-#include "core/gimpviewable.h"
 #include "core/gimptag.h"
 #include "core/gimptagged.h"
+#include "core/gimptaggedcontainer.h"
+#include "core/gimpviewable.h"
 
 #include "gimptagentry.h"
 #include "gimptagpopup.h"
 #include "gimpcombotagentry.h"
 
 
-static GObject* gimp_combo_tag_entry_constructor       (GType                  type,
-                                                        guint                  n_params,
-                                                        GObjectConstructParam *params);
-static void     gimp_combo_tag_entry_dispose           (GObject                *object);
+static void     gimp_combo_tag_entry_constructed       (GObject              *object);
+static void     gimp_combo_tag_entry_dispose           (GObject              *object);
 
-static gboolean gimp_combo_tag_entry_expose            (GtkWidget              *widget,
-                                                        GdkEventExpose         *event);
-static void     gimp_combo_tag_entry_style_set         (GtkWidget              *widget,
-                                                        GtkStyle               *previous_style);
+static gboolean gimp_combo_tag_entry_expose            (GtkWidget            *widget,
+                                                        GdkEventExpose       *event);
+static void     gimp_combo_tag_entry_style_set         (GtkWidget            *widget,
+                                                        GtkStyle             *previous_style);
 
-static void     gimp_combo_tag_entry_icon_press        (GtkWidget              *widget,
-                                                        GtkEntryIconPosition    icon_pos,
-                                                        GdkEvent               *event,
-                                                        gpointer                user_data);
+static void     gimp_combo_tag_entry_icon_press        (GtkWidget            *widget,
+                                                        GtkEntryIconPosition  icon_pos,
+                                                        GdkEvent             *event,
+                                                        gpointer              user_data);
 
-static void     gimp_combo_tag_entry_popup_destroy     (GtkObject              *object,
-                                                        GimpComboTagEntry      *entry);
+static void     gimp_combo_tag_entry_popup_destroy     (GtkObject            *object,
+                                                        GimpComboTagEntry    *entry);
 
-static void     gimp_combo_tag_entry_tag_count_changed (GimpFilteredContainer  *container,
-                                                        gint                    tag_count,
-                                                        GimpComboTagEntry      *entry);
+static void     gimp_combo_tag_entry_tag_count_changed (GimpTaggedContainer  *container,
+                                                        gint                  tag_count,
+                                                        GimpComboTagEntry    *entry);
 
 
 G_DEFINE_TYPE (GimpComboTagEntry, gimp_combo_tag_entry, GIMP_TYPE_TAG_ENTRY);
@@ -72,7 +70,7 @@ gimp_combo_tag_entry_class_init (GimpComboTagEntryClass *klass)
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
 
-  object_class->constructor  = gimp_combo_tag_entry_constructor;
+  object_class->constructed  = gimp_combo_tag_entry_constructed;
   object_class->dispose      = gimp_combo_tag_entry_dispose;
 
   widget_class->expose_event = gimp_combo_tag_entry_expose;
@@ -100,26 +98,18 @@ gimp_combo_tag_entry_init (GimpComboTagEntry *entry)
                     NULL);
 }
 
-static GObject *
-gimp_combo_tag_entry_constructor (GType                  type,
-                                  guint                  n_params,
-                                  GObjectConstructParam *params)
+static void
+gimp_combo_tag_entry_constructed (GObject *object)
 {
-  GObject           *object;
-  GimpComboTagEntry *entry;
+  GimpComboTagEntry *entry = GIMP_COMBO_TAG_ENTRY (object);
 
-  object = G_OBJECT_CLASS (parent_class)->constructor (type,
-                                                       n_params,
-                                                       params);
-
-  entry = GIMP_COMBO_TAG_ENTRY (object);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   g_signal_connect_object (GIMP_TAG_ENTRY (entry)->container,
                            "tag-count-changed",
                            G_CALLBACK (gimp_combo_tag_entry_tag_count_changed),
                            entry, 0);
-
-  return object;
 }
 
 static void
@@ -250,7 +240,7 @@ gimp_combo_tag_entry_style_set (GtkWidget *widget,
 
 /**
  * gimp_combo_tag_entry_new:
- * @container: a filtered container to be used.
+ * @container: a tagged container to be used.
  * @mode:      tag entry mode to work in.
  *
  * Creates a new #GimpComboTagEntry widget which extends #GimpTagEntry by
@@ -259,10 +249,10 @@ gimp_combo_tag_entry_style_set (GtkWidget *widget,
  * Return value: a new #GimpComboTagEntry widget.
  **/
 GtkWidget *
-gimp_combo_tag_entry_new (GimpFilteredContainer *container,
-                          GimpTagEntryMode       mode)
+gimp_combo_tag_entry_new (GimpTaggedContainer *container,
+                          GimpTagEntryMode     mode)
 {
-  g_return_val_if_fail (GIMP_IS_FILTERED_CONTAINER (container), NULL);
+  g_return_val_if_fail (GIMP_IS_TAGGED_CONTAINER (container), NULL);
 
   return g_object_new (GIMP_TYPE_COMBO_TAG_ENTRY,
                        "container", container,
@@ -280,10 +270,10 @@ gimp_combo_tag_entry_icon_press (GtkWidget            *widget,
 
   if (! entry->popup)
     {
-      GimpFilteredContainer *container = GIMP_TAG_ENTRY (entry)->container;
-      gint                   tag_count;
+      GimpTaggedContainer *container = GIMP_TAG_ENTRY (entry)->container;
+      gint                 tag_count;
 
-      tag_count = gimp_filtered_container_get_tag_count (container);
+      tag_count = gimp_tagged_container_get_tag_count (container);
 
       if (tag_count > 0 && ! GIMP_TAG_ENTRY (entry)->has_invalid_tags)
         {
@@ -309,9 +299,9 @@ gimp_combo_tag_entry_popup_destroy (GtkObject         *object,
 }
 
 static void
-gimp_combo_tag_entry_tag_count_changed (GimpFilteredContainer *container,
-                                        gint                   tag_count,
-                                        GimpComboTagEntry     *entry)
+gimp_combo_tag_entry_tag_count_changed (GimpTaggedContainer *container,
+                                        gint                 tag_count,
+                                        GimpComboTagEntry   *entry)
 {
   gboolean sensitive;
 

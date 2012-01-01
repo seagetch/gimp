@@ -69,6 +69,7 @@
 #define LOAD_PROC      "file-gbr-load"
 #define SAVE_PROC      "file-gbr-save"
 #define PLUG_IN_BINARY "file-gbr"
+#define PLUG_IN_ROLE   "gimp-file-gbr"
 
 
 typedef struct
@@ -256,7 +257,7 @@ run (const gchar      *name,
           break;
         }
 
-      parasite = gimp_image_parasite_find (orig_image_ID, "gimp-brush-name");
+      parasite = gimp_image_get_parasite (orig_image_ID, "gimp-brush-name");
       if (parasite)
         {
           gchar *name = g_strndup (gimp_parasite_data (parasite),
@@ -318,12 +319,12 @@ run (const gchar      *name,
                                         GIMP_PARASITE_PERSISTENT,
                                         strlen (info.description) + 1,
                                         info.description);
-          gimp_image_parasite_attach (orig_image_ID, parasite);
+          gimp_image_attach_parasite (orig_image_ID, parasite);
           gimp_parasite_free (parasite);
         }
       else
         {
-          gimp_image_parasite_detach (orig_image_ID, "gimp-brush-name");
+          gimp_image_detach_parasite (orig_image_ID, "gimp-brush-name");
         }
     }
   else
@@ -588,7 +589,7 @@ load_image (const gchar  *filename,
   parasite = gimp_parasite_new ("gimp-brush-name",
                                 GIMP_PARASITE_PERSISTENT,
                                 strlen (name) + 1, name);
-  gimp_image_parasite_attach (image_ID, parasite);
+  gimp_image_attach_parasite (image_ID, parasite);
   gimp_parasite_free (parasite);
 
   layer_ID = gimp_layer_new (image_ID, name, bh.width, bh.height,

@@ -229,7 +229,8 @@ gimp_blend_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
                                        _("Gradient"), 2,
                                        "gradient-view-type",
                                        "gradient-view-size",
-                                       "gradient-reverse");
+                                       "gradient-reverse",
+                                       "gimp-gradient-editor");
   gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
   gtk_widget_show (button);
 
@@ -289,6 +290,10 @@ gimp_blend_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   gtk_widget_show (button);
 
   /*  supersampling options  */
+  vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
+  frame = gimp_prop_expanding_frame_new (config, "supersample",
+                                         _("Adaptive supersampling"),
+                                         vbox2, NULL);
   frame = 
     gimp_tool_options_toggle_gui_with_popup (config, tool_type,
                                              "supersample", 

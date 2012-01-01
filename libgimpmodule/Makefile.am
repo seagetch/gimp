@@ -42,7 +42,8 @@ endif
 libgimpmoduleincludedir = $(includedir)/gimp-$(GIMP_API_VERSION)/libgimpmodule
 
 AM_CPPFLAGS = \
-	-DG_LOG_DOMAIN=\"LibGimpModule\"
+	-DG_LOG_DOMAIN=\"LibGimpModule\"	\
+	-DGIMP_MODULE_COMPILATION
 
 INCLUDES = \
 	-I$(top_srcdir)			\
@@ -51,7 +52,6 @@ INCLUDES = \
 	-I$(includedir)
 
 EXTRA_DIST = \
-	makefile.msc		\
 	gimpmodule.def
 
 lib_LTLIBRARIES = libgimpmodule-2.0.la

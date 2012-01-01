@@ -2,7 +2,7 @@
  * Copyright (C) 1995 Spencer Kimball and Peter Mattis
  *
  * gimpitemtreeview.c
- * Copyright (C) 2001-2009 Michael Natterer <mitch@gimp.org>
+ * Copyright (C) 2001-2011 Michael Natterer <mitch@gimp.org>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,6 +37,7 @@
 #include "core/gimpimage.h"
 #include "core/gimpimage-undo.h"
 #include "core/gimpimage-undo-push.h"
+#include "core/gimpitem-exclusive.h"
 #include "core/gimpitemundo.h"
 #include "core/gimpmarshal.h"
 #include "core/gimptreehandler.h"
@@ -82,6 +83,7 @@ struct _GimpItemTreeViewPriv
   GtkWidget       *delete_button;
 
   gint             model_column_visible;
+  gint             model_column_viewable;
   gint             model_column_linked;
   GtkCellRenderer *eye_cell;
   GtkCellRenderer *chain_cell;
@@ -97,9 +99,7 @@ struct _GimpItemTreeViewPriv
 static void   gimp_item_tree_view_view_iface_init   (GimpContainerViewInterface *view_iface);
 static void   gimp_item_tree_view_docked_iface_init (GimpDockedInterface *docked_iface);
 
-static GObject * gimp_item_tree_view_constructor    (GType              type,
-                                                     guint              n_params,
-                                                     GObjectConstructParam *params);
+static void   gimp_item_tree_view_constructed       (GObject           *object);
 static void   gimp_item_tree_view_dispose           (GObject           *object);
 
 static void   gimp_item_tree_view_style_set         (GtkWidget         *widget,
@@ -236,7 +236,7 @@ gimp_item_tree_view_class_init (GimpItemTreeViewClass *klass)
                   G_TYPE_NONE, 1,
                   GIMP_TYPE_OBJECT);
 
-  object_class->constructor      = gimp_item_tree_view_constructor;
+  object_class->constructed      = gimp_item_tree_view_constructed;
   object_class->dispose          = gimp_item_tree_view_dispose;
 
   widget_class->style_set        = gimp_item_tree_view_style_set;
@@ -308,6 +308,11 @@ gimp_item_tree_view_init (GimpItemTreeView *view)
                                            &tree_view->n_model_columns,
                                            G_TYPE_BOOLEAN);
 
+  view->priv->model_column_viewable =
+    gimp_container_tree_store_columns_add (tree_view->model_columns,
+                                           &tree_view->n_model_columns,
+                                           G_TYPE_BOOLEAN);
+
   view->priv->model_column_linked =
     gimp_container_tree_store_columns_add (tree_view->model_columns,
                                            &tree_view->n_model_columns,
@@ -318,27 +323,20 @@ gimp_item_tree_view_init (GimpItemTreeView *view)
   view->priv->image  = NULL;
 }
 
-static GObject *
-gimp_item_tree_view_constructor (GType                  type,
-                                 guint                  n_params,
-                                 GObjectConstructParam *params)
+static void
+gimp_item_tree_view_constructed (GObject *object)
 {
-  GimpItemTreeViewClass *item_view_class;
-  GimpEditor            *editor;
-  GimpContainerTreeView *tree_view;
-  GimpItemTreeView      *item_view;
-  GObject               *object;
+  GimpItemTreeViewClass *item_view_class = GIMP_ITEM_TREE_VIEW_GET_CLASS (object);
+  GimpEditor            *editor          = GIMP_EDITOR (object);
+  GimpContainerTreeView *tree_view       = GIMP_CONTAINER_TREE_VIEW (object);
+  GimpItemTreeView      *item_view       = GIMP_ITEM_TREE_VIEW (object);
   GtkTreeViewColumn     *column;
   GtkWidget             *hbox;
   GtkWidget             *image;
   GtkIconSize            icon_size;
 
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
-
-  editor          = GIMP_EDITOR (object);
-  tree_view       = GIMP_CONTAINER_TREE_VIEW (object);
-  item_view       = GIMP_ITEM_TREE_VIEW (object);
-  item_view_class = GIMP_ITEM_TREE_VIEW_GET_CLASS (object);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   gimp_container_tree_view_connect_name_edited (tree_view,
                                                 G_CALLBACK (gimp_item_tree_view_name_edited),
@@ -364,6 +362,8 @@ gimp_item_tree_view_constructor (GType                  type,
   gtk_tree_view_column_set_attributes (column, item_view->priv->eye_cell,
                                        "active",
                                        item_view->priv->model_column_visible,
+                                       "inconsistent",
+                                       item_view->priv->model_column_viewable,
                                        NULL);
 
   gimp_container_tree_view_add_toggle_cell (tree_view,
@@ -480,8 +480,6 @@ gimp_item_tree_view_constructor (GType                  type,
   gtk_container_add (GTK_CONTAINER (item_view->priv->lock_content_toggle),
                      image);
   gtk_widget_show (image);
-
-  return object;
 }
 
 static void
@@ -525,7 +523,8 @@ gimp_item_tree_view_style_set (GtkWidget *widget,
         {
           GtkWidget *child = list->data;
 
-          gtk_box_set_spacing (GTK_BOX (child), button_spacing);
+          if (GTK_IS_BOX (child))
+            gtk_box_set_spacing (GTK_BOX (child), button_spacing);
         }
 
       g_list_free (children);
@@ -616,7 +615,7 @@ gimp_item_tree_view_set_image (GimpItemTreeView *view,
 
   g_signal_emit (view, view_signals[SET_IMAGE], 0, image);
 
-  gimp_ui_manager_update (GIMP_EDITOR (view)->ui_manager, view);
+  gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (view)), view);
 }
 
 GimpImage *
@@ -632,14 +631,10 @@ gimp_item_tree_view_add_options (GimpItemTreeView *view,
                                  const gchar      *label,
                                  GtkWidget        *options)
 {
-  GtkWidget *hbox;
-  GtkWidget *label_widget;
-  gint       content_spacing;
-  gint       button_spacing;
-  gboolean   box_created = FALSE;
+  gint content_spacing;
+  gint button_spacing;
 
   g_return_if_fail (GIMP_IS_ITEM_TREE_VIEW (view));
-  g_return_if_fail (label != NULL);
   g_return_if_fail (GTK_IS_WIDGET (options));
 
   gtk_widget_style_get (GTK_WIDGET (view),
@@ -653,7 +648,7 @@ gimp_item_tree_view_add_options (GimpItemTreeView *view,
 
       item_view_class = GIMP_ITEM_TREE_VIEW_GET_CLASS (view);
 
-      view->priv->options_box = gtk_vbox_new (FALSE, content_spacing);
+      view->priv->options_box = gtk_box_new (GTK_ORIENTATION_VERTICAL, content_spacing);
       gtk_box_pack_start (GTK_BOX (view), view->priv->options_box,
                           FALSE, FALSE, 0);
       gtk_box_reorder_child (GTK_BOX (view), view->priv->options_box, 0);
@@ -664,27 +659,43 @@ gimp_item_tree_view_add_options (GimpItemTreeView *view,
         {
           gtk_widget_set_sensitive (view->priv->options_box, FALSE);
         }
-
-      view->priv->options_group = gtk_size_group_new (GTK_SIZE_GROUP_HORIZONTAL);
-
-      box_created = TRUE;
     }
 
-  hbox = gtk_hbox_new (FALSE, button_spacing);
-  gtk_box_pack_start (GTK_BOX (view->priv->options_box), hbox, FALSE, FALSE, 0);
-  gtk_widget_show (hbox);
+  if (label)
+    {
+      GtkWidget *hbox;
+      GtkWidget *label_widget;
+      gboolean   group_created = FALSE;
 
-  label_widget = gtk_label_new (label);
-  gtk_misc_set_alignment (GTK_MISC (label_widget), 0.0, 0.5);
-  gtk_size_group_add_widget (view->priv->options_group, label_widget);
-  gtk_box_pack_start (GTK_BOX (hbox), label_widget, FALSE, FALSE, 0);
-  gtk_widget_show (label_widget);
+      hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, button_spacing);
+      gtk_box_pack_start (GTK_BOX (view->priv->options_box), hbox,
+                          FALSE, FALSE, 0);
+      gtk_widget_show (hbox);
 
-  if (box_created)
-    g_object_unref (view->priv->options_group);
+      if (! view->priv->options_group)
+        {
+          view->priv->options_group = gtk_size_group_new (GTK_SIZE_GROUP_HORIZONTAL);
+          group_created = TRUE;
+        }
 
-  gtk_box_pack_start (GTK_BOX (hbox), options, TRUE, TRUE, 0);
-  gtk_widget_show (options);
+      label_widget = gtk_label_new (label);
+      gtk_misc_set_alignment (GTK_MISC (label_widget), 0.0, 0.5);
+      gtk_size_group_add_widget (view->priv->options_group, label_widget);
+      gtk_box_pack_start (GTK_BOX (hbox), label_widget, FALSE, FALSE, 0);
+      gtk_widget_show (label_widget);
+
+      if (group_created)
+        g_object_unref (view->priv->options_group);
+
+      gtk_box_pack_start (GTK_BOX (hbox), options, TRUE, TRUE, 0);
+      gtk_widget_show (options);
+    }
+  else
+    {
+      gtk_box_pack_start (GTK_BOX (view->priv->options_box), options,
+                          FALSE, FALSE, 0);
+      gtk_widget_show (options);
+    }
 }
 
 GtkWidget *
@@ -700,7 +711,7 @@ gimp_item_tree_view_get_lock_box (GimpItemTreeView *view)
                             "button-spacing", &button_spacing,
                             NULL);
 
-      view->priv->lock_box = gtk_hbox_new (FALSE, button_spacing);
+      view->priv->lock_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, button_spacing);
 
       gimp_item_tree_view_add_options (view, _("Lock:"), view->priv->lock_box);
 
@@ -748,7 +759,7 @@ gimp_item_tree_view_get_drop_index (GimpItemTreeView         *view,
       *parent = gimp_viewable_get_parent (dest_viewable);
       index   = gimp_item_get_index (GIMP_ITEM (dest_viewable));
 
-      if (drop_pos == GTK_TREE_VIEW_DROP_AFTER)
+      if (drop_pos == GTK_TREE_VIEW_DROP_INTO_OR_AFTER)
         {
           GimpContainer *children = gimp_viewable_get_children (dest_viewable);
 
@@ -761,6 +772,10 @@ gimp_item_tree_view_get_drop_index (GimpItemTreeView         *view,
             {
               index++;
             }
+        }
+      else if (drop_pos == GTK_TREE_VIEW_DROP_AFTER)
+        {
+          index++;
         }
     }
 
@@ -822,7 +837,7 @@ gimp_item_tree_view_image_flush (GimpImage        *image,
                                  gboolean          invalidate_preview,
                                  GimpItemTreeView *view)
 {
-  gimp_ui_manager_update (GIMP_EDITOR (view)->ui_manager, view);
+  gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (view)), view);
 }
 
 
@@ -926,6 +941,9 @@ gimp_item_tree_view_insert_item (GimpContainerView *view,
   gtk_tree_store_set (GTK_TREE_STORE (tree_view->model), iter,
                       item_view->priv->model_column_visible,
                       gimp_item_get_visible (item),
+                      item_view->priv->model_column_viewable,
+                      gimp_item_get_visible (item) &&
+                      ! gimp_item_is_visible (item),
                       item_view->priv->model_column_linked,
                       gimp_item_get_linked (item),
                       -1);
@@ -983,7 +1001,7 @@ gimp_item_tree_view_select_item (GimpContainerView *view,
       gimp_item_tree_view_update_options (tree_view, GIMP_ITEM (item));
     }
 
-  gimp_ui_manager_update (GIMP_EDITOR (tree_view)->ui_manager, tree_view);
+  gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (tree_view)), tree_view);
 
   if (tree_view->priv->options_box)
     gtk_widget_set_sensitive (tree_view->priv->options_box, options_sensitive);
@@ -1003,7 +1021,7 @@ gimp_item_tree_view_activate_item (GimpContainerView *view,
 
   if (item_view_class->activate_action)
     {
-      gimp_ui_manager_activate_action (GIMP_EDITOR (view)->ui_manager,
+      gimp_ui_manager_activate_action (gimp_editor_get_ui_manager (GIMP_EDITOR (view)),
                                        item_view_class->action_group,
                                        item_view_class->activate_action);
     }
@@ -1137,7 +1155,7 @@ gimp_item_tree_view_new_dropped (GtkWidget    *widget,
     {
       GtkAction *action;
 
-      action = gimp_ui_manager_find_action (GIMP_EDITOR (view)->ui_manager,
+      action = gimp_ui_manager_find_action (gimp_editor_get_ui_manager (GIMP_EDITOR (view)),
                                             item_view_class->action_group,
                                             item_view_class->new_default_action);
 
@@ -1252,10 +1270,24 @@ gimp_item_tree_view_visible_changed (GimpItem         *item,
                                      (GimpViewable *) item);
 
   if (iter)
-    gtk_tree_store_set (GTK_TREE_STORE (tree_view->model), iter,
-                        view->priv->model_column_visible,
-                        gimp_item_get_visible (item),
-                        -1);
+    {
+      GimpContainer *children;
+
+      gtk_tree_store_set (GTK_TREE_STORE (tree_view->model), iter,
+                          view->priv->model_column_visible,
+                          gimp_item_get_visible (item),
+                          view->priv->model_column_viewable,
+                          gimp_item_get_visible (item) &&
+                          ! gimp_item_is_visible (item),
+                          -1);
+
+      children = gimp_viewable_get_children (GIMP_VIEWABLE (item));
+
+      if (children)
+        gimp_container_foreach (children,
+                                (GFunc) gimp_item_tree_view_visible_changed,
+                                view);
+    }
 }
 
 static void
@@ -1267,6 +1299,7 @@ gimp_item_tree_view_eye_clicked (GtkCellRendererToggle *toggle,
   gimp_item_tree_view_toggle_clicked (toggle, path_str, state, view,
                                       GIMP_UNDO_ITEM_VISIBILITY);
 }
+
 
 /*  "Linked" callbacks  */
 
@@ -1385,23 +1418,8 @@ gimp_item_tree_view_item_pre_clicked (GimpCellRendererViewable *cell,
 
       if (renderer)
         {
-          GimpItem       *item;
-          GimpChannelOps  op = GIMP_CHANNEL_OP_REPLACE;
-
-          item = GIMP_ITEM (renderer->viewable);
-
-          if ((state & GDK_SHIFT_MASK) && (state & GDK_CONTROL_MASK))
-            {
-              op = GIMP_CHANNEL_OP_INTERSECT;
-            }
-          else if (state & GDK_SHIFT_MASK)
-            {
-              op = GIMP_CHANNEL_OP_ADD;
-            }
-          else if (state & GDK_CONTROL_MASK)
-            {
-              op = GIMP_CHANNEL_OP_SUBTRACT;
-            }
+          GimpItem       *item = GIMP_ITEM (renderer->viewable);
+          GimpChannelOps  op   = gimp_modifiers_to_channel_op (state);
 
           gimp_item_to_selection (item, op,
                                   TRUE, FALSE, 0.0, 0.0);
@@ -1457,33 +1475,23 @@ gimp_item_tree_view_toggle_clicked (GtkCellRendererToggle *toggle,
   GimpContainerTreeView *tree_view = GIMP_CONTAINER_TREE_VIEW (view);
   GtkTreePath           *path;
   GtkTreeIter            iter;
-  GimpUndoType           group_type;
-  const gchar           *undo_desc;
 
-  gboolean   (* getter) (const GimpItem *item);
-  void       (* setter) (GimpItem       *item,
-                         gboolean        value,
-                         gboolean        push_undo);
-  GimpUndo * (* pusher) (GimpImage      *image,
-                         const gchar    *undo_desc,
-                         GimpItem       *item);
+  void (* setter)    (GimpItem    *item,
+                      gboolean     value,
+                      gboolean     push_undo);
+  void (* exclusive) (GimpItem    *item,
+                      GimpContext *context);
 
   switch (undo_type)
     {
     case GIMP_UNDO_ITEM_VISIBILITY:
-      getter     = gimp_item_get_visible;
       setter     = gimp_item_set_visible;
-      pusher     = gimp_image_undo_push_item_visibility;
-      group_type = GIMP_UNDO_GROUP_ITEM_VISIBILITY;
-      undo_desc  = _("Set Item Exclusive Visible");
+      exclusive  = gimp_item_toggle_exclusive_visible;
       break;
 
     case GIMP_UNDO_ITEM_LINKED:
-      getter     = gimp_item_get_linked;
       setter     = gimp_item_set_linked;
-      pusher     = gimp_image_undo_push_item_linked;
-      group_type = GIMP_UNDO_GROUP_ITEM_LINKED;
-      undo_desc  = _("Set Item Exclusive Linked");
+      exclusive  = NULL;
       break;
 
     default:
@@ -1514,94 +1522,9 @@ gimp_item_tree_view_toggle_clicked (GtkCellRendererToggle *toggle,
 
       image = gimp_item_get_image (item);
 
-      if (state & GDK_SHIFT_MASK)
+      if ((state & GDK_SHIFT_MASK) && exclusive)
         {
-          GList    *on  = NULL;
-          GList    *off = NULL;
-          GList    *list;
-          gboolean  iter_valid;
-
-          for (iter_valid = gtk_tree_model_get_iter_first (tree_view->model,
-                                                           &iter);
-               iter_valid;
-               iter_valid = gtk_tree_model_iter_next (tree_view->model,
-                                                      &iter))
-            {
-              gtk_tree_model_get (tree_view->model, &iter,
-                                  GIMP_CONTAINER_TREE_STORE_COLUMN_RENDERER, &renderer,
-                                  -1);
-
-              if ((GimpItem *) renderer->viewable != item)
-                {
-                  if (getter (GIMP_ITEM (renderer->viewable)))
-                    on = g_list_prepend (on, renderer->viewable);
-                  else
-                    off = g_list_prepend (off, renderer->viewable);
-                }
-
-              g_object_unref (renderer);
-            }
-
-          if (on || off || ! getter (item))
-            {
-              GimpItemTreeViewClass *view_class;
-              GimpUndo              *undo;
-              gboolean               push_undo = TRUE;
-
-              view_class = GIMP_ITEM_TREE_VIEW_GET_CLASS (view);
-
-              undo = gimp_image_undo_can_compress (image, GIMP_TYPE_UNDO_STACK,
-                                                   group_type);
-
-              if (undo && (g_object_get_data (G_OBJECT (undo), "item-type") ==
-                           (gpointer) view_class->item_type))
-                push_undo = FALSE;
-
-              if (push_undo)
-                {
-                  if (gimp_image_undo_group_start (image, group_type,
-                                                   undo_desc))
-                    {
-                      undo = gimp_image_undo_can_compress (image,
-                                                           GIMP_TYPE_UNDO_STACK,
-                                                           group_type);
-
-                      if (undo)
-                        g_object_set_data (G_OBJECT (undo), "item-type",
-                                           (gpointer) view_class->item_type);
-                    }
-
-                  pusher (image, NULL, item);
-
-                  for (list = on; list; list = g_list_next (list))
-                    pusher (image, NULL, list->data);
-
-                  for (list = off; list; list = g_list_next (list))
-                    pusher (image, NULL, list->data);
-
-                  gimp_image_undo_group_end (image);
-                }
-              else
-                {
-                  gimp_undo_refresh_preview (undo, context);
-                }
-            }
-
-          setter (item, TRUE, FALSE);
-
-          if (on)
-            {
-              for (list = on; list; list = g_list_next (list))
-                setter (GIMP_ITEM (list->data), FALSE, FALSE);
-            }
-          else if (off)
-            {
-              for (list = off; list; list = g_list_next (list))
-                setter (GIMP_ITEM (list->data), TRUE, FALSE);
-            }
-
-          g_list_free (on);
-          g_list_free (off);
+          exclusive (item, context);
         }
       else
         {

@@ -85,31 +85,34 @@ gimp_foreground_select_options_class_init (GimpForegroundSelectOptionsClass *kla
 
   GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_CONTIGUOUS,
                                     "contiguous",
-                                    _("Select a single contiguous area"),
+                                    N_("Select a single contiguous area"),
                                     TRUE,
                                     GIMP_PARAM_STATIC_STRINGS);
 
   GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_BACKGROUND,
-                                    "background", NULL,
+                                    "background",
+                                    N_("Paint over areas to mark color values for "
+                                       "inclusion or exclusion from selection"),
                                     FALSE,
                                     GIMP_PARAM_STATIC_STRINGS);
 
   GIMP_CONFIG_INSTALL_PROP_INT (object_class, PROP_STROKE_WIDTH,
                                 "stroke-width",
-                                _("Size of the brush used for refinements"),
+                                N_("Size of the brush used for refinements"),
                                 1, 80, 18,
                                 GIMP_PARAM_STATIC_STRINGS);
 
   GIMP_CONFIG_INSTALL_PROP_INT (object_class, PROP_SMOOTHNESS,
                                 "smoothness",
-                                _("Smaller values give a more accurate "
+                                N_("Smaller values give a more accurate "
                                   "selection border but may introduce holes "
                                   "in the selection"),
                                 0, 8, SIOX_DEFAULT_SMOOTHNESS,
                                 GIMP_PARAM_STATIC_STRINGS);
 
   GIMP_CONFIG_INSTALL_PROP_ENUM (object_class, PROP_MASK_COLOR,
-                                 "mask-color", NULL,
+                                 "mask-color",
+                                 N_("Color of selection preview mask"),
                                  GIMP_TYPE_CHANNEL_TYPE,
                                  GIMP_BLUE_CHANNEL,
                                  GIMP_PARAM_STATIC_STRINGS);
@@ -121,19 +124,19 @@ gimp_foreground_select_options_class_init (GimpForegroundSelectOptionsClass *kla
 
   GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, PROP_SENSITIVITY_L,
                                    "sensitivity-l",
-                                   _("Sensitivity for brightness component"),
+                                   N_("Sensitivity for brightness component"),
                                    0.0, 10.0, SIOX_DEFAULT_SENSITIVITY_L,
                                    GIMP_PARAM_STATIC_STRINGS);
 
   GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, PROP_SENSITIVITY_A,
                                    "sensitivity-a",
-                                   _("Sensitivity for red/green component"),
+                                   N_("Sensitivity for red/green component"),
                                    0.0, 10.0, SIOX_DEFAULT_SENSITIVITY_A,
                                    GIMP_PARAM_STATIC_STRINGS);
 
   GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, PROP_SENSITIVITY_B,
                                    "sensitivity-b",
-                                   _("Sensitivity for yellow/blue component"),
+                                   N_("Sensitivity for yellow/blue component"),
                                    0.0, 10.0, SIOX_DEFAULT_SENSITIVITY_B,
                                    GIMP_PARAM_STATIC_STRINGS);
 }
@@ -259,11 +262,22 @@ static GtkWidget *
 gimp_foreground_select_options_gui_full (GimpToolOptions *tool_options, 
                                          gboolean horizontal)
 {
-  GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_selection_options_gui_full (tool_options, horizontal);
-  GtkWidget *button;
-  GtkWidget *frame;
-  GType      tool_type = G_TYPE_NONE;
+  GObject         *config = G_OBJECT (tool_options);
+  GtkWidget       *vbox   = gimp_selection_options_gui_full (tool_options, horizontal);
+  GType            tool_type = G_TYPE_NONE;
+  GtkWidget       *hbox;
+  GtkWidget       *button;
+  GtkWidget       *frame;
+  GtkWidget       *scale;
+  GtkWidget       *label;
+  GtkWidget       *menu;
+  GtkWidget       *inner_frame;
+  GtkWidget       *table;
+  gchar           *title;
+  gint             row = 0;
+  GdkModifierType  toggle_mask;
+
+  toggle_mask = gimp_get_toggle_behavior_mask ();
 
   gtk_widget_set_sensitive (GIMP_SELECTION_OPTIONS (tool_options)->antialias_toggle,
                             FALSE);
@@ -301,7 +315,7 @@ gimp_foreground_selection_options_create_view (GtkWidget *source, GtkWidget **re
 
   /*  foreground / background  */
   title = g_strdup_printf (_("Interactive refinement  (%s)"),
-                           gimp_get_mod_string (GDK_CONTROL_MASK));
+                           gimp_get_mod_string (toggle_mask));
 
   frame = gimp_prop_boolean_radio_frame_new (config, "background", title,
                                              _("Mark background"),
@@ -312,12 +326,12 @@ gimp_foreground_selection_options_create_view (GtkWidget *source, GtkWidget **re
   gtk_widget_show (frame);
 
   /*  stroke width  */
-  inner_frame = gtk_vbox_new (FALSE, 0);
+  inner_frame = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_box_pack_start (GTK_BOX (gtk_bin_get_child (GTK_BIN (frame))),
                       inner_frame, FALSE, FALSE, 2);
   gtk_widget_show (inner_frame);
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (inner_frame), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -350,7 +364,6 @@ gimp_foreground_selection_options_create_view (GtkWidget *source, GtkWidget **re
   gtk_widget_show (table);
 
   scale = gimp_prop_hscale_new (config, "smoothness", 0.1, 1.0, 0);
-  gtk_range_set_update_policy (GTK_RANGE (scale), GTK_UPDATE_DELAYED);
   gtk_scale_set_value_pos (GTK_SCALE (scale), GTK_POS_RIGHT);
   gimp_table_attach_aligned (GTK_TABLE (table), 0, 0,
                              _("Smoothing:"), 0.0, 0.5, scale, 2, FALSE);
@@ -376,20 +389,14 @@ gimp_foreground_selection_options_create_view (GtkWidget *source, GtkWidget **re
   gtk_container_add (GTK_CONTAINER (inner_frame), table);
   gtk_widget_show (table);
 
-  adj = gimp_prop_opacity_entry_new (config, "sensitivity-l",
-                                     GTK_TABLE (table), 0, row++, "L");
-  gtk_range_set_update_policy (GTK_RANGE (GIMP_SCALE_ENTRY_SCALE (adj)),
-                               GTK_UPDATE_DELAYED);
+  gimp_prop_opacity_entry_new (config, "sensitivity-l",
+                               GTK_TABLE (table), 0, row++, "L");
 
-  adj = gimp_prop_opacity_entry_new (config, "sensitivity-a",
-                                     GTK_TABLE (table), 0, row++, "a");
-  gtk_range_set_update_policy (GTK_RANGE (GIMP_SCALE_ENTRY_SCALE (adj)),
-                               GTK_UPDATE_DELAYED);
+  gimp_prop_opacity_entry_new (config, "sensitivity-a",
+                               GTK_TABLE (table), 0, row++, "a");
 
-  adj = gimp_prop_opacity_entry_new (config, "sensitivity-b",
-                                     GTK_TABLE (table), 0, row++, "b");
-  gtk_range_set_update_policy (GTK_RANGE (GIMP_SCALE_ENTRY_SCALE (adj)),
-                               GTK_UPDATE_DELAYED);
+  gimp_prop_opacity_entry_new (config, "sensitivity-b",
+                               GTK_TABLE (table), 0, row++, "b");
 
   *result = vbox;
 }

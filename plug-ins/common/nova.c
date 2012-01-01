@@ -70,6 +70,7 @@
 
 #define PLUG_IN_PROC   "plug-in-nova"
 #define PLUG_IN_BINARY "nova"
+#define PLUG_IN_ROLE   "gimp-nova"
 
 #define SCALE_WIDTH    125
 
@@ -295,7 +296,7 @@ nova_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Supernova"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Supernova"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -311,10 +312,10 @@ nova_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_zoom_preview_new (drawable);
@@ -439,7 +440,7 @@ nova_center_create (GimpDrawable *drawable,
                             G_CALLBACK (g_free),
                             center);
 
-  hbox = gtk_hbox_new (FALSE, 0);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_container_add (GTK_CONTAINER (frame), hbox);
   gtk_widget_show (hbox);
 
@@ -535,22 +536,29 @@ nova_center_preview_expose (GtkWidget  *widget,
   if (show_cursor)
     {
       cairo_t *cr;
-      gint     x, y;
+      gint     x, y, offx, offy;
       gint     width, height;
+
+      GimpPreviewArea *area = GIMP_PREVIEW_AREA (center->preview->area);
+      GtkAllocation    allocation;
 
       cr = gdk_cairo_create (gtk_widget_get_window (center->preview->area));
 
       gimp_preview_transform (center->preview,
                               pvals.xcenter, pvals.ycenter,
                               &x, &y);
+      gtk_widget_get_allocation (GTK_WIDGET (area), &allocation);
+
+      offx = (allocation.width  - area->width)  / 2;
+      offy = (allocation.height - area->height) / 2;
 
       gimp_preview_get_size (center->preview, &width, &height);
 
-      cairo_move_to (cr, x + 0.5, 0);
-      cairo_line_to (cr, x + 0.5, height);
+      cairo_move_to (cr, offx + x + 0.5, 0);
+      cairo_line_to (cr, offx + x + 0.5, allocation.height);
 
-      cairo_move_to (cr, 0,     y + 0.5);
-      cairo_line_to (cr, width, y + 0.5);
+      cairo_move_to (cr, 0,    offy + y + 0.5);
+      cairo_line_to (cr, allocation.width, offy + y + 0.5);
 
       cairo_set_line_width (cr, 3.0);
       cairo_set_source_rgba (cr, 1.0, 1.0, 1.0, 0.6);
@@ -577,6 +585,15 @@ nova_center_update (GtkWidget  *widget,
                     gint        y)
 {
   gint tx, ty;
+
+
+  GimpPreviewArea *area = GIMP_PREVIEW_AREA (center->preview->area);
+  GtkAllocation    allocation;
+
+  gtk_widget_get_allocation (GTK_WIDGET (area), &allocation);
+
+  x -= (allocation.width  - area->width)  / 2;
+  y -= (allocation.height - area->height) / 2;
 
   gimp_preview_untransform (center->preview, x, y, &tx, &ty);
 
@@ -962,6 +979,8 @@ nova (GimpDrawable *drawable,
            progress += src_rgn.w * src_rgn.h;
            gimp_progress_update ((gdouble) progress / (gdouble) max_progress);
          }
+
+       gimp_progress_update (1.0);
 
        gimp_drawable_flush (drawable);
        gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);

@@ -106,6 +106,8 @@ libappwidgets_a_sources = \
 	gimpcontrollers.h		\
 	gimpcontrollerkeyboard.c	\
 	gimpcontrollerkeyboard.h	\
+	gimpcontrollermouse.c		\
+	gimpcontrollermouse.h		\
 	gimpcontrollerwheel.c		\
 	gimpcontrollerwheel.h		\
 	gimpcursor.c			\
@@ -126,6 +128,8 @@ libappwidgets_a_sources = \
 	gimpdeviceinfo-coords.h		\
 	gimpdeviceinfoeditor.c		\
 	gimpdeviceinfoeditor.h		\
+	gimpdevicemanager.c		\
+	gimpdevicemanager.h		\
 	gimpdevices.c			\
 	gimpdevices.h			\
 	gimpdevicestatus.c		\
@@ -144,6 +148,8 @@ libappwidgets_a_sources = \
 	gimpdockable.h			\
 	gimpdockbook.c			\
 	gimpdockbook.h			\
+	gimpdockcontainer.c		\
+	gimpdockcontainer.h		\
 	gimpdocked.c			\
 	gimpdocked.h			\
 	gimpdockwindow.c		\
@@ -197,6 +203,8 @@ libappwidgets_a_sources = \
 	gimphistogrameditor.h		\
 	gimphistogramview.c		\
 	gimphistogramview.h		\
+	gimpiconpicker.c		\
+	gimpiconpicker.h		\
 	gimpimagecommenteditor.c	\
 	gimpimagecommenteditor.h	\
 	gimpimageeditor.c		\
@@ -290,6 +298,8 @@ libappwidgets_a_sources = \
 	gimpsessioninfo-dockable.c	\
 	gimpsessioninfo-dockable.h	\
 	gimpsessioninfo-private.h	\
+	gimpsessionmanaged.c		\
+	gimpsessionmanaged.h		\
 	gimpsettingsbox.c		\
 	gimpsettingsbox.h		\
 	gimpsettingseditor.c		\
@@ -337,8 +347,6 @@ libappwidgets_a_sources = \
 	gimptoolbox-image-area.h	\
 	gimptoolbox-indicator-area.c	\
 	gimptoolbox-indicator-area.h	\
-	gimptooldialog.c		\
-	gimptooldialog.h		\
 	gimptooleditor.c		\
 	gimptooleditor.h		\
 	gimptooloptionseditor.c		\
@@ -408,8 +416,6 @@ libappwidgets_a_built_sources = widgets-enums.c
 
 libappwidgets_a_SOURCES = \
 	$(libappwidgets_a_built_sources) $(libappwidgets_a_sources)
-
-EXTRA_DIST = makefile.msc
 
 
 #

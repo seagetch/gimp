@@ -118,6 +118,8 @@ find_outline_pixels (void)
 	gimp_progress_update (((gdouble)row) / height);
   }
 
+  gimp_progress_update (1.0);
+
   local_free_bitmap (&marked);
 
   return outline_list;
@@ -222,7 +224,6 @@ static void
 append_coordinate (pixel_outline_type *o, int x, int y, edge_type edge)
 {
   coordinate_type c;
-  char * str;
 
   c.x = x;
   c.y = y;
@@ -231,22 +232,18 @@ append_coordinate (pixel_outline_type *o, int x, int y, edge_type edge)
     {
     case top:
       c.y++;
-      str = "top";
       break;
 
     case right:
       c.x++;
       c.y++;
-      str = "right";
       break;
 
     case bottom:
       c.x++;
-      str = "bottom";
       break;
 
     case left:
-      str = "left";
       break;
 
     default:

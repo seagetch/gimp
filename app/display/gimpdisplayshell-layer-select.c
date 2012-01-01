@@ -21,6 +21,8 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 
+#include "libgimpwidgets/gimpwidgets.h"
+
 #include "display-types.h"
 
 #include "config/gimpcoreconfig.h"
@@ -138,7 +140,7 @@ layer_select_new (GimpImage *image,
   gtk_container_add (GTK_CONTAINER (frame1), frame2);
   gtk_widget_show (frame2);
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 6);
   gtk_container_add (GTK_CONTAINER (frame2), hbox);
   gtk_widget_show (hbox);
@@ -255,10 +257,10 @@ layer_select_events (GtkWidget   *widget,
 
       switch (kevent->keyval)
         {
-        case GDK_Tab:
+        case GDK_KEY_Tab:
           layer_select_advance (layer_select, 1);
           break;
-        case GDK_ISO_Left_Tab:
+        case GDK_KEY_ISO_Left_Tab:
           layer_select_advance (layer_select, -1);
           break;
         }
@@ -270,13 +272,13 @@ layer_select_events (GtkWidget   *widget,
 
       switch (kevent->keyval)
         {
-        case GDK_Alt_L: case GDK_Alt_R:
+        case GDK_KEY_Alt_L: case GDK_KEY_Alt_R:
           kevent->state &= ~GDK_MOD1_MASK;
           break;
-        case GDK_Control_L: case GDK_Control_R:
+        case GDK_KEY_Control_L: case GDK_KEY_Control_R:
           kevent->state &= ~GDK_CONTROL_MASK;
           break;
-        case GDK_Shift_L: case GDK_Shift_R:
+        case GDK_KEY_Shift_L: case GDK_KEY_Shift_R:
           kevent->state &= ~GDK_SHIFT_MASK;
           break;
         }

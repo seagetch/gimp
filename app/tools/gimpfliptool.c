@@ -34,6 +34,7 @@
 #include "core/gimppickable.h"
 
 #include "widgets/gimphelp-ids.h"
+#include "widgets/gimpwidgets-utils.h"
 
 #include "display/gimpdisplay.h"
 
@@ -56,10 +57,14 @@ static void          gimp_flip_tool_cursor_update (GimpTool          *tool,
                                                    GdkModifierType    state,
                                                    GimpDisplay       *display);
 
+static gchar       * gimp_flip_tool_get_undo_desc (GimpTransformTool *tool);
 static TileManager * gimp_flip_tool_transform     (GimpTransformTool *tool,
                                                    GimpItem          *item,
-                                                   gboolean           mask_empty,
-                                                   GimpDisplay       *display);
+                                                   TileManager       *orig_tiles,
+                                                   gint               orig_offset_x,
+                                                   gint               orig_offset_y,
+                                                   gint              *new_offset_x,
+                                                   gint              *new_offset_y);
 
 
 G_DEFINE_TYPE (GimpFlipTool, gimp_flip_tool, GIMP_TYPE_TRANSFORM_TOOL)
@@ -92,17 +97,17 @@ gimp_flip_tool_class_init (GimpFlipToolClass *klass)
   GimpToolClass          *tool_class  = GIMP_TOOL_CLASS (klass);
   GimpTransformToolClass *trans_class = GIMP_TRANSFORM_TOOL_CLASS (klass);
 
-  tool_class->modifier_key  = gimp_flip_tool_modifier_key;
-  tool_class->cursor_update = gimp_flip_tool_cursor_update;
+  tool_class->modifier_key   = gimp_flip_tool_modifier_key;
+  tool_class->cursor_update  = gimp_flip_tool_cursor_update;
 
-  trans_class->transform    = gimp_flip_tool_transform;
+  trans_class->get_undo_desc = gimp_flip_tool_get_undo_desc;
+  trans_class->transform     = gimp_flip_tool_transform;
 }
 
 static void
 gimp_flip_tool_init (GimpFlipTool *flip_tool)
 {
   GimpTool *tool = GIMP_TOOL (flip_tool);
-  GimpTransformTool *tr_tool = GIMP_TRANSFORM_TOOL (flip_tool);
 
   gimp_tool_control_set_snap_to            (tool->control, FALSE);
   gimp_tool_control_set_precision          (tool->control,
@@ -113,8 +118,6 @@ gimp_flip_tool_init (GimpFlipTool *flip_tool)
                                             GIMP_TOOL_CURSOR_FLIP_HORIZONTAL);
   gimp_tool_control_set_toggle_tool_cursor (tool->control,
                                             GIMP_TOOL_CURSOR_FLIP_VERTICAL);
-
-  tr_tool->undo_desc = C_("command", "Flip");
 }
 
 static void
@@ -126,7 +129,7 @@ gimp_flip_tool_modifier_key (GimpTool        *tool,
 {
   GimpFlipOptions *options = GIMP_FLIP_TOOL_GET_OPTIONS (tool);
 
-  if (key == GDK_CONTROL_MASK)
+  if (key == gimp_get_toggle_behavior_mask ())
     {
       switch (options->flip_type)
         {
@@ -174,17 +177,40 @@ gimp_flip_tool_cursor_update (GimpTool         *tool,
   GIMP_TOOL_CLASS (parent_class)->cursor_update (tool, coords, state, display);
 }
 
+static gchar *
+gimp_flip_tool_get_undo_desc (GimpTransformTool *tr_tool)
+{
+  GimpFlipOptions *options = GIMP_FLIP_TOOL_GET_OPTIONS (tr_tool);
+
+  switch (options->flip_type)
+    {
+    case GIMP_ORIENTATION_HORIZONTAL:
+      return g_strdup (C_("undo-type", "Flip horizontally"));
+
+    case GIMP_ORIENTATION_VERTICAL:
+      return g_strdup (C_("undo-type", "Flip vertically"));
+
+    default:
+      /* probably this is not actually reached today, but
+       * could be if someone defined FLIP_DIAGONAL, say...
+       */
+      return g_strdup (C_("undo-desc", "Flip"));
+    }
+}
+
 static TileManager *
 gimp_flip_tool_transform (GimpTransformTool *trans_tool,
                           GimpItem          *active_item,
-                          gboolean           mask_empty,
-                          GimpDisplay       *display)
+                          TileManager       *orig_tiles,
+                          gint               orig_offset_x,
+                          gint               orig_offset_y,
+                          gint              *new_offset_x,
+                          gint              *new_offset_y)
 {
-  GimpFlipOptions      *options    = GIMP_FLIP_TOOL_GET_OPTIONS (trans_tool);
-  GimpTransformOptions *tr_options = GIMP_TRANSFORM_OPTIONS (options);
-  GimpContext          *context    = GIMP_CONTEXT (options);
-  gdouble               axis       = 0.0;
-  TileManager          *ret        = NULL;
+  GimpFlipOptions *options = GIMP_FLIP_TOOL_GET_OPTIONS (trans_tool);
+  GimpContext     *context = GIMP_CONTEXT (options);
+  gdouble          axis    = 0.0;
+  TileManager     *ret     = NULL;
 
   switch (options->flip_type)
     {
@@ -206,31 +232,27 @@ gimp_flip_tool_transform (GimpTransformTool *trans_tool,
     gimp_item_linked_flip (active_item, context, options->flip_type, axis,
                            FALSE);
 
-  if (GIMP_IS_LAYER (active_item) &&
-      gimp_layer_get_mask (GIMP_LAYER (active_item)) &&
-      mask_empty)
+  if (orig_tiles)
     {
-      GimpLayerMask *mask = gimp_layer_get_mask (GIMP_LAYER (active_item));
+      /*  this happens when transforming a selection cut out of a
+       *  normal drawable, or the selection
+       */
 
-      gimp_item_flip (GIMP_ITEM (mask), context,
-                      options->flip_type, axis, FALSE);
+      ret = gimp_drawable_transform_tiles_flip (GIMP_DRAWABLE (active_item),
+                                                context,
+                                                orig_tiles,
+                                                orig_offset_x,
+                                                orig_offset_y,
+                                                options->flip_type, axis,
+                                                FALSE,
+                                                new_offset_x,
+                                                new_offset_y);
     }
-
-  switch (tr_options->type)
+  else
     {
-    case GIMP_TRANSFORM_TYPE_LAYER:
-    case GIMP_TRANSFORM_TYPE_SELECTION:
-      if (trans_tool->original)
-        ret = gimp_drawable_transform_tiles_flip (GIMP_DRAWABLE (active_item),
-                                                  context,
-                                                  trans_tool->original,
-                                                  options->flip_type, axis,
-                                                  FALSE);
-      break;
+      /*  this happens for entire drawables, paths and layer groups  */
 
-    case GIMP_TRANSFORM_TYPE_PATH:
       gimp_item_flip (active_item, context, options->flip_type, axis, FALSE);
-      break;
     }
 
   return ret;

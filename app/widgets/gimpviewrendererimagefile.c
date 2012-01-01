@@ -89,7 +89,7 @@ gimp_view_renderer_imagefile_render (GimpViewRenderer *renderer,
     {
       const gchar *stock_id = gimp_viewable_get_stock_id (renderer->viewable);
 
-      gimp_view_renderer_default_render_stock (renderer, widget, stock_id);
+      gimp_view_renderer_render_stock (renderer, widget, stock_id);
     }
 }
 
@@ -156,51 +156,36 @@ gimp_view_renderer_imagefile_get_icon (GimpImagefile *imagefile,
                                        GtkWidget     *widget,
                                        gint           size)
 {
-  GdkScreen    *screen     = gtk_widget_get_screen (widget);
-  GtkIconTheme *icon_theme = gtk_icon_theme_get_for_screen (screen);
-  GdkPixbuf    *pixbuf     = NULL;
+  GdkScreen     *screen     = gtk_widget_get_screen (widget);
+  GtkIconTheme  *icon_theme = gtk_icon_theme_get_for_screen (screen);
+  GimpThumbnail *thumbnail  = gimp_imagefile_get_thumbnail (imagefile);
+  GdkPixbuf     *pixbuf     = NULL;
 
   if (! gimp_object_get_name (imagefile))
     return NULL;
 
   if (! pixbuf)
     {
-      GFile     *file;
-      GFileInfo *file_info;
+      GIcon *icon = gimp_imagefile_get_gicon (imagefile);
 
-      file = g_file_new_for_uri (gimp_object_get_name (imagefile));
-      file_info = g_file_query_info (file, "standard::icon", 0, NULL, NULL);
-
-      if (file_info)
+      if (icon)
         {
-          GIcon *icon = g_file_info_get_icon (file_info);
+          GtkIconInfo *info;
 
-          if (icon)
+          info = gtk_icon_theme_lookup_by_gicon (icon_theme, icon, size, 0);
+
+          if (info)
             {
-              GtkIconInfo *info;
+              pixbuf = gtk_icon_info_load_icon (info, NULL);
 
-              info = gtk_icon_theme_lookup_by_gicon (icon_theme, icon, size, 0);
-
-              if (info)
-                pixbuf = gtk_icon_info_load_icon (info, NULL);
+              gtk_icon_info_free (info);
             }
-          else
-            {
-#ifdef GIMP_UNSTABLE
-              g_printerr ("no icon for: %s\n",
-                          gimp_object_get_name (imagefile));
-#endif
-            }
-
-          g_object_unref (file_info);
         }
-
-      g_object_unref (file);
     }
 
-  if (! pixbuf && imagefile->thumbnail->image_mimetype)
+  if (! pixbuf && thumbnail->image_mimetype)
     {
-      pixbuf = get_icon_for_mime_type (imagefile->thumbnail->image_mimetype,
+      pixbuf = get_icon_for_mime_type (thumbnail->image_mimetype,
                                        size);
     }
 
@@ -208,7 +193,7 @@ gimp_view_renderer_imagefile_get_icon (GimpImagefile *imagefile,
     {
       const gchar *icon_name = GTK_STOCK_FILE;
 
-      if (imagefile->thumbnail->image_state == GIMP_THUMB_STATE_FOLDER)
+      if (thumbnail->image_state == GIMP_THUMB_STATE_FOLDER)
         icon_name = GTK_STOCK_DIRECTORY;
 
       pixbuf = gtk_icon_theme_load_icon (icon_theme,

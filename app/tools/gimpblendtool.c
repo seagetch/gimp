@@ -37,6 +37,8 @@
 #include "widgets/gimphelp-ids.h"
 #include "widgets/gimpwidgets-utils.h"
 
+#include "display/gimpcanvashandle.h"
+#include "display/gimpcanvasline.h"
 #include "display/gimpdisplay.h"
 
 #include "gimpblendoptions.h"
@@ -79,6 +81,7 @@ static void   gimp_blend_tool_cursor_update       (GimpTool              *tool,
                                                    GimpDisplay           *display);
 
 static void   gimp_blend_tool_draw                (GimpDrawTool          *draw_tool);
+static void   gimp_blend_tool_update_items        (GimpBlendTool         *blend_tool);
 
 static void   gimp_blend_tool_push_status         (GimpBlendTool         *blend_tool,
                                                    GdkModifierType        state,
@@ -136,8 +139,6 @@ gimp_blend_tool_init (GimpBlendTool *blend_tool)
   gimp_tool_control_set_scroll_lock     (tool->control, TRUE);
   gimp_tool_control_set_precision       (tool->control,
                                          GIMP_CURSOR_PRECISION_SUBPIXEL);
-  gimp_tool_control_set_cursor          (tool->control,
-                                         GIMP_CURSOR_MOUSE);
   gimp_tool_control_set_tool_cursor     (tool->control,
                                          GIMP_TOOL_CURSOR_BLEND);
   gimp_tool_control_set_action_value_1  (tool->control,
@@ -151,8 +152,9 @@ gimp_blend_tool_initialize (GimpTool     *tool,
                             GimpDisplay  *display,
                             GError      **error)
 {
-  GimpImage    *image    = gimp_display_get_image (display);
-  GimpDrawable *drawable = gimp_image_get_active_drawable (image);
+  GimpImage        *image    = gimp_display_get_image (display);
+  GimpDrawable     *drawable = gimp_image_get_active_drawable (image);
+  GimpBlendOptions *options  = GIMP_BLEND_TOOL_GET_OPTIONS (tool);
 
   if (! GIMP_TOOL_CLASS (parent_class)->initialize (tool, display, error))
     {
@@ -177,6 +179,13 @@ gimp_blend_tool_initialize (GimpTool     *tool,
     {
       g_set_error_literal (error, GIMP_ERROR, GIMP_FAILED,
 			   _("The active layer's pixels are locked."));
+      return FALSE;
+    }
+
+  if (! gimp_context_get_gradient (GIMP_CONTEXT (options)))
+    {
+      g_set_error_literal (error, GIMP_ERROR, GIMP_FAILED,
+                           _("No gradient available for use with this tool."));
       return FALSE;
     }
 
@@ -237,7 +246,7 @@ gimp_blend_tool_button_release (GimpTool              *tool,
       gint          off_x;
       gint          off_y;
 
-      progress = gimp_progress_start (GIMP_PROGRESS (display),
+      progress = gimp_progress_start (GIMP_PROGRESS (tool),
                                       _("Blending"), FALSE);
 
       gimp_item_get_offset (GIMP_ITEM (drawable), &off_x, &off_y);
@@ -280,8 +289,6 @@ gimp_blend_tool_motion (GimpTool         *tool,
 {
   GimpBlendTool *blend_tool = GIMP_BLEND_TOOL (tool);
 
-  gimp_draw_tool_pause (GIMP_DRAW_TOOL (tool));
-
   blend_tool->mouse_x = coords->x;
   blend_tool->mouse_y = coords->y;
 
@@ -303,7 +310,7 @@ gimp_blend_tool_motion (GimpTool         *tool,
       blend_tool->end_y = coords->y;
     }
 
-  if (state & GDK_CONTROL_MASK)
+  if (state & gimp_get_constrain_behavior_mask ())
     {
       gimp_constrain_line (blend_tool->start_x, blend_tool->start_y,
                            &blend_tool->end_x, &blend_tool->end_y,
@@ -313,10 +320,10 @@ gimp_blend_tool_motion (GimpTool         *tool,
   gimp_tool_pop_status (tool, display);
   gimp_blend_tool_push_status (blend_tool, state, display);
 
-  gimp_draw_tool_resume (GIMP_DRAW_TOOL (tool));
-
   blend_tool->last_x = coords->x;
   blend_tool->last_y = coords->y;
+
+  gimp_blend_tool_update_items (blend_tool);
 }
 
 static void
@@ -328,10 +335,8 @@ gimp_blend_tool_active_modifier_key (GimpTool        *tool,
 {
   GimpBlendTool *blend_tool = GIMP_BLEND_TOOL (tool);
 
-  if (key == GDK_CONTROL_MASK)
+  if (key == gimp_get_constrain_behavior_mask ())
     {
-      gimp_draw_tool_pause (GIMP_DRAW_TOOL (tool));
-
       blend_tool->end_x = blend_tool->mouse_x;
       blend_tool->end_y = blend_tool->mouse_y;
 
@@ -346,7 +351,12 @@ gimp_blend_tool_active_modifier_key (GimpTool        *tool,
       gimp_tool_pop_status (tool, display);
       gimp_blend_tool_push_status (blend_tool, state, display);
 
-      gimp_draw_tool_resume (GIMP_DRAW_TOOL (tool));
+      gimp_blend_tool_update_items (blend_tool);
+    }
+  else if (key == GDK_MOD1_MASK)
+    {
+      gimp_tool_pop_status (tool, display);
+      gimp_blend_tool_push_status (blend_tool, state, display);
     }
 }
 
@@ -377,30 +387,54 @@ gimp_blend_tool_draw (GimpDrawTool *draw_tool)
 {
   GimpBlendTool *blend_tool = GIMP_BLEND_TOOL (draw_tool);
 
-  /*  Draw the line between the start and end coords  */
-  gimp_draw_tool_add_line (draw_tool,
-                           blend_tool->start_x,
-                           blend_tool->start_y,
-                           blend_tool->end_x,
-                           blend_tool->end_y);
-
   /*  Draw start target  */
-  gimp_draw_tool_add_handle (draw_tool,
-                             GIMP_HANDLE_CROSS,
+  blend_tool->start_handle =
+    gimp_draw_tool_add_handle (draw_tool,
+                               GIMP_HANDLE_CROSS,
+                               blend_tool->start_x,
+                               blend_tool->start_y,
+                               GIMP_TOOL_HANDLE_SIZE_CROSS,
+                               GIMP_TOOL_HANDLE_SIZE_CROSS,
+                               GIMP_HANDLE_ANCHOR_CENTER);
+
+  /*  Draw the line between the start and end coords  */
+  blend_tool->line =
+    gimp_draw_tool_add_line (draw_tool,
                              blend_tool->start_x,
                              blend_tool->start_y,
-                             GIMP_TOOL_HANDLE_SIZE_CROSS,
-                             GIMP_TOOL_HANDLE_SIZE_CROSS,
-                             GIMP_HANDLE_ANCHOR_CENTER);
+                             blend_tool->end_x,
+                             blend_tool->end_y);
 
   /*  Draw end target  */
-  gimp_draw_tool_add_handle (draw_tool,
-                             GIMP_HANDLE_CROSS,
-                             blend_tool->end_x,
-                             blend_tool->end_y,
-                             GIMP_TOOL_HANDLE_SIZE_CROSS,
-                             GIMP_TOOL_HANDLE_SIZE_CROSS,
-                             GIMP_HANDLE_ANCHOR_CENTER);
+  blend_tool->end_handle =
+    gimp_draw_tool_add_handle (draw_tool,
+                               GIMP_HANDLE_CROSS,
+                               blend_tool->end_x,
+                               blend_tool->end_y,
+                               GIMP_TOOL_HANDLE_SIZE_CROSS,
+                               GIMP_TOOL_HANDLE_SIZE_CROSS,
+                               GIMP_HANDLE_ANCHOR_CENTER);
+}
+
+static void
+gimp_blend_tool_update_items (GimpBlendTool *blend_tool)
+{
+  if (gimp_draw_tool_is_active (GIMP_DRAW_TOOL (blend_tool)))
+    {
+      gimp_canvas_handle_set_position (blend_tool->start_handle,
+                                       blend_tool->start_x,
+                                       blend_tool->start_y);
+
+      gimp_canvas_line_set (blend_tool->line,
+                            blend_tool->start_x,
+                            blend_tool->start_y,
+                            blend_tool->end_x,
+                            blend_tool->end_y);
+
+      gimp_canvas_handle_set_position (blend_tool->end_handle,
+                                       blend_tool->end_x,
+                                       blend_tool->end_y);
+    }
 }
 
 static void
@@ -412,8 +446,9 @@ gimp_blend_tool_push_status (GimpBlendTool   *blend_tool,
   gchar    *status_help;
 
   status_help = gimp_suggest_modifiers ("",
-                                        ((GDK_CONTROL_MASK | GDK_MOD1_MASK)
-                                         & ~state),
+                                        (gimp_get_constrain_behavior_mask () |
+                                         GDK_MOD1_MASK) &
+                                        ~state,
                                         NULL,
                                         _("%s for constrained angles"),
                                         _("%s to move the whole line"));

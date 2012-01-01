@@ -106,7 +106,7 @@ gimp_colorize_tool_class_init (GimpColorizeToolClass *klass)
 
   tool_class->initialize             = gimp_colorize_tool_initialize;
 
-  im_tool_class->shell_desc          = _("Colorize the Image");
+  im_tool_class->dialog_desc         = _("Colorize the Image");
   im_tool_class->settings_name       = "colorize";
   im_tool_class->import_dialog_title = _("Import Colorize Settings");
   im_tool_class->export_dialog_title = _("Export Colorize Settings");
@@ -226,7 +226,7 @@ gimp_colorize_tool_dialog (GimpImageMapTool *image_map_tool)
   gtk_widget_show (frame);
 
   /*  The table containing sliders  */
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 

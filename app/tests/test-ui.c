@@ -38,6 +38,7 @@
 #include "widgets/gimpdock.h"
 #include "widgets/gimpdockable.h"
 #include "widgets/gimpdockbook.h"
+#include "widgets/gimpdockcontainer.h"
 #include "widgets/gimpdocked.h"
 #include "widgets/gimpdockwindow.h"
 #include "widgets/gimphelp-ids.h"
@@ -65,12 +66,8 @@
 #define GIMP_UI_ZOOM_EPSILON            0.01
 
 #define ADD_TEST(function) \
-  g_test_add ("/gimp-ui/" #function, \
-              GimpTestFixture, \
-              gimp, \
-              NULL, \
-              function, \
-              NULL);
+  g_test_add_data_func ("/gimp-ui/" #function, gimp, function);
+
 
 /* Put this in the code below when you want the test to pause so you
  * can do measurements of widgets on the screen for example
@@ -79,12 +76,6 @@
 
 
 typedef gboolean (*GimpUiTestFunc) (GObject *object);
-
-
-typedef struct
-{
-  int avoid_sizeof_zero;
-} GimpTestFixture;
 
 
 static void            gimp_ui_synthesize_delete_event          (GtkWidget         *widget);
@@ -98,19 +89,18 @@ static GtkWidget     * gimp_ui_find_window                      (GimpDialogFacto
 static gboolean        gimp_ui_not_toolbox_window               (GObject           *object);
 static gboolean        gimp_ui_multicolumn_not_toolbox_window   (GObject           *object);
 static gboolean        gimp_ui_is_gimp_layer_list               (GObject           *object);
+static void            gimp_ui_switch_window_mode               (Gimp              *gimp);
 
 
 /**
  * tool_options_editor_updates:
- * @fixture:
  * @data:
  *
  * Makes sure that the tool options editor is updated when the tool
  * changes.
  **/
 static void
-tool_options_editor_updates (GimpTestFixture *fixture,
-                             gconstpointer    data)
+tool_options_editor_updates (gconstpointer data)
 {
   Gimp                  *gimp         = GIMP (data);
   GimpDisplay           *display      = GIMP_DISPLAY (gimp_get_empty_display (gimp));
@@ -175,8 +165,7 @@ gimp_ui_get_dialog (const gchar *identifier)
 }
 
 static void
-automatic_tab_style (GimpTestFixture *fixture,
-                     gconstpointer    data)
+automatic_tab_style (gconstpointer data)
 {
   GtkWidget    *channel_dockable = gimp_ui_get_dialog ("gimp-channel-list");
   GimpDockable *dockable;
@@ -184,6 +173,8 @@ automatic_tab_style (GimpTestFixture *fixture,
   g_assert (channel_dockable != NULL);
 
   dockable = GIMP_DOCKABLE (channel_dockable);
+
+  gimp_test_run_mainloop_until_idle ();
 
   /* The channel dockable is the only dockable, it has enough space
    * for the icon-blurb
@@ -226,55 +217,15 @@ automatic_tab_style (GimpTestFixture *fixture,
 }
 
 static void
-create_new_image_via_dialog (GimpTestFixture *fixture,
-                             gconstpointer    data)
+create_new_image_via_dialog (gconstpointer data)
 {
-  Gimp              *gimp             = GIMP (data);
-  GimpDisplay       *display          = GIMP_DISPLAY (gimp_get_empty_display (gimp));
-  GimpDisplayShell  *shell            = gimp_display_get_shell (display);
-  GtkWidget         *toplevel         = gtk_widget_get_toplevel (GTK_WIDGET (shell));
-  GimpImageWindow   *image_window     = GIMP_IMAGE_WINDOW (toplevel);
-  GimpUIManager     *ui_manager       = gimp_image_window_get_ui_manager (image_window);
-  GtkWidget         *new_image_dialog = NULL;
-  guint              n_initial_images = g_list_length (gimp_get_image_iter (gimp));
-  guint              n_images         = -1;
-  gint               tries_left       = 100;
-  GimpImage         *image;
-  GimpLayer         *layer;
+  Gimp      *gimp = GIMP (data);
+  GimpImage *image;
+  GimpLayer *layer;
 
-  /* Bring up the new image dialog */
-  gimp_ui_manager_activate_action (ui_manager,
-                                   "image",
-                                   "image-new");
-  gimp_test_run_mainloop_until_idle ();
-
-  /* Get the GtkWindow of the dialog */
-  new_image_dialog =
-    gimp_dialog_factory_dialog_raise (gimp_dialog_factory_get_singleton (),
-                                      gtk_widget_get_screen (GTK_WIDGET (shell)),
-                                      "gimp-image-new-dialog",
-                                      -1 /*view_size*/);
-
-  /* Press the focused widget, it should be the Ok button. It will
-   * take a while for the image to be created to loop for a while
-   */
-  gtk_widget_activate (gtk_window_get_focus (GTK_WINDOW (new_image_dialog)));
-  do
-    {
-      g_usleep (20 * 1000);
-      gimp_test_run_mainloop_until_idle ();
-      n_images = g_list_length (gimp_get_image_iter (gimp));
-    }
-  while (tries_left-- &&
-         n_images != n_initial_images + 1);
-
-  /* Make sure there now is one image more than initially */
-  g_assert_cmpint (n_images,
-                   ==,
-                   n_initial_images + 1);
+  image = gimp_test_utils_create_image_from_dalog (gimp);
 
   /* Add a layer to the image to make it more useful in later tests */
-  image = GIMP_IMAGE (gimp_get_image_iter (gimp)->data);
   layer = gimp_layer_new (image,
                           gimp_image_get_width (image),
                           gimp_image_get_height (image),
@@ -288,8 +239,7 @@ create_new_image_via_dialog (GimpTestFixture *fixture,
 }
 
 static void
-keyboard_zoom_focus (GimpTestFixture *fixture,
-                     gconstpointer    data)
+keyboard_zoom_focus (gconstpointer data)
 {
   Gimp              *gimp    = GIMP (data);
   GimpDisplay       *display = GIMP_DISPLAY (gimp_get_display_iter (gimp)->data);
@@ -324,7 +274,7 @@ keyboard_zoom_focus (GimpTestFixture *fixture,
   factor_before_zoom = gimp_zoom_model_get_factor (shell->zoom);
 
   /* Do the zoom */
-  gimp_test_utils_synthesize_key_event (GTK_WIDGET (window), GDK_plus);
+  gimp_test_utils_synthesize_key_event (GTK_WIDGET (window), GDK_KEY_plus);
   gimp_test_run_mainloop_until_idle ();
 
   /* Make sure the zoom focus point remained fixed */
@@ -338,7 +288,7 @@ keyboard_zoom_focus (GimpTestFixture *fixture,
   /* First of all make sure a zoom happend at all. If this assert
    * fails, it means that the zoom didn't happen. Possible causes:
    *
-   *  * gdk_test_simulate_key() failed to map 'GDK_plus' to the proper
+   *  * gdk_test_simulate_key() failed to map 'GDK_KEY_plus' to the proper
    *    'plus' X keysym, probably because it is mapped to a keycode
    *    with modifiers like 'shift'. Run "xmodmap -pk | grep plus" to
    *    find out. Make sure 'plus' is the first keysym for the given
@@ -357,7 +307,6 @@ keyboard_zoom_focus (GimpTestFixture *fixture,
 
 /**
  * alt_click_is_layer_to_selection:
- * @fixture:
  * @data:
  *
  * Makes sure that we can alt-click on a layer to do
@@ -365,8 +314,7 @@ keyboard_zoom_focus (GimpTestFixture *fixture,
  * not set as the active layer.
  **/
 static void
-alt_click_is_layer_to_selection (GimpTestFixture *fixture,
-                                 gconstpointer    data)
+alt_click_is_layer_to_selection (gconstpointer data)
 {
   Gimp        *gimp      = GIMP (data);
   GimpImage   *image     = GIMP_IMAGE (gimp_get_image_iter (gimp)->data);
@@ -442,8 +390,7 @@ alt_click_is_layer_to_selection (GimpTestFixture *fixture,
 }
 
 static void
-restore_recently_closed_multi_column_dock (GimpTestFixture *fixture,
-                                           gconstpointer    data)
+restore_recently_closed_multi_column_dock (gconstpointer data)
 {
   Gimp      *gimp                          = GIMP (data);
   GtkWidget *dock_window                   = NULL;
@@ -489,7 +436,6 @@ restore_recently_closed_multi_column_dock (GimpTestFixture *fixture,
 
 /**
  * tab_toggle_dont_change_dock_window_position:
- * @fixture:
  * @data:
  *
  * Makes sure that when dock windows are hidden with Tab and shown
@@ -497,8 +443,7 @@ restore_recently_closed_multi_column_dock (GimpTestFixture *fixture,
  * use Tab though, we only simulate its effect.
  **/
 static void
-tab_toggle_dont_change_dock_window_position (GimpTestFixture *fixture,
-                                             gconstpointer    data)
+tab_toggle_dont_change_dock_window_position (gconstpointer data)
 {
   Gimp      *gimp          = GIMP (data);
   GtkWidget *dock_window   = NULL;
@@ -556,18 +501,14 @@ tab_toggle_dont_change_dock_window_position (GimpTestFixture *fixture,
 }
 
 static void
-switch_to_single_window_mode (GimpTestFixture *fixture,
-                              gconstpointer    data)
+switch_to_single_window_mode (gconstpointer data)
 {
   Gimp *gimp = GIMP (data);
 
   /* Switch to single-window mode. We consider this test as passed if
    * we don't get any GLib warnings/errors
    */
-  gimp_ui_manager_activate_action (gimp_test_utils_get_ui_manager (gimp),
-                                   "windows",
-                                   "windows-use-single-window-mode");
-  gimp_test_run_mainloop_until_idle ();
+  gimp_ui_switch_window_mode (gimp);
 }
 
 static void
@@ -616,46 +557,131 @@ gimp_ui_toggle_docks_in_single_window_mode (Gimp *gimp)
 }
 
 static void
-hide_docks_in_single_window_mode (GimpTestFixture *fixture,
-                                  gconstpointer   data)
+hide_docks_in_single_window_mode (gconstpointer data)
 {
   Gimp *gimp = GIMP (data);
   gimp_ui_toggle_docks_in_single_window_mode (gimp);
 }
 
 static void
-show_docks_in_single_window_mode (GimpTestFixture *fixture,
-                                  gconstpointer    data)
+show_docks_in_single_window_mode (gconstpointer data)
 {
   Gimp *gimp = GIMP (data);
   gimp_ui_toggle_docks_in_single_window_mode (gimp);
 }
 
 static void
-switch_back_to_multi_window_mode (GimpTestFixture *fixture,
-                                  gconstpointer    data)
+switch_back_to_multi_window_mode (gconstpointer data)
 {
   Gimp *gimp = GIMP (data);
 
   /* Switch back to multi-window mode. We consider this test as passed
    * if we don't get any GLib warnings/errors
    */
+  gimp_ui_switch_window_mode (gimp);
+}
+
+static void
+close_image (gconstpointer data)
+{
+  Gimp *gimp       = GIMP (data);
+  int   undo_count = 4;
+
+  /* Undo all changes so we don't need to find the 'Do you want to
+   * save?'-dialog and its 'No' button
+   */
+  while (undo_count--)
+    {
+      gimp_ui_manager_activate_action (gimp_test_utils_get_ui_manager (gimp),
+                                       "edit",
+                                       "edit-undo");
+      gimp_test_run_mainloop_until_idle ();
+    }
+
+  /* Close the image */
   gimp_ui_manager_activate_action (gimp_test_utils_get_ui_manager (gimp),
-                                   "windows",
-                                   "windows-use-single-window-mode");
+                                   "view",
+                                   "view-close");
   gimp_test_run_mainloop_until_idle ();
+
+  /* Did it really disappear? */
+  g_assert_cmpint (g_list_length (gimp_get_image_iter (gimp)), ==, 0);
+}
+
+/**
+ * repeatedly_switch_window_mode:
+ * @data:
+ *
+ * Makes sure that the size of the image window is properly handled
+ * when repeatedly switching between window modes.
+ **/
+static void
+repeatedly_switch_window_mode (gconstpointer data)
+{
+  Gimp             *gimp     = GIMP (data);
+  GimpDisplay      *display  = GIMP_DISPLAY (gimp_get_empty_display (gimp));
+  GimpDisplayShell *shell    = gimp_display_get_shell (display);
+  GtkWidget        *toplevel = gtk_widget_get_toplevel (GTK_WIDGET (shell));
+
+  gint expected_initial_height;
+  gint expected_initial_width;
+  gint expected_second_height;
+  gint expected_second_width;
+  gint initial_width;
+  gint initial_height;
+  gint second_width;
+  gint second_height;
+
+  /* We need this for some reason */
+  gimp_test_run_mainloop_until_idle ();
+
+  /* Remember the multi-window mode size */
+  gtk_window_get_size (GTK_WINDOW (toplevel),
+                       &expected_initial_width,
+                       &expected_initial_height);
+
+  /* Switch to single-window mode */
+  gimp_ui_switch_window_mode (gimp);
+
+  /* Rememeber the single-window mode size */
+  gtk_window_get_size (GTK_WINDOW (toplevel),
+                       &expected_second_width,
+                       &expected_second_height);
+
+  /* Make sure they differ, otherwise the test is pointless */
+  g_assert_cmpint (expected_initial_width,  !=, expected_second_width);
+  g_assert_cmpint (expected_initial_height, !=, expected_second_height);
+
+  /* Switch back to multi-window mode */
+  gimp_ui_switch_window_mode (gimp);
+
+  /* Make sure the size is the same as before */
+  gtk_window_get_size (GTK_WINDOW (toplevel), &initial_width, &initial_height);
+  g_assert_cmpint (expected_initial_width,  ==, initial_width);
+  g_assert_cmpint (expected_initial_height, ==, initial_height);
+
+  /* Switch to single-window mode again... */
+  gimp_ui_switch_window_mode (gimp);
+
+  /* Make sure the size is the same as before */
+  gtk_window_get_size (GTK_WINDOW (toplevel), &second_width, &second_height);
+  g_assert_cmpint (expected_second_width,  ==, second_width);
+  g_assert_cmpint (expected_second_height, ==, second_height);
+
+  /* Finally switch back to multi-window mode since that was the mode
+   * when we started
+   */
+  gimp_ui_switch_window_mode (gimp);
 }
 
 /**
  * window_roles:
- * @fixture:
  * @data:
  *
  * Makes sure that different windows have the right roles specified.
  **/
 static void
-window_roles (GimpTestFixture *fixture,
-              gconstpointer    data)
+window_roles (gconstpointer data)
 {
   GtkWidget      *dock           = NULL;
   GtkWidget      *toolbox        = NULL;
@@ -685,8 +711,7 @@ window_roles (GimpTestFixture *fixture,
 }
 
 static void
-paintbrush_is_standard_tool (GimpTestFixture *fixture,
-                             gconstpointer    data)
+paintbrush_is_standard_tool (gconstpointer data)
 {
   Gimp         *gimp         = GIMP (data);
   GimpContext  *user_context = gimp_get_user_context (gimp);
@@ -773,15 +798,24 @@ gimp_ui_not_toolbox_window (GObject *object)
 static gboolean
 gimp_ui_multicolumn_not_toolbox_window (GObject *object)
 {
-  GimpDockWindow *dock_window = GIMP_DOCK_WINDOW (object);
+  gboolean           not_toolbox_window;
+  GimpDockWindow    *dock_window;
+  GimpDockContainer *dock_container;
+  GList             *docks;
 
   if (! GIMP_IS_DOCK_WINDOW (object))
     return FALSE;
 
-  dock_window = GIMP_DOCK_WINDOW (object);
+  dock_window    = GIMP_DOCK_WINDOW (object);
+  dock_container = GIMP_DOCK_CONTAINER (object);
+  docks          = gimp_dock_container_get_docks (dock_container);
 
-  return (! gimp_dock_window_has_toolbox (dock_window) &&
-          g_list_length (gimp_dock_window_get_docks (dock_window)) > 1);
+  not_toolbox_window = (! gimp_dock_window_has_toolbox (dock_window) &&
+                        g_list_length (docks) > 1);
+
+  g_list_free (docks);
+
+  return not_toolbox_window;
 }
 
 static gboolean
@@ -795,6 +829,19 @@ gimp_ui_is_gimp_layer_list (GObject *object)
   gimp_dialog_factory_from_widget (GTK_WIDGET (object), &entry);
 
   return strcmp (entry->identifier, "gimp-layer-list") == 0;
+}
+
+static void
+gimp_ui_switch_window_mode (Gimp *gimp)
+{
+  gimp_ui_manager_activate_action (gimp_test_utils_get_ui_manager (gimp),
+                                   "windows",
+                                   "windows-use-single-window-mode");
+  gimp_test_run_mainloop_until_idle ();
+
+  /* Add a small sleep to let things stabilize */
+  g_usleep (500 * 1000);
+  gimp_test_run_mainloop_until_idle ();
 }
 
 int main(int argc, char **argv)
@@ -829,6 +876,8 @@ int main(int argc, char **argv)
   ADD_TEST (hide_docks_in_single_window_mode);
   ADD_TEST (show_docks_in_single_window_mode);
   ADD_TEST (switch_back_to_multi_window_mode);
+  ADD_TEST (close_image);
+  ADD_TEST (repeatedly_switch_window_mode);
   ADD_TEST (window_roles);
 
   /* Run the tests and return status */

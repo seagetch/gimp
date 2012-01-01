@@ -30,6 +30,7 @@
 #include "gimpenumwidgets.h"
 #include "gimpframe.h"
 #include "gimphelpui.h"
+#include "gimp3migration.h"
 
 
 /**
@@ -120,19 +121,8 @@ gimp_enum_radio_box_new_full (GType       enum_type,
   g_return_val_if_fail (G_TYPE_IS_ENUM (enum_type), NULL);
 
   enum_class = g_type_class_ref (enum_type);
-
-  switch (orientation)
-    {
-    case GTK_ORIENTATION_HORIZONTAL:
-      box = gtk_hbox_new (FALSE, 1);
-      break;
-    case GTK_ORIENTATION_VERTICAL:
-      box = gtk_vbox_new (FALSE, 1);
-      break;
-    default:
-      return NULL;
-    }
-    
+   
+  box = gtk_box_new (orientation, 1);
   g_object_weak_ref (G_OBJECT (box),
                      (GWeakNotify) g_type_class_unref, enum_class);
 
@@ -518,17 +508,7 @@ gimp_enum_stock_box_new_full (GType         enum_type,
 
   enum_class = g_type_class_ref (enum_type);
 
-  switch (orientation)
-    {
-    case GTK_ORIENTATION_VERTICAL:
-      hbox = gtk_vbox_new (FALSE, 0);
-      break;
-    case GTK_ORIENTATION_HORIZONTAL:
-    default:
-      hbox = gtk_hbox_new (FALSE, 0);
-      break;
-    }
-
+  hbox = gtk_box_new (orientation, 0);
   g_object_weak_ref (G_OBJECT (hbox),
                      (GWeakNotify) g_type_class_unref, enum_class);
 

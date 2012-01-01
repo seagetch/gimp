@@ -32,10 +32,11 @@
         )
 
     (gimp-context-push)
+    (gimp-context-set-defaults)
 
     (gimp-image-undo-disable img)
-    (gimp-image-add-layer img bg-layer 1)
-    (gimp-image-add-layer img text-layer -1)
+    (gimp-image-insert-layer img bg-layer 0 1)
+    (gimp-image-insert-layer img text-layer 0 -1)
 
     (gimp-context-set-background bg-color)
     (gimp-edit-clear bg-layer)
@@ -50,7 +51,7 @@
     (set! text-mask (car (gimp-layer-create-mask text-layer ADD-ALPHA-MASK)))
     (gimp-layer-add-mask text-layer text-mask)
 
-    (gimp-selection-layer-alpha text-layer)
+    (gimp-image-select-item img CHANNEL-OP-REPLACE text-layer)
     (gimp-context-set-background (list grey grey grey))
     (gimp-edit-fill text-mask BACKGROUND-FILL)
     (gimp-selection-none img)

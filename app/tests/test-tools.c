@@ -33,8 +33,9 @@
 
 #include "display/gimpdisplay.h"
 #include "display/gimpdisplayshell.h"
-#include "display/gimpdisplayshell-scale.h"
 #include "display/gimpdisplayshell-callbacks.h"
+#include "display/gimpdisplayshell-scale.h"
+#include "display/gimpdisplayshell-tool-events.h"
 #include "display/gimpdisplayshell-transform.h"
 #include "display/gimpimagewindow.h"
 
@@ -206,7 +207,7 @@ gimp_test_synthesize_tool_button_event (GimpDisplayShell *shell,
 {
   GdkEvent   *event   = gdk_event_new (button_event_type);
   GdkWindow  *window  = gtk_widget_get_window (GTK_WIDGET (shell->canvas));
-  GdkDisplay *display = gdk_drawable_get_display (GDK_DRAWABLE (window));
+  GdkDisplay *display = gdk_window_get_display (window);
 
   g_assert (button_event_type == GDK_BUTTON_PRESS ||
             button_event_type == GDK_BUTTON_RELEASE);
@@ -237,7 +238,7 @@ gimp_test_synthesize_tool_motion_event (GimpDisplayShell *shell,
 {
   GdkEvent   *event   = gdk_event_new (GDK_MOTION_NOTIFY);
   GdkWindow  *window  = gtk_widget_get_window (GTK_WIDGET (shell->canvas));
-  GdkDisplay *display = gdk_drawable_get_display (GDK_DRAWABLE (window));
+  GdkDisplay *display = gdk_window_get_display (window);
 
   event->motion.window     = g_object_ref (window);
   event->motion.send_event = TRUE;
@@ -410,7 +411,7 @@ crop_tool_can_crop (GimpTestFixture *fixture,
                                                   0 /*modifiers*/);
 
   /* Crop */
-  gimp_test_utils_synthesize_key_event (GTK_WIDGET (shell), GDK_Return);
+  gimp_test_utils_synthesize_key_event (GTK_WIDGET (shell), GDK_KEY_Return);
   gimp_test_run_mainloop_until_idle ();
 
   /* Make sure the new image has the expected size */

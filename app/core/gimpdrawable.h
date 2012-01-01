@@ -35,10 +35,7 @@ typedef struct _GimpDrawableClass   GimpDrawableClass;
 
 struct _GimpDrawable
 {
-  GimpItem       parent_instance;
-
-  gint           bytes;              /* bytes per pixel                */
-  GimpImageType  type;               /* type of drawable               */
+  GimpItem             parent_instance;
 
   GimpDrawablePrivate *private;
 };
@@ -119,18 +116,18 @@ struct _GimpDrawableClass
 
 GType           gimp_drawable_get_type           (void) G_GNUC_CONST;
 
-gint64          gimp_drawable_estimate_memsize   (const GimpDrawable *drawable,
-                                                  gint                width,
-                                                  gint                height);
-
-void            gimp_drawable_configure          (GimpDrawable       *drawable,
+GimpDrawable  * gimp_drawable_new                (GType               type,
                                                   GimpImage          *image,
+                                                  const gchar        *name,
                                                   gint                offset_x,
                                                   gint                offset_y,
                                                   gint                width,
                                                   gint                height,
-                                                  GimpImageType       type,
-                                                  const gchar        *name);
+                                                  GimpImageType       image_type);
+
+gint64          gimp_drawable_estimate_memsize   (const GimpDrawable *drawable,
+                                                  gint                width,
+                                                  gint                height);
 
 void            gimp_drawable_update             (GimpDrawable       *drawable,
                                                   gint                x,
@@ -233,14 +230,12 @@ gint            gimp_drawable_bytes              (const GimpDrawable *drawable);
 gint            gimp_drawable_bytes_with_alpha   (const GimpDrawable *drawable);
 gint            gimp_drawable_bytes_without_alpha(const GimpDrawable *drawable);
 
-gboolean        gimp_drawable_has_floating_sel   (const GimpDrawable *drawable);
-
 const guchar  * gimp_drawable_get_colormap       (const GimpDrawable *drawable);
 
+GimpLayer    * gimp_drawable_get_floating_sel    (const GimpDrawable *drawable);
 void           gimp_drawable_attach_floating_sel (GimpDrawable       *drawable,
                                                   GimpLayer          *floating_sel);
-void           gimp_drawable_detach_floating_sel (GimpDrawable       *drawable,
-                                                  GimpLayer          *floating_sel);
+void           gimp_drawable_detach_floating_sel (GimpDrawable       *drawable);
 
 
 #endif /* __GIMP_DRAWABLE_H__ */

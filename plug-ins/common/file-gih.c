@@ -78,6 +78,7 @@
 #define LOAD_PROC          "file-gih-load"
 #define SAVE_PROC          "file-gih-save"
 #define PLUG_IN_BINARY     "file-gih"
+#define PLUG_IN_ROLE       "gimp-file-gih"
 #define DUMMY_PATTERN_NAME "x"
 #define MAXDESCLEN         256
 
@@ -334,8 +335,8 @@ run (const gchar      *name,
             }
 
           pipe_parasite =
-            gimp_image_parasite_find (orig_image_ID,
-                                      "gimp-brush-pipe-parameters");
+            gimp_image_get_parasite (orig_image_ID,
+                                     "gimp-brush-pipe-parameters");
           if (pipe_parasite)
             gimp_pixpipe_params_parse (gimp_parasite_data (pipe_parasite),
                                        &gihparams);
@@ -383,8 +384,8 @@ run (const gchar      *name,
         case GIMP_RUN_WITH_LAST_VALS:
           gimp_get_data (SAVE_PROC, &info);
           pipe_parasite =
-            gimp_image_parasite_find (orig_image_ID,
-                                      "gimp-brush-pipe-parameters");
+            gimp_image_get_parasite (orig_image_ID,
+                                     "gimp-brush-pipe-parameters");
           gimp_pixpipe_params_init (&gihparams);
           if (pipe_parasite)
             gimp_pixpipe_params_parse (gimp_parasite_data (pipe_parasite),
@@ -436,7 +437,6 @@ gih_load_one_brush (gint   fd,
   gint32         layer_ID;
   GimpDrawable  *drawable;
   GimpPixelRgn   pixel_rgn;
-  gint           version_extra;
   gint           bn_size;
   GimpImageType  image_type;
   gint           width, height;
@@ -457,16 +457,12 @@ gih_load_one_brush (gint   fd,
   bh.magic_number = g_ntohl (bh.magic_number);
   bh.spacing      = g_ntohl (bh.spacing);
 
-  /* How much extra to add to the header seek - 1 needs a bit more */
-  version_extra = 0;
-
   if (bh.version == 1)
     {
       /* Version 1 didn't know about spacing */
       bh.spacing = 25;
       /* And we need to rewind the handle a bit too */
       lseek (fd, -8, SEEK_CUR);
-      version_extra = 8;
     }
   /* Version 1 didn't know about magic either */
   if ((bh.version != 1 &&
@@ -731,7 +727,7 @@ gih_load_image (const gchar  *filename,
                                              GIMP_PARASITE_PERSISTENT,
                                              strlen (paramstring) + 1,
                                              paramstring);
-          gimp_image_parasite_attach (image_ID, pipe_parasite);
+          gimp_image_attach_parasite (image_ID, pipe_parasite);
           gimp_parasite_free (pipe_parasite);
           g_free (paramstring);
         }
@@ -899,7 +895,7 @@ gih_save_dialog (gint32 image_ID)
   /*
    * Cell size: __ x __ pixels
    */
-  box = gtk_hbox_new (FALSE, 4);
+  box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 4);
 
   spinbutton = gimp_spin_button_new (&adjustment,
                                      gihparams.cellwidth,
@@ -974,7 +970,7 @@ gih_save_dialog (gint32 image_ID)
   /*
    * Display as: __ rows x __ cols
    */
-  box = gtk_hbox_new (FALSE, 0);
+  box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
 
   g_snprintf (buffer, sizeof (buffer), "%2d", gihparams.rows);
   label = gtk_label_new (buffer);
@@ -1060,11 +1056,11 @@ gih_save_dialog (gint32 image_ID)
             cellw_adjust.rank0 = cellh_adjust.rank0 = NULL;
         }
 
-      cb = gtk_combo_box_new_text ();
+      cb = gtk_combo_box_text_new ();
 
       for (j = 0; j < G_N_ELEMENTS (selection_modes); j++)
-        gtk_combo_box_append_text (GTK_COMBO_BOX (cb), selection_modes[j]);
-
+        gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (cb),
+                                        selection_modes[j]);
       gtk_combo_box_set_active (GTK_COMBO_BOX (cb), 2);  /* random */
 
       if (gihparams.selection[i])
@@ -1285,7 +1281,7 @@ gih_save_image (const gchar  *filename,
   pipe_parasite = gimp_parasite_new ("gimp-brush-pipe-parameters",
                                      GIMP_PARASITE_PERSISTENT,
                                      strlen (parstring) + 1, parstring);
-  gimp_image_parasite_attach (orig_image_ID, pipe_parasite);
+  gimp_image_attach_parasite (orig_image_ID, pipe_parasite);
   gimp_parasite_free (pipe_parasite);
 
   g_free (parstring);

@@ -21,6 +21,7 @@
 
 #include <string.h>
 
+#undef G_DISABLE_DEPRECATED /* GStaticMutex */
 #include <glib-object.h>
 
 #include "libgimpmath/gimpmath.h"
@@ -608,7 +609,6 @@ gimp_histogram_calculate_sub_region (GimpHistogram *histogram,
 #define VALUE(c,i) (values[(c) * 256 + (i)])
 
   h = region->h;
-  w = region->w;
 
   if (mask)
     {

@@ -26,6 +26,7 @@
         )
 
     (gimp-context-push)
+    (gimp-context-set-defaults)
 
     (gimp-image-undo-group-start theImage)
 
@@ -36,15 +37,16 @@
                                           (if (= inDark TRUE)
                                               DARKEN-ONLY-MODE NORMAL-MODE))))
 
-      (gimp-image-insert-layer theImage theStain -1 0)
+      (gimp-image-insert-layer theImage theStain 0 0)
       (gimp-selection-all theImage)
       (gimp-edit-clear theStain)
 
       (let ((blobSize (/ (rand (- theSize 40)) (+ (rand 3) 1))))
-        (gimp-ellipse-select theImage
+        (gimp-image-select-ellipse theImage
+                             CHANNEL-OP-REPLACE
                              (/ (- theSize blobSize) 2)
                              (/ (- theSize blobSize) 2)
-                             blobSize blobSize CHANNEL-OP-REPLACE TRUE 0 FALSE)
+                             blobSize blobSize)
       )
 
       (script-fu-distress-selection theImage theStain

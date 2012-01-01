@@ -32,6 +32,7 @@
 #define HSV_NOISE_PROC   "plug-in-hsv-noise"
 #define SCATTER_HSV_PROC "plug-in-scatter-hsv"
 #define PLUG_IN_BINARY   "noise-hsv"
+#define PLUG_IN_ROLE     "gimp-noise-hsv"
 #define SCALE_WIDTH      100
 #define ENTRY_WIDTH        3
 
@@ -360,7 +361,7 @@ scatter_hsv_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("HSV Noise"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("HSV Noise"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, HSV_NOISE_PROC,
 
@@ -376,10 +377,10 @@ scatter_hsv_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_drawable_preview_new (drawable, NULL);

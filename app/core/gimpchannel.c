@@ -19,6 +19,7 @@
 
 #include <string.h>
 
+#include <cairo.h>
 #include <gegl.h>
 
 #include "libgimpcolor/gimpcolor.h"
@@ -618,9 +619,11 @@ gimp_channel_scale (GimpItem              *item,
   /*  don't waste CPU cycles scaling an empty channel  */
   if (channel->bounds_known && channel->empty)
     {
-      GimpDrawable *drawable  = GIMP_DRAWABLE (item);
-      TileManager  *new_tiles = tile_manager_new (new_width, new_height,
-                                                  drawable->bytes);
+      GimpDrawable *drawable = GIMP_DRAWABLE (item);
+      TileManager  *new_tiles;
+
+      new_tiles = tile_manager_new (new_width, new_height,
+                                    gimp_drawable_bytes (drawable));
 
       gimp_drawable_set_tiles_full (drawable,
                                     gimp_item_is_attached (item), NULL,
@@ -731,7 +734,7 @@ gimp_channel_stroke (GimpItem           *item,
 
   gimp_item_get_offset (GIMP_ITEM (channel), &offset_x, &offset_y);
 
-  switch (stroke_options->method)
+  switch (gimp_stroke_options_get_method (stroke_options))
     {
     case GIMP_STROKE_METHOD_LIBART:
       gimp_drawable_stroke_boundary (drawable,
@@ -744,16 +747,21 @@ gimp_channel_stroke (GimpItem           *item,
 
     case GIMP_STROKE_METHOD_PAINT_CORE:
       {
-        GimpPaintInfo *paint_info;
-        GimpPaintCore *core;
+        GimpPaintInfo    *paint_info;
+        GimpPaintCore    *core;
+        GimpPaintOptions *paint_options;
+        gboolean          emulate_dynamics;
 
         paint_info = gimp_context_get_paint_info (GIMP_CONTEXT (stroke_options));
 
         core = g_object_new (paint_info->paint_type, NULL);
 
+        paint_options = gimp_stroke_options_get_paint_options (stroke_options);
+        emulate_dynamics = gimp_stroke_options_get_emulate_dynamics (stroke_options);
+
         retval = gimp_paint_core_stroke_boundary (core, drawable,
-                                                  stroke_options->paint_options,
-                                                  stroke_options->emulate_dynamics,
+                                                  paint_options,
+                                                  emulate_dynamics,
                                                   segs_in, n_segs_in,
                                                   offset_x, offset_y,
                                                   push_undo, error);
@@ -1630,12 +1638,10 @@ gimp_channel_new (GimpImage     *image,
 
   g_return_val_if_fail (GIMP_IS_IMAGE (image), NULL);
 
-  channel = g_object_new (GIMP_TYPE_CHANNEL, NULL);
-
-  gimp_drawable_configure (GIMP_DRAWABLE (channel),
-                           image,
-                           0, 0, width, height,
-                           GIMP_GRAY_IMAGE, name);
+  channel = GIMP_CHANNEL (gimp_drawable_new (GIMP_TYPE_CHANNEL,
+                                             image, name,
+                                             0, 0, width, height,
+                                             GIMP_GRAY_IMAGE));
 
   if (color)
     channel->color = *color;

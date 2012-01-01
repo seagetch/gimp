@@ -35,6 +35,7 @@
 #include "gimpcontainerbox.h"
 #include "gimpcontainereditor.h"
 #include "gimpcontainerpopup.h"
+#include "gimpcontainertreeview.h"
 #include "gimpcontainerview.h"
 #include "gimpdialogfactory.h"
 #include "gimpviewrenderer.h"
@@ -116,17 +117,17 @@ gimp_container_popup_class_init (GimpContainerPopupClass *klass)
 
   binding_set = gtk_binding_set_by_class (klass);
 
-  gtk_binding_entry_add_signal (binding_set, GDK_Escape, 0,
+  gtk_binding_entry_add_signal (binding_set, GDK_KEY_Escape, 0,
                                 "cancel", 0);
-  gtk_binding_entry_add_signal (binding_set, GDK_Return, 0,
+  gtk_binding_entry_add_signal (binding_set, GDK_KEY_Return, 0,
                                 "confirm", 0);
-  gtk_binding_entry_add_signal (binding_set, GDK_KP_Enter, 0,
+  gtk_binding_entry_add_signal (binding_set, GDK_KEY_KP_Enter, 0,
                                 "confirm", 0);
-  gtk_binding_entry_add_signal (binding_set, GDK_ISO_Enter, 0,
+  gtk_binding_entry_add_signal (binding_set, GDK_KEY_ISO_Enter, 0,
                                 "confirm", 0);
-  gtk_binding_entry_add_signal (binding_set, GDK_space, 0,
+  gtk_binding_entry_add_signal (binding_set, GDK_KEY_space, 0,
                                 "confirm", 0);
-  gtk_binding_entry_add_signal (binding_set, GDK_KP_Space, 0,
+  gtk_binding_entry_add_signal (binding_set, GDK_KEY_KP_Space, 0,
                                 "confirm", 0);
 }
 
@@ -548,17 +549,28 @@ gimp_container_popup_create_view (GimpContainerPopup *popup)
   GimpEditor *editor;
   GtkWidget  *button;
 
-  popup->editor = g_object_new (GIMP_TYPE_CONTAINER_EDITOR, NULL);
-  gimp_container_editor_construct (popup->editor,
-                                   popup->view_type,
-                                   popup->container,
-                                   popup->context,
-                                   popup->view_size,
-                                   popup->view_border_width,
-                                   NULL, NULL, NULL);
+  popup->editor = g_object_new (GIMP_TYPE_CONTAINER_EDITOR,
+                                "view-type",         popup->view_type,
+                                "container",         popup->container,
+                                "context",           popup->context,
+                                "view-size",         popup->view_size,
+                                "view-border-width", popup->view_border_width,
+                                NULL);
 
   gimp_container_view_set_reorderable (GIMP_CONTAINER_VIEW (popup->editor->view),
                                        FALSE);
+
+  if (popup->view_type == GIMP_VIEW_TYPE_LIST)
+    {
+      GtkWidget *search_entry;
+
+      search_entry = gtk_entry_new ();
+      gtk_box_pack_end (GTK_BOX (popup->editor->view), search_entry,
+                        FALSE, FALSE, 0);
+      gtk_tree_view_set_search_entry (GTK_TREE_VIEW (GIMP_CONTAINER_TREE_VIEW (GIMP_CONTAINER_VIEW (popup->editor->view))->view),
+                                      GTK_ENTRY (search_entry));
+      gtk_widget_show (search_entry);
+    }
 
   gimp_container_box_set_size_request (GIMP_CONTAINER_BOX (popup->editor->view),
                                        6  * (popup->default_view_size +

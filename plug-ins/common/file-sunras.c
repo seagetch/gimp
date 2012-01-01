@@ -52,6 +52,7 @@
 #define LOAD_PROC      "file-sunras-load"
 #define SAVE_PROC      "file-sunras-save"
 #define PLUG_IN_BINARY "file-sunras"
+#define PLUG_IN_ROLE   "gimp-file-sunras"
 
 
 typedef int WRITE_FUN(void*,size_t,size_t,FILE*);
@@ -508,6 +509,7 @@ load_image (const gchar  *filename,
       image_ID = -1;
       break;
     }
+  gimp_progress_update (1.0);
 
   fclose (ifp);
 
@@ -867,7 +869,7 @@ write_sun_header (FILE            *ofp,
   cp = (L_CARD32 *)sunhdr;
 
   /* Write out all 32-bit values of the header and check for byte order */
-  for (j = 0; j < sizeof (L_SUNFILEHEADER)/sizeof(sunhdr->l_ras_magic); j++)
+  for (j = 0; j < hdr_entries; j++)
     {
       write_card32 (ofp, *(cp++));
     }
@@ -1374,11 +1376,9 @@ save_index (FILE    *ofp,
   unsigned char *suncolmap = sun_colormap;
   GimpPixelRgn pixel_rgn;
   GimpDrawable *drawable;
-  GimpImageType drawable_type;
   WRITE_FUN *write_fun;
 
   drawable = gimp_drawable_get (drawable_ID);
-  drawable_type = gimp_drawable_type (drawable_ID);
   width = drawable->width;
   height = drawable->height;
   tile_height = gimp_tile_height ();
@@ -1521,10 +1521,8 @@ save_rgb (FILE   *ofp,
   L_SUNFILEHEADER sunhdr;
   GimpPixelRgn pixel_rgn;
   GimpDrawable *drawable;
-  GimpImageType drawable_type;
 
   drawable = gimp_drawable_get (drawable_ID);
-  drawable_type = gimp_drawable_type (drawable_ID);
   width = drawable->width;
   height = drawable->height;
   tile_height = gimp_tile_height ();

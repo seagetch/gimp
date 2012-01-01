@@ -22,51 +22,16 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#if !defined (__GIMP_MATH_H_INSIDE__) && !defined (GIMP_MATH_COMPILATION)
+#error "Only <libgimpmath/gimpmath.h> can be included directly."
+#endif
+
 #ifndef __GIMP_VECTOR_H__
 #define __GIMP_VECTOR_H__
 
 G_BEGIN_DECLS
 
 /* For information look into the C source or the html documentation */
-
-/**
- * GimpVector2:
- * @x: the x axis
- * @y: the y axis
- *
- * A two dimensional vector.
- **/
-struct _GimpVector2
-{
-  gdouble x, y;
-};
-
-/**
- * GimpVector3:
- * @x: the x axis
- * @y: the y axis
- * @z: the z axis
- *
- * A three dimensional vector.
- **/
-struct _GimpVector3
-{
-  gdouble x, y, z;
-};
-
-/**
- * GimpVector4:
- * @x: the x axis
- * @y: the y axis
- * @z: the z axis
- * @w: the w axis
- *
- * A four dimensional vector.
- **/
-struct _GimpVector4
-{
-  gdouble x, y, z, w;
-};
 
 
 /* Two dimensional vector functions */

@@ -15,6 +15,7 @@ gimpdisplay.sgml
 gimpdrawablepreview.sgml
 gimpdrawable.sgml
 gimpdrawabletransform.sgml
+gimpdynamics.sgml
 gimpedit.sgml
 gimpexport.sgml
 gimpfileops.sgml
@@ -34,8 +35,10 @@ gimpguides.sgml
 gimphelp.sgml
 gimpimagecombobox.sgml
 gimpimage.sgml
+gimpimageselect.sgml
 gimpitemcombobox.sgml
 gimpitem.sgml
+gimpitemtransform.sgml
 gimplayer.sgml
 gimpmenu.sgml
 gimpmessage.sgml

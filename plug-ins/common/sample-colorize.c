@@ -38,6 +38,7 @@
 
 #define PLUG_IN_PROC        "plug-in-sample-colorize"
 #define PLUG_IN_BINARY      "sample-colorize"
+#define PLUG_IN_ROLE        "gimp-sample-colorize"
 #define NUMBER_IN_ARGS      13
 
 #define TILE_CACHE_SIZE      32
@@ -388,6 +389,15 @@ run (const gchar      *name,
               g_values.lvl_in_gamma  = param[10].data.d_float;
               g_values.lvl_out_min   = param[11].data.d_int32;
               g_values.lvl_out_max   = param[12].data.d_int32;
+              if (main_colorize (MC_GET_SAMPLE_COLORS) >= 0)
+                {
+                  main_colorize (MC_DST_REMAP);
+                  status = GIMP_PDB_SUCCESS;
+                }
+              else 
+                {
+                  status = GIMP_PDB_EXECUTION_ERROR;
+                }
             }
           else
             {
@@ -1312,7 +1322,7 @@ smp_dialog (void)
 
   /* Main Dialog */
   g_di.dialog = dialog =
-    gimp_dialog_new (_("Sample Colorize"), PLUG_IN_BINARY,
+    gimp_dialog_new (_("Sample Colorize"), PLUG_IN_ROLE,
                      NULL, 0,
                      gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -1392,7 +1402,7 @@ smp_dialog (void)
   ty++;
 
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_table_attach (GTK_TABLE (table), hbox, 0, 2, ty, ty + 1,
                     GTK_FILL, 0, 0, 0);
   gtk_widget_show (hbox);
@@ -1419,7 +1429,7 @@ smp_dialog (void)
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (check_button),
                                 g_di.dst_show_color);
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_table_attach (GTK_TABLE (table), hbox, 3, 5, ty, ty + 1,
                     GTK_FILL, 0, 0, 0);
   gtk_widget_show (hbox);
@@ -1481,7 +1491,7 @@ smp_dialog (void)
   /*  The levels graylevel prevev  */
   frame = gtk_frame_new (NULL);
 
-  vbox2 = gtk_vbox_new (FALSE, 2);
+  vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
   gtk_container_add (GTK_CONTAINER (frame), vbox2);
   gtk_table_attach (GTK_TABLE (table),
                     frame, 0, 2, ty, ty + 1, 0, 0, 0, 0);
@@ -1515,7 +1525,7 @@ smp_dialog (void)
   /*  The sample_colortable prevev  */
   frame = gtk_frame_new (NULL);
 
-  vbox2 = gtk_vbox_new (FALSE, 2);
+  vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
   gtk_container_add (GTK_CONTAINER (frame), vbox2);
   gtk_table_attach (GTK_TABLE (table),
                     frame, 3, 5, ty, ty + 1, 0, 0, 0, 0);
@@ -1545,7 +1555,8 @@ smp_dialog (void)
   ty++;
 
   /*  Horizontal box for INPUT levels text widget  */
-  hbox = gtk_hbox_new (TRUE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+  gtk_box_set_homogeneous (GTK_BOX (hbox), TRUE);
   gtk_table_attach (GTK_TABLE (table), hbox, 0, 2, ty, ty+1,
                     GTK_FILL, 0, 0, 0);
 
@@ -1595,7 +1606,8 @@ smp_dialog (void)
   gtk_widget_show (hbox);
 
   /*  Horizontal box for OUTPUT levels text widget  */
-  hbox = gtk_hbox_new (TRUE, 4);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 4);
+  gtk_box_set_homogeneous (GTK_BOX (hbox), TRUE);
   gtk_table_attach (GTK_TABLE (table), hbox, 3, 5, ty, ty+1,
                     GTK_FILL, 0, 0, 0);
 
@@ -1633,7 +1645,7 @@ smp_dialog (void)
 
   ty++;
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_table_attach (GTK_TABLE (table), hbox, 0, 2, ty, ty+1,
                     GTK_FILL, 0, 0, 0);
   gtk_widget_show (hbox);
@@ -1662,7 +1674,7 @@ smp_dialog (void)
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (check_button),
                                 g_values.orig_inten);
 
-  hbox = gtk_hbox_new (FALSE, 4);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 4);
   gtk_table_attach (GTK_TABLE (table), hbox, 3, 5, ty, ty+1,
                     GTK_FILL, 0, 0, 0);
   gtk_widget_show (hbox);
@@ -2726,6 +2738,8 @@ sample_analyze (t_GDRW *sample_gdrw)
             }
         }
     }
+  if (g_show_progress)
+    gimp_progress_update (1.0);
 
   if (g_Sdebug)
     printf ("ROWS: %d - %d  COLS: %d - %d\n",

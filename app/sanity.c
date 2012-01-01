@@ -21,6 +21,7 @@
 #include <fontconfig/fontconfig.h>
 #include <pango/pango.h>
 #include <pango/pangoft2.h>
+#include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gegl.h>
 
 #include "libgimpbase/gimpbase.h"
@@ -36,6 +37,7 @@ static gchar * sanity_check_cairo             (void);
 static gchar * sanity_check_pango             (void);
 static gchar * sanity_check_fontconfig        (void);
 static gchar * sanity_check_freetype          (void);
+static gchar * sanity_check_gdk_pixbuf        (void);
 static gchar * sanity_check_babl              (void);
 static gchar * sanity_check_gegl              (void);
 static gchar * sanity_check_filename_encoding (void);
@@ -62,6 +64,9 @@ sanity_check (void)
 
   if (! abort_message)
     abort_message = sanity_check_freetype ();
+
+  if (! abort_message)
+    abort_message = sanity_check_gdk_pixbuf ();
 
   if (! abort_message)
     abort_message = sanity_check_babl ();
@@ -125,8 +130,8 @@ static gchar *
 sanity_check_glib (void)
 {
 #define GLIB_REQUIRED_MAJOR 2
-#define GLIB_REQUIRED_MINOR 24
-#define GLIB_REQUIRED_MICRO 0
+#define GLIB_REQUIRED_MINOR 30
+#define GLIB_REQUIRED_MICRO 2
 
   const gchar *mismatch = glib_check_version (GLIB_REQUIRED_MAJOR,
                                               GLIB_REQUIRED_MINOR,
@@ -158,8 +163,8 @@ static gchar *
 sanity_check_cairo (void)
 {
 #define CAIRO_REQUIRED_MAJOR 1
-#define CAIRO_REQUIRED_MINOR 8
-#define CAIRO_REQUIRED_MICRO 0
+#define CAIRO_REQUIRED_MINOR 10
+#define CAIRO_REQUIRED_MICRO 2
 
   if (cairo_version () < CAIRO_VERSION_ENCODE (CAIRO_REQUIRED_MAJOR,
                                                CAIRO_REQUIRED_MINOR,
@@ -188,8 +193,8 @@ static gchar *
 sanity_check_pango (void)
 {
 #define PANGO_REQUIRED_MAJOR 1
-#define PANGO_REQUIRED_MINOR 22
-#define PANGO_REQUIRED_MICRO 0
+#define PANGO_REQUIRED_MINOR 29
+#define PANGO_REQUIRED_MICRO 4
 
   const gchar *mismatch = pango_version_check (PANGO_REQUIRED_MAJOR,
                                                PANGO_REQUIRED_MINOR,
@@ -308,6 +313,36 @@ sanity_check_freetype (void)
 }
 
 static gchar *
+sanity_check_gdk_pixbuf (void)
+{
+#define GDK_PIXBUF_REQUIRED_MAJOR 2
+#define GDK_PIXBUF_REQUIRED_MINOR 24
+#define GDK_PIXBUF_REQUIRED_MICRO 0
+
+  if (! sanity_check_version (gdk_pixbuf_major_version, GDK_PIXBUF_REQUIRED_MAJOR,
+                              gdk_pixbuf_minor_version, GDK_PIXBUF_REQUIRED_MINOR,
+                              gdk_pixbuf_micro_version, GDK_PIXBUF_REQUIRED_MICRO))
+    {
+      return g_strdup_printf
+        ("GdkPixbuf version too old!\n\n"
+         "GIMP requires GdkPixbuf version %d.%d.%d or later.\n"
+         "Installed GdkPixbuf version is %d.%d.%d.\n\n"
+         "Somehow you or your software packager managed\n"
+         "to install GIMP with an older GdkPixbuf version.\n\n"
+         "Please upgrade to GdkPixbuf version %d.%d.%d or later.",
+         GDK_PIXBUF_REQUIRED_MAJOR, GDK_PIXBUF_REQUIRED_MINOR, GDK_PIXBUF_REQUIRED_MICRO,
+         gdk_pixbuf_major_version, gdk_pixbuf_minor_version, gdk_pixbuf_micro_version,
+         GDK_PIXBUF_REQUIRED_MAJOR, GDK_PIXBUF_REQUIRED_MINOR, GDK_PIXBUF_REQUIRED_MICRO);
+    }
+
+#undef GDK_PIXBUF_REQUIRED_MAJOR
+#undef GDK_PIXBUF_REQUIRED_MINOR
+#undef GDK_PIXBUF_REQUIRED_MICRO
+
+  return NULL;
+}
+
+static gchar *
 sanity_check_babl (void)
 {
   gint babl_major_version;
@@ -316,7 +351,7 @@ sanity_check_babl (void)
 
 #define BABL_REQUIRED_MAJOR 0
 #define BABL_REQUIRED_MINOR 1
-#define BABL_REQUIRED_MICRO 2
+#define BABL_REQUIRED_MICRO 6
 
   babl_get_version (&babl_major_version,
                     &babl_minor_version,
@@ -354,7 +389,7 @@ sanity_check_gegl (void)
 
 #define GEGL_REQUIRED_MAJOR 0
 #define GEGL_REQUIRED_MINOR 1
-#define GEGL_REQUIRED_MICRO 2
+#define GEGL_REQUIRED_MICRO 8
 
   gegl_get_version (&gegl_major_version,
                     &gegl_minor_version,

@@ -287,7 +287,7 @@ void
 ts_print_welcome (void)
 {
   ts_output_string (TS_OUTPUT_NORMAL,
-                    "Welcome to TinyScheme, Version 1.38\n", -1);
+                    "Welcome to TinyScheme, Version 1.40\n", -1);
   ts_output_string (TS_OUTPUT_NORMAL,
                     "Copyright (c) Dimitrios Souflis\n", -1);
 }
@@ -427,6 +427,12 @@ ts_init_constants (scheme *sc)
   symbol = sc->vptr->mk_symbol (sc, "DIR-SEPARATOR");
   sc->vptr->scheme_define (sc, sc->global_env, symbol,
                            sc->vptr->mk_string (sc, G_DIR_SEPARATOR_S));
+  sc->vptr->setimmutable (symbol);
+
+  /* Define string constant for use in building search paths */
+  symbol = sc->vptr->mk_symbol (sc, "SEARCHPATH-SEPARATOR");
+  sc->vptr->scheme_define (sc, sc->global_env, symbol,
+                           sc->vptr->mk_string (sc, G_SEARCHPATH_SEPARATOR_S));
   sc->vptr->setimmutable (symbol);
 
   /* These constants are deprecated and will be removed at a later date. */

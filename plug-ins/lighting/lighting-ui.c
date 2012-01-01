@@ -101,7 +101,8 @@ toggle_update (GtkWidget *widget,
 {
   gimp_toggle_button_update (widget, data);
 
-  draw_preview_image (TRUE);
+  preview_compute ();
+  gtk_widget_queue_draw (previewarea);
 }
 
 
@@ -111,7 +112,8 @@ distance_update (GtkAdjustment *adj,
 {
   mapvals.viewpoint.z = gtk_adjustment_get_value (adj);
 
-  draw_preview_image (TRUE);
+  preview_compute ();
+  gtk_widget_queue_draw (previewarea);
 }
 
 
@@ -197,7 +199,8 @@ mapmenu2_callback (GtkWidget *widget,
 {
   gimp_int_combo_box_get_active (GIMP_INT_COMBO_BOX (widget), (gint *) data);
 
-  draw_preview_image (TRUE);
+  preview_compute ();
+  gtk_widget_queue_draw (previewarea);
 }
 
 /******************************************/
@@ -207,7 +210,8 @@ mapmenu2_callback (GtkWidget *widget,
 static void
 preview_callback (GtkWidget *widget)
 {
-  draw_preview_image (TRUE);
+  preview_compute ();
+  gtk_widget_queue_draw (previewarea);
 }
 
 
@@ -285,7 +289,7 @@ create_options_page (void)
   GtkWidget *table;
   GtkObject *adj;
 
-  page = gtk_vbox_new (FALSE, 12);
+  page = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (page), 12);
 
   /* General options */
@@ -294,7 +298,7 @@ create_options_page (void)
   gtk_box_pack_start (GTK_BOX (page), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -370,7 +374,7 @@ create_light_page (void)
   GtkWidget *label;
   gint       k = mapvals.light_selected;
 
-  page = gtk_vbox_new (FALSE, 12);
+  page = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (page), 12);
 
   frame = gimp_frame_new (_("Light Settings"));
@@ -411,10 +415,10 @@ create_light_page (void)
   gtk_widget_show (label);
 
   light_type_combo =
-    gimp_int_combo_box_new (_("None"),        NO_LIGHT,
-                            _("Directional"), DIRECTIONAL_LIGHT,
-                            _("Point"),       POINT_LIGHT,
-                            /* _("Spot"),     SPOT_LIGHT, */
+    gimp_int_combo_box_new (C_("light-source", "None"), NO_LIGHT,
+                            _("Directional"),           DIRECTIONAL_LIGHT,
+                            _("Point"),                 POINT_LIGHT,
+                            /* _("Spot"),               SPOT_LIGHT, */
                             NULL);
   gimp_int_combo_box_set_active (GIMP_INT_COMBO_BOX (light_type_combo),
                                  mapvals.lightsource[k].type);
@@ -613,14 +617,14 @@ create_material_page (void)
   GtkWidget    *button;
   GtkObject    *adj;
 
-  page = gtk_vbox_new (FALSE, 12);
+  page = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (page), 12);
 
   frame = gimp_frame_new (_("Material Properties"));
   gtk_box_pack_start (GTK_BOX (page), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), hbox);
   gtk_widget_show (hbox);
 
@@ -791,7 +795,7 @@ create_bump_page (void)
   GtkWidget *spinbutton;
   GtkObject *adj;
 
-  page = gtk_vbox_new (FALSE, 12);
+  page = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (page), 12);
 
   frame = gimp_frame_new (NULL);
@@ -821,8 +825,9 @@ create_bump_page (void)
   gtk_container_add (GTK_CONTAINER (frame), table);
   gtk_widget_show (table);
 
-  gtk_widget_set_sensitive (table, mapvals.bump_mapped);
-  g_object_set_data (G_OBJECT (toggle), "set_sensitive", table);
+  g_object_bind_property (toggle, "active",
+                          table,  "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   combo = gimp_drawable_combo_box_new (bumpmap_constrain, NULL);
   gimp_int_combo_box_connect (GIMP_INT_COMBO_BOX (combo), mapvals.bumpmap_id,
@@ -882,7 +887,7 @@ create_environment_page (void)
   GtkWidget *frame;
   GtkWidget *combo;
 
-  page = gtk_vbox_new (FALSE, 12);
+  page = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (page), 12);
 
   frame = gimp_frame_new (NULL);
@@ -912,8 +917,9 @@ create_environment_page (void)
   gtk_container_add (GTK_CONTAINER (frame), table);
   gtk_widget_show (table);
 
-  gtk_widget_set_sensitive (table, mapvals.env_mapped);
-  g_object_set_data (G_OBJECT (toggle), "set_sensitive", table);
+  g_object_bind_property (toggle, "active",
+                          table,  "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   combo = gimp_drawable_combo_box_new (envmap_constrain, NULL);
   gimp_int_combo_box_connect (GIMP_INT_COMBO_BOX (combo), mapvals.envmap_id,
@@ -1014,7 +1020,7 @@ main_dialog (GimpDrawable *drawable)
 
   lighting_stock_init ();
 
-  appwin = gimp_dialog_new (_("Lighting Effects"), PLUG_IN_BINARY,
+  appwin = gimp_dialog_new (_("Lighting Effects"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -1030,7 +1036,7 @@ main_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (appwin));
 
-  main_hbox = gtk_hbox_new (FALSE, 12);
+  main_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_hbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (appwin))),
                       main_hbox, FALSE, FALSE, 0);
@@ -1039,7 +1045,7 @@ main_dialog (GimpDrawable *drawable)
   /* Create the Preview */
   /* ================== */
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_box_pack_start (GTK_BOX (main_hbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 
@@ -1062,11 +1068,14 @@ main_dialog (GimpDrawable *drawable)
   g_signal_connect (previewarea, "event",
                     G_CALLBACK (preview_events),
                     previewarea);
+  g_signal_connect (previewarea, "expose-event",
+                    G_CALLBACK (preview_expose),
+                    previewarea);
   gtk_container_add (GTK_CONTAINER (frame), previewarea);
   gtk_widget_show (previewarea);
 
   /* create preview options, frame and vbox */
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -1111,7 +1120,7 @@ main_dialog (GimpDrawable *drawable)
 
   image_setup (drawable, TRUE);
 
-  draw_preview_image (TRUE);
+  preview_compute ();
 
   if (gimp_dialog_run (GIMP_DIALOG (appwin)) == GTK_RESPONSE_OK)
     run = TRUE;
@@ -1345,6 +1354,7 @@ load_preset_response (GtkFileChooser *chooser,
   gchar          buffer3[G_ASCII_DTOSTR_BUF_SIZE];
   gchar          type_label[21];
   gchar         *endptr;
+  gchar          fmt_str[32];
 
   if (response_id == GTK_RESPONSE_OK)
     {
@@ -1384,23 +1394,41 @@ load_preset_response (GtkFileChooser *chooser,
                   return;
                 }
 
-              fscanf (fp, " Position: %s %s %s", buffer1, buffer2, buffer3);
+              snprintf (fmt_str, sizeof (fmt_str),
+                        " Position: %%%" G_GSIZE_FORMAT "s %%%" G_GSIZE_FORMAT "s %%%" G_GSIZE_FORMAT "s",
+                        sizeof (buffer1) - 1,
+                        sizeof (buffer2) - 1,
+                        sizeof (buffer3) - 1);
+              fscanf (fp, fmt_str, buffer1, buffer2, buffer3);
               source->position.x = g_ascii_strtod (buffer1, &endptr);
               source->position.y = g_ascii_strtod (buffer2, &endptr);
               source->position.z = g_ascii_strtod (buffer3, &endptr);
 
-              fscanf (fp, " Direction: %s %s %s", buffer1, buffer2, buffer3);
+              snprintf (fmt_str, sizeof (fmt_str),
+                        " Direction: %%%" G_GSIZE_FORMAT "s %%%" G_GSIZE_FORMAT "s %%%" G_GSIZE_FORMAT "s",
+                        sizeof (buffer1) - 1,
+                        sizeof (buffer2) - 1,
+                        sizeof (buffer3) - 1);
+              fscanf (fp, fmt_str, buffer1, buffer2, buffer3);
               source->direction.x = g_ascii_strtod (buffer1, &endptr);
               source->direction.y = g_ascii_strtod (buffer2, &endptr);
               source->direction.z = g_ascii_strtod (buffer3, &endptr);
 
-              fscanf (fp, " Color: %s %s %s", buffer1, buffer2, buffer3);
+              snprintf (fmt_str, sizeof (fmt_str),
+                        " Color: %%%" G_GSIZE_FORMAT "s %%%" G_GSIZE_FORMAT "s %%%" G_GSIZE_FORMAT "s",
+                        sizeof (buffer1) - 1,
+                        sizeof (buffer2) - 1,
+                        sizeof (buffer3) - 1);
+              fscanf (fp, fmt_str, buffer1, buffer2, buffer3);
               source->color.r = g_ascii_strtod (buffer1, &endptr);
               source->color.g = g_ascii_strtod (buffer2, &endptr);
               source->color.b = g_ascii_strtod (buffer3, &endptr);
               source->color.a = 1.0;
 
-              fscanf (fp, " Intensity: %s", buffer1);
+              snprintf (fmt_str, sizeof (fmt_str),
+                        " Intensity: %%%" G_GSIZE_FORMAT "s",
+                        sizeof (buffer1) - 1);
+              fscanf (fp, fmt_str, buffer1);
               source->intensity = g_ascii_strtod (buffer1, &endptr);
 
             }

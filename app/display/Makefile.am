@@ -57,10 +57,16 @@ libappdisplay_a_sources = \
 	gimpcanvasproxygroup.h			\
 	gimpcanvasrectangle.c			\
 	gimpcanvasrectangle.h			\
+	gimpcanvasrectangleguides.c		\
+	gimpcanvasrectangleguides.h		\
 	gimpcanvassamplepoint.c			\
 	gimpcanvassamplepoint.h			\
 	gimpcanvastextcursor.c			\
 	gimpcanvastextcursor.h			\
+	gimpcanvastransformguides.c		\
+	gimpcanvastransformguides.h		\
+	gimpcanvastransformpreview.c		\
+	gimpcanvastransformpreview.h		\
 	gimpcursorview.c			\
 	gimpcursorview.h			\
 	gimpdisplay.c				\
@@ -69,6 +75,8 @@ libappdisplay_a_sources = \
 	gimpdisplay-foreach.h			\
 	gimpdisplay-handlers.c			\
 	gimpdisplay-handlers.h			\
+	gimpdisplay-utils.c			\
+	gimpdisplay-utils.h			\
 	gimpdisplayshell.c			\
 	gimpdisplayshell.h			\
 	gimpdisplayshell-appearance.c		\
@@ -79,8 +87,6 @@ libappdisplay_a_sources = \
 	gimpdisplayshell-callbacks.h		\
 	gimpdisplayshell-close.c		\
 	gimpdisplayshell-close.h		\
-	gimpdisplayshell-coords.c		\
-	gimpdisplayshell-coords.h		\
 	gimpdisplayshell-cursor.c		\
 	gimpdisplayshell-cursor.h		\
 	gimpdisplayshell-dnd.c			\
@@ -89,6 +95,8 @@ libappdisplay_a_sources = \
 	gimpdisplayshell-draw.h			\
 	gimpdisplayshell-expose.c		\
 	gimpdisplayshell-expose.h		\
+	gimpdisplayshell-grab.c			\
+	gimpdisplayshell-grab.h			\
 	gimpdisplayshell-handlers.c		\
 	gimpdisplayshell-handlers.h		\
 	gimpdisplayshell-filter.c		\
@@ -101,8 +109,6 @@ libappdisplay_a_sources = \
 	gimpdisplayshell-icon.h			\
 	gimpdisplayshell-items.c		\
 	gimpdisplayshell-items.h		\
-	gimpdisplayshell-preview.c		\
-	gimpdisplayshell-preview.h		\
 	gimpdisplayshell-progress.c		\
 	gimpdisplayshell-progress.h		\
 	gimpdisplayshell-render.c		\
@@ -119,24 +125,34 @@ libappdisplay_a_sources = \
 	gimpdisplayshell-style.h		\
 	gimpdisplayshell-title.c		\
 	gimpdisplayshell-title.h		\
+	gimpdisplayshell-tool-events.c		\
+	gimpdisplayshell-tool-events.h		\
 	gimpdisplayshell-transform.c		\
 	gimpdisplayshell-transform.h		\
 	gimpimagewindow.c			\
 	gimpimagewindow.h			\
+	gimpmotionbuffer.c			\
+	gimpmotionbuffer.h			\
+	gimpmultiwindowstrategy.c		\
+	gimpmultiwindowstrategy.h		\
 	gimpnavigationeditor.c			\
 	gimpnavigationeditor.h			\
 	gimpscalecombobox.c			\
 	gimpscalecombobox.h			\
+	gimpsinglewindowstrategy.c		\
+	gimpsinglewindowstrategy.h		\
 	gimpstatusbar.c				\
-	gimpstatusbar.h
+	gimpstatusbar.h				\
+	gimptooldialog.c			\
+	gimptooldialog.h			\
+	gimpwindowstrategy.c			\
+	gimpwindowstrategy.h
 
 libappdisplay_a_built_sources = display-enums.c
 
 libappdisplay_a_SOURCES = \
 	$(libappdisplay_a_built_sources)	\
 	$(libappdisplay_a_sources)
-
-EXTRA_DIST = makefile.msc
 
 #
 # rules to generate built sources

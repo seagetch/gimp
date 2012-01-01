@@ -29,6 +29,7 @@
 
 #define PLUG_IN_PROC    "plug-in-engrave"
 #define PLUG_IN_BINARY  "engrave"
+#define PLUG_IN_ROLE    "gimp-engrave"
 #define SCALE_WIDTH     125
 #define TILE_CACHE_SIZE  16
 
@@ -66,7 +67,7 @@ static void      engrave_small  (GimpDrawable *drawable,
 static void      engrave_sub    (gint          height,
                                  gboolean      limit,
                                  gint          bpp,
-                                 gint          color_n);
+                                 gint          num_channels);
 
 const GimpPlugInInfo PLUG_IN_INFO =
 {
@@ -205,7 +206,7 @@ engrave_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("Engrave"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Engrave"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -221,10 +222,10 @@ engrave_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_drawable_preview_new (drawable, NULL);
@@ -424,7 +425,7 @@ engrave_small (GimpDrawable *drawable,
                GimpPreview  *preview)
 {
   GimpPixelRgn src_rgn, dest_rgn;
-  gint         bpp, color_n;
+  gint         bpp, num_channels;
   gint         x1, y1, x2, y2;
   gint         width, height;
   gint         progress, max_progress;
@@ -462,7 +463,7 @@ engrave_small (GimpDrawable *drawable,
   max_progress = width * height;
 
   bpp = drawable->bpp;
-  color_n = (gimp_drawable_is_rgb (drawable->drawable_id)) ? 3 : 1;
+  num_channels = (gimp_drawable_is_rgb (drawable->drawable_id)) ? 3 : 1;
 
   area.width = (tile_width / line_height) * line_height;
   area.data = g_new(guchar, (glong) bpp * area.width * area.width);
@@ -477,7 +478,7 @@ engrave_small (GimpDrawable *drawable,
           gimp_pixel_rgn_get_rect (&src_rgn, area.data, area.x, area.y, 1,
                                    area.h);
 
-          engrave_sub (line_height, limit, bpp, color_n);
+          engrave_sub (line_height, limit, bpp, num_channels);
 
           gimp_pixel_rgn_set_rect (&dest_rgn, area.data,
                                    area.x, area.y, 1, area.h);
@@ -500,6 +501,7 @@ engrave_small (GimpDrawable *drawable,
     }
   else
     {
+      gimp_progress_update (1.0);
       gimp_drawable_flush (drawable);
       gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);
       gimp_drawable_update (drawable->drawable_id, x1, y1, x2 - x1, y2 - y1);
@@ -510,15 +512,17 @@ static void
 engrave_sub (gint height,
              gint limit,
              gint bpp,
-             gint color_n)
+             gint num_channels)
 {
-  glong average[3];             /* color_n <= 3 */
+  glong average[3];             /* num_channels <= 3 */
   gint y, h, inten, v;
   guchar *buf_row, *buf;
   gint row;
   gint rowstride;
   gint count;
   gint i;
+
+  g_return_if_fail ((num_channels == 1) || (num_channels == 3));
 
   /*
     Since there's so many nested FOR's,
@@ -532,7 +536,7 @@ engrave_sub (gint height,
       h = height - (y % height);
       h = MIN(h, area.y + area.h - y);
 
-      for (i = 0; i < color_n; i++)
+      for (i = 0; i < num_channels; i++)
         average[i] = 0;
       count = 0;
 
@@ -542,7 +546,7 @@ engrave_sub (gint height,
       for (row = 0; row < h; row++)
         {
           buf = buf_row;
-          for (i = 0; i < color_n; i++)
+          for (i = 0; i < num_channels; i++)
             average[i] += buf[i];
           count++;
           buf_row += rowstride;
@@ -550,10 +554,10 @@ engrave_sub (gint height,
 
       /* Average */
       if (count > 0)
-        for (i = 0; i < color_n; i++)
+        for (i = 0; i < num_channels; i++)
           average[i] /= count;
 
-      if (bpp < 3)
+      if (num_channels == 1)
         inten = average[0] / 254.0 * height;
       else
         inten = GIMP_RGB_LUMINANCE (average[0],
@@ -574,7 +578,7 @@ engrave_sub (gint height,
               else if (row == height-1)
                 v = 0;
             }
-          for (i = 0; i < color_n; i++)
+          for (i = 0; i < num_channels; i++)
             buf[i] = v;
           buf_row += rowstride;
         }

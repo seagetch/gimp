@@ -83,14 +83,20 @@ gimp_image_editor_set_context (GimpDocked  *docked,
   GimpImage       *image  = NULL;
 
   if (editor->context)
-    g_signal_handlers_disconnect_by_func (editor->context,
-                                          gimp_image_editor_set_image,
-                                          editor);
+    {
+      g_signal_handlers_disconnect_by_func (editor->context,
+                                            gimp_image_editor_set_image,
+                                            editor);
+
+      g_object_unref (editor->context);
+    }
 
   editor->context = context;
 
   if (context)
     {
+      g_object_ref (editor->context);
+
       g_signal_connect_swapped (context, "image-changed",
                                 G_CALLBACK (gimp_image_editor_set_image),
                                 editor);
@@ -145,9 +151,9 @@ gimp_image_editor_set_image (GimpImageEditor *editor,
     {
       GIMP_IMAGE_EDITOR_GET_CLASS (editor)->set_image (editor, image);
 
-      if (GIMP_EDITOR (editor)->ui_manager)
-        gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                                GIMP_EDITOR (editor)->popup_data);
+      if (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)))
+        gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                                gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
     }
 }
 
@@ -167,7 +173,7 @@ gimp_image_editor_image_flush (GimpImage       *image,
                                gboolean         invalidate_preview,
                                GimpImageEditor *editor)
 {
-  if (GIMP_EDITOR (editor)->ui_manager)
-    gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                            GIMP_EDITOR (editor)->popup_data);
+  if (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)))
+    gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                            gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
 }

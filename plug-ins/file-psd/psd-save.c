@@ -80,6 +80,7 @@
 
 #define SAVE_PROC      "file-psd-save"
 #define PLUG_IN_BINARY "file-psd-save"
+#define PLUG_IN_ROLE   "gimp-file-psd-save"
 
 /* set to TRUE if you want debugging, FALSE otherwise */
 #define DEBUG FALSE
@@ -778,15 +779,16 @@ static void
 save_resources (FILE   *fd,
                 gint32  image_id)
 {
-  gint       i;
-  gchar     *fileName;            /* Image file name */
-  gint32     idActLayer;          /* Id of the active layer */
-  guint      nActiveLayer = 0;    /* Number of the active layer */
-  gboolean   ActiveLayerPresent;  /* TRUE if there's an active layer */
+  gint          i;
+  gchar        *fileName;            /* Image file name */
+  gint32        idActLayer;          /* Id of the active layer */
+  guint         nActiveLayer = 0;    /* Number of the active layer */
+  gboolean      ActiveLayerPresent;  /* TRUE if there's an active layer */
+  GimpParasite *parasite;
 
-  glong      eof_pos;             /* Position for End of file */
-  glong      rsc_pos;             /* Position for Lengths of Resources section */
-  glong      name_sec;            /* Position for Lengths of Channel Names */
+  glong         eof_pos;             /* Position for End of file */
+  glong         rsc_pos;             /* Position for Lengths of Resources section */
+  glong         name_sec;            /* Position for Lengths of Channel Names */
 
 
   /* Only relevant resources in GIMP are: 0x03EE, 0x03F0 & 0x0400 */
@@ -954,6 +956,7 @@ save_resources (FILE   *fd,
     write_gint16 (fd, psd_unit, "vRes unit");
     write_gint16 (fd, psd_unit, "height unit");
   }
+
   /* --------------- Write Active Layer Number --------------- */
 
   if (ActiveLayerPresent)
@@ -969,6 +972,21 @@ save_resources (FILE   *fd,
       write_gint16 (fd, nActiveLayer, "active layer");
 
       IFDBG printf ("\tTotal length of 0x0400 resource: %d\n", (int) sizeof (gint16));
+    }
+
+  /* --------------- Write ICC profile data ------------------- */
+  parasite = gimp_image_get_parasite (image_id, "icc-profile");
+  if (parasite)
+    {
+      gint32 profile_length = gimp_parasite_data_size (parasite);
+
+      xfwrite (fd, "8BIM", 4, "imageresources signature");
+      write_gint16 (fd, 0x040f, "0x040f Id");
+      write_gint16 (fd, 0, "Id name"); /* Set to null string (two zeros) */
+      write_gint32 (fd, profile_length, "0x040f resource size");
+      xfwrite (fd, gimp_parasite_data (parasite), profile_length, "ICC profile");
+
+      gimp_parasite_free (parasite);
     }
 
 
@@ -999,9 +1017,6 @@ get_compress_channel_data (guchar  *channel_data,
   gint    i;
   gint32  len;                 /* Length of compressed data */
   guchar *start;               /* Starting position of a row in channel_data */
-  gint32  channel_length;      /* Total channel's length */
-
-  channel_length = channel_cols * channel_rows;
 
   /* For every row in the channel */
 

@@ -52,6 +52,7 @@
 #define LOAD_PROC      "file-fits-load"
 #define SAVE_PROC      "file-fits-save"
 #define PLUG_IN_BINARY "file-fits"
+#define PLUG_IN_ROLE   "gimp-file-fits"
 
 
 /* Load info */
@@ -689,6 +690,7 @@ load_fits (const gchar *filename,
 	}
       g_free (linebuf);
     }
+  gimp_progress_update (1.0);
 
   g_free (data);
 
@@ -778,11 +780,9 @@ save_direct (FITS_FILE *ofp,
   guchar *data, *src;
   GimpPixelRgn pixel_rgn;
   GimpDrawable *drawable;
-  GimpImageType drawable_type;
   FITS_HDU_LIST *hdu;
 
   drawable = gimp_drawable_get (drawable_ID);
-  drawable_type = gimp_drawable_type (drawable_ID);
   width = drawable->width;
   height = drawable->height;
   bpp = drawable->bpp;       /* Bytes per pixel */
@@ -832,6 +832,7 @@ save_direct (FITS_FILE *ofp,
                                   (gdouble) (height * bpp));
 	}
     }
+  gimp_progress_update (1.0);
 
   nbytes = nbytes % FITS_RECORD_SIZE;
   if (nbytes)
@@ -868,13 +869,11 @@ save_index (FITS_FILE *ofp,
   guchar *channels[3];
   GimpPixelRgn pixel_rgn;
   GimpDrawable *drawable;
-  GimpImageType drawable_type;
   FITS_HDU_LIST *hdu;
 
   channels[0] = red;   channels[1] = green;   channels[2] = blue;
 
   drawable = gimp_drawable_get (drawable_ID);
-  drawable_type = gimp_drawable_type (drawable_ID);
   width = drawable->width;
   height = drawable->height;
   bpp = drawable->bpp;       /* Bytes per pixel */
@@ -956,6 +955,7 @@ save_index (FITS_FILE *ofp,
 	gimp_progress_update ((gdouble) (i + channel * height) /
 			      (gdouble) (height * (bpp + 2)));
     }
+  gimp_progress_update (1.0);
 
   nbytes = nbytes % FITS_RECORD_SIZE;
   if (nbytes)
@@ -989,7 +989,7 @@ load_dialog (void)
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("Load FITS File"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Load FITS File"), PLUG_IN_ROLE,
                             NULL, 0,
 			    gimp_standard_help_func, LOAD_PROC,
 
@@ -1007,7 +1007,7 @@ load_dialog (void)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       vbox, TRUE, TRUE, 0);
@@ -1041,7 +1041,7 @@ load_dialog (void)
 			      G_CALLBACK (gimp_radio_button_update),
 			      &plvals.compose, plvals.compose,
 
-			      _("None"),                 FALSE, NULL,
+			      C_("composing", "None"),   FALSE, NULL,
 			      "NAXIS=3, NAXIS3=2,...,4", TRUE,  NULL,
 
 			      NULL);

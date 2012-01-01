@@ -100,11 +100,11 @@ set_url(GtkWidget *widget, AreaInfoDialog_t *param, const gchar *prefix)
              }
            else
              {
-               p = strchr(url, ':');	/* 'mailto:' */
+               p = strchr(url, ':');    /* 'mailto:' */
                if (p)
                  {
                    p++;
-                   if (*p == '/')	/* 'file:/' */
+                   if (*p == '/')       /* 'file:/' */
                      p++;
                  }
                else
@@ -171,19 +171,19 @@ select_email_cb(GtkWidget *widget, AreaInfoDialog_t *param)
 
 static void
 append_page (GtkWidget *notebook, GtkWidget *page, const gchar *icon_name,
-	     const gchar *label_name)
+             const gchar *label_name)
 {
    GtkWidget *hbox, *icon, *label;
 
-   hbox = gtk_hbox_new(FALSE, 1);
+   hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 1);
    gtk_widget_show(hbox);
 
    icon = gtk_image_new_from_stock (icon_name, GTK_ICON_SIZE_MENU);
-   gtk_container_add (GTK_CONTAINER (hbox), icon);
+   gtk_box_pack_start (GTK_BOX (hbox), icon, FALSE, FALSE, 0);
    gtk_widget_show (icon);
 
-   label = gtk_label_new_with_mnemonic(label_name);
-   gtk_container_add (GTK_CONTAINER (hbox), label);
+   label = gtk_label_new_with_mnemonic (label_name);
+   gtk_box_pack_start (GTK_BOX (hbox), label, TRUE, TRUE, 0);
    gtk_widget_show (label);
 
    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), page, hbox);
@@ -207,53 +207,53 @@ create_link_tab(AreaInfoDialog_t *dialog, GtkWidget *notebook)
    gtk_widget_show(frame);
 
    subtable = gtk_table_new(2, 4, FALSE);
-   gtk_container_add(GTK_CONTAINER(frame), subtable);
+   gtk_container_add (GTK_CONTAINER(frame), subtable);
    gtk_widget_show(subtable);
 
    dialog->web_site = create_radio_button_in_table(subtable, NULL, 0, 0,
-						   _("_Web Site"));
+                                                   _("_Web Site"));
    g_signal_connect(dialog->web_site, "toggled",
                     G_CALLBACK (select_web_cb), (gpointer) dialog);
    group = gtk_radio_button_get_group(GTK_RADIO_BUTTON(dialog->web_site));
 
    dialog->ftp_site = create_radio_button_in_table(subtable, group, 0, 1,
-						   _("_Ftp Site"));
+                                                   _("_Ftp Site"));
    g_signal_connect(dialog->ftp_site, "toggled",
                     G_CALLBACK (select_ftp_cb), (gpointer) dialog);
    group = gtk_radio_button_get_group(GTK_RADIO_BUTTON(dialog->ftp_site));
 
    dialog->gopher = create_radio_button_in_table(subtable, group, 0, 2,
-						 _("_Gopher"));
+                                                 _("_Gopher"));
    g_signal_connect(dialog->gopher, "toggled",
                     G_CALLBACK (select_gopher_cb), (gpointer) dialog);
    group = gtk_radio_button_get_group(GTK_RADIO_BUTTON(dialog->gopher));
 
    dialog->other = create_radio_button_in_table(subtable, group, 0, 3,
-						_("Ot_her"));
+                                                _("Ot_her"));
    g_signal_connect(dialog->other, "toggled",
                     G_CALLBACK (select_other_cb), (gpointer) dialog);
    group = gtk_radio_button_get_group(GTK_RADIO_BUTTON(dialog->other));
 
    dialog->file = create_radio_button_in_table(subtable, group, 1, 0,
-					       _("F_ile"));
+                                               _("F_ile"));
    g_signal_connect(dialog->file, "toggled",
                     G_CALLBACK (select_file_cb), (gpointer) dialog);
    group = gtk_radio_button_get_group(GTK_RADIO_BUTTON(dialog->file));
 
    dialog->wais = create_radio_button_in_table(subtable, group, 1, 1,
-					       _("WAI_S"));
+                                               _("WAI_S"));
    g_signal_connect(dialog->wais, "toggled",
                     G_CALLBACK (select_wais_cb), (gpointer) dialog);
    group = gtk_radio_button_get_group(GTK_RADIO_BUTTON(dialog->wais));
 
    dialog->telnet = create_radio_button_in_table(subtable, group, 1, 2,
-						 _("Tel_net"));
+                                                 _("Tel_net"));
    g_signal_connect(dialog->telnet, "toggled",
                     G_CALLBACK (select_telnet_cb), (gpointer) dialog);
    group = gtk_radio_button_get_group(GTK_RADIO_BUTTON(dialog->telnet));
 
    dialog->email = create_radio_button_in_table(subtable, group, 1, 3,
-						_("e-_mail"));
+                                                _("e-_mail"));
    g_signal_connect(dialog->email, "toggled",
                     G_CALLBACK (select_email_cb), (gpointer) dialog);
 
@@ -266,13 +266,13 @@ create_link_tab(AreaInfoDialog_t *dialog, GtkWidget *notebook)
    gtk_table_attach_defaults(GTK_TABLE(table), browse->hbox, 0, 1, 3, 4);
    dialog->url = browse->file;
    g_signal_connect(dialog->url, "changed", G_CALLBACK(url_changed),
-		    dialog);
+                    dialog);
    gtk_label_set_mnemonic_widget(GTK_LABEL(label), dialog->url);
 
    dialog->relative_link = create_check_button_in_table(table, 4, 0,
-							_("Relati_ve link"));
+                                                        _("Relati_ve link"));
    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(dialog->relative_link),
-				TRUE);
+                                TRUE);
 
    label = create_label_in_table(
       table, 6, 0,
@@ -293,8 +293,8 @@ geometry_changed(Object_t *obj, gpointer data)
       dialog->geometry_lock = FALSE;
    } else {
       if (dialog->obj == obj) {
-	 object_update_info_widget(obj, dialog->infotab);
-	 obj->class->assign(obj, dialog->clone);
+         object_update_info_widget(obj, dialog->infotab);
+         obj->class->assign(obj, dialog->clone);
       }
    }
 }
@@ -312,7 +312,7 @@ create_info_tab(AreaInfoDialog_t *dialog, GtkWidget *notebook)
    GtkWidget *vbox, *frame, *preview;
    Object_t *obj = dialog->obj;
 
-   vbox = gtk_vbox_new(FALSE, 1);
+   vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 1);
    gtk_container_set_border_width(GTK_CONTAINER(vbox), 12);
    gtk_widget_show(vbox);
 
@@ -329,7 +329,7 @@ create_info_tab(AreaInfoDialog_t *dialog, GtkWidget *notebook)
    dialog->infotab = obj->class->create_info_widget(frame);
 
    append_page (notebook, vbox, obj->class->get_stock_icon_name (),
-		gettext (obj->class->name));
+                gettext (obj->class->name));
 }
 
 static void
@@ -337,7 +337,7 @@ create_java_script_tab(AreaInfoDialog_t *dialog, GtkWidget *notebook)
 {
    GtkWidget *vbox, *table, *label;
 
-   vbox = gtk_vbox_new(FALSE, 1);
+   vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 1);
    gtk_widget_show(vbox);
 
    table = gtk_table_new(11, 1, FALSE);
@@ -386,7 +386,7 @@ edit_area_apply_cb(gpointer data)
    object_set_target(obj, gtk_entry_get_text(GTK_ENTRY(param->target)));
    object_set_comment(obj, gtk_entry_get_text(GTK_ENTRY(param->comment)));
    object_set_mouse_over(obj,
-			 gtk_entry_get_text(GTK_ENTRY(param->mouse_over)));
+                         gtk_entry_get_text(GTK_ENTRY(param->mouse_over)));
    object_set_mouse_out(obj, gtk_entry_get_text(GTK_ENTRY(param->mouse_out)));
    object_set_focus(obj, gtk_entry_get_text(GTK_ENTRY(param->focus)));
    object_set_blur(obj, gtk_entry_get_text(GTK_ENTRY(param->blur)));
@@ -394,7 +394,7 @@ edit_area_apply_cb(gpointer data)
    update_shape(obj);
 
    if (object_was_changed(param))
-      redraw_preview();
+      preview_redraw();
 }
 
 static void
@@ -429,12 +429,12 @@ edit_area_cancel_cb(gpointer data)
    object_unref(dialog->clone);
 
    if (changed)
-      redraw_preview();
+      preview_redraw();
 }
 
 static void
 switch_page(GtkWidget *widget, gpointer page, gint page_num,
-	    gpointer data)
+            gpointer data)
 {
    AreaInfoDialog_t *param = (AreaInfoDialog_t*) data;
    if (page_num == 0) {
@@ -477,7 +477,7 @@ create_edit_area_info_dialog(Object_t *obj)
 
 void
 edit_area_info_dialog_show(AreaInfoDialog_t *dialog, Object_t *obj,
-			   gboolean add)
+                           gboolean add)
 {
    gchar *title;
 
@@ -500,7 +500,7 @@ edit_area_info_dialog_show(AreaInfoDialog_t *dialog, Object_t *obj,
       object_list_add_geometry_cb(obj->list, geometry_changed, dialog);
 
    title = g_strdup_printf (_("Area #%d Settings"),
-			    object_get_position_in_list(obj) + 1);
+                            object_get_position_in_list(obj) + 1);
    default_dialog_set_title(dialog->dialog, title);
    g_free (title);
    default_dialog_show(dialog->dialog);

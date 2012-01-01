@@ -40,8 +40,14 @@
 
 #include "libgimp/stdplugins-intl.h"
 
-#if ! defined PATH_MAX && defined _MAX_PATH
-#  define PATH_MAX _MAX_PATH
+#if ! defined PATH_MAX
+#  if defined _MAX_PATH
+#    define PATH_MAX _MAX_PATH
+#  elif defined MAXPATHLEN
+#    define PATH_MAX MAXPATHLEN
+#  else
+#    define PATH_MAX 1024
+#  endif
 #endif
 
 /** qbist renderer ***********************************************************/
@@ -52,6 +58,7 @@
 
 #define PLUG_IN_PROC    "plug-in-qbist"
 #define PLUG_IN_BINARY  "qbist"
+#define PLUG_IN_ROLE    "gimp-qbist"
 #define PLUG_IN_VERSION "January 2001, 1.12"
 
 /** types *******************************************************************/
@@ -424,7 +431,7 @@ run (const gchar      *name,
 {
   static GimpParam values[1];
   gint sel_x1, sel_y1, sel_x2, sel_y2;
-  gint img_height, img_width, img_bpp, img_has_alpha;
+  gint img_height, img_width;
 
   GimpDrawable      *drawable;
   GimpRunMode        run_mode;
@@ -448,8 +455,6 @@ run (const gchar      *name,
 
   img_width = gimp_drawable_width (drawable->drawable_id);
   img_height = gimp_drawable_height (drawable->drawable_id);
-  img_bpp = gimp_drawable_bpp (drawable->drawable_id);
-  img_has_alpha = gimp_drawable_has_alpha (drawable->drawable_id);
   gimp_drawable_mask_bounds (drawable->drawable_id,
                              &sel_x1, &sel_y1, &sel_x2, &sel_y2);
 
@@ -532,6 +537,7 @@ run (const gchar      *name,
                                     (gfloat) (sel_y2 - sel_y1));
             }
 
+          gimp_progress_update (1.0);
           gimp_drawable_flush (drawable);
           gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);
           gimp_drawable_update (drawable->drawable_id,
@@ -799,7 +805,7 @@ dialog_run (void)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("G-Qbist"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("G-Qbist"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -815,7 +821,7 @@ dialog_run (void)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       vbox, FALSE, FALSE, 0);
@@ -859,7 +865,7 @@ dialog_run (void)
                     G_CALLBACK (dialog_toggle_antialaising),
                     NULL);
 
-  bbox = gtk_hbutton_box_new ();
+  bbox = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
   gtk_button_box_set_layout (GTK_BUTTON_BOX (bbox), GTK_BUTTONBOX_START);
   gtk_box_pack_start (GTK_BOX (vbox), bbox, FALSE, FALSE, 0);
   gtk_widget_show (bbox);

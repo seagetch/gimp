@@ -15,6 +15,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef __JPEG_SAVE_H__
+#define __JPEG_SAVE_H__
+
 typedef struct
 {
   gdouble          quality;
@@ -45,4 +48,6 @@ gboolean    save_image         (const gchar  *filename,
                                 gboolean      preview,
                                 GError      **error);
 gboolean    save_dialog        (void);
-void        load_save_defaults (void);
+void        load_defaults      (void);
+
+#endif /* __JPEG_SAVE_H__ */

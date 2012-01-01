@@ -33,6 +33,7 @@
 /* Some useful macros */
 #define PLUG_IN_PROC    "plug-in-ripple"
 #define PLUG_IN_BINARY  "ripple"
+#define PLUG_IN_ROLE    "gimp-ripple"
 
 #define SCALE_WIDTH     200
 #define TILE_CACHE_SIZE  16
@@ -481,7 +482,7 @@ ripple_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Ripple"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Ripple"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -498,10 +499,10 @@ ripple_dialog (GimpDrawable *drawable)
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
   /*  The main vbox  */
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_drawable_preview_new (drawable, NULL);
@@ -524,7 +525,7 @@ ripple_dialog (GimpDrawable *drawable)
                     GTK_EXPAND | GTK_FILL, GTK_EXPAND | GTK_FILL, 0, 0);
   gtk_widget_show (frame);
 
-  toggle_vbox = gtk_vbox_new (FALSE, 6);
+  toggle_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), toggle_vbox);
   gtk_widget_show (toggle_vbox);
 
@@ -591,8 +592,9 @@ ripple_dialog (GimpDrawable *drawable)
                     GTK_FILL | GTK_EXPAND, GTK_FILL | GTK_EXPAND, 0, 0);
   gtk_widget_show (frame);
 
-  g_object_set_data (G_OBJECT (toggle), "inverse_sensitive", frame);
-  gimp_toggle_button_sensitive_update (GTK_TOGGLE_BUTTON (toggle));
+  g_object_bind_property (toggle, "active",
+                          frame,  "sensitive",
+                          G_BINDING_SYNC_CREATE | G_BINDING_INVERT_BOOLEAN);
 
   g_signal_connect_swapped (wrap, "toggled",
                             G_CALLBACK (gimp_preview_invalidate),

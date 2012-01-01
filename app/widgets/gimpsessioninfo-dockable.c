@@ -33,6 +33,7 @@
 #include "gimpdockable.h"
 #include "gimpsessioninfo-aux.h"
 #include "gimpsessioninfo-dockable.h"
+#include "gimpsessionmanaged.h"
 #include "gimptoolbox.h"
 
 
@@ -66,8 +67,8 @@ gimp_session_info_dockable_free (GimpSessionInfoDockable *info)
 
   if (info->aux_info)
     {
-      g_list_foreach (info->aux_info, (GFunc) gimp_session_info_aux_free, NULL);
-      g_list_free (info->aux_info);
+      g_list_free_full (info->aux_info,
+                        (GDestroyNotify) gimp_session_info_aux_free);
       info->aux_info = NULL;
     }
 
@@ -264,7 +265,9 @@ gimp_session_info_dockable_from_widget (GimpDockable *dockable)
   if (view_size > 0 && view_size != entry->view_size)
     info->view_size = view_size;
 
-  info->aux_info = gimp_session_info_aux_get_list (GTK_WIDGET (dockable));
+  if (GIMP_IS_SESSION_MANAGED (dockable))
+    info->aux_info =
+      gimp_session_managed_get_aux_info (GIMP_SESSION_MANAGED (dockable));
 
   return info;
 }
@@ -290,11 +293,19 @@ gimp_session_info_dockable_restore (GimpSessionInfoDockable *info,
 
   if (dockable)
     {
+      /*  gimp_dialog_factory_dockable_new() might return an already
+       *  existing singleton dockable, return NULL so our caller won't
+       *  try to add it to another dockbook
+       */
+      if (gimp_dockable_get_dockbook (GIMP_DOCKABLE (dockable)))
+        return NULL;
+
       gimp_dockable_set_locked    (GIMP_DOCKABLE (dockable), info->locked);
       gimp_dockable_set_tab_style (GIMP_DOCKABLE (dockable), info->tab_style);
 
       if (info->aux_info)
-        gimp_session_info_aux_set_list (dockable, info->aux_info);
+        gimp_session_managed_set_aux_info (GIMP_SESSION_MANAGED (dockable),
+                                           info->aux_info);
     }
 
   return GIMP_DOCKABLE (dockable);

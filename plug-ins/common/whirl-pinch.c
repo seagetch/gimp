@@ -54,6 +54,7 @@
 
 #define PLUG_IN_PROC    "plug-in-whirl-pinch"
 #define PLUG_IN_BINARY  "whirl-pinch"
+#define PLUG_IN_ROLE    "gimp-whirl-pinch"
 #define PLUG_IN_VERSION "May 1997, 2.09"
 
 /***** Magic numbers *****/
@@ -436,6 +437,7 @@ whirl_pinch (GimpDrawable *drawable)
       gimp_progress_update ((double) progress / max_progress);
     }
 
+  gimp_progress_update (1.0);
   gimp_pixel_fetcher_destroy (pft);
   gimp_pixel_fetcher_destroy (pfb);
 
@@ -524,7 +526,7 @@ whirl_pinch_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Whirl and Pinch"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Whirl and Pinch"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -540,10 +542,10 @@ whirl_pinch_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_zoom_preview_new (drawable);

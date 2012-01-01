@@ -19,6 +19,7 @@
 
 #include "config.h"
 
+#include <cairo.h>
 #include <gegl.h>
 #include <gegl-buffer-iterator.h>
 
@@ -30,12 +31,14 @@
 #include "gimpoperationcagetransform.h"
 #include "gimpcageconfig.h"
 
+#include "gimp-intl.h"
 
 enum
 {
   PROP_0,
   PROP_CONFIG,
-  PROP_FILL
+  PROP_FILL,
+  PROP_PROGRESS
 };
 
 
@@ -67,6 +70,8 @@ static void         gimp_operation_cage_transform_interpolate_source_coords_recu
                                                                            gint                 recursion_depth,
                                                                            gfloat              *coords);
 static GimpVector2  gimp_cage_transform_compute_destination               (GimpCageConfig      *config,
+                                                                           gfloat              *coef,
+                                                                           Babl                *format_coef,
                                                                            GeglBuffer          *coef_buf,
                                                                            GimpVector2          coords);
 GeglRectangle       gimp_operation_cage_transform_get_cached_region       (GeglOperation       *operation,
@@ -96,7 +101,7 @@ gimp_operation_cage_transform_class_init (GimpOperationCageTransformClass *klass
 
   operation_class->name                    = "gimp:cage-transform";
   operation_class->categories              = "transform";
-  operation_class->description             = "GIMP cage reverse transform";
+  operation_class->description             = _("Convert a set of coefficient buffer to a coordinate buffer for the GIMP cage tool");
 
   operation_class->prepare                 = gimp_operation_cage_transform_prepare;
 
@@ -108,17 +113,26 @@ gimp_operation_cage_transform_class_init (GimpOperationCageTransformClass *klass
   filter_class->process                    = gimp_operation_cage_transform_process;
 
   g_object_class_install_property (object_class, PROP_CONFIG,
-                                   g_param_spec_object ("config", NULL, NULL,
+                                   g_param_spec_object ("config",
+                                                        "Config",
+                                                        "A GimpCageConfig object, that define the transformation",
                                                         GIMP_TYPE_CAGE_CONFIG,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT));
 
   g_object_class_install_property (object_class, PROP_FILL,
                                    g_param_spec_boolean ("fill-plain-color",
-                                                         "Blocking render",
-                                                         "Fill the original position of the cage with a plain color",
+                                                         _("Fill with plain color"),
+                                                         _("Fill the original position of the cage with a plain color"),
                                                          FALSE,
                                                          G_PARAM_READWRITE));
+
+  g_object_class_install_property (object_class, PROP_PROGRESS,
+                                   g_param_spec_double ("progress",
+                                                        "Progress",
+                                                        "Progress indicator, and a bad hack",
+                                                        0.0, 1.0, 0.0,
+                                                        G_PARAM_READABLE));
 }
 
 static void
@@ -128,7 +142,7 @@ gimp_operation_cage_transform_init (GimpOperationCageTransform *self)
 }
 
 static void
-gimp_operation_cage_transform_finalize  (GObject  *object)
+gimp_operation_cage_transform_finalize (GObject *object)
 {
   GimpOperationCageTransform *self = GIMP_OPERATION_CAGE_TRANSFORM (object);
 
@@ -156,6 +170,9 @@ gimp_operation_cage_transform_get_property (GObject    *object,
       break;
     case PROP_FILL:
       g_value_set_boolean (value, self->fill_plain_color);
+      break;
+    case PROP_PROGRESS:
+      g_value_set_double (value, self->progress);
       break;
 
     default:
@@ -190,14 +207,14 @@ gimp_operation_cage_transform_set_property (GObject      *object,
 }
 
 static void
-gimp_operation_cage_transform_prepare (GeglOperation  *operation)
+gimp_operation_cage_transform_prepare (GeglOperation *operation)
 {
   GimpOperationCageTransform *oct    = GIMP_OPERATION_CAGE_TRANSFORM (operation);
   GimpCageConfig             *config = GIMP_CAGE_CONFIG (oct->config);
 
   gegl_operation_set_format (operation, "input",
                              babl_format_n (babl_type ("float"),
-                                            2 * config->n_cage_vertices));
+                                            2 * gimp_cage_config_get_n_points (config)));
   gegl_operation_set_format (operation, "output",
                              babl_format_n (babl_type ("float"), 2));
 }
@@ -213,15 +230,24 @@ gimp_operation_cage_transform_process (GeglOperation       *operation,
   GimpCageConfig             *config = GIMP_CAGE_CONFIG (oct->config);
   GeglRectangle               cage_bb;
   gfloat                     *coords;
+  gfloat                     *coef;
+  Babl                       *format_coef;
   GimpVector2                 plain_color;
   GeglBufferIterator         *it;
   gint                        x, y;
+  gboolean                    output_set;
+  GimpCagePoint              *point;
+  guint                       n_cage_vertices;
 
   /* pre-fill the out buffer with no-displacement coordinate */
-  it = gegl_buffer_iterator_new (out_buf, roi, NULL, GEGL_BUFFER_WRITE);
+  it      = gegl_buffer_iterator_new (out_buf, roi, NULL, GEGL_BUFFER_WRITE);
+  cage_bb = gimp_cage_config_get_bounding_box (config);
 
-  plain_color.x = (gint) config->cage_vertices[0].x;
-  plain_color.y = (gint) config->cage_vertices[0].y;
+  point = &(g_array_index (config->cage_points, GimpCagePoint, 0));
+  plain_color.x = (gint) point->src_point.x;
+  plain_color.y = (gint) point->src_point.y;
+
+  n_cage_vertices   = gimp_cage_config_get_n_points (config);
 
   while (gegl_buffer_iterator_next (it))
     {
@@ -234,13 +260,23 @@ gimp_operation_cage_transform_process (GeglOperation       *operation,
 
       while (n_pixels--)
         {
-          if (oct->fill_plain_color &&
-              gimp_cage_config_point_inside (config, x, y))
+          output_set = FALSE;
+          if (oct->fill_plain_color)
             {
-              output[0] = plain_color.x;
-              output[1] = plain_color.y;
+              if (x > cage_bb.x &&
+                  y > cage_bb.y &&
+                  x < cage_bb.x + cage_bb.width &&
+                  y < cage_bb.y + cage_bb.height)
+                {
+                  if (gimp_cage_config_point_inside (config, x, y))
+                    {
+                      output[0] = plain_color.x;
+                      output[1] = plain_color.y;
+                      output_set = TRUE;
+                    }
+                }
             }
-          else
+          if (!output_set)
             {
               output[0] = x;
               output[1] = y;
@@ -258,36 +294,41 @@ gimp_operation_cage_transform_process (GeglOperation       *operation,
         }
     }
 
-  /* compute, reverse and interpolate the transformation */
-  cage_bb = gimp_cage_config_get_bounding_box (config);
-  coords  = g_slice_alloc (2 * sizeof (gfloat));
+  oct->progress = 0.0;
+  g_object_notify (G_OBJECT (oct), "progress");
 
-  for (x = cage_bb.x; x < cage_bb.x + cage_bb.width - 1; x++)
+  /* pre-allocate memory outside of the loop */
+  coords      = g_slice_alloc (2 * sizeof (gfloat));
+  coef        = g_malloc (n_cage_vertices * 2 * sizeof (gfloat));
+  format_coef = babl_format_n (babl_type ("float"), 2 * n_cage_vertices);
+
+  /* compute, reverse and interpolate the transformation */
+  for (y = cage_bb.y; y < cage_bb.y + cage_bb.height - 1; y++)
     {
       GimpVector2 p1_d, p2_d, p3_d, p4_d;
       GimpVector2 p1_s, p2_s, p3_s, p4_s;
 
-      p1_s.x = x;
-      p2_s.x = x+1;
-      p3_s.x = x+1;
-      p3_s.y = cage_bb.y;
-      p4_s.x = x;
-      p4_s.y = cage_bb.y;
+      p1_s.y = y;
+      p2_s.y = y+1;
+      p3_s.y = y+1;
+      p3_s.x = cage_bb.x;
+      p4_s.y = y;
+      p4_s.x = cage_bb.x;
 
-      p3_d = gimp_cage_transform_compute_destination (config, aux_buf, p3_s);
-      p4_d = gimp_cage_transform_compute_destination (config, aux_buf, p4_s);
+      p3_d = gimp_cage_transform_compute_destination (config, coef, format_coef, aux_buf, p3_s);
+      p4_d = gimp_cage_transform_compute_destination (config, coef, format_coef, aux_buf, p4_s);
 
-      for (y = cage_bb.y; y < cage_bb.y + cage_bb.height - 1; y++)
+      for (x = cage_bb.x; x < cage_bb.x + cage_bb.width - 1; x++)
         {
           p1_s = p4_s;
           p2_s = p3_s;
-          p3_s.y = y+1;
-          p4_s.y = y+1;
+          p3_s.x = x+1;
+          p4_s.x = x+1;
 
           p1_d = p4_d;
           p2_d = p3_d;
-          p3_d = gimp_cage_transform_compute_destination (config, aux_buf, p3_s);
-          p4_d = gimp_cage_transform_compute_destination (config, aux_buf, p4_s);
+          p3_d = gimp_cage_transform_compute_destination (config, coef, format_coef, aux_buf, p3_s);
+          p4_d = gimp_cage_transform_compute_destination (config, coef, format_coef, aux_buf, p4_s);
 
           if (gimp_cage_config_point_inside (config, x, y))
             {
@@ -310,9 +351,26 @@ gimp_operation_cage_transform_process (GeglOperation       *operation,
                                                                               coords);
             }
         }
+
+      if ((y - cage_bb.y) % 20 == 0)
+        {
+          gdouble fraction = ((gdouble) (y - cage_bb.y) /
+                              (gdouble) (cage_bb.height));
+
+          /*  0.0 and 1.0 indicate progress start/end, so avoid them  */
+          if (fraction > 0.0 && fraction < 1.0)
+            {
+              oct->progress = fraction;
+              g_object_notify (G_OBJECT (oct), "progress");
+            }
+        }
     }
 
+  g_free (coef);
   g_slice_free1 (2 * sizeof (gfloat), coords);
+
+  oct->progress = 1.0;
+  g_object_notify (G_OBJECT (oct), "progress");
 
   return TRUE;
 }
@@ -482,45 +540,40 @@ gimp_operation_cage_transform_interpolate_source_coords_recurs (GimpOperationCag
 
 static GimpVector2
 gimp_cage_transform_compute_destination (GimpCageConfig *config,
+                                         gfloat         *coef,
+                                         Babl           *format_coef,
                                          GeglBuffer     *coef_buf,
                                          GimpVector2     coords)
 {
-  gfloat        *coef;
-  gdouble        pos_x, pos_y;
-  GeglRectangle  rect;
-  GimpVector2    result;
-  gint           cvn = config->n_cage_vertices;
-  Babl          *format_coef = babl_format_n (babl_type ("float"), 2 * cvn);
+  GimpVector2    result = {0, 0};
+  gint           n_cage_vertices = gimp_cage_config_get_n_points (config);
   gint           i;
+  GimpCagePoint *point;
 
-  rect.height = 1;
-  rect.width  = 1;
-  rect.x      = coords.x;
-  rect.y      = coords.y;
+  /* When Gegl bug #645810 will be solved, this should be a good optimisation */
+  #ifdef GEGL_BUG_645810_SOLVED
+    gegl_buffer_sample (coef_buf, coords.x, coords.y, 1.0, coef, format_coef, GEGL_INTERPOLATION_NEAREST);
+  #else
+    GeglRectangle  rect;
 
-  coef = g_malloc (config->n_cage_vertices * 2 * sizeof(gfloat));
+    rect.height = 1;
+    rect.width  = 1;
+    rect.x      = coords.x;
+    rect.y      = coords.y;
 
-  gegl_buffer_get (coef_buf, 1, &rect, format_coef, coef, GEGL_AUTO_ROWSTRIDE);
+    gegl_buffer_get (coef_buf, 1, &rect, format_coef, coef, GEGL_AUTO_ROWSTRIDE);
+  #endif
 
-  pos_x = 0;
-  pos_y = 0;
-
-  for (i = 0; i < cvn; i++)
+  for (i = 0; i < n_cage_vertices; i++)
     {
-      pos_x += coef[i] * config->cage_vertices_d[i].x;
-      pos_y += coef[i] * config->cage_vertices_d[i].y;
+      point = &g_array_index (config->cage_points, GimpCagePoint, i);
+
+      result.x += coef[i] * point->dest_point.x;
+      result.y += coef[i] * point->dest_point.y;
+
+      result.x += coef[i + n_cage_vertices] * point->edge_scaling_factor * point->edge_normal.x;
+      result.y += coef[i + n_cage_vertices] * point->edge_scaling_factor * point->edge_normal.y;
     }
-
-  for (i = 0; i < cvn; i++)
-    {
-      pos_x += coef[i + cvn] * config->scaling_factor[i] * config->normal_d[i].x;
-      pos_y += coef[i + cvn] * config->scaling_factor[i] * config->normal_d[i].y;
-    }
-
-  result.x = pos_x;
-  result.y = pos_y;
-
-  g_free (coef);
 
   return result;
 }

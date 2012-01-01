@@ -85,12 +85,14 @@ gimp_selection_options_class_init (GimpSelectionOptionsClass *klass)
                                     GIMP_PARAM_STATIC_STRINGS);
 
   GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_FEATHER,
-                                    "feather", NULL,
+                                    "feather",
+                                    N_("Enable feathering of selection edges"),
                                     FALSE,
                                     GIMP_PARAM_STATIC_STRINGS);
 
   GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, PROP_FEATHER_RADIUS,
-                                   "feather-radius", NULL,
+                                   "feather-radius",
+                                   N_("Radius of feathering"),
                                    0.0, 100.0, 10.0,
                                    GIMP_PARAM_STATIC_STRINGS);
 }
@@ -165,30 +167,35 @@ gimp_selection_options_get_property (GObject    *object,
 }
 
 static const gchar *
-gimp_selection_options_get_modifier (GimpChannelOps operation)
+gimp_selection_options_get_modifiers (GimpChannelOps operation)
 {
-  GdkModifierType mod = 0;
+  GdkModifierType extend_mask;
+  GdkModifierType modify_mask;
+  GdkModifierType modifiers = 0;
+
+  extend_mask = gimp_get_extend_selection_mask ();
+  modify_mask = gimp_get_modify_selection_mask ();
 
   switch (operation)
     {
     case GIMP_CHANNEL_OP_ADD:
-      mod = GDK_SHIFT_MASK;
+      modifiers = extend_mask;
       break;
 
     case GIMP_CHANNEL_OP_SUBTRACT:
-      mod = GDK_CONTROL_MASK;
+      modifiers = modify_mask;
       break;
 
     case GIMP_CHANNEL_OP_REPLACE:
-      mod = 0;
+      modifiers = 0;
       break;
 
     case GIMP_CHANNEL_OP_INTERSECT:
-      mod = GDK_CONTROL_MASK | GDK_SHIFT_MASK;
+      modifiers = extend_mask | modify_mask;
       break;
     }
 
-  return gimp_get_mod_string (mod);
+  return gimp_get_mod_string (modifiers);
 }
 
 GtkWidget *
@@ -208,7 +215,7 @@ gimp_selection_options_gui_full (GimpToolOptions *tool_options, gboolean horizon
     GList     *list;
     gint       i;
 
-    hbox = gtk_hbox_new (FALSE, 2);
+    hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
     gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
     gtk_widget_show (hbox);
 
@@ -227,7 +234,7 @@ gimp_selection_options_gui_full (GimpToolOptions *tool_options, gboolean horizon
     for (list = children, i = 0; list; list = list->next, i++)
       {
         GtkWidget   *button   = list->data;
-        const gchar *modifier = gimp_selection_options_get_modifier (i);
+        const gchar *modifier = gimp_selection_options_get_modifiers (i);
         gchar       *tooltip;
 
         if (! modifier)

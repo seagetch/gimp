@@ -17,9 +17,6 @@ INCLUDES = \
         $(GTK_CFLAGS)	\
         -I$(includedir)
 
-EXTRA_DIST = \
-	makefile.msc
-
 if HAVE_LCMS
 display_filter_lcms_module = libdisplay-filter-lcms.la
 display_filter_proof_module = libdisplay-filter-proof.la
@@ -104,13 +101,13 @@ libdisplay_filter_proof_la_LDFLAGS = -avoid-version -module $(no_undefined)
 libdisplay_filter_proof_la_LIBADD = $(display_filter_libadd) $(LCMS_LIBS)
 
 libcontroller_linux_input_la_SOURCES = \
-	gimpinputdevicestore-hal.c	\
+	gimpinputdevicestore-gudev.c	\
 	gimpinputdevicestore.h		\
 	controller-linux-input.c
-libcontroller_linux_input_la_CFLAGS = $(DBUS_GLIB_CFLAGS) $(HAL_CFLAGS)
+libcontroller_linux_input_la_CFLAGS = $(GUDEV_CFLAGS)
 libcontroller_linux_input_la_LDFLAGS = -avoid-version -module $(no_undefined)
 libcontroller_linux_input_la_LIBADD = \
-	$(controller_libadd) $(DBUS_GLIB_LIBS) $(HAL_LIBS)
+	$(controller_libadd) $(GUDEV_LIBS)
 
 libcontroller_dx_dinput_la_SOURCES = \
 	gimpinputdevicestore-dx.c	\

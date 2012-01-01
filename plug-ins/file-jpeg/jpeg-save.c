@@ -33,9 +33,9 @@
 #include <jpeglib.h>
 #include <jerror.h>
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
 #include <libexif/exif-data.h>
-#endif /* HAVE_EXIF */
+#endif /* HAVE_LIBEXIF */
 
 #include <libgimp/gimp.h>
 #include <libgimp/gimpui.h>
@@ -47,19 +47,23 @@
 #include "jpeg-load.h"
 #include "jpeg-save.h"
 #include "jpeg-settings.h"
+#ifdef HAVE_LIBEXIF
+#include "jpeg-exif.h"
+#endif
 
 
 #define SCALE_WIDTH         125
 
 
 /* See bugs #63610 and #61088 for a discussion about the quality settings */
-#define DEFAULT_QUALITY          85.0
+#define DEFAULT_QUALITY          90.0
 #define DEFAULT_SMOOTHING        0.0
 #define DEFAULT_OPTIMIZE         TRUE
-#define DEFAULT_PROGRESSIVE      FALSE
+#define DEFAULT_PROGRESSIVE      TRUE
 #define DEFAULT_BASELINE         TRUE
-#define DEFAULT_SUBSMP           JPEG_SUPSAMPLING_2x2_1x1_1x1
+#define DEFAULT_SUBSMP           JPEG_SUBSAMPLING_1x1_1x1_1x1
 #define DEFAULT_RESTART          0
+#define DEFAULT_RESTART_MCU_ROWS 16
 #define DEFAULT_DCT              0
 #define DEFAULT_PREVIEW          FALSE
 #define DEFAULT_EXIF             TRUE
@@ -124,14 +128,14 @@ static void  use_orig_qual_changed  (GtkWidget     *toggle,
 static void  use_orig_qual_changed2 (GtkWidget     *toggle,
                                      GtkWidget     *combo);
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
 
 static gint  create_thumbnail    (gint32         image_ID,
                                   gint32         drawable_ID,
                                   gdouble        quality,
                                   guchar       **thumbnail_buffer);
 
-#endif /* HAVE_EXIF */
+#endif /* HAVE_LIBEXIF */
 
 
 static GtkWidget *restart_markers_scale = NULL;
@@ -198,7 +202,7 @@ background_jpeg_save (PreviewPersistent *pp)
 
           g_stat (pp->file_name, &buf);
 
-          size_text = g_format_size_for_display (buf.st_size);
+          size_text = g_format_size (buf.st_size);
           text = g_strdup_printf (_("File size: %s"), size_text);
 
           gtk_label_set_text (GTK_LABEL (preview_size), text);
@@ -399,11 +403,11 @@ save_image (const gchar  *filename,
   cinfo.optimize_coding = jsvals.optimize;
 
   subsampling = (gimp_drawable_is_rgb (drawable_ID) ?
-                 jsvals.subsmp : JPEG_SUPSAMPLING_1x1_1x1_1x1);
+                 jsvals.subsmp : JPEG_SUBSAMPLING_1x1_1x1_1x1);
 
   /*  smoothing is not supported with nonstandard sampling ratios  */
-  if (subsampling != JPEG_SUPSAMPLING_2x1_1x1_1x1 &&
-      subsampling != JPEG_SUPSAMPLING_1x2_1x1_1x1)
+  if (subsampling != JPEG_SUBSAMPLING_2x1_1x1_1x1 &&
+      subsampling != JPEG_SUBSAMPLING_1x2_1x1_1x1)
     {
       cinfo.smoothing_factor = (gint) (jsvals.smoothing * 100);
     }
@@ -415,7 +419,7 @@ save_image (const gchar  *filename,
 
   switch (subsampling)
     {
-    case JPEG_SUPSAMPLING_2x2_1x1_1x1:
+    case JPEG_SUBSAMPLING_2x2_1x1_1x1:
     default:
       cinfo.comp_info[0].h_samp_factor = 2;
       cinfo.comp_info[0].v_samp_factor = 2;
@@ -425,7 +429,7 @@ save_image (const gchar  *filename,
       cinfo.comp_info[2].v_samp_factor = 1;
       break;
 
-    case JPEG_SUPSAMPLING_2x1_1x1_1x1:
+    case JPEG_SUBSAMPLING_2x1_1x1_1x1:
       cinfo.comp_info[0].h_samp_factor = 2;
       cinfo.comp_info[0].v_samp_factor = 1;
       cinfo.comp_info[1].h_samp_factor = 1;
@@ -434,7 +438,7 @@ save_image (const gchar  *filename,
       cinfo.comp_info[2].v_samp_factor = 1;
       break;
 
-    case JPEG_SUPSAMPLING_1x1_1x1_1x1:
+    case JPEG_SUBSAMPLING_1x1_1x1_1x1:
       cinfo.comp_info[0].h_samp_factor = 1;
       cinfo.comp_info[0].v_samp_factor = 1;
       cinfo.comp_info[1].h_samp_factor = 1;
@@ -443,7 +447,7 @@ save_image (const gchar  *filename,
       cinfo.comp_info[2].v_samp_factor = 1;
       break;
 
-    case JPEG_SUPSAMPLING_1x2_1x1_1x1:
+    case JPEG_SUBSAMPLING_1x2_1x1_1x1:
       cinfo.comp_info[0].h_samp_factor = 1;
       cinfo.comp_info[0].v_samp_factor = 2;
       cinfo.comp_info[1].h_samp_factor = 1;
@@ -509,7 +513,7 @@ save_image (const gchar  *filename,
    */
   jpeg_start_compress (&cinfo, TRUE);
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
 
   /* Create the thumbnail JPEG in a buffer */
   if ((jsvals.save_exif && exif_data) || jsvals.save_thumbnail)
@@ -583,7 +587,7 @@ save_image (const gchar  *filename,
       if (exif_buf)
         free (exif_buf);
     }
-#endif /* HAVE_EXIF */
+#endif /* HAVE_LIBEXIF */
 
   /* Step 4.1: Write the comment out - pw */
   if (image_comment && *image_comment)
@@ -600,7 +604,7 @@ save_image (const gchar  *filename,
   if (jsvals.save_xmp)
     {
       /* FIXME: temporary hack until the right thing is done by a library */
-      parasite = gimp_image_parasite_find (orig_image_ID, "gimp-metadata");
+      parasite = gimp_image_get_parasite (orig_image_ID, "gimp-metadata");
       if (parasite)
         {
           const gchar *xmp_data;
@@ -626,7 +630,7 @@ save_image (const gchar  *filename,
     }
 
   /* Step 4.3: store the color profile if there is one */
-  parasite = gimp_image_parasite_find (orig_image_ID, "icc-profile");
+  parasite = gimp_image_get_parasite (orig_image_ID, "icc-profile");
   if (parasite)
     {
       jpeg_icc_write_profile (&cinfo,
@@ -844,7 +848,7 @@ save_dialog (void)
 
   gtk_window_set_resizable (GTK_WINDOW (dialog), FALSE);
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
   gtk_box_pack_start (GTK_BOX (gimp_export_dialog_get_content_area (dialog)),
                       vbox, TRUE, TRUE, 0);
@@ -902,7 +906,7 @@ save_dialog (void)
   gtk_box_pack_start (GTK_BOX (vbox), expander, TRUE, TRUE, 0);
   gtk_widget_show (expander);
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_add (GTK_CONTAINER (expander), vbox);
   gtk_widget_show (vbox);
 
@@ -936,7 +940,7 @@ save_dialog (void)
                     G_CALLBACK (make_preview),
                     NULL);
 
-  restart_markers_label = gtk_label_new (_("Frequency (rows):"));
+  restart_markers_label = gtk_label_new (_("Interval (MCU rows):"));
   gtk_misc_set_alignment (GTK_MISC (restart_markers_label), 1.0, 0.5);
   gtk_table_attach (GTK_TABLE (table), restart_markers_label, 4, 5, 1, 2,
                     GTK_FILL | GTK_EXPAND, GTK_FILL, 0, 0);
@@ -945,7 +949,8 @@ save_dialog (void)
   /*pg.scale_data = scale_data;*/
   pg.restart = restart_markers_scale = spinbutton =
     gimp_spin_button_new (&pg.scale_data,
-                          (jsvals.restart == 0) ? 1 : jsvals.restart,
+                          ((jsvals.restart == 0) ?
+                           DEFAULT_RESTART_MCU_ROWS : jsvals.restart),
                           1.0, 64.0, 1.0, 1.0, 0, 1.0, 0);
   gtk_table_attach (GTK_TABLE (table), spinbutton, 5, 6, 1, 2,
                     GTK_FILL, GTK_FILL, 0, 0);
@@ -996,7 +1001,7 @@ save_dialog (void)
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (toggle),
                                 jsvals.progressive);
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
   pg.save_exif = toggle =
     gtk_check_button_new_with_mnemonic (_("Save _EXIF data"));
   gtk_table_attach (GTK_TABLE (table), toggle, 0, 1, 2, 3, GTK_FILL, 0, 0, 0);
@@ -1028,7 +1033,7 @@ save_dialog (void)
 
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (toggle),
                                 jsvals.save_thumbnail);
-#endif /* HAVE_EXIF */
+#endif /* HAVE_LIBEXIF */
 
   /* XMP metadata */
   pg.save_xmp = toggle =
@@ -1084,14 +1089,14 @@ save_dialog (void)
   gtk_widget_show (label);
 
   pg.subsmp =
-    combo = gimp_int_combo_box_new (_("1x1,1x1,1x1 (best quality)"),
-                                    JPEG_SUPSAMPLING_1x1_1x1_1x1,
-                                    _("2x1,1x1,1x1 (4:2:2)"),
-                                    JPEG_SUPSAMPLING_2x1_1x1_1x1,
-                                    _("1x2,1x1,1x1"),
-                                    JPEG_SUPSAMPLING_1x2_1x1_1x1,
-                                    _("2x2,1x1,1x1 (smallest file)"),
-                                    JPEG_SUPSAMPLING_2x2_1x1_1x1,
+    combo = gimp_int_combo_box_new (_("4:4:4 (best quality)"),
+                                    JPEG_SUBSAMPLING_1x1_1x1_1x1,
+                                    _("4:2:2 horizontal (chroma halved)"),
+                                    JPEG_SUBSAMPLING_2x1_1x1_1x1,
+                                    _("4:2:2 vertical (chroma halved)"),
+                                    JPEG_SUBSAMPLING_1x2_1x1_1x1,
+                                    _("4:2:0 (chroma quartered)"),
+                                    JPEG_SUBSAMPLING_2x2_1x1_1x1,
                                     NULL);
   gtk_table_attach (GTK_TABLE (table), combo, 3, 6, 2, 3,
                     GTK_FILL | GTK_EXPAND, GTK_FILL, 0, 0);
@@ -1113,7 +1118,7 @@ save_dialog (void)
   else
     {
       gimp_int_combo_box_set_active (GIMP_INT_COMBO_BOX (combo),
-                                     JPEG_SUPSAMPLING_1x1_1x1_1x1);
+                                     JPEG_SUBSAMPLING_1x1_1x1_1x1);
 
       gtk_widget_set_sensitive (combo, FALSE);
     }
@@ -1170,7 +1175,7 @@ save_dialog (void)
 
   g_object_unref (text_buffer);
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
   gtk_box_pack_start (GTK_BOX (gimp_export_dialog_get_content_area (dialog)),
                       vbox, TRUE, TRUE, 0);
@@ -1239,7 +1244,7 @@ save_dialog_response (GtkWidget *widget,
 }
 
 void
-load_save_defaults (void)
+load_defaults (void)
 {
   GimpParasite *parasite;
   gchar        *def_str;
@@ -1261,12 +1266,12 @@ load_save_defaults (void)
   jsvals.save_xmp         = DEFAULT_XMP;
   jsvals.use_orig_quality = DEFAULT_USE_ORIG_QUALITY;
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
   if (exif_data && (exif_data->data))
     jsvals.save_thumbnail = TRUE;
-#endif /* HAVE_EXIF */
+#endif /* HAVE_LIBEXIF */
 
-  parasite = gimp_parasite_find (JPEG_DEFAULTS_PARASITE);
+  parasite = gimp_get_parasite (JPEG_DEFAULTS_PARASITE);
 
   if (! parasite)
     return;
@@ -1276,7 +1281,7 @@ load_save_defaults (void)
 
   gimp_parasite_free (parasite);
 
-  num_fields = sscanf (def_str, "%lf %lf %d %d %d %d %d %d %d %d %d %d",
+  num_fields = sscanf (def_str, "%lf %lf %d %d %d %d %d %d %d %d %d %d %d",
                        &tmpvals.quality,
                        &tmpvals.smoothing,
                        &tmpvals.optimize,
@@ -1288,7 +1293,8 @@ load_save_defaults (void)
                        &tmpvals.preview,
                        &tmpvals.save_exif,
                        &tmpvals.save_thumbnail,
-                       &tmpvals.save_xmp);
+                       &tmpvals.save_xmp,
+                       &tmpvals.use_orig_quality);
 
   tmpvals.subsmp = subsampling;
 
@@ -1304,7 +1310,7 @@ save_defaults (void)
   GimpParasite *parasite;
   gchar        *def_str;
 
-  def_str = g_strdup_printf ("%lf %lf %d %d %d %d %d %d %d %d %d %d",
+  def_str = g_strdup_printf ("%lf %lf %d %d %d %d %d %d %d %d %d %d %d",
                              jsvals.quality,
                              jsvals.smoothing,
                              jsvals.optimize,
@@ -1316,12 +1322,13 @@ save_defaults (void)
                              jsvals.preview,
                              jsvals.save_exif,
                              jsvals.save_thumbnail,
-                             jsvals.save_xmp);
+                             jsvals.save_xmp,
+                             jsvals.use_orig_quality);
   parasite = gimp_parasite_new (JPEG_DEFAULTS_PARASITE,
                                 GIMP_PARASITE_PERSISTENT,
                                 strlen (def_str), def_str);
 
-  gimp_parasite_attach (parasite);
+  gimp_attach_parasite (parasite);
 
   gimp_parasite_free (parasite);
   g_free (def_str);
@@ -1332,7 +1339,7 @@ load_gui_defaults (JpegSaveGui *pg)
 {
   GtkAdjustment *restart_markers;
 
-  load_save_defaults ();
+  load_defaults ();
 
 #define SET_ACTIVE_BTTN(field) \
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (pg->field), jsvals.field)
@@ -1341,7 +1348,7 @@ load_gui_defaults (JpegSaveGui *pg)
   SET_ACTIVE_BTTN (progressive);
   SET_ACTIVE_BTTN (use_orig_quality);
   SET_ACTIVE_BTTN (preview);
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
   SET_ACTIVE_BTTN (save_exif);
   SET_ACTIVE_BTTN (save_thumbnail);
 #endif
@@ -1400,8 +1407,8 @@ subsampling_changed (GtkWidget *combo,
 
   /*  smoothing is not supported with nonstandard sampling ratios  */
   gimp_scale_entry_set_sensitive (entry,
-                                  jsvals.subsmp != JPEG_SUPSAMPLING_2x1_1x1_1x1 &&
-                                  jsvals.subsmp != JPEG_SUPSAMPLING_1x2_1x1_1x1);
+                                  jsvals.subsmp != JPEG_SUBSAMPLING_2x1_1x1_1x1 &&
+                                  jsvals.subsmp != JPEG_SUBSAMPLING_1x2_1x1_1x1);
 
   make_preview ();
 }
@@ -1439,7 +1446,7 @@ use_orig_qual_changed2 (GtkWidget *toggle,
     }
 }
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
 
 static guchar *tbuffer = NULL;
 static guchar *tbuffer2 = NULL;
@@ -1493,16 +1500,15 @@ create_thumbnail (gint32    image_ID,
                   gdouble   quality,
                   guchar  **thumbnail_buffer)
 {
-  GimpDrawable  *drawable;
-  gint           req_width, req_height, bpp, rbpp;
-  guchar        *thumbnail_data = NULL;
+  GimpDrawable               *drawable;
+  gint                        req_width, req_height, bpp, rbpp;
+  guchar                     *thumbnail_data = NULL;
   struct jpeg_compress_struct cinfo;
   struct my_error_mgr         jerr;
-  my_dest_ptr dest;
-  gboolean  alpha = FALSE;
-  JSAMPROW  scanline[1];
-  guchar   *buf = NULL;
-  gint      i;
+  my_dest_ptr                 dest;
+  JSAMPROW                    scanline[1];
+  guchar                     *buf = NULL;
+  gint                        i;
 
   drawable = gimp_drawable_get (drawable_ID);
 
@@ -1523,7 +1529,6 @@ create_thumbnail (gint32    image_ID,
 
   if ((bpp == 2) || (bpp == 4))
     {
-      alpha = TRUE;
       rbpp = bpp - 1;
     }
 
@@ -1658,4 +1663,4 @@ create_thumbnail (gint32    image_ID,
   return tbuffer_count;
 }
 
-#endif /* HAVE_EXIF */
+#endif /* HAVE_LIBEXIF */

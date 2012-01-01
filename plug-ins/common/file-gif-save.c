@@ -41,6 +41,7 @@
 
 #define SAVE_PROC      "file-gif-save"
 #define PLUG_IN_BINARY "file-gif-save"
+#define PLUG_IN_ROLE   "gimp-file-gif-save"
 
 
 /* Define only one of these to determine which kind of gif's you would like.
@@ -674,7 +675,7 @@ save_image (const gchar *filename,
                                             GIMP_PARASITE_PERSISTENT,
                                             strlen (globalcomment) + 1,
                                             (void*) globalcomment);
-      gimp_image_parasite_attach (orig_image_ID, comment_parasite);
+      gimp_image_attach_parasite (orig_image_ID, comment_parasite);
       gimp_parasite_free (comment_parasite);
       comment_parasite = NULL;
     }
@@ -941,16 +942,17 @@ save_image (const gchar *filename,
                                           get_pixel);
         }
 
-     gif_encode_image_data (outfile, cols, rows,
-                            (rows > 4) ? gsvals.interlace : 0,
-                            useBPP,
-                            get_pixel,
-                            offset_x, offset_y);
+      gif_encode_image_data (outfile, cols, rows,
+                             (rows > 4) ? gsvals.interlace : 0,
+                             useBPP,
+                             get_pixel,
+                             offset_x, offset_y);
+      gimp_progress_update (1.0);
 
-     gimp_drawable_detach (drawable);
+      gimp_drawable_detach (drawable);
 
-     g_free (pixels);
-  }
+      g_free (pixels);
+    }
 
   g_free(layers);
 
@@ -1133,8 +1135,9 @@ save_dialog (gint32 image_ID)
   g_free (ui_file);
 
   /* Main vbox */
-  gtk_container_add (GTK_CONTAINER (gimp_export_dialog_get_content_area (dialog)),
-                     GTK_WIDGET (gtk_builder_get_object (builder, "main-vbox")));
+  gtk_box_pack_start (GTK_BOX (gimp_export_dialog_get_content_area (dialog)),
+                      GTK_WIDGET (gtk_builder_get_object (builder, "main-vbox")),
+                      TRUE, TRUE, 0);
 
   /*  regular gif parameter settings  */
   file_gif_toggle_button_init (builder, "interlace",
@@ -1151,7 +1154,7 @@ save_dialog (gint32 image_ID)
     g_free (globalcomment);
 
 #ifdef FACEHUGGERS
-  GIF2_CMNT = gimp_image_parasite_find (image_ID, "gimp-comment");
+  GIF2_CMNT = gimp_image_get_parasite (image_ID, "gimp-comment");
   if (GIF2_CMNT)
     globalcomment = g_strndup (gimp_parasite_data (GIF2_CMNT),
                                gimp_parasite_data_size (GIF2_CMNT));
@@ -1207,11 +1210,10 @@ save_dialog (gint32 image_ID)
                                "you are trying to export only has one "
                                "layer."),
                              NULL);
-  gtk_widget_set_sensitive (frame, gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (toggle)));
-  g_object_set_data (G_OBJECT (toggle), "set_sensitive", frame);
-  g_signal_connect (toggle, "toggled",
-                    G_CALLBACK (gimp_toggle_button_sensitive_update),
-                    NULL);
+
+  g_object_bind_property (toggle, "active",
+                          frame,  "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   gtk_widget_show (dialog);
 
@@ -1397,17 +1399,14 @@ gif_encode_header (FILE     *fp,
 {
   int B;
   int RWidth, RHeight;
-  int LeftOfs, TopOfs;
   int Resolution;
   int ColorMapSize;
-  int InitCodeSize;
   int i;
 
   ColorMapSize = 1 << BitsPerPixel;
 
   RWidth = Width = GWidth;
   RHeight = Height = GHeight;
-  LeftOfs = TopOfs = 0;
 
   Resolution = BitsPerPixel;
 
@@ -1420,14 +1419,6 @@ gif_encode_header (FILE     *fp,
    * Indicate which pass we are on (if interlace)
    */
   Pass = 0;
-
-  /*
-   * The initial code size
-   */
-  if (BitsPerPixel <= 1)
-    InitCodeSize = 2;
-  else
-    InitCodeSize = BitsPerPixel;
 
   /*
    * Set up the current x and y position
@@ -1498,19 +1489,8 @@ gif_encode_graphic_control_ext (FILE    *fp,
                                 int      BitsPerPixel,
                                 ifunptr  get_pixel)
 {
-  int RWidth, RHeight;
-  int LeftOfs, TopOfs;
-  int Resolution;
-  int ColorMapSize;
-  int InitCodeSize;
-
-  ColorMapSize = 1 << BitsPerPixel;
-
-  RWidth = Width = GWidth;
-  RHeight = Height = GHeight;
-  LeftOfs = TopOfs = 0;
-
-  Resolution = BitsPerPixel;
+  Width = GWidth;
+  Height = GHeight;
 
   /*
    * Calculate number of bits we are expecting
@@ -1521,14 +1501,6 @@ gif_encode_graphic_control_ext (FILE    *fp,
    * Indicate which pass we are on (if interlace)
    */
   Pass = 0;
-
-  /*
-   * The initial code size
-   */
-  if (BitsPerPixel <= 1)
-    InitCodeSize = 2;
-  else
-    InitCodeSize = BitsPerPixel;
 
   /*
    * Set up the current x and y position
@@ -1578,22 +1550,15 @@ gif_encode_image_data (FILE    *fp,
                        gint     offset_x,
                        gint     offset_y)
 {
-  int RWidth, RHeight;
   int LeftOfs, TopOfs;
-  int Resolution;
-  int ColorMapSize;
   int InitCodeSize;
 
   Interlace = GInterlace;
 
-  ColorMapSize = 1 << BitsPerPixel;
-
-  RWidth = Width = GWidth;
-  RHeight = Height = GHeight;
+  Width = GWidth;
+  Height = GHeight;
   LeftOfs = (int) offset_x;
   TopOfs = (int) offset_y;
-
-  Resolution = BitsPerPixel;
 
   /*
    * Calculate number of bits we are expecting
@@ -1658,11 +1623,9 @@ gif_encode_image_data (FILE    *fp,
 #if 0
   /***************************/
   Interlace = GInterlace;
-  ColorMapSize = 1 << BitsPerPixel;
-  RWidth = Width = GWidth;
-  RHeight = Height = GHeight;
+  Width = GWidth;
+  Height = GHeight;
   LeftOfs = TopOfs = 0;
-  Resolution = BitsPerPixel;
 
   CountDown = (long) Width *(long) Height;
   Pass = 0;

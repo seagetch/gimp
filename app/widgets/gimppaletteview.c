@@ -248,9 +248,15 @@ gimp_palette_view_button_press (GtkWidget      *widget,
     g_signal_emit (view, view_signals[ENTRY_CLICKED], 0,
                    entry, bevent->state);
 
-  switch (bevent->button)
+  if (gdk_event_triggers_context_menu ((GdkEvent *) bevent))
     {
-    case 1:
+      if (entry != view->selected)
+        gimp_palette_view_select_entry (view, entry);
+
+      g_signal_emit (view, view_signals[ENTRY_CONTEXT], 0, entry);
+    }
+  else if (bevent->button == 1)
+    {
       if (bevent->type == GDK_BUTTON_PRESS)
         {
           gimp_palette_view_select_entry (view, entry);
@@ -259,20 +265,6 @@ gimp_palette_view_button_press (GtkWidget      *widget,
         {
           g_signal_emit (view, view_signals[ENTRY_ACTIVATED], 0, entry);
         }
-      break;
-
-    case 3:
-      if (bevent->type == GDK_BUTTON_PRESS)
-        {
-          if (entry != view->selected)
-            gimp_palette_view_select_entry (view, entry);
-
-          g_signal_emit (view, view_signals[ENTRY_CONTEXT], 0, entry);
-        }
-      break;
-
-    default:
-      break;
     }
 
   return TRUE;
@@ -310,11 +302,11 @@ gimp_palette_view_key_press (GtkWidget   *widget,
   GimpPaletteView *view = GIMP_PALETTE_VIEW (widget);
 
   if (view->selected &&
-      (kevent->keyval == GDK_space    ||
-       kevent->keyval == GDK_KP_Space ||
-       kevent->keyval == GDK_Return   ||
-       kevent->keyval == GDK_KP_Enter ||
-       kevent->keyval == GDK_ISO_Enter))
+      (kevent->keyval == GDK_KEY_space    ||
+       kevent->keyval == GDK_KEY_KP_Space ||
+       kevent->keyval == GDK_KEY_Return   ||
+       kevent->keyval == GDK_KEY_KP_Enter ||
+       kevent->keyval == GDK_KEY_ISO_Enter))
     {
       g_signal_emit (view, view_signals[ENTRY_CLICKED], 0,
                      view->selected, kevent->state);

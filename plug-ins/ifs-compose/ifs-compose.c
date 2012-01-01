@@ -55,6 +55,7 @@
 #define PLUG_IN_PARASITE "ifscompose-parasite"
 #define PLUG_IN_PROC     "plug-in-ifscompose"
 #define PLUG_IN_BINARY   "ifs-compose"
+#define PLUG_IN_ROLE     "gimp-ifs-compose"
 
 typedef enum
 {
@@ -71,11 +72,12 @@ typedef enum
 
 typedef struct
 {
-  GtkObject *adjustment;
-  GtkWidget *scale;
-  GtkWidget *spin;
+  GtkAdjustment *adjustment;
+  GtkWidget     *scale;
+  GtkWidget     *spin;
 
   ValuePairType type;
+  guint         timeout_id;
 
   union
   {
@@ -384,8 +386,8 @@ run (const gchar      *name,
       /*  Possibly retrieve data; first look for a parasite -
        *  if not found, fall back to global values
        */
-      parasite = gimp_item_parasite_find (drawable->drawable_id,
-                                          PLUG_IN_PARASITE);
+      parasite = gimp_item_get_parasite (drawable->drawable_id,
+                                         PLUG_IN_PARASITE);
       if (parasite)
         {
           found_parasite = ifsvals_parse_string (gimp_parasite_data (parasite),
@@ -472,7 +474,7 @@ run (const gchar      *name,
                                         GIMP_PARASITE_PERSISTENT |
                                         GIMP_PARASITE_UNDOABLE,
                                         strlen (str) + 1, str);
-          gimp_item_parasite_attach (drawable->drawable_id, parasite);
+          gimp_item_attach_parasite (drawable->drawable_id, parasite);
           gimp_parasite_free (parasite);
 
           g_free (str);
@@ -506,7 +508,7 @@ ifs_compose_trans_page (void)
   GtkWidget *table;
   GtkWidget *label;
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
 
   table = gtk_table_new (3, 6, FALSE);
@@ -624,7 +626,7 @@ ifs_compose_color_page (void)
   GSList    *group = NULL;
   GimpRGB    color;
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
 
   table = gtk_table_new (3, 5, FALSE);
@@ -764,7 +766,7 @@ ifs_compose_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("IFS Fractal"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("IFS Fractal"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -804,14 +806,14 @@ ifs_compose_dialog (GimpDrawable *drawable)
   gtk_widget_show (toolbar);
 
   /*  The main vbox */
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       main_vbox, TRUE, TRUE, 0);
 
   /*  The design area */
 
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_box_pack_start (GTK_BOX (main_vbox), hbox, FALSE, FALSE, 0);
 
   aspect_frame = gtk_aspect_frame_new (NULL,
@@ -851,7 +853,7 @@ ifs_compose_dialog (GimpDrawable *drawable)
   gtk_box_pack_start (GTK_BOX (main_vbox), ifsD->current_frame,
                       FALSE, FALSE, 0);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (ifsD->current_frame), vbox);
 
   /* The notebook */
@@ -875,7 +877,7 @@ ifs_compose_dialog (GimpDrawable *drawable)
 
   /* The probability entry */
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
 
   label = gtk_label_new (_("Relative probability:"));
@@ -1169,7 +1171,7 @@ ifs_options_dialog (GtkWidget *parent)
       ifsOptD = g_new0 (IfsOptionsDialog, 1);
 
       ifsOptD->dialog =
-        gimp_dialog_new (_("IFS Fractal Render Options"), PLUG_IN_BINARY,
+        gimp_dialog_new (_("IFS Fractal Render Options"), PLUG_IN_ROLE,
                          parent, 0,
                          gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -1600,25 +1602,22 @@ design_area_button_press (GtkWidget      *widget,
 
   gtk_widget_grab_focus (widget);
 
-  if (event->button != 1 || (ifsDesign->button_state & GDK_BUTTON1_MASK))
+  if (gdk_event_triggers_context_menu ((GdkEvent *) event))
     {
-      if (event->button == 3)
-        {
-          GtkWidget *menu =
-            gtk_ui_manager_get_widget (ifsDesign->ui_manager,
-                                       "/dummy-menubar/ifs-compose-menu");
+      GtkWidget *menu =
+        gtk_ui_manager_get_widget (ifsDesign->ui_manager,
+                                   "/dummy-menubar/ifs-compose-menu");
 
-          if (GTK_IS_MENU_ITEM (menu))
-            menu = gtk_menu_item_get_submenu (GTK_MENU_ITEM (menu));
+      if (GTK_IS_MENU_ITEM (menu))
+        menu = gtk_menu_item_get_submenu (GTK_MENU_ITEM (menu));
 
-          gtk_menu_set_screen (GTK_MENU (menu), gtk_widget_get_screen (widget));
+      gtk_menu_set_screen (GTK_MENU (menu), gtk_widget_get_screen (widget));
 
-          gtk_menu_popup (GTK_MENU (menu),
-                          NULL, NULL, NULL, NULL,
-                          event->button, event->time);
+      gtk_menu_popup (GTK_MENU (menu),
+                      NULL, NULL, NULL, NULL,
+                      event->button, event->time);
 
-          return FALSE;
-        }
+      return FALSE;
     }
 
   old_current = ifsD->current_element;
@@ -2003,7 +2002,7 @@ color_map_create (const gchar *name,
   gimp_rgb_set_alpha (data, 1.0);
   color_map->color       = data;
   color_map->fixed_point = fixed_point;
-  color_map->hbox        = gtk_hbox_new (FALSE, 2);
+  color_map->hbox        = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
 
   frame = gtk_frame_new (NULL);
   gtk_frame_set_shadow_type (GTK_FRAME (frame), GTK_SHADOW_IN);
@@ -2122,8 +2121,9 @@ value_pair_create (gpointer      data,
 
   value_pair->data.d = data;
   value_pair->type   = type;
+  value_pair->timeout_id = 0;
 
-  value_pair->spin = gimp_spin_button_new (&value_pair->adjustment,
+  value_pair->spin = gimp_spin_button_new ((GtkObject **) &value_pair->adjustment,
                                            1.0, lower, upper,
                                            (upper - lower) / 100,
                                            (upper - lower) / 10,
@@ -2136,8 +2136,8 @@ value_pair_create (gpointer      data,
 
   if (create_scale)
     {
-      value_pair->scale =
-        gtk_hscale_new (GTK_ADJUSTMENT (value_pair->adjustment));
+      value_pair->scale = gtk_scale_new (GTK_ORIENTATION_HORIZONTAL,
+                                         value_pair->adjustment);
 
       if (type == VALUE_PAIR_INT)
         gtk_scale_set_digits (GTK_SCALE (value_pair->scale), 0);
@@ -2145,8 +2145,6 @@ value_pair_create (gpointer      data,
         gtk_scale_set_digits (GTK_SCALE (value_pair->scale), 3);
 
       gtk_scale_set_draw_value (GTK_SCALE (value_pair->scale), FALSE);
-      gtk_range_set_update_policy (GTK_RANGE (value_pair->scale),
-                                   GTK_UPDATE_DELAYED);
     }
   else
     {
@@ -2160,39 +2158,55 @@ static void
 value_pair_update (ValuePair *value_pair)
 {
   if (value_pair->type == VALUE_PAIR_INT)
-    gtk_adjustment_set_value (GTK_ADJUSTMENT (value_pair->adjustment),
-                              *value_pair->data.i);
+    gtk_adjustment_set_value (value_pair->adjustment, *value_pair->data.i);
   else
-    gtk_adjustment_set_value (GTK_ADJUSTMENT (value_pair->adjustment),
-                              *value_pair->data.d);
+    gtk_adjustment_set_value (value_pair->adjustment, *value_pair->data.d);
 
+}
+
+static gboolean
+value_pair_scale_callback_real (gpointer data)
+{
+  ValuePair *value_pair = data;
+  gint changed = FALSE;
+
+  if (value_pair->type == VALUE_PAIR_DOUBLE)
+    {
+      if ((gdouble) *value_pair->data.d !=
+          gtk_adjustment_get_value (value_pair->adjustment))
+        {
+          changed = TRUE;
+          *value_pair->data.d = gtk_adjustment_get_value (value_pair->adjustment);
+        }
+    }
+  else
+    {
+      if (*value_pair->data.i !=
+          (gint) gtk_adjustment_get_value (value_pair->adjustment))
+        {
+          changed = TRUE;
+          *value_pair->data.i = gtk_adjustment_get_value (value_pair->adjustment);
+        }
+    }
+
+  if (changed)
+    val_changed_update ();
+
+  value_pair->timeout_id = 0;
+
+  return FALSE;
 }
 
 static void
 value_pair_scale_callback (GtkAdjustment *adjustment,
                            ValuePair     *value_pair)
 {
-  gint changed = FALSE;
+  if (value_pair->timeout_id != 0)
+    return;
 
-  if (value_pair->type == VALUE_PAIR_DOUBLE)
-    {
-      if ((gdouble) *value_pair->data.d != gtk_adjustment_get_value (adjustment))
-        {
-          changed = TRUE;
-          *value_pair->data.d = gtk_adjustment_get_value (adjustment);
-        }
-    }
-  else
-    {
-      if (*value_pair->data.i != (gint) gtk_adjustment_get_value (adjustment))
-        {
-          changed = TRUE;
-          *value_pair->data.i = gtk_adjustment_get_value (adjustment);
-        }
-    }
-
-  if (changed)
-    val_changed_update ();
+  value_pair->timeout_id = g_timeout_add (500, /* update every half second */
+                                          value_pair_scale_callback_real,
+                                          value_pair);
 }
 
 static void

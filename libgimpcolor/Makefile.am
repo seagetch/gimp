@@ -47,15 +47,16 @@ endif
 libgimpcolorincludedir = $(includedir)/gimp-$(GIMP_API_VERSION)/libgimpcolor
 
 AM_CPPFLAGS = \
-	-DG_LOG_DOMAIN=\"LibGimpColor\"
+	-DG_LOG_DOMAIN=\"LibGimpColor\"	\
+	-DGIMP_COLOR_COMPILATION
 
 INCLUDES = \
 	-I$(top_srcdir)	\
+	$(CAIRO_CFLAGS)	\
 	$(GLIB_CFLAGS)	\
 	-I$(includedir)
 
 EXTRA_DIST = \
-	makefile.msc		\
 	gimpcolor.def
 
 lib_LTLIBRARIES = libgimpcolor-2.0.la
@@ -67,6 +68,8 @@ libgimpcolor_2_0_la_SOURCES = \
 	gimpadaptivesupersample.h	\
 	gimpbilinear.c			\
 	gimpbilinear.h			\
+	gimpcairocolor.c		\
+	gimpcairocolor.h		\
 	gimpcmyk.c			\
 	gimpcmyk.h			\
 	gimpcolormanaged.c		\
@@ -86,6 +89,7 @@ libgimpcolorinclude_HEADERS = \
 	gimpcolortypes.h		\
 	gimpadaptivesupersample.h	\
 	gimpbilinear.h			\
+	gimpcairocolor.h		\
 	gimpcmyk.h			\
 	gimpcolormanaged.h		\
 	gimpcolorspace.h		\
@@ -98,9 +102,14 @@ libgimpcolor_2_0_la_LDFLAGS = \
 	$(no_undefined) 			\
 	$(libgimpcolor_export_symbols)
 
-libgimpcolor_2_0_la_DEPENDENCIES = $(gimpcolor_def) $(libgimpbase)
+libgimpcolor_2_0_la_DEPENDENCIES = \
+	$(gimpcolor_def)	\
+	$(libgimpbase)
 
-libgimpcolor_2_0_la_LIBADD = $(GLIB_LIBS) $(libm)
+libgimpcolor_2_0_la_LIBADD = \
+	$(CAIRO_LIBS)	\
+	$(GLIB_LIBS)	\
+	$(libm)
 
 
 #
@@ -115,6 +124,7 @@ test_color_parser_DEPENDENCIES = \
 	$(top_builddir)/libgimpcolor/libgimpcolor-$(GIMP_API_VERSION).la
 
 test_color_parser_LDADD = \
+	$(CAIRO_LIBS) 		\
 	$(GLIB_LIBS) 		\
 	$(test_color_parser_DEPENDENCIES)
 

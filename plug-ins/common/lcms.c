@@ -33,6 +33,7 @@
 
 
 #define PLUG_IN_BINARY          "lcms"
+#define PLUG_IN_ROLE            "gimp-lcms"
 
 #define PLUG_IN_PROC_SET        "plug-in-icc-profile-set"
 #define PLUG_IN_PROC_SET_RGB    "plug-in-icc-profile-set-rgb"
@@ -756,7 +757,7 @@ lcms_image_get_profile (GimpColorConfig *config,
 
   g_return_val_if_fail (image != -1, NULL);
 
-  parasite = gimp_image_parasite_find (image, "icc-profile");
+  parasite = gimp_image_get_parasite (image, "icc-profile");
 
   if (parasite)
     {
@@ -838,7 +839,7 @@ lcms_image_set_profile (gint32       image,
 
       g_mapped_file_unref (file);
 
-      gimp_image_parasite_attach (image, parasite);
+      gimp_image_attach_parasite (image, parasite);
       gimp_parasite_free (parasite);
     }
   else
@@ -846,10 +847,10 @@ lcms_image_set_profile (gint32       image,
       if (undo_group)
         gimp_image_undo_group_start (image);
 
-      gimp_image_parasite_detach (image, "icc-profile");
+      gimp_image_detach_parasite (image, "icc-profile");
     }
 
-  gimp_image_parasite_detach (image, "icc-profile-name");
+  gimp_image_detach_parasite (image, "icc-profile-name");
 
   if (undo_group)
     gimp_image_undo_group_end (image);
@@ -915,7 +916,7 @@ lcms_image_apply_profile (gint32                    image,
 
   if (saved_selection != -1)
     {
-      gimp_image_select_item (image, saved_selection, GIMP_CHANNEL_OP_REPLACE);
+      gimp_image_select_item (image, GIMP_CHANNEL_OP_REPLACE, saved_selection);
       gimp_image_remove_channel (image, saved_selection);
     }
 
@@ -1144,7 +1145,7 @@ lcms_icc_profile_src_label_new (gint32       image,
   gchar     *desc;
   gchar     *text;
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
 
   name = gimp_image_get_name (image);
   text = g_strdup_printf (_("The image '%s' has an embedded color profile:"),
@@ -1223,7 +1224,7 @@ lcms_icc_apply_dialog (gint32       image,
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
   dialog = gimp_dialog_new (_("Convert to RGB working space?"),
-                            PLUG_IN_BINARY,
+                            PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC_APPLY,
 
@@ -1244,7 +1245,7 @@ lcms_icc_apply_dialog (gint32       image,
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       vbox, TRUE, TRUE, 0);
@@ -1451,7 +1452,7 @@ lcms_dialog (GimpColorConfig *config,
   dialog = gimp_dialog_new (apply ?
                             _("Convert to ICC Color Profile") :
                             _("Assign ICC Color Profile"),
-                            PLUG_IN_BINARY,
+                            PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func,
                             apply ? PLUG_IN_PROC_APPLY : PLUG_IN_PROC_SET,
@@ -1470,10 +1471,10 @@ lcms_dialog (GimpColorConfig *config,
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   frame = gimp_frame_new (_("Current Color Profile"));
@@ -1507,11 +1508,11 @@ lcms_dialog (GimpColorConfig *config,
       GtkWidget *hbox;
       GtkWidget *toggle;
 
-      vbox = gtk_vbox_new (FALSE, 6);
+      vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
       gtk_box_pack_start (GTK_BOX (main_vbox), vbox, FALSE, FALSE, 0);
       gtk_widget_show (vbox);
 
-      hbox = gtk_hbox_new (FALSE, 6);
+      hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
       gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
       gtk_widget_show (hbox);
 

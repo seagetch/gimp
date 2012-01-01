@@ -30,6 +30,8 @@
 
 #include "config/gimpguiconfig.h"
 
+#include "widgets/gimpdockcontainer.h"
+
 #include "core/gimp.h"
 #include "core/gimpcontext.h"
 
@@ -41,7 +43,8 @@
 #include "gimpsessioninfo-book.h"
 #include "gimpsessioninfo-dock.h"
 #include "gimpsessioninfo-private.h"
-
+#include "gimpsessionmanaged.h"
+ 
 #include "gimp-log.h"
 
 
@@ -60,18 +63,30 @@ enum
 #define DEFAULT_SCREEN  -1
 
 
-static void      gimp_session_info_config_iface_init  (GimpConfigInterface *iface);
-static void      gimp_session_info_finalize           (GObject             *object);
-static gint64    gimp_session_info_get_memsize        (GimpObject          *object,
-                                                       gint64              *gui_size);
-static gboolean  gimp_session_info_serialize          (GimpConfig          *config,
-                                                       GimpConfigWriter    *writer,
-                                                       gpointer             data);
-static gboolean  gimp_session_info_deserialize        (GimpConfig          *config,
-                                                       GScanner            *scanner,
-                                                       gint                 nest_level,
-                                                       gpointer             data);
-static gboolean  gimp_session_info_is_for_dock_window (GimpSessionInfo     *info);
+typedef struct
+{
+  GimpSessionInfo   *info;
+  GimpDialogFactory *factory;
+  GdkScreen         *screen;
+  GtkWidget         *dialog;
+} GimpRestoreDocksData;
+
+
+static void      gimp_session_info_config_iface_init  (GimpConfigInterface  *iface);
+static void      gimp_session_info_finalize           (GObject              *object);
+static gint64    gimp_session_info_get_memsize        (GimpObject           *object,
+                                                       gint64               *gui_size);
+static gboolean  gimp_session_info_serialize          (GimpConfig           *config,
+                                                       GimpConfigWriter     *writer,
+                                                       gpointer              data);
+static gboolean  gimp_session_info_deserialize        (GimpConfig           *config,
+                                                       GScanner             *scanner,
+                                                       gint                  nest_level,
+                                                       gpointer              data);
+static gboolean  gimp_session_info_is_for_dock_window (GimpSessionInfo      *info);
+static void      gimp_session_info_dialog_show        (GtkWidget            *widget,
+                                                       GimpSessionInfo      *info);
+static gboolean  gimp_session_info_restore_docks      (GimpRestoreDocksData *data);
 
 
 G_DEFINE_TYPE_WITH_CODE (GimpSessionInfo, gimp_session_info, GIMP_TYPE_OBJECT,
@@ -116,6 +131,8 @@ gimp_session_info_finalize (GObject *object)
   GimpSessionInfo *info = GIMP_SESSION_INFO (object);
 
   gimp_session_info_clear_info (info);
+
+  gimp_session_info_set_widget (info, NULL);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -336,7 +353,7 @@ gimp_session_info_deserialize (GimpConfig *config,
             case SESSION_INFO_DOCK:
               {
                 GimpSessionInfoDock *dock_info  = NULL;
-                const gchar         *identifier = NULL;
+                const gchar         *dock_type = NULL;
 
                 /* Handle old sessionrc:s from versions <= GIMP 2.6 */
                 if (GPOINTER_TO_INT (scanner->value.v_symbol) == SESSION_INFO_DOCK &&
@@ -344,20 +361,20 @@ gimp_session_info_deserialize (GimpConfig *config,
                     info->p->factory_entry->identifier &&
                     strcmp ("gimp-toolbox-window", info->p->factory_entry->identifier) == 0)
                   {
-                    identifier = "gimp-toolbox";
+                    dock_type = "gimp-toolbox";
                   }
                 else
                   {
-                    identifier = ((GPOINTER_TO_INT (scanner->value.v_symbol) ==
-                                   SESSION_INFO_GIMP_TOOLBOX) ?
-                                  "gimp-toolbox" :
-                                  "gimp-dock");
+                    dock_type = ((GPOINTER_TO_INT (scanner->value.v_symbol) ==
+                                  SESSION_INFO_GIMP_TOOLBOX) ?
+                                 "gimp-toolbox" :
+                                 "gimp-dock");
                   }
 
                 g_scanner_set_scope (scanner, scope_id + 1);
                 token = gimp_session_info_dock_deserialize (scanner, scope_id + 1,
                                                             &dock_info,
-                                                            identifier);
+                                                            dock_type);
 
                 if (token == G_TOKEN_LEFT_PAREN)
                   {
@@ -432,6 +449,66 @@ gimp_session_info_is_for_dock_window (GimpSessionInfo *info)
   return entry_state_for_dock && widget_state_for_dock;
 }
 
+static void
+gimp_session_info_dialog_show (GtkWidget       *widget,
+                               GimpSessionInfo *info)
+{
+  gtk_window_move (GTK_WINDOW (widget),
+                   info->p->x, info->p->y);
+}
+
+static gboolean
+gimp_session_info_restore_docks (GimpRestoreDocksData *data)
+{
+  GimpSessionInfo     *info    = data->info;
+  GimpDialogFactory   *factory = data->factory;
+  GdkScreen           *screen  = data->screen;
+  GtkWidget           *dialog  = data->dialog;
+  GList               *iter;
+
+  if (GIMP_IS_DOCK_CONTAINER (dialog))
+    {
+      /* We expect expect there to always be docks. In sessionrc files
+       * from <= 2.6 not all dock window entries had dock entries, but we
+       * take care of that during sessionrc parsing
+       */
+      for (iter = info->p->docks; iter; iter = g_list_next (iter))
+        {
+          GimpSessionInfoDock *dock_info = (GimpSessionInfoDock *) iter->data;
+          GtkWidget           *dock;
+
+          dock =
+            GTK_WIDGET (gimp_session_info_dock_restore (dock_info,
+                                                        factory,
+                                                        screen,
+                                                        GIMP_DOCK_CONTAINER (dialog)));
+
+          if (dock && dock_info->position != 0)
+            {
+              GtkWidget *parent = gtk_widget_get_parent (dock);
+
+              if (GTK_IS_PANED (parent))
+                {
+                  GtkPaned *paned = GTK_PANED (parent);
+
+                  if (dock == gtk_paned_get_child2 (paned))
+                    gtk_paned_set_position (paned, dock_info->position);
+                }
+            }
+        }
+
+      g_object_unref (dialog);
+      g_object_unref (screen);
+      g_object_unref (factory);
+      g_object_unref (info);
+      g_slice_free (GimpRestoreDocksData, data);
+    }
+
+  gimp_session_info_clear_info (info);
+
+  return FALSE;
+}
+
 
 /*  public functions  */
 
@@ -445,13 +522,15 @@ void
 gimp_session_info_restore (GimpSessionInfo   *info,
                            GimpDialogFactory *factory)
 {
-  GtkWidget  *dialog  = NULL;
-  GdkDisplay *display = NULL;
-  GdkScreen  *screen  = NULL;
-  GList      *iter    = NULL;
+  GtkWidget            *dialog  = NULL;
+  GdkDisplay           *display = NULL;
+  GdkScreen            *screen  = NULL;
+  GimpRestoreDocksData *data    = NULL;
 
   g_return_if_fail (GIMP_IS_SESSION_INFO (info));
   g_return_if_fail (GIMP_IS_DIALOG_FACTORY (factory));
+
+  g_object_ref (info);
 
   display = gdk_display_get_default ();
 
@@ -465,39 +544,34 @@ gimp_session_info_restore (GimpSessionInfo   *info,
   info->p->screen = DEFAULT_SCREEN;
 
   if (info->p->factory_entry &&
-      ! info->p->factory_entry->dockable)
+      info->p->factory_entry->restore_func)
     {
-      GimpCoreConfig *config = gimp_dialog_factory_get_context (factory)->gimp->config;
-
-      GIMP_LOG (DIALOG_FACTORY, "restoring toplevel \"%s\" (info %p)",
-                info->p->factory_entry->identifier,
-                info);
-
-      dialog =
-        gimp_dialog_factory_dialog_new (factory, screen,
-                                        NULL /*ui_manager*/,
-                                        info->p->factory_entry->identifier,
-                                        info->p->factory_entry->view_size,
-                                        ! GIMP_GUI_CONFIG (config)->hide_docks);
-
-      g_object_set_data (G_OBJECT (dialog), GIMP_DIALOG_VISIBILITY_KEY,
-                         GINT_TO_POINTER (GIMP_GUI_CONFIG (config)->hide_docks ?
-                                          GIMP_DIALOG_VISIBILITY_HIDDEN :
-                                          GIMP_DIALOG_VISIBILITY_VISIBLE));
-
-      if (dialog && info->p->aux_info)
-        gimp_session_info_aux_set_list (dialog, info->p->aux_info);
+      dialog = info->p->factory_entry->restore_func (factory,
+                                                     screen,
+                                                     info);
     }
 
-  /* We expect expect there to always be docks. In sessionrc files
-   * from <= 2.6 not all dock window entries had dock entries, but we
-   * take care of that during sessionrc parsing
+  if (GIMP_IS_SESSION_MANAGED (dialog) && info->p->aux_info)
+    gimp_session_managed_set_aux_info (GIMP_SESSION_MANAGED (dialog),
+                                       info->p->aux_info);
+
+  /* In single-window mode, gimp_session_managed_set_aux_info()
+   * will set the size of the dock areas at the sides. If we don't
+   * wait for those areas to get their size-allocation, we can't
+   * properly restore the docks inside them, so do that in an idle
+   * callback.
    */
-  for (iter = info->p->docks; iter; iter = g_list_next (iter))
-    gimp_session_info_dock_restore ((GimpSessionInfoDock *)iter->data,
-                                    factory,
-                                    screen,
-                                    GIMP_DOCK_WINDOW (dialog));
+
+  /* Objects are unreffed again in the callback */
+  data = g_slice_new0 (GimpRestoreDocksData);
+  data->info    = g_object_ref (info);
+  data->factory = g_object_ref (factory);
+  data->screen  = g_object_ref (screen);
+  data->dialog  = g_object_ref (dialog);
+
+  g_idle_add ((GSourceFunc) gimp_session_info_restore_docks, data);
+
+  g_object_unref (info);
 }
 
 /* This function mostly lifted from
@@ -616,16 +690,31 @@ gimp_session_info_apply_geometry (GimpSessionInfo *info)
   if (use_size)
     gtk_window_set_default_size (GTK_WINDOW (info->p->widget),
                                  info->p->width, info->p->height);
+
+  /*  Window managers and windowing systems suck. They have their own
+   *  ideas about WM standards and when it's appropriate to honor
+   *  user/application-set window positions and when not. Therefore,
+   *  use brute force and "manually" position dialogs whenever they
+   *  are shown. This is important especially for transient dialog,
+   *  because window managers behave even "smarter" then...
+   */
+  if (GTK_IS_DIALOG (info->p->widget))
+    g_signal_connect (info->p->widget, "show",
+                      G_CALLBACK (gimp_session_info_dialog_show),
+                      info);
 }
 
 /**
  * gimp_session_info_read_geometry:
- * @info:
+ * @info:  A #GimpSessionInfo
+ * @cevent A #GdkEventConfigure. If set, use the size from here
+ *         instead of from the window allocation.
  *
  * Read geometry related information from the associated widget.
  **/
 void
-gimp_session_info_read_geometry (GimpSessionInfo *info)
+gimp_session_info_read_geometry (GimpSessionInfo   *info,
+                                 GdkEventConfigure *cevent)
 {
   GdkWindow *window;
 
@@ -649,12 +738,26 @@ gimp_session_info_read_geometry (GimpSessionInfo *info)
 
       if (gimp_session_info_get_remember_size (info))
         {
-          GtkAllocation allocation;
+          int width;
+          int height;
 
-          gtk_widget_get_allocation (info->p->widget, &allocation);
+          if (cevent)
+            {
+              width  = cevent->width;
+              height = cevent->height;
+            }
+          else
+            {
+              GtkAllocation allocation;
 
-          info->p->width  = allocation.width;
-          info->p->height = allocation.height;
+              gtk_widget_get_allocation (info->p->widget, &allocation);
+
+              width  = allocation.width;
+              height = allocation.height;
+            }
+
+          info->p->width  = width;
+          info->p->height = height;
         }
       else
         {
@@ -712,15 +815,21 @@ gimp_session_info_get_info (GimpSessionInfo *info)
   g_return_if_fail (GIMP_IS_SESSION_INFO (info));
   g_return_if_fail (GTK_IS_WIDGET (info->p->widget));
 
-  gimp_session_info_read_geometry (info);
+  gimp_session_info_read_geometry (info, NULL /*cevent*/);
 
-  info->p->aux_info = gimp_session_info_aux_get_list (info->p->widget);
+  if (GIMP_IS_SESSION_MANAGED (info->p->widget))
+    info->p->aux_info =
+      gimp_session_managed_get_aux_info (GIMP_SESSION_MANAGED (info->p->widget));
 
-  if (GIMP_IS_DOCK_WINDOW (info->p->widget))
+  if (GIMP_IS_DOCK_CONTAINER (info->p->widget))
     {
-      GList *iter = NULL;
+      GimpDockContainer *dock_container = GIMP_DOCK_CONTAINER (info->p->widget);
+      GList             *iter           = NULL;
+      GList             *docks;
 
-      for (iter = gimp_dock_window_get_docks (GIMP_DOCK_WINDOW (info->p->widget));
+      docks = gimp_dock_container_get_docks (dock_container);
+
+      for (iter = docks;
            iter;
            iter = g_list_next (iter))
         {
@@ -730,7 +839,34 @@ gimp_session_info_get_info (GimpSessionInfo *info)
             g_list_append (info->p->docks,
                            gimp_session_info_dock_from_widget (dock));
         }
+
+      g_list_free (docks);
     }
+}
+
+/**
+ * gimp_session_info_get_info_with_widget:
+ * @info:
+ * @widget: #GtkWidget to use
+ *
+ * Temporarily sets @widget on @info and calls
+ * gimp_session_info_get_info(), then restores the old widget that was
+ * set.
+ **/
+void
+gimp_session_info_get_info_with_widget (GimpSessionInfo *info,
+                                        GtkWidget       *widget)
+{
+  GtkWidget *old_widget;
+
+  g_return_if_fail (GIMP_IS_SESSION_INFO (info));
+  g_return_if_fail (GTK_IS_WIDGET (widget));
+
+  old_widget = gimp_session_info_get_widget (info);
+
+  gimp_session_info_set_widget (info, widget);
+  gimp_session_info_get_info (info);
+  gimp_session_info_set_widget (info, old_widget);
 }
 
 void
@@ -740,19 +876,17 @@ gimp_session_info_clear_info (GimpSessionInfo *info)
 
   if (info->p->aux_info)
     {
-      g_list_foreach (info->p->aux_info,
-                      (GFunc) gimp_session_info_aux_free, NULL);
-      g_list_free (info->p->aux_info);
+      g_list_free_full (info->p->aux_info,
+                        (GDestroyNotify) gimp_session_info_aux_free);
       info->p->aux_info = NULL;
     }
 
-   if (info->p->docks)
-     {
-       g_list_foreach (info->p->docks,
-                       (GFunc) gimp_session_info_dock_free, NULL);
-       g_list_free (info->p->docks);
-       info->p->docks = NULL;
-     }
+  if (info->p->docks)
+    {
+      g_list_free_full (info->p->docks,
+                        (GDestroyNotify) gimp_session_info_dock_free);
+      info->p->docks = NULL;
+    }
 }
 
 gboolean
@@ -809,6 +943,11 @@ gimp_session_info_set_widget (GimpSessionInfo *info,
                               GtkWidget       *widget)
 {
   g_return_if_fail (GIMP_IS_SESSION_INFO (info));
+
+  if (GTK_IS_DIALOG (info->p->widget))
+    g_signal_handlers_disconnect_by_func (info->p->widget,
+                                          gimp_session_info_dialog_show,
+                                          info);
 
   info->p->widget = widget;
 }

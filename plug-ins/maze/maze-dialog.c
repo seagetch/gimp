@@ -56,7 +56,7 @@ typedef void (* EntscaleIntCallback) (gint     value,
 
 typedef struct
 {
-  GtkObject           *adjustment;
+  GtkAdjustment       *adjustment;
   GtkWidget           *entry;
   gboolean             constraint;
   EntscaleIntCallback  callback;
@@ -159,7 +159,7 @@ maze_dialog (void)
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("Maze"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Maze"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -175,7 +175,7 @@ maze_dialog (void)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       vbox, FALSE, FALSE, 0);
@@ -235,7 +235,7 @@ maze_dialog (void)
   gtk_box_pack_start (GTK_BOX (vbox), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 
-  vbox2 = gtk_vbox_new (FALSE, 6);
+  vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox2);
   gtk_widget_show (vbox2);
 
@@ -302,7 +302,7 @@ divbox_new (guint      *max,
 #endif
 
   align = gtk_alignment_new (0.5, 0.5, 0.0, 0.0);
-  hbox = gtk_hbox_new (FALSE, 0);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_container_add (GTK_CONTAINER (align), hbox);
 
 #if DIVBOX_LOOKS_LIKE_SPINBUTTON
@@ -330,7 +330,7 @@ divbox_new (guint      *max,
   gtk_widget_set_size_request (*div_entry, ENTRY_WIDTH, -1);
 
 #if DIVBOX_LOOKS_LIKE_SPINBUTTON
-  buttonbox = gtk_vbox_new (FALSE, 0);
+  buttonbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
 
   gtk_box_pack_start (GTK_BOX (buttonbox), buttonr, FALSE, FALSE, 0);
   gtk_box_pack_start (GTK_BOX (buttonbox), buttonl, FALSE, FALSE, 0);
@@ -562,12 +562,12 @@ entscale_int_new (GtkWidget           *table,
 		  gpointer             call_data)
 {
   EntscaleIntData *userdata;
-  GtkWidget *hbox;
-  GtkWidget *label;
-  GtkWidget *entry;
-  GtkWidget *scale;
-  GtkObject *adjustment;
-  gint	     constraint_val;
+  GtkWidget       *hbox;
+  GtkWidget       *label;
+  GtkWidget       *entry;
+  GtkWidget       *scale;
+  GtkAdjustment   *adjustment;
+  gint	           constraint_val;
 
   userdata = g_new (EntscaleIntData, 1);
 
@@ -588,8 +588,8 @@ entscale_int_new (GtkWidget           *table,
     constraint_val = ( *intvar < min ? min : *intvar > max ? max : *intvar );
 
   userdata->adjustment = adjustment =
-    gtk_adjustment_new (constraint_val, min, max, 1.0, 1.0, 0.0);
-  scale = gtk_hscale_new (GTK_ADJUSTMENT (adjustment));
+    GTK_ADJUSTMENT (gtk_adjustment_new (constraint_val, min, max, 1.0, 1.0, 0.0));
+  scale = gtk_scale_new (GTK_ORIENTATION_HORIZONTAL, adjustment);
   gtk_widget_set_size_request (scale, ENTSCALE_INT_SCALE_WIDTH, -1);
   gtk_scale_set_draw_value (GTK_SCALE (scale), FALSE);
 
@@ -617,7 +617,7 @@ entscale_int_new (GtkWidget           *table,
                             userdata);
 
   /* start packing */
-  hbox = gtk_hbox_new (FALSE, 5);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 5);
   gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
   gtk_box_pack_start (GTK_BOX (hbox), entry, FALSE, TRUE, 0);
 
@@ -678,7 +678,7 @@ entscale_int_entry_update (GtkWidget *widget,
   gint		  *intvar = data;
 
   userdata = g_object_get_data (G_OBJECT (widget), "userdata");
-  adjustment = GTK_ADJUSTMENT (userdata->adjustment);
+  adjustment = userdata->adjustment;
 
   new_val = atoi (gtk_entry_get_text (GTK_ENTRY (widget)));
   constraint_val = new_val;

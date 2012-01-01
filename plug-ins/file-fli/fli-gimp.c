@@ -68,6 +68,7 @@
 #define SAVE_PROC      "file-fli-save"
 #define INFO_PROC      "file-fli-info"
 #define PLUG_IN_BINARY "file-fli"
+#define PLUG_IN_ROLE   "gimp-file-fli"
 
 
 static void      query       (void);
@@ -590,6 +591,7 @@ load_image (const gchar  *filename,
 
       gimp_progress_update ((double) cnt + 1 / (double)(to_frame - from_frame));
     }
+  gimp_progress_update (1.0);
 
   gimp_image_set_colormap (image_id, cm, 256);
 
@@ -807,6 +809,7 @@ save_image (const gchar  *filename,
 
       gimp_progress_update ((double) cnt + 1 / (double)(to_frame - from_frame));
     }
+  gimp_progress_update (1.0);
 
   /*
    * finish fli
@@ -841,7 +844,7 @@ load_dialog (const gchar *filename)
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("GFLI 1.3 - Load framestack"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("GFLI 1.3 - Load framestack"), PLUG_IN_ROLE,
                             NULL, 0,
 			    gimp_standard_help_func, LOAD_PROC,
 
@@ -870,7 +873,7 @@ load_dialog (const gchar *filename)
   spinbutton = gimp_spin_button_new (&adj,
 				     from_frame, 1, nframes, 1, 10, 0, 1, 0);
   gimp_table_attach_aligned (GTK_TABLE (table), 0, 0,
-			     _("From:"), 0.0, 0.5,
+			     C_("frame-range", "From:"), 0.0, 0.5,
 			     spinbutton, 1, TRUE);
   g_signal_connect (adj, "value-changed",
                     G_CALLBACK (gimp_int_adjustment_update),
@@ -879,7 +882,7 @@ load_dialog (const gchar *filename)
   spinbutton = gimp_spin_button_new (&adj,
 				     to_frame, 1, nframes, 1, 10, 0, 1, 0);
   gimp_table_attach_aligned (GTK_TABLE (table), 0, 1,
-			     _("To:"), 0.0, 0.5,
+			     C_("frame-range", "To:"), 0.0, 0.5,
 			     spinbutton, 1, TRUE);
   g_signal_connect (adj, "value-changed",
                     G_CALLBACK (gimp_int_adjustment_update),
@@ -926,7 +929,7 @@ save_dialog (gint32 image_id)
   spinbutton = gimp_spin_button_new (&adj,
 				     from_frame, 1, nframes, 1, 10, 0, 1, 0);
   gimp_table_attach_aligned (GTK_TABLE (table), 0, 0,
-			     _("From:"), 0.0, 0.5,
+			     C_("frame-range", "From:"), 0.0, 0.5,
 			     spinbutton, 1, TRUE);
   g_signal_connect (adj, "value-changed",
                     G_CALLBACK (gimp_int_adjustment_update),
@@ -935,7 +938,7 @@ save_dialog (gint32 image_id)
   spinbutton = gimp_spin_button_new (&adj,
 				     to_frame, 1, nframes, 1, 10, 0, 1, 0);
   gimp_table_attach_aligned (GTK_TABLE (table), 0, 1,
-			     _("To:"), 0.0, 0.5,
+			     C_("frame-range", "To:"), 0.0, 0.5,
 			     spinbutton, 1, TRUE);
   g_signal_connect (adj, "value-changed",
                     G_CALLBACK (gimp_int_adjustment_update),

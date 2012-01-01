@@ -494,7 +494,7 @@ load_image (const gchar  *filename,
       if (comment_parasite != NULL)
         {
           if (! thumbnail)
-            gimp_image_parasite_attach (image_ID, comment_parasite);
+            gimp_image_attach_parasite (image_ID, comment_parasite);
 
           gimp_parasite_free (comment_parasite);
           comment_parasite = NULL;
@@ -542,12 +542,17 @@ DoExtension (FILE *fd,
              gint  label)
 {
   static guchar  buf[256];
+#ifdef GIFDEBUG
   gchar         *str;
+#endif
 
   switch (label)
     {
     case 0x01:                  /* Plain Text Extension */
+#ifdef GIFDEBUG
       str = "Plain Text Extension";
+#endif
+
 #ifdef notdef
       if (GetDataBlock (fd, (guchar *) buf) == 0)
         ;
@@ -576,10 +581,14 @@ DoExtension (FILE *fd,
 #endif
 
     case 0xff:                  /* Application Extension */
+#ifdef GIFDEBUG
       str = "Application Extension";
+#endif
       break;
     case 0xfe:                  /* Comment Extension */
+#ifdef GIFDEBUG
       str = "Comment Extension";
+#endif
       while (GetDataBlock (fd, (guchar *) buf) > 0)
         {
           gchar *comment = (gchar *) buf;
@@ -598,7 +607,9 @@ DoExtension (FILE *fd,
       break;
 
     case 0xf9:                  /* Graphic Control Extension */
+#ifdef GIFDEBUG
       str = "Graphic Control Extension";
+#endif
       (void) GetDataBlock (fd, (guchar *) buf);
       Gif89.disposal  = (buf[0] >> 2) & 0x7;
       Gif89.inputFlag = (buf[0] >> 1) & 0x1;
@@ -614,7 +625,9 @@ DoExtension (FILE *fd,
       break;
 
     default:
+#ifdef GIFDEBUG
       str = (gchar *)buf;
+#endif
       sprintf ((gchar *)buf, "UNKNOWN (0x%02x)", label);
       break;
     }
@@ -713,7 +726,8 @@ LZWReadByte (FILE *fd,
   static gint firstcode, oldcode;
   static gint clear_code, end_code;
   static gint table[2][(1 << MAX_LZW_BITS)];
-  static gint stack[(1 << (MAX_LZW_BITS)) * 2], *sp;
+#define STACK_SIZE ((1 << (MAX_LZW_BITS)) * 2)
+  static gint stack[STACK_SIZE], *sp;
   gint        i;
 
   if (just_reset_LZW)
@@ -759,11 +773,11 @@ LZWReadByte (FILE *fd,
         }
       while (firstcode == clear_code);
 
-      return firstcode;
+      return firstcode & 255;
     }
 
   if (sp > stack)
-    return *--sp;
+    return (*--sp) & 255;
 
   while ((code = GetCode (fd, code_size, FALSE)) >= 0)
     {
@@ -786,9 +800,9 @@ LZWReadByte (FILE *fd,
           sp            = stack;
           firstcode     = oldcode = GetCode (fd, code_size, FALSE);
 
-          return firstcode;
+          return firstcode & 255;
         }
-      else if (code == end_code)
+      else if (code == end_code || code > max_code)
         {
           gint   count;
           guchar buf[260];
@@ -807,13 +821,14 @@ LZWReadByte (FILE *fd,
 
       incode = code;
 
-      if (code >= max_code)
+      if (code == max_code)
         {
-          *sp++ = firstcode;
+          if (sp < &(stack[STACK_SIZE]))
+            *sp++ = firstcode;
           code = oldcode;
         }
 
-      while (code >= clear_code)
+      while (code >= clear_code && sp < &(stack[STACK_SIZE]))
         {
           *sp++ = table[1][code];
           if (code == table[0][code])
@@ -824,7 +839,8 @@ LZWReadByte (FILE *fd,
           code = table[0][code];
         }
 
-      *sp++ = firstcode = table[1][code];
+      if (sp < &(stack[STACK_SIZE]))
+        *sp++ = firstcode = table[1][code];
 
       if ((code = max_code) < (1 << MAX_LZW_BITS))
         {
@@ -842,10 +858,10 @@ LZWReadByte (FILE *fd,
       oldcode = incode;
 
       if (sp > stack)
-        return *--sp;
+        return (*--sp) & 255;
     }
 
-  return code;
+  return code & 255;
 }
 
 static gint32
@@ -1152,6 +1168,7 @@ ReadImage (FILE        *fd,
   if (LZWReadByte (fd, FALSE, c) >= 0)
     g_print ("GIF: too much input data, ignoring extra...\n");
 
+  gimp_progress_update (1.0);
   gimp_pixel_rgn_init (&pixel_rgn, drawable,
                        0, 0, drawable->width, drawable->height, TRUE, FALSE);
   gimp_pixel_rgn_set_rect (&pixel_rgn, dest,

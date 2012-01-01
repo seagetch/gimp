@@ -8,6 +8,7 @@ INCLUDES = \
 	-I$(top_srcdir)		\
 	-I$(top_builddir)/app	\
 	-I$(top_srcdir)/app	\
+	$(CAIRO_CFLAGS)		\
 	$(GEGL_CFLAGS)		\
 	$(GDK_PIXBUF_CFLAGS)	\
 	-I$(includedir)
@@ -21,6 +22,8 @@ libappgegl_a_sources = \
 	gimp-gegl.h			\
 	gimp-gegl-utils.c		\
 	gimp-gegl-utils.h		\
+	gimptilebackendtilemanager.c	\
+	gimptilebackendtilemanager.h	\
 	\
 	gimpbrightnesscontrastconfig.c	\
 	gimpbrightnesscontrastconfig.h	\

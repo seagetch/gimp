@@ -38,7 +38,8 @@ typedef enum
   GIMP_LOG_KEY_EVENTS         = 1 << 14,
   GIMP_LOG_AUTO_TAB_STYLE     = 1 << 15,
   GIMP_LOG_INSTANCES          = 1 << 16,
-  GIMP_LOG_RECTANGLE_TOOL     = 1 << 17
+  GIMP_LOG_RECTANGLE_TOOL     = 1 << 17,
+  GIMP_LOG_BRUSH_CACHE        = 1 << 18
 } GimpLogFlags;
 
 
@@ -46,16 +47,16 @@ extern GimpLogFlags gimp_log_flags;
 
 
 void   gimp_log_init (void);
-void   gimp_log      (const gchar *function,
-                      gint         line,
-                      const gchar *domain,
-                      const gchar *format,
+void   gimp_log      (GimpLogFlags  flags,
+                      const gchar  *function,
+                      gint          line,
+                      const gchar  *format,
                       ...) G_GNUC_PRINTF (4, 5);
-void   gimp_logv     (const gchar *function,
-                      gint         line,
-                      const gchar *domain,
-                      const gchar *format,
-                      va_list      args);
+void   gimp_logv     (GimpLogFlags  flags,
+                      const gchar  *function,
+                      gint          line,
+                      const gchar  *format,
+                      va_list       args);
 
 
 #ifdef G_HAVE_ISO_VARARGS
@@ -63,7 +64,7 @@ void   gimp_logv     (const gchar *function,
 #define GIMP_LOG(type, ...) \
         G_STMT_START { \
         if (gimp_log_flags & GIMP_LOG_##type) \
-          gimp_log (G_STRFUNC, __LINE__, #type, __VA_ARGS__); \
+          gimp_log (GIMP_LOG_##type, G_STRFUNC, __LINE__, __VA_ARGS__);       \
         } G_STMT_END
 
 #elif defined(G_HAVE_GNUC_VARARGS)
@@ -71,7 +72,7 @@ void   gimp_logv     (const gchar *function,
 #define GIMP_LOG(type, format...) \
         G_STMT_START { \
         if (gimp_log_flags & GIMP_LOG_##type) \
-          gimp_log (G_STRFUNC, __LINE__, #type, format); \
+          gimp_log (GIMP_LOG_##type, G_STRFUNC, __LINE__, format);  \
         } G_STMT_END
 
 #else /* no varargs macros */
@@ -97,6 +98,7 @@ void   gimp_logv     (const gchar *function,
 #define AUTO_TAB_STYLE     GIMP_LOG_AUTO_TAB_STYLE
 #define INSTANCES          GIMP_LOG_INSTANCES
 #define RECTANGLE_TOOL     GIMP_LOG_RECTANGLE_TOOL
+#define BRUSH_CACHE        GIMP_LOG_BRUSH_CACHE
 
 #if 0 /* last resort */
 #  define GIMP_LOG /* nothing => no varargs, no log */
@@ -110,7 +112,7 @@ GIMP_LOG (GimpLogFlags flags,
   va_list args;
   va_start (args, format);
   if (gimp_log_flags & flags)
-    gimp_logv ("", 0, "", format, args);
+    gimp_logv (type, "", 0, format, args);
   va_end (args);
 }
 

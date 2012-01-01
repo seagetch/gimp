@@ -37,59 +37,63 @@
        (theMode (car (gimp-image-base-type inImage)))
        )
 
-  (gimp-image-undo-group-start theImage)
-  (if (= theMode GRAY)
-    (set! theMode GRAYA-IMAGE)
-    (set! theMode RGBA-IMAGE)
+    (gimp-context-push)
+    (gimp-context-set-defaults)
+    (gimp-image-undo-group-start theImage)
+
+    (if (= theMode GRAY)
+      (set! theMode GRAYA-IMAGE)
+      (set! theMode RGBA-IMAGE)
     )
-  (set! theLayer (car (gimp-layer-new theImage
-                                      theWidth
-                                      theHeight
-                                      theMode
-                                      "Distress Scratch Layer"
-                                      100
-                                      NORMAL-MODE)))
+    (set! theLayer (car (gimp-layer-new theImage
+                                        theWidth
+                                        theHeight
+                                        theMode
+                                        "Distress Scratch Layer"
+                                        100
+                                        NORMAL-MODE)))
 
-  (gimp-image-insert-layer theImage theLayer -1 0)
+    (gimp-image-insert-layer theImage theLayer 0 0)
 
-  (if (= FALSE (car (gimp-selection-is-empty theImage)))
-      (gimp-edit-fill theLayer BACKGROUND-FILL)
-  )
-
-  (gimp-selection-invert theImage)
-
-  (if (= FALSE (car (gimp-selection-is-empty theImage)))
-      (gimp-edit-clear theLayer)
-  )
-
-  (gimp-selection-invert theImage)
-  (gimp-selection-none inImage)
-
-  (gimp-layer-scale theLayer
-                    (/ theWidth inGranu)
-                    (/ theHeight inGranu)
-                    TRUE)
-
-  (plug-in-spread RUN-NONINTERACTIVE
-                  theImage
-                  theLayer
-                  inSpread
-                  inSpread)
-
-  (plug-in-gauss-iir RUN-NONINTERACTIVE
-		     theImage theLayer inSmooth inSmoothH inSmoothV)
-  (gimp-layer-scale theLayer theWidth theHeight TRUE)
-  (plug-in-threshold-alpha RUN-NONINTERACTIVE theImage theLayer inThreshold)
-  (plug-in-gauss-iir RUN-NONINTERACTIVE theImage theLayer 1 TRUE TRUE)
-  (gimp-item-to-selection theLayer CHANNEL-OP-REPLACE)
-  (gimp-image-remove-layer theImage theLayer)
-  (if (and (= (car (gimp-item-is-channel inDrawable)) TRUE)
-           (= (car (gimp-item-is-layer-mask inDrawable)) FALSE))
-    (gimp-image-set-active-channel theImage inDrawable)
+    (if (= FALSE (car (gimp-selection-is-empty theImage)))
+        (gimp-edit-fill theLayer BACKGROUND-FILL)
     )
-  (gimp-image-undo-group-end theImage)
 
-  (gimp-displays-flush)
+    (gimp-selection-invert theImage)
+
+    (if (= FALSE (car (gimp-selection-is-empty theImage)))
+        (gimp-edit-clear theLayer)
+    )
+
+    (gimp-selection-invert theImage)
+    (gimp-selection-none inImage)
+
+    (gimp-layer-scale theLayer
+                      (/ theWidth inGranu)
+                      (/ theHeight inGranu)
+                      TRUE)
+
+    (plug-in-spread RUN-NONINTERACTIVE
+                    theImage
+                    theLayer
+                    inSpread
+                    inSpread)
+
+    (plug-in-gauss-iir RUN-NONINTERACTIVE
+           theImage theLayer inSmooth inSmoothH inSmoothV)
+    (gimp-layer-scale theLayer theWidth theHeight TRUE)
+    (plug-in-threshold-alpha RUN-NONINTERACTIVE theImage theLayer inThreshold)
+    (plug-in-gauss-iir RUN-NONINTERACTIVE theImage theLayer 1 TRUE TRUE)
+    (gimp-image-select-item inImage CHANNEL-OP-REPLACE theLayer)
+    (gimp-image-remove-layer theImage theLayer)
+    (if (and (= (car (gimp-item-is-channel inDrawable)) TRUE)
+             (= (car (gimp-item-is-layer-mask inDrawable)) FALSE))
+      (gimp-image-set-active-channel theImage inDrawable)
+      )
+    (gimp-image-undo-group-end theImage)
+
+    (gimp-displays-flush)
+    (gimp-context-pop)
   )
 )
 
@@ -103,7 +107,7 @@
   "RGB*,GRAY*"
   SF-IMAGE       "The image"              0
   SF-DRAWABLE    "The layer"              0
-  SF-ADJUSTMENT _"Threshold (bigger 1<-->255 smaller)" '(127 1 255 1 10 0 0)
+  SF-ADJUSTMENT _"Threshold (bigger 1<-->254 smaller)" '(127 1 254 1 10 0 0)
   SF-ADJUSTMENT _"Spread"                 '(8 0 1000 1 10 0 1)
   SF-ADJUSTMENT _"Granularity (1 is low)" '(4 1 25 1 10 0 1)
   SF-ADJUSTMENT _"Smooth"                 '(2 1 150 1 10 0 1)

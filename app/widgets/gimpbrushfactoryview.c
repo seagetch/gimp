@@ -32,8 +32,10 @@
 #include "core/gimpbrushgenerated.h"
 #include "core/gimpdatafactory.h"
 
-#include "gimpcontainerview.h"
 #include "gimpbrushfactoryview.h"
+#include "gimpcontainerview.h"
+#include "gimpmenufactory.h"
+#include "gimpspinscale.h"
 #include "gimpviewrenderer.h"
 
 #include "gimp-intl.h"
@@ -70,27 +72,21 @@ gimp_brush_factory_view_class_init (GimpBrushFactoryViewClass *klass)
 static void
 gimp_brush_factory_view_init (GimpBrushFactoryView *view)
 {
-  GtkWidget *table;
-
-  table = gtk_table_new (1, 3, FALSE);
-  gtk_table_set_col_spacings (GTK_TABLE (table), 2);
-  gtk_widget_show (table);
-
   view->spacing_adjustment =
-    GTK_ADJUSTMENT (gimp_scale_entry_new (GTK_TABLE (table), 0, 0,
-                                          _("Spacing:"), -1, -1,
-                                          0.0, 1.0, 200.0, 1.0, 10.0, 1,
-                                          FALSE, 1.0, 5000.0,
-                                          _("Percentage of width of brush"),
-                                          NULL));
+    GTK_ADJUSTMENT (gtk_adjustment_new (0.0, 1.0, 5000.0,
+                                        1.0, 10.0, 0.0));
 
-  view->spacing_scale = GIMP_SCALE_ENTRY_SCALE (view->spacing_adjustment);
+  view->spacing_scale = gimp_spin_scale_new (view->spacing_adjustment,
+                                             _("Spacing"), 1);
+  gimp_spin_scale_set_scale_limits (GIMP_SPIN_SCALE (view->spacing_scale),
+                                   1.0, 200.0);
+  gimp_help_set_help_data (view->spacing_scale,
+                           _("Percentage of width of brush"),
+                           NULL);
 
   g_signal_connect (view->spacing_adjustment, "value-changed",
                     G_CALLBACK (gimp_brush_factory_view_spacing_update),
                     view);
-
-  view->spacing_changed_handler_id = 0;
 }
 
 static void
@@ -129,35 +125,34 @@ gimp_brush_factory_view_new (GimpViewType     view_type,
   GimpContainerEditor  *editor;
 
   g_return_val_if_fail (GIMP_IS_DATA_FACTORY (factory), NULL);
+  g_return_val_if_fail (GIMP_IS_CONTEXT (context), NULL);
   g_return_val_if_fail (view_size > 0 &&
                         view_size <= GIMP_VIEWABLE_MAX_PREVIEW_SIZE, NULL);
   g_return_val_if_fail (view_border_width >= 0 &&
                         view_border_width <= GIMP_VIEW_MAX_BORDER_WIDTH,
                         NULL);
+  g_return_val_if_fail (menu_factory == NULL ||
+                        GIMP_IS_MENU_FACTORY (menu_factory), NULL);
 
-  factory_view = g_object_new (GIMP_TYPE_BRUSH_FACTORY_VIEW, NULL);
+  factory_view = g_object_new (GIMP_TYPE_BRUSH_FACTORY_VIEW,
+                               "view-type",         view_type,
+                               "data-factory",      factory,
+                               "context",           context,
+                               "view-size",         view_size,
+                               "view-border-width", view_border_width,
+                               "menu-factory",      menu_factory,
+                               "menu-identifier",   "<Brushes>",
+                               "ui-path",           "/brushes-popup",
+                               "action-group",      "brushes",
+                               NULL);
 
   factory_view->change_brush_spacing = change_brush_spacing;
 
-  if (! gimp_data_factory_view_construct (GIMP_DATA_FACTORY_VIEW (factory_view),
-                                          view_type,
-                                          factory,
-                                          context,
-                                          view_size, view_border_width,
-                                          menu_factory, "<Brushes>",
-                                          "/brushes-popup",
-                                          "brushes"))
-    {
-      g_object_unref (factory_view);
-      return NULL;
-    }
-
   editor = GIMP_CONTAINER_EDITOR (factory_view);
 
-  /*  eek  */
-  gtk_box_pack_end (GTK_BOX (editor->view),
-                    gtk_widget_get_parent (factory_view->spacing_scale),
+  gtk_box_pack_end (GTK_BOX (editor->view), factory_view->spacing_scale,
                     FALSE, FALSE, 0);
+  gtk_widget_show (factory_view->spacing_scale);
 
   factory_view->spacing_changed_handler_id =
     gimp_container_add_handler (gimp_data_factory_get_container (factory), "spacing-changed",

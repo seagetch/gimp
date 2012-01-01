@@ -77,7 +77,7 @@ static gboolean   gimp_levels_tool_initialize     (GimpTool          *tool,
 static void       gimp_levels_tool_color_picked   (GimpColorTool     *color_tool,
                                                    GimpColorPickState pick_state,
                                                    GimpImageType      sample_type,
-                                                   GimpRGB           *color,
+                                                   const GimpRGB     *color,
                                                    gint               color_index);
 
 static GeglNode * gimp_levels_tool_get_operation  (GimpImageMapTool  *im_tool,
@@ -170,7 +170,7 @@ gimp_levels_tool_class_init (GimpLevelsToolClass *klass)
 
   color_tool_class->picked           = gimp_levels_tool_color_picked;
 
-  im_tool_class->shell_desc          = _("Adjust Color Levels");
+  im_tool_class->dialog_desc         = _("Adjust Color Levels");
   im_tool_class->settings_name       = "levels";
   im_tool_class->import_dialog_title = _("Import Levels");
   im_tool_class->export_dialog_title = _("Export Levels");
@@ -378,7 +378,7 @@ gimp_levels_tool_dialog (GimpImageMapTool *image_map_tool)
   label_group = gimp_image_map_tool_dialog_get_label_group (image_map_tool);
 
   /*  The option menu for selecting channels  */
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (main_vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -425,7 +425,7 @@ gimp_levels_tool_dialog (GimpImageMapTool *image_map_tool)
   gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 2);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -434,7 +434,7 @@ gimp_levels_tool_dialog (GimpImageMapTool *image_map_tool)
   gtk_box_pack_start (GTK_BOX (vbox), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 
-  vbox2 = gtk_vbox_new (FALSE, 0);
+  vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_container_add (GTK_CONTAINER (frame), vbox2);
   gtk_widget_show (vbox2);
 
@@ -447,7 +447,7 @@ gimp_levels_tool_dialog (GimpImageMapTool *image_map_tool)
 
   g_object_get (tool->histogram_view, "border-width", &border, NULL);
 
-  vbox3 = gtk_vbox_new (FALSE, 0);
+  vbox3 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_container_set_border_width (GTK_CONTAINER (vbox3), border);
   gtk_box_pack_start (GTK_BOX (vbox2), vbox3, FALSE, FALSE, 0);
   gtk_widget_show (vbox3);
@@ -492,12 +492,12 @@ gimp_levels_tool_dialog (GimpImageMapTool *image_map_tool)
                             tool->input_sliders);
 
   /*  Horizontal box for input levels spinbuttons  */
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
   /*  low input spin  */
-  hbox2 = gtk_hbox_new (FALSE, 2);
+  hbox2 = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
   gtk_box_pack_start (GTK_BOX (hbox), hbox2, FALSE, FALSE, 0);
   gtk_widget_show (hbox2);
 
@@ -543,7 +543,7 @@ gimp_levels_tool_dialog (GimpImageMapTool *image_map_tool)
   g_object_unref (tool->gamma_linear);
 
   /*  high input spin  */
-  hbox2 = gtk_hbox_new (FALSE, 2);
+  hbox2 = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
   gtk_box_pack_end (GTK_BOX (hbox), hbox2, FALSE, FALSE, 0);
   gtk_widget_show (hbox2);
 
@@ -570,7 +570,7 @@ gimp_levels_tool_dialog (GimpImageMapTool *image_map_tool)
   gtk_box_pack_start (GTK_BOX (main_vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 4);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 4);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -579,7 +579,7 @@ gimp_levels_tool_dialog (GimpImageMapTool *image_map_tool)
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  vbox2 = gtk_vbox_new (FALSE, 0);
+  vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_container_set_border_width (GTK_CONTAINER (vbox2), border);
   gtk_container_add (GTK_CONTAINER (frame), vbox2);
   gtk_widget_show (vbox2);
@@ -607,7 +607,7 @@ gimp_levels_tool_dialog (GimpImageMapTool *image_map_tool)
                             tool->output_sliders);
 
   /*  Horizontal box for levels spin widgets  */
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -647,11 +647,11 @@ gimp_levels_tool_dialog (GimpImageMapTool *image_map_tool)
   gtk_box_pack_start (GTK_BOX (main_vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), hbox);
   gtk_widget_show (hbox);
 
-  hbbox = gtk_hbox_new (FALSE, 6);
+  hbbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_end (GTK_BOX (hbox), hbbox, FALSE, FALSE, 0);
   gtk_widget_show (hbbox);
 
@@ -679,7 +679,7 @@ gimp_levels_tool_dialog (GimpImageMapTool *image_map_tool)
   gtk_box_pack_start (GTK_BOX (hbbox), button, FALSE, FALSE, 0);
   gtk_widget_show (button);
 
-  g_signal_connect (image_map_tool->shell, "unmap",
+  g_signal_connect (image_map_tool->dialog, "unmap",
                     G_CALLBACK (gimp_levels_tool_dialog_unmap),
                     tool);
 
@@ -1198,7 +1198,7 @@ static void
 gimp_levels_tool_color_picked (GimpColorTool      *color_tool,
                                GimpColorPickState  pick_state,
                                GimpImageType       sample_type,
-                               GimpRGB            *color,
+                               const GimpRGB      *color,
                                gint                color_index)
 {
   GimpLevelsTool *tool = GIMP_LEVELS_TOOL (color_tool);

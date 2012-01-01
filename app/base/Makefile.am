@@ -8,6 +8,7 @@ INCLUDES = \
 	-I$(top_srcdir)		\
 	-I$(top_builddir)/app	\
 	-I$(top_srcdir)/app	\
+	$(CAIRO_CFLAGS)		\
 	$(GLIB_CFLAGS)		\
 	-I$(includedir)
 
@@ -62,8 +63,6 @@ libappbase_a_SOURCES = \
 	tile-cache.h		\
 	tile-manager.c		\
 	tile-manager.h		\
-	tile-manager-crop.c	\
-	tile-manager-crop.h	\
 	tile-manager-preview.c	\
 	tile-manager-preview.h	\
 	tile-manager-private.h	\
@@ -73,8 +72,6 @@ libappbase_a_SOURCES = \
 	tile-rowhints.h		\
 	tile-swap.c		\
 	tile-swap.h
-
-EXTRA_DIST = makefile.msc
 
 #
 # rules to generate built sources

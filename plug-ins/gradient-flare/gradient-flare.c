@@ -63,6 +63,7 @@
 
 #define PLUG_IN_PROC        "plug-in-gflare"
 #define PLUG_IN_BINARY      "gradient-flare"
+#define PLUG_IN_ROLE        "gimp-gradient-flare"
 
 #define GRADIENT_NAME_MAX   256
 #define GRADIENT_RESOLUTION 360
@@ -1001,6 +1002,7 @@ plugin_do (void)
   else
     plugin_do_non_asupsample ();
 
+  gimp_progress_update (1.0);
   /* Clean up */
   calc_deinit ();
   gimp_drawable_flush (drawable);
@@ -1657,8 +1659,7 @@ gflares_list_load_all (void)
 static void
 gflares_list_free_all (void)
 {
-  g_list_foreach (gflares_list, (GFunc) gflare_free, NULL);
-  g_list_free (gflares_list);
+  g_list_free_full (gflares_list, (GDestroyNotify) gflare_free);
   gflares_list = NULL;
 }
 
@@ -1971,8 +1972,7 @@ calc_deinit (void)
       return;
     }
 
-  g_list_foreach (calc.sflare_list, (GFunc) g_free, NULL);
-  g_list_free (calc.sflare_list);
+  g_list_free_full (calc.sflare_list, (GDestroyNotify) g_free);
 
   g_free (calc.glow_radial);
   g_free (calc.glow_angular);
@@ -2353,7 +2353,7 @@ dlg_run (void)
    *    Dialog Shell
    */
 
-  shell = dlg->shell = gimp_dialog_new (_("Gradient Flare"), PLUG_IN_BINARY,
+  shell = dlg->shell = gimp_dialog_new (_("Gradient Flare"), PLUG_IN_ROLE,
                                         NULL, 0,
                                         gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -2371,7 +2371,7 @@ dlg_run (void)
    *    main hbox
    */
 
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (shell))),
                       hbox, FALSE, FALSE, 0);
@@ -2381,7 +2381,7 @@ dlg_run (void)
    *    Preview
    */
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_box_pack_start (GTK_BOX (hbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 
@@ -2706,7 +2706,7 @@ dlg_make_page_settings (GFlareDialog *dlg,
   gdouble    xres, yres;
   gint       row;
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
 
   frame = gimp_frame_new (_("Center"));
@@ -2836,11 +2836,13 @@ dlg_make_page_settings (GFlareDialog *dlg,
   gtk_container_add (GTK_CONTAINER (frame), asup_table);
   gtk_widget_show (asup_table);
 
-  gtk_widget_set_sensitive (asup_table, pvals.use_asupsample);
-  g_object_set_data (G_OBJECT (button), "set_sensitive", asup_table);
   g_signal_connect (button, "toggled",
                     G_CALLBACK (gimp_toggle_button_update),
                     &pvals.use_asupsample);
+
+  g_object_bind_property (button,     "active",
+                          asup_table, "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   adj = gimp_scale_entry_new (GTK_TABLE (asup_table), 0, 0,
                               _("_Max depth:"), -1, 4,
@@ -2929,7 +2931,7 @@ dlg_make_page_selector (GFlareDialog *dlg,
 
   DEBUG_PRINT (("dlg_make_page_selector\n"));
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
 
   /*
@@ -2973,7 +2975,7 @@ dlg_make_page_selector (GFlareDialog *dlg,
    *    The buttons for the possible listbox operations
    */
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -3313,7 +3315,7 @@ ed_run (GtkWindow            *parent,
    *    Dialog Shell
    */
   ed->shell =
-    shell = gimp_dialog_new (_("Gradient Flare Editor"), PLUG_IN_BINARY,
+    shell = gimp_dialog_new (_("Gradient Flare Editor"), PLUG_IN_ROLE,
                              GTK_WIDGET (parent), 0,
                              gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -3340,7 +3342,7 @@ ed_run (GtkWindow            *parent,
    *    main hbox
    */
 
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (shell))),
                       hbox, FALSE, FALSE, 0);
@@ -3437,7 +3439,7 @@ ed_make_page_general (GFlareEditor *ed,
   GtkWidget *combo;
   GtkObject *adj;
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
 
   /*  Glow  */
@@ -3544,7 +3546,7 @@ ed_make_page_glow (GFlareEditor *ed,
   GtkObject    *adj;
   gint          row;
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
 
   /*
@@ -3647,7 +3649,7 @@ ed_make_page_rays (GFlareEditor *ed,
   GtkObject    *adj;
   gint          row;
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
 
   /*
@@ -3786,7 +3788,7 @@ ed_make_page_sflare (GFlareEditor *ed,
   gchar         buf[256];
   gint          row;
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
 
   /*
@@ -3878,7 +3880,7 @@ ed_make_page_sflare (GFlareEditor *ed,
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  shape_vbox = gtk_vbox_new (FALSE, 2);
+  shape_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
   gtk_container_add (GTK_CONTAINER (frame), shape_vbox);
   gtk_widget_show (shape_vbox);
 
@@ -3894,7 +3896,7 @@ ed_make_page_sflare (GFlareEditor *ed,
   gtk_box_pack_start (GTK_BOX (shape_vbox), toggle, FALSE, FALSE, 0);
   gtk_widget_show (toggle);
 
-  polygon_hbox = gtk_hbox_new (FALSE, 6);
+  polygon_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (shape_vbox), polygon_hbox, FALSE, FALSE, 0);
   gtk_widget_show (polygon_hbox);
 
@@ -3921,14 +3923,15 @@ ed_make_page_sflare (GFlareEditor *ed,
   gtk_box_pack_start (GTK_BOX (polygon_hbox), entry, FALSE, FALSE, 0);
   gtk_widget_show (entry);
 
-  gtk_widget_set_sensitive (entry, gflare->sflare_shape == GF_POLYGON);
-  g_object_set_data (G_OBJECT (toggle), "set_sensitive", entry);
+  g_object_bind_property (toggle, "active",
+                          entry,  "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   /*
    *    Random Seed Entry
    */
 
-  seed_hbox = gtk_hbox_new (FALSE, 6);
+  seed_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (vbox), seed_hbox, FALSE, FALSE, 0);
   gtk_widget_show (seed_hbox);
 

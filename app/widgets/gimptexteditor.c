@@ -26,12 +26,16 @@
 
 #include "widgets-types.h"
 
+#include "core/gimp.h"
 #include "core/gimpmarshal.h"
+
+#include "text/gimptext.h"
 
 #include "gimphelp-ids.h"
 #include "gimpmenufactory.h"
 #include "gimptextbuffer.h"
 #include "gimptexteditor.h"
+#include "gimptextstyleeditor.h"
 #include "gimpuimanager.h"
 
 #include "gimp-intl.h"
@@ -128,17 +132,24 @@ gimp_text_editor_finalize (GObject *object)
 GtkWidget *
 gimp_text_editor_new (const gchar     *title,
                       GtkWindow       *parent,
+                      Gimp            *gimp,
                       GimpMenuFactory *menu_factory,
-                      GimpTextBuffer  *text_buffer)
+                      GimpText        *text,
+                      GimpTextBuffer  *text_buffer,
+                      gdouble          xres,
+                      gdouble          yres)
 {
   GimpTextEditor *editor;
   GtkWidget      *content_area;
   GtkWidget      *toolbar;
+  GtkWidget      *style_editor;
   GtkWidget      *scrolled_window;
 
   g_return_val_if_fail (title != NULL, NULL);
   g_return_val_if_fail (parent == NULL || GTK_IS_WINDOW (parent), NULL);
+  g_return_val_if_fail (GIMP_IS_GIMP (gimp), NULL);
   g_return_val_if_fail (GIMP_IS_MENU_FACTORY (menu_factory), NULL);
+  g_return_val_if_fail (GIMP_IS_TEXT (text), NULL);
   g_return_val_if_fail (GIMP_IS_TEXT_BUFFER (text_buffer), NULL);
 
   editor = g_object_new (GIMP_TYPE_TEXT_EDITOR,
@@ -174,6 +185,12 @@ gimp_text_editor_new (const gchar     *title,
       gtk_box_pack_start (GTK_BOX (content_area), toolbar, FALSE, FALSE, 0);
       gtk_widget_show (toolbar);
     }
+
+  style_editor = gimp_text_style_editor_new (gimp, text, text_buffer,
+                                             gimp->fonts,
+                                             xres, yres);
+  gtk_box_pack_start (GTK_BOX (content_area), style_editor, FALSE, FALSE, 0);
+  gtk_widget_show (style_editor);
 
   scrolled_window = gtk_scrolled_window_new (NULL, NULL);
   gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_window),

@@ -19,6 +19,10 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#if !defined (__GIMP_BASE_H_INSIDE__) && !defined (GIMP_BASE_COMPILATION)
+#error "Only <libgimpbase/gimpbase.h> can be included directly."
+#endif
+
 #ifndef __GIMP_UNIT_H__
 #define __GIMP_UNIT_H__
 
@@ -90,6 +94,9 @@ gdouble       gimp_pixels_to_units          (gdouble      pixels,
                                              GimpUnit     unit,
                                              gdouble      resolution);
 gdouble       gimp_units_to_pixels          (gdouble      value,
+                                             GimpUnit     unit,
+                                             gdouble      resolution);
+gdouble       gimp_units_to_points          (gdouble      value,
                                              GimpUnit     unit,
                                              gdouble      resolution);
 

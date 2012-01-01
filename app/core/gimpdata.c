@@ -88,38 +88,35 @@ struct _GimpDataPrivate
         G_TYPE_INSTANCE_GET_PRIVATE (data, GIMP_TYPE_DATA, GimpDataPrivate)
 
 
-static void      gimp_data_class_init        (GimpDataClass         *klass);
-static void      gimp_data_tagged_iface_init (GimpTaggedInterface   *iface);
+static void      gimp_data_class_init        (GimpDataClass       *klass);
+static void      gimp_data_tagged_iface_init (GimpTaggedInterface *iface);
 
-static void      gimp_data_init              (GimpData              *data,
-                                              GimpDataClass         *data_class);
+static void      gimp_data_init              (GimpData            *data,
+                                              GimpDataClass       *data_class);
 
-static GObject * gimp_data_constructor       (GType                  type,
-                                              guint                  n_params,
-                                              GObjectConstructParam *params);
+static void      gimp_data_constructed       (GObject             *object);
+static void      gimp_data_finalize          (GObject             *object);
+static void      gimp_data_set_property      (GObject             *object,
+                                              guint                property_id,
+                                              const GValue        *value,
+                                              GParamSpec          *pspec);
+static void      gimp_data_get_property      (GObject             *object,
+                                              guint                property_id,
+                                              GValue              *value,
+                                              GParamSpec          *pspec);
 
-static void      gimp_data_finalize          (GObject               *object);
-static void      gimp_data_set_property      (GObject               *object,
-                                              guint                  property_id,
-                                              const GValue          *value,
-                                              GParamSpec            *pspec);
-static void      gimp_data_get_property      (GObject               *object,
-                                              guint                  property_id,
-                                              GValue                *value,
-                                              GParamSpec            *pspec);
+static gint64    gimp_data_get_memsize       (GimpObject          *object,
+                                              gint64              *gui_size);
 
-static gint64    gimp_data_get_memsize       (GimpObject            *object,
-                                              gint64                *gui_size);
+static void      gimp_data_real_dirty        (GimpData            *data);
 
-static void      gimp_data_real_dirty        (GimpData              *data);
-
-static gboolean  gimp_data_add_tag           (GimpTagged            *tagged,
-                                              GimpTag               *tag);
-static gboolean  gimp_data_remove_tag        (GimpTagged            *tagged,
-                                              GimpTag               *tag);
-static GList *   gimp_data_get_tags          (GimpTagged            *tagged);
-static gchar *   gimp_data_get_identifier    (GimpTagged            *tagged);
-static gchar *   gimp_data_get_checksum      (GimpTagged            *tagged);
+static gboolean  gimp_data_add_tag           (GimpTagged          *tagged,
+                                              GimpTag             *tag);
+static gboolean  gimp_data_remove_tag        (GimpTagged          *tagged,
+                                              GimpTag             *tag);
+static GList *   gimp_data_get_tags          (GimpTagged          *tagged);
+static gchar *   gimp_data_get_identifier    (GimpTagged          *tagged);
+static gchar *   gimp_data_get_checksum      (GimpTagged          *tagged);
 
 
 static guint data_signals[LAST_SIGNAL] = { 0 };
@@ -181,7 +178,7 @@ gimp_data_class_init (GimpDataClass *klass)
                   gimp_marshal_VOID__VOID,
                   G_TYPE_NONE, 0);
 
-  object_class->constructor       = gimp_data_constructor;
+  object_class->constructed       = gimp_data_constructed;
   object_class->finalize          = gimp_data_finalize;
   object_class->set_property      = gimp_data_set_property;
   object_class->get_property      = gimp_data_get_property;
@@ -247,18 +244,13 @@ gimp_data_init (GimpData      *data,
   gimp_data_freeze (data);
 }
 
-static GObject *
-gimp_data_constructor (GType                  type,
-                       guint                  n_params,
-                       GObjectConstructParam *params)
+static void
+gimp_data_constructed (GObject *object)
 {
-  GObject *object;
-
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   gimp_data_thaw (GIMP_DATA (object));
-
-  return object;
 }
 
 static void
@@ -274,8 +266,7 @@ gimp_data_finalize (GObject *object)
 
   if (private->tags)
     {
-      g_list_foreach (private->tags, (GFunc) g_object_unref, NULL);
-      g_list_free (private->tags);
+      g_list_free_full (private->tags, (GDestroyNotify) g_object_unref);
       private->tags = NULL;
     }
 
@@ -755,6 +746,41 @@ gimp_data_set_filename (GimpData    *data,
       if (! GIMP_DATA_GET_CLASS (data)->save)
         private->writable = FALSE;
     }
+
+  if (private->filename)
+    {
+      const gchar *tag_blacklist[] = { "brushes",
+                                       "dynamics",
+                                       "patterns",
+                                       "palettes",
+                                       "gradients",
+                                       "tool-presets" };
+
+      gchar   *file_path   = g_path_get_dirname (private->filename);
+      gchar   *tag_text    = g_path_get_basename (file_path);
+      gint     i           = 0;
+      gboolean blacklisted = FALSE;
+
+      for (i = 0; i <  G_N_ELEMENTS (tag_blacklist); i++)
+        {
+          if (! g_strcmp0 (tag_text, tag_blacklist[i]))
+            {
+              blacklisted = TRUE;
+            }
+        }
+
+      if (! blacklisted)
+        {
+          GimpTag *tag = gimp_tag_new (tag_text);
+
+          gimp_tag_set_internal (tag, TRUE);
+          gimp_tagged_add_tag (GIMP_TAGGED (data), tag);
+          g_object_unref (tag);
+        }
+
+      g_free (file_path);
+      g_free (tag_text);
+    }
 }
 
 /**
@@ -800,11 +826,13 @@ gimp_data_create_filename (GimpData    *data,
       return;
     }
 
+  g_strstrip (safename);
+
   if (safename[0] == '.')
     safename[0] = '-';
 
   for (i = 0; safename[i]; i++)
-    if (safename[i] == G_DIR_SEPARATOR || g_ascii_isspace (safename[i]))
+    if (strchr ("\\/*?\"`'<>{}|\n\t ;:$^&", safename[i]))
       safename[i] = '-';
 
   filename = g_strconcat (safename, gimp_data_get_extension (data), NULL);
@@ -923,7 +951,24 @@ gimp_data_duplicate (GimpData *data)
   g_return_val_if_fail (GIMP_IS_DATA (data), NULL);
 
   if (GIMP_DATA_GET_CLASS (data)->duplicate)
-    return GIMP_DATA_GET_CLASS (data)->duplicate (data);
+    {
+      GimpData        *new     = GIMP_DATA_GET_CLASS (data)->duplicate (data);
+      GimpDataPrivate *private = GIMP_DATA_GET_PRIVATE (new);
+
+      g_object_set (new,
+                    "name",      NULL,
+                    "writable",  GIMP_DATA_GET_CLASS (new)->save != NULL,
+                    "deletable", TRUE,
+                    NULL);
+
+      if (private->filename)
+        {
+          g_free (private->filename);
+          private->filename = NULL;
+        }
+
+      return new;
+    }
 
   return NULL;
 }

@@ -58,7 +58,7 @@ GtkWidget *       gimp_data_factory_view_new                  (GimpViewType     
                                                                gint              view_border_width,
                                                                GimpMenuFactory  *menu_factory,
                                                                const gchar      *menu_identifier,
-                                                               const gchar      *ui_identifier,
+                                                               const gchar      *ui_path,
                                                                const gchar      *action_group);
 
 GtkWidget       * gimp_data_factory_view_get_edit_button      (GimpDataFactoryView *factory_view);
@@ -68,20 +68,6 @@ GType             gimp_data_factory_view_get_children_type    (GimpDataFactoryVi
 gboolean          gimp_data_factory_view_has_data_new_func    (GimpDataFactoryView *factory_view);
 gboolean          gimp_data_factory_view_have                 (GimpDataFactoryView *factory_view,
                                                                GimpObject          *object);
-
-
-/*  protected  */
-
-gboolean          gimp_data_factory_view_construct            (GimpDataFactoryView *factory_view,
-                                                               GimpViewType         view_type,
-                                                               GimpDataFactory     *factory,
-                                                               GimpContext         *context,
-                                                               gint                 view_size,
-                                                               gint                 view_border_width,
-                                                               GimpMenuFactory     *menu_factory,
-                                                               const gchar         *menu_identifier,
-                                                               const gchar         *ui_identifier,
-                                                               const gchar         *action_group);
 
 
 #endif  /*  __GIMP_DATA_FACTORY_VIEW_H__  */

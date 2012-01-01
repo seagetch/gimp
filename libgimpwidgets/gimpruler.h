@@ -16,6 +16,10 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#if !defined (__GIMP_WIDGETS_H_INSIDE__) && !defined (GIMP_WIDGETS_COMPILATION)
+#error "Only <libgimpwidgets/gimpwidgets.h> can be included directly."
+#endif
+
 #ifndef __GIMP_RULER_H__
 #define __GIMP_RULER_H__
 
@@ -48,23 +52,29 @@ struct _GimpRulerClass
 };
 
 
-GType       gimp_ruler_get_type     (void) G_GNUC_CONST;
+GType       gimp_ruler_get_type            (void) G_GNUC_CONST;
 
-GtkWidget * gimp_ruler_new          (GtkOrientation  orientation);
-void        gimp_ruler_set_unit     (GimpRuler      *ruler,
-                                     GimpUnit        unit);
-GimpUnit    gimp_ruler_get_unit     (GimpRuler      *ruler);
-void        gimp_ruler_set_position (GimpRuler      *ruler,
-                                     gdouble         position);
-gdouble     gimp_ruler_get_position (GimpRuler      *ruler);
-void        gimp_ruler_set_range    (GimpRuler      *ruler,
-                                     gdouble         lower,
-                                     gdouble         upper,
-                                     gdouble         max_size);
-void        gimp_ruler_get_range    (GimpRuler      *ruler,
-                                     gdouble        *lower,
-                                     gdouble        *upper,
-                                     gdouble        *max_size);
+GtkWidget * gimp_ruler_new                 (GtkOrientation  orientation);
+
+void        gimp_ruler_add_track_widget    (GimpRuler      *ruler,
+                                            GtkWidget      *widget);
+void        gimp_ruler_remove_track_widget (GimpRuler      *ruler,
+                                            GtkWidget      *widget);
+
+void        gimp_ruler_set_unit            (GimpRuler      *ruler,
+                                            GimpUnit        unit);
+GimpUnit    gimp_ruler_get_unit            (GimpRuler      *ruler);
+void        gimp_ruler_set_position        (GimpRuler      *ruler,
+                                            gdouble         position);
+gdouble     gimp_ruler_get_position        (GimpRuler      *ruler);
+void        gimp_ruler_set_range           (GimpRuler      *ruler,
+                                            gdouble         lower,
+                                            gdouble         upper,
+                                            gdouble         max_size);
+void        gimp_ruler_get_range           (GimpRuler      *ruler,
+                                            gdouble        *lower,
+                                            gdouble        *upper,
+                                            gdouble        *max_size);
 
 G_END_DECLS
 

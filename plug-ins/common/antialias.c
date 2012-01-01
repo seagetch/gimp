@@ -141,9 +141,7 @@ run (const gchar      *name,
   if (status == GIMP_PDB_SUCCESS)
     {
       GimpDrawable *drawable;
-      gint32        image_ID;
 
-      image_ID = param[1].data.d_int32;
       drawable = gimp_drawable_get (param[2].data.d_drawable);
 
       gimp_progress_init (_("Antialiasing..."));
@@ -313,7 +311,7 @@ render (GimpDrawable *drawable)
         gimp_progress_update ((gdouble) row / (gdouble) h);
     }
 
-  gimp_progress_update ((gdouble) 100);
+  gimp_progress_update (1.0);
   gimp_drawable_flush (drawable);
   gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);
   gimp_drawable_update (drawable->drawable_id, x, y, w, h);

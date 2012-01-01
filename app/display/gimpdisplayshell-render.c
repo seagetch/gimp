@@ -20,6 +20,7 @@
 #include <gegl.h>
 #include <gtk/gtk.h>
 
+#include "libgimpcolor/gimpcolor.h"
 #include "libgimpwidgets/gimpwidgets.h"
 
 #include "display-types.h"
@@ -160,28 +161,23 @@ gimp_display_shell_render (GimpDisplayShell *shell,
 
   switch (type)
     {
-      case GIMP_RGBA_IMAGE:
-        render_image_rgb_a (&info);
-        break;
-      case GIMP_GRAYA_IMAGE:
-        render_image_gray_a (&info);
-        break;
-      default:
-        g_warning ("%s: unsupported projection type (%d)", G_STRFUNC, type);
-        g_assert_not_reached ();
+    case GIMP_RGBA_IMAGE:
+      render_image_rgb_a (&info);
+      break;
+    case GIMP_GRAYA_IMAGE:
+      render_image_gray_a (&info);
+      break;
+    default:
+      g_warning ("%s: unsupported projection type (%d)", G_STRFUNC, type);
+      g_assert_not_reached ();
     }
 
-  /*  apply filters to the rendered projection  */
-#if 0
-  if (shell->filter_stack)
-    gimp_color_display_stack_convert (shell->filter_stack,
-                                      shell->render_buf,
-                                      w, h,
-                                      3,
-                                      3 * GIMP_DISPLAY_RENDER_BUF_WIDTH);
-#endif
-
   cairo_surface_mark_dirty (shell->render_surface);
+
+  /*  apply filters to the rendered projection  */
+  if (shell->filter_stack)
+    gimp_color_display_stack_convert_surface (shell->filter_stack,
+                                              shell->render_surface);
 
   if (shell->mask)
     {
@@ -370,6 +366,11 @@ gimp_display_shell_render_info_init (RenderInfo       *info,
   info->w = w;
   info->h = h;
 
+  /* This function must be called before switching from drawing
+   * on the surface with cairo to drawing on it directly
+   */
+  cairo_surface_flush (dest);
+
   info->dest        = cairo_image_surface_get_data (dest);
   info->dest_bpl    = cairo_image_surface_get_stride (dest);
 
@@ -383,8 +384,8 @@ gimp_display_shell_render_info_init (RenderInfo       *info,
   info->full_scaley = shell->scale_y;
 
   /* use Bresenham like stepping */
-  info->x_dest_inc  = shell->x_dest_inc;
-  info->x_src_dec   = shell->x_src_dec << level;
+  info->x_dest_inc  = shell->x_dest_inc >> level;
+  info->x_src_dec   = shell->x_src_dec;
 
   info->dx_start    = ((gint64) info->x_dest_inc * info->x
                        + info->x_dest_inc / 2);
@@ -393,8 +394,8 @@ gimp_display_shell_render_info_init (RenderInfo       *info,
   info->dx_start    = info->dx_start % info->x_src_dec;
 
   /* same for y */
-  info->y_dest_inc  = shell->y_dest_inc;
-  info->y_src_dec   = shell->y_src_dec << level;
+  info->y_dest_inc  = shell->y_dest_inc >> level;
+  info->y_src_dec   = shell->y_src_dec;
 
   info->dy_start    = ((gint64) info->y_dest_inc * info->y
                        + info->y_dest_inc / 2);
@@ -858,7 +859,7 @@ render_image_tile_fault (RenderInfo *info)
             }
           else
             {
-              tilexL =- 1;  /* this forces a refetch of the left most source
+              tilexL = -1;  /* this forces a refetch of the left most source
                                samples */
             }
 

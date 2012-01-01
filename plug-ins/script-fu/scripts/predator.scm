@@ -45,12 +45,14 @@
         (active-layer 0)
         )
 
+    (gimp-context-push)
+    (gimp-context-set-defaults)
     (gimp-image-undo-group-start image)
     (gimp-layer-add-alpha drawable)
 
     (if (= (car (gimp-selection-is-empty image)) TRUE)
         (begin
-          (gimp-selection-layer-alpha drawable)
+          (gimp-image-select-item image CHANNEL-OP-REPLACE drawable)
           (set! active-selection (car (gimp-selection-save image)))
           (set! from-selection FALSE)
         )
@@ -78,11 +80,11 @@
           )
 
           (gimp-layer-set-offsets effect-layer select-offset-x select-offset-y)
-          (gimp-image-add-layer image effect-layer -1)
+          (gimp-image-insert-layer image effect-layer 0 -1)
           (gimp-selection-none image)
           (gimp-edit-clear effect-layer)
 
-          (gimp-selection-load active-selection)
+          (gimp-image-select-item image CHANNEL-OP-REPLACE active-selection)
           (gimp-edit-copy drawable)
           (let ((floating-sel (car (gimp-edit-paste effect-layer FALSE))))
             (gimp-floating-sel-anchor floating-sel)
@@ -101,7 +103,7 @@
     (plug-in-edge RUN-NONINTERACTIVE image active-layer edge-amount 1 0)
 
     ; clean up the selection copy
-    (gimp-selection-load active-selection)
+    (gimp-image-select-item image CHANNEL-OP-REPLACE active-selection)
 
     (if (= keep-selection FALSE)
         (gimp-selection-none image)
@@ -111,6 +113,7 @@
     (gimp-image-remove-channel image active-selection)
     (gimp-image-undo-group-end image)
     (gimp-displays-flush)
+    (gimp-context-pop)
   )
 )
 

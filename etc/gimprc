@@ -54,6 +54,14 @@
 # 
 # (interpolation-type cubic)
 
+# Tools such as fuzzy-select and bucket fill find regions based on a
+# seed-fill algorithm.  The seed fill starts at the initially selected pixel
+# and progresses in all directions until the difference of pixel intensity
+# from the original is greater than a specified threshold. This value
+# represents the default threshold.  This is an integer value.
+# 
+# (default-threshold 15)
+
 # Sets the plug-in search path.  This is a colon-separated list of folders to
 # search.
 # 
@@ -533,14 +541,6 @@
 # 
 # (use-event-history no)
 
-# Tools such as fuzzy-select and bucket fill find regions based on a
-# seed-fill algorithm.  The seed fill starts at the initially selected pixel
-# and progresses in all directions until the difference of pixel intensity
-# from the original is greater than a specified threshold. This value
-# represents the default threshold.  This is an integer value.
-# 
-# (default-threshold 15)
-
 # If enabled, the move tool sets the edited layer or path as active.  This
 # used to be the default behaviour in older versions.  Possible values are
 # yes and no.
@@ -580,15 +580,6 @@
 # yes and no.
 # 
 # (show-tooltips yes)
-
-# Hide docks and other windows, leaving only image windows.  Possible values
-# are yes and no.
-# 
-# (hide-docks no)
-
-# Use GIMP in a single-window mode.  Possible values are yes and no.
-# 
-# (single-window-mode no)
 
 # When enabled, menus can be torn off.  Possible values are yes and no.
 # 
@@ -696,6 +687,11 @@
 # bitmap and pixbuf.
 # 
 # (cursor-format pixbuf)
+
+# Sets the handedness for cursor positioning.  Possible values are left and
+# right.
+# 
+# (cursor-handedness right)
 
 # Where to search for fractals used by the Fractal Explorer plug-in.  This is
 # a colon-separated list of folders to search.

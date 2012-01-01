@@ -28,6 +28,7 @@
 #include "config/gimpcoreconfig.h"
 #include "core/gimp-transform-utils.h"
 #include "core/gimp.h"
+#include "core/gimpchannel.h"
 #include "core/gimpdrawable-transform.h"
 #include "core/gimpdrawable.h"
 #include "core/gimpimage.h"
@@ -72,10 +73,19 @@ flip_invoker (GimpProcedure      *procedure,
           gimp_transform_get_flip_axis (x, y, width, height,
                                         flip_type, TRUE, &axis);
 
-          if (! gimp_drawable_transform_flip (drawable, context,
-                                              flip_type, axis, FALSE))
+          if (! gimp_viewable_get_children (GIMP_VIEWABLE (drawable)) &&
+              ! gimp_channel_is_empty (gimp_image_get_mask (gimp_item_get_image (GIMP_ITEM (drawable)))))
             {
-              success = FALSE;
+              if (! gimp_drawable_transform_flip (drawable, context,
+                                                  flip_type, axis, FALSE))
+                {
+                  success = FALSE;
+                }
+            }
+          else
+            {
+              gimp_item_flip (GIMP_ITEM (drawable), context,
+                              flip_type, axis, FALSE);
             }
         }
     }
@@ -152,13 +162,24 @@ perspective_invoker (GimpProcedure      *procedure,
           if (progress)
             gimp_progress_start (progress, _("Perspective"), FALSE);
 
-          if (! gimp_drawable_transform_affine (drawable, context,
-                                                &matrix,
-                                                GIMP_TRANSFORM_FORWARD,
-                                                interpolation_type, 3,
-                                                FALSE, progress))
+          if (! gimp_viewable_get_children (GIMP_VIEWABLE (drawable)) &&
+              ! gimp_channel_is_empty (gimp_image_get_mask (gimp_item_get_image (GIMP_ITEM (drawable)))))
             {
-              success = FALSE;
+              if (! gimp_drawable_transform_affine (drawable, context,
+                                                    &matrix,
+                                                    GIMP_TRANSFORM_FORWARD,
+                                                    interpolation_type, 3,
+                                                    FALSE, progress))
+                {
+                  success = FALSE;
+                }
+            }
+          else
+            {
+              gimp_item_transform (GIMP_ITEM (drawable), context, &matrix,
+                                   GIMP_TRANSFORM_FORWARD,
+                                   interpolation, 3,
+                                   FALSE, progress);
             }
 
           if (progress)
@@ -223,13 +244,24 @@ rotate_invoker (GimpProcedure      *procedure,
           if (progress)
             gimp_progress_start (progress, _("Rotating"), FALSE);
 
-          if (! gimp_drawable_transform_affine (drawable, context,
-                                                &matrix,
-                                                GIMP_TRANSFORM_FORWARD,
-                                                interpolation_type, 3,
-                                                FALSE, progress))
+          if (! gimp_viewable_get_children (GIMP_VIEWABLE (drawable)) &&
+              ! gimp_channel_is_empty (gimp_image_get_mask (gimp_item_get_image (GIMP_ITEM (drawable)))))
             {
-              success = FALSE;
+              if (! gimp_drawable_transform_affine (drawable, context,
+                                                    &matrix,
+                                                    GIMP_TRANSFORM_FORWARD,
+                                                    interpolation_type, 3,
+                                                    FALSE, progress))
+                {
+                  success = FALSE;
+                }
+            }
+          else
+            {
+              gimp_item_transform (GIMP_ITEM (drawable), context, &matrix,
+                                   GIMP_TRANSFORM_FORWARD,
+                                   interpolation, 3,
+                                   FALSE, progress);
             }
 
           if (progress)
@@ -301,13 +333,24 @@ scale_invoker (GimpProcedure      *procedure,
           if (progress)
             gimp_progress_start (progress, _("Scaling"), FALSE);
 
-          if (! gimp_drawable_transform_affine (drawable, context,
-                                                &matrix,
-                                                GIMP_TRANSFORM_FORWARD,
-                                                interpolation_type, 3,
-                                                FALSE, progress))
+          if (! gimp_viewable_get_children (GIMP_VIEWABLE (drawable)) &&
+              ! gimp_channel_is_empty (gimp_image_get_mask (gimp_item_get_image (GIMP_ITEM (drawable)))))
             {
-              success = FALSE;
+              if (! gimp_drawable_transform_affine (drawable, context,
+                                                    &matrix,
+                                                    GIMP_TRANSFORM_FORWARD,
+                                                    interpolation_type, 3,
+                                                    FALSE, progress))
+                {
+                  success = FALSE;
+                }
+            }
+          else
+            {
+              gimp_item_transform (GIMP_ITEM (drawable), context, &matrix,
+                                   GIMP_TRANSFORM_FORWARD,
+                                   interpolation, 3,
+                                   FALSE, progress);
             }
 
           if (progress)
@@ -374,13 +417,24 @@ shear_invoker (GimpProcedure      *procedure,
           if (progress)
             gimp_progress_start (progress, _("Shearing"), FALSE);
 
-          if (! gimp_drawable_transform_affine (drawable, context,
-                                                &matrix,
-                                                GIMP_TRANSFORM_FORWARD,
-                                                interpolation_type, 3,
-                                                FALSE, progress))
+          if (! gimp_viewable_get_children (GIMP_VIEWABLE (drawable)) &&
+              ! gimp_channel_is_empty (gimp_image_get_mask (gimp_item_get_image (GIMP_ITEM (drawable)))))
             {
-              success = FALSE;
+              if (! gimp_drawable_transform_affine (drawable, context,
+                                                    &matrix,
+                                                    GIMP_TRANSFORM_FORWARD,
+                                                    interpolation_type, 3,
+                                                    FALSE, progress))
+                {
+                  success = FALSE;
+                }
+            }
+          else
+            {
+              gimp_item_transform (GIMP_ITEM (drawable), context, &matrix,
+                                   GIMP_TRANSFORM_FORWARD,
+                                   interpolation, 3,
+                                   FALSE, progress);
             }
 
           if (progress)
@@ -452,12 +506,23 @@ transform_2d_invoker (GimpProcedure      *procedure,
           if (progress)
             gimp_progress_start (progress, _("2D Transform"), FALSE);
 
-          if (! gimp_drawable_transform_affine (drawable, context,
-                                                &matrix, GIMP_TRANSFORM_FORWARD,
-                                                interpolation_type, 3,
-                                                FALSE, progress))
+          if (! gimp_viewable_get_children (GIMP_VIEWABLE (drawable)) &&
+              ! gimp_channel_is_empty (gimp_image_get_mask (gimp_item_get_image (GIMP_ITEM (drawable)))))
             {
-              success = FALSE;
+              if (! gimp_drawable_transform_affine (drawable, context,
+                                                    &matrix, GIMP_TRANSFORM_FORWARD,
+                                                    interpolation_type, 3,
+                                                    FALSE, progress))
+                {
+                  success = FALSE;
+                }
+            }
+          else
+            {
+              gimp_item_transform (GIMP_ITEM (drawable), context, &matrix,
+                                   GIMP_TRANSFORM_FORWARD,
+                                   interpolation, 3,
+                                   FALSE, progress);
             }
 
           if (progress)
@@ -487,12 +552,12 @@ register_transform_tools_procs (GimpPDB *pdb)
                                "gimp-flip");
   gimp_procedure_set_static_strings (procedure,
                                      "gimp-flip",
-                                     "Deprecated: Use 'gimp-drawable-transform-flip-simple' instead.",
-                                     "Deprecated: Use 'gimp-drawable-transform-flip-simple' instead.",
+                                     "Deprecated: Use 'gimp-item-transform-flip-simple' instead.",
+                                     "Deprecated: Use 'gimp-item-transform-flip-simple' instead.",
                                      "",
                                      "",
                                      "",
-                                     "gimp-drawable-transform-flip-simple");
+                                     "gimp-item-transform-flip-simple");
   gimp_procedure_add_argument (procedure,
                                gimp_param_spec_drawable_id ("drawable",
                                                             "drawable",
@@ -525,12 +590,12 @@ register_transform_tools_procs (GimpPDB *pdb)
                                "gimp-perspective");
   gimp_procedure_set_static_strings (procedure,
                                      "gimp-perspective",
-                                     "Deprecated: Use 'gimp-drawable-transform-perspective-default' instead.",
-                                     "Deprecated: Use 'gimp-drawable-transform-perspective-default' instead.",
+                                     "Deprecated: Use 'gimp-item-transform-perspective' instead.",
+                                     "Deprecated: Use 'gimp-item-transform-perspective' instead.",
                                      "",
                                      "",
                                      "",
-                                     "gimp-drawable-transform-perspective-default");
+                                     "gimp-item-transform-perspective");
   gimp_procedure_add_argument (procedure,
                                gimp_param_spec_drawable_id ("drawable",
                                                             "drawable",
@@ -608,12 +673,12 @@ register_transform_tools_procs (GimpPDB *pdb)
                                "gimp-rotate");
   gimp_procedure_set_static_strings (procedure,
                                      "gimp-rotate",
-                                     "Deprecated: Use 'gimp-drawable-transform-rotate-default' instead.",
-                                     "Deprecated: Use 'gimp-drawable-transform-rotate-default' instead.",
+                                     "Deprecated: Use 'gimp-item-transform-rotate' instead.",
+                                     "Deprecated: Use 'gimp-item-transform-rotate' instead.",
                                      "",
                                      "",
                                      "",
-                                     "gimp-drawable-transform-rotate-default");
+                                     "gimp-item-transform-rotate");
   gimp_procedure_add_argument (procedure,
                                gimp_param_spec_drawable_id ("drawable",
                                                             "drawable",
@@ -649,12 +714,12 @@ register_transform_tools_procs (GimpPDB *pdb)
                                "gimp-scale");
   gimp_procedure_set_static_strings (procedure,
                                      "gimp-scale",
-                                     "Deprecated: Use 'gimp-drawable-transform-scale-default' instead.",
-                                     "Deprecated: Use 'gimp-drawable-transform-scale-default' instead.",
+                                     "Deprecated: Use 'gimp-item-transform-scale' instead.",
+                                     "Deprecated: Use 'gimp-item-transform-scale' instead.",
                                      "",
                                      "",
                                      "",
-                                     "gimp-drawable-transform-scale-default");
+                                     "gimp-item-transform-scale");
   gimp_procedure_add_argument (procedure,
                                gimp_param_spec_drawable_id ("drawable",
                                                             "drawable",
@@ -708,12 +773,12 @@ register_transform_tools_procs (GimpPDB *pdb)
                                "gimp-shear");
   gimp_procedure_set_static_strings (procedure,
                                      "gimp-shear",
-                                     "Deprecated: Use 'gimp-drawable-transform-shear-default' instead.",
-                                     "Deprecated: Use 'gimp-drawable-transform-shear-default' instead.",
+                                     "Deprecated: Use 'gimp-item-transform-shear' instead.",
+                                     "Deprecated: Use 'gimp-item-transform-shear' instead.",
                                      "",
                                      "",
                                      "",
-                                     "gimp-drawable-transform-shear-default");
+                                     "gimp-item-transform-shear");
   gimp_procedure_add_argument (procedure,
                                gimp_param_spec_drawable_id ("drawable",
                                                             "drawable",
@@ -758,12 +823,12 @@ register_transform_tools_procs (GimpPDB *pdb)
                                "gimp-transform-2d");
   gimp_procedure_set_static_strings (procedure,
                                      "gimp-transform-2d",
-                                     "Deprecated: Use 'gimp-drawable-transform-2d-default' instead.",
-                                     "Deprecated: Use 'gimp-drawable-transform-2d-default' instead.",
+                                     "Deprecated: Use 'gimp-item-transform-2d' instead.",
+                                     "Deprecated: Use 'gimp-item-transform-2d' instead.",
                                      "",
                                      "",
                                      "",
-                                     "gimp-drawable-transform-2d-default");
+                                     "gimp-item-transform-2d");
   gimp_procedure_add_argument (procedure,
                                gimp_param_spec_drawable_id ("drawable",
                                                             "drawable",

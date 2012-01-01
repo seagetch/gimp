@@ -19,6 +19,7 @@
 
 #include "config.h"
 
+#include <cairo.h>
 #include <gegl.h>
 
 #include "libgimpcolor/gimpcolor.h"
@@ -68,7 +69,7 @@ gimp_channel_project_region (GimpDrawable *drawable,
     }
   else
     {
-      initial_region (projPR, &srcPR, NULL, col,
+      initial_region (&srcPR, projPR, NULL, col,
                       opacity,
                       GIMP_NORMAL_MODE,
                       NULL,

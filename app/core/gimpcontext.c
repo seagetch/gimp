@@ -20,6 +20,7 @@
 
 #include "config.h"
 
+#include <cairo.h>
 #include <gegl.h>
 
 #include "libgimpbase/gimpbase.h"
@@ -67,9 +68,7 @@ typedef void (* GimpContextCopyPropFunc) (GimpContext *src,
 
 static void    gimp_context_config_iface_init (GimpConfigInterface   *iface);
 
-static GObject *  gimp_context_constructor    (GType                  type,
-                                               guint                  n_params,
-                                               GObjectConstructParam *params);
+static void       gimp_context_constructed    (GObject               *object);
 static void       gimp_context_dispose        (GObject               *object);
 static void       gimp_context_finalize       (GObject               *object);
 static void       gimp_context_set_property   (GObject               *object,
@@ -553,7 +552,7 @@ gimp_context_class_init (GimpContextClass *klass)
                   G_TYPE_NONE, 1,
                   GIMP_TYPE_TEMPLATE);
 
-  object_class->constructor      = gimp_context_constructor;
+  object_class->constructed      = gimp_context_constructed;
   object_class->set_property     = gimp_context_set_property;
   object_class->get_property     = gimp_context_get_property;
   object_class->dispose          = gimp_context_dispose;
@@ -769,16 +768,14 @@ gimp_context_config_iface_init (GimpConfigInterface *iface)
   iface->deserialize_property = gimp_context_deserialize_property;
 }
 
-static GObject *
-gimp_context_constructor (GType                  type,
-                          guint                  n_params,
-                          GObjectConstructParam *params)
+static void
+gimp_context_constructed (GObject *object)
 {
-  GObject       *object;
   Gimp          *gimp;
   GimpContainer *container;
 
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   gimp = GIMP_CONTEXT (object)->gimp;
 
@@ -882,8 +879,6 @@ gimp_context_constructor (GType                  type,
   g_signal_connect_object (gimp->templates, "thaw",
                            G_CALLBACK (gimp_context_template_list_thaw),
                            object, 0);
-
-  return object;
 }
 
 static void

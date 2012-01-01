@@ -49,34 +49,21 @@ struct _GimpBrushCore
   gdouble        scale;
   gdouble        angle;
   gdouble        hardness;
-  gdouble        force;
   gdouble        aspect_ratio;
 
   /*  brush buffers  */
   TempBuf       *pressure_brush;
 
   TempBuf       *solid_brushes[BRUSH_CORE_SOLID_SUBSAMPLE][BRUSH_CORE_SOLID_SUBSAMPLE];
-  TempBuf       *last_solid_brush;
+  const TempBuf *last_solid_brush_mask;
   gboolean       solid_cache_invalid;
 
-  TempBuf       *transform_brush;
-  TempBuf       *last_transform_brush;
-  gint           last_transform_width;
-  gint           last_transform_height;
-  gdouble        last_scale;
-  gdouble        last_angle;
-  gdouble        last_hardness;
-  gdouble        last_aspect_ratio;
+  const TempBuf *transform_brush;
+  const TempBuf *transform_pixmap;
 
-  TempBuf       *transform_pixmap;
-  TempBuf       *last_transform_pixmap;
-  gint           last_transform_pixmap_width;
-  gint           last_transform_pixmap_height;
-
-  TempBuf       *kernel_brushes[BRUSH_CORE_SUBSAMPLE + 1][BRUSH_CORE_SUBSAMPLE + 1];
-
-  TempBuf       *last_brush_mask;
-  gboolean       cache_invalid;
+  TempBuf       *subsample_brushes[BRUSH_CORE_SUBSAMPLE + 1][BRUSH_CORE_SUBSAMPLE + 1];
+  const TempBuf *last_subsample_brush_mask;
+  gboolean       subsample_cache_invalid;
 
   gdouble        jitter;
   gdouble        jitter_lut_x[BRUSH_CORE_JITTER_LUTSIZE];
@@ -85,10 +72,11 @@ struct _GimpBrushCore
   TempBuf       *texturized_brush;
 
   GRand         *rand;
-  
-  /* tweaks for smudge */
+
+  /* gimp-painter-2.7: tweaks for smudge */
   gboolean       ignore_scale;
 
+#if 0
   /*  don't use these...  */
   BoundSeg      *brush_bound_segs;
   gint           n_brush_bound_segs;
@@ -96,6 +84,7 @@ struct _GimpBrushCore
   gint           brush_bound_height;
   gint           transformed_brush_bound_width;
   gint           transformed_brush_bound_height;
+#endif
 };
 
 struct _GimpBrushCoreClass
@@ -107,6 +96,7 @@ struct _GimpBrushCoreClass
 
   /*  Set for tools that don't mind if the brush scales while painting  */
   gboolean            handles_transforming_brush;
+
   /*  Set for tools that don't mind if the brush scales mid stroke  */
   gboolean            handles_dynamic_transforming_brush;
 
@@ -119,56 +109,61 @@ struct _GimpBrushCoreClass
 };
 
 
-GType   gimp_brush_core_get_type       (void) G_GNUC_CONST;
+GType  gimp_brush_core_get_type       (void) G_GNUC_CONST;
 
-void    gimp_brush_core_set_brush      (GimpBrushCore            *core,
-                                        GimpBrush                *brush);
+void   gimp_brush_core_set_brush      (GimpBrushCore            *core,
+                                       GimpBrush                *brush);
 
-void    gimp_brush_core_set_dynamics   (GimpBrushCore            *core,
-                                        GimpDynamics             *dynamics);
+void   gimp_brush_core_set_dynamics   (GimpBrushCore            *core,
+                                       GimpDynamics             *dynamics);
 
+/* for gimp-painter-2.7 */
 void    gimp_brush_core_set_texture    (GimpBrushCore            *core,
                                         GimpPattern               *texture);
 
+/* for gimp-painter-2.7 */
 void    gimp_brush_core_create_boundary(GimpBrushCore            *core,
                                         GimpPaintOptions         *options);
+/* for gimp-painter-2.7 */
 gboolean gimp_brush_core_get_transform (GimpBrushCore            *core,
                                         GimpMatrix3              *matrix);
 
-void    gimp_brush_core_paste_canvas   (GimpBrushCore            *core,
-                                        GimpDrawable             *drawable,
-                                        const GimpCoords         *coords,
-                                        gdouble                   brush_opacity,
-                                        gdouble                   image_opacity,
-                                        GimpLayerModeEffects      paint_mode,
-                                        GimpBrushApplicationMode  brush_hardness,
-                                        gdouble                   dynamic_hardness,
-                                        GimpPaintApplicationMode  mode);
-void    gimp_brush_core_replace_canvas (GimpBrushCore            *core,
-                                        GimpDrawable             *drawable,
-                                        const GimpCoords         *coords,
-                                        gdouble                   brush_opacity,
-                                        gdouble                   image_opacity,
-                                        GimpBrushApplicationMode  brush_hardness,
-                                        gdouble                   dynamic_hardness,
-                                        GimpPaintApplicationMode  mode);
+void   gimp_brush_core_paste_canvas   (GimpBrushCore            *core,
+                                       GimpDrawable             *drawable,
+                                       const GimpCoords         *coords,
+                                       gdouble                   brush_opacity,
+                                       gdouble                   image_opacity,
+                                       GimpLayerModeEffects      paint_mode,
+                                       GimpBrushApplicationMode  brush_hardness,
+                                       gdouble                   dynamic_hardness,
+                                       GimpPaintApplicationMode  mode);
+void   gimp_brush_core_replace_canvas (GimpBrushCore            *core,
+                                       GimpDrawable             *drawable,
+                                       const GimpCoords         *coords,
+                                       gdouble                   brush_opacity,
+                                       gdouble                   image_opacity,
+                                       GimpBrushApplicationMode  brush_hardness,
+                                       gdouble                   dynamic_hardness,
+                                       GimpPaintApplicationMode  mode);
 
-void    gimp_brush_core_color_area_with_pixmap
-                                         (GimpBrushCore            *core,
-                                          GimpDrawable             *drawable,
-                                          const GimpCoords         *coords,
-                                          TempBuf                  *area,
-                                          GimpBrushApplicationMode  mode);
+void   gimp_brush_core_color_area_with_pixmap
+                                      (GimpBrushCore            *core,
+                                       GimpDrawable             *drawable,
+                                       const GimpCoords         *coords,
+                                       TempBuf                  *area,
+                                       GimpBrushApplicationMode  mode);
 
-TempBuf * gimp_brush_core_get_brush_mask (GimpBrushCore            *core,
-                                          const GimpCoords         *coords,
-                                          GimpBrushApplicationMode  brush_hardness,
-                                          gdouble                   dynamic_hardness);
+const TempBuf * gimp_brush_core_get_brush_mask
+                                      (GimpBrushCore            *core,
+                                       const GimpCoords         *coords,
+                                       GimpBrushApplicationMode  brush_hardness,
+                                       gdouble                   dynamic_hardness);
 
+void   gimp_brush_core_eval_transform_dynamics
+                                      (GimpBrushCore            *paint_core,
+                                       GimpDrawable             *drawable,
+                                       GimpPaintOptions         *paint_options,
+                                       const GimpCoords         *coords);
 
-void gimp_brush_core_eval_transform_dynamics (GimpPaintCore     *paint_core,
-                                              GimpDrawable      *drawable,
-                                              GimpPaintOptions  *paint_options,
-                                              const GimpCoords  *coords);
 
 #endif  /*  __GIMP_BRUSH_CORE_H__  */

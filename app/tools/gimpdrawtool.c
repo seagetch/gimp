@@ -26,6 +26,7 @@
 
 #include "tools-types.h"
 
+#include "core/gimpdrawable.h"
 #include "core/gimpimage.h"
 
 #include "vectors/gimpanchor.h"
@@ -45,8 +46,11 @@
 #include "display/gimpcanvaspen.h"
 #include "display/gimpcanvaspolygon.h"
 #include "display/gimpcanvasrectangle.h"
+#include "display/gimpcanvasrectangleguides.h"
 #include "display/gimpcanvassamplepoint.h"
 #include "display/gimpcanvastextcursor.h"
+#include "display/gimpcanvastransformguides.h"
+#include "display/gimpcanvastransformpreview.h"
 #include "display/gimpdisplay.h"
 #include "display/gimpdisplayshell.h"
 #include "display/gimpdisplayshell-items.h"
@@ -99,6 +103,7 @@ gimp_draw_tool_init (GimpDrawTool *draw_tool)
 {
   draw_tool->display      = NULL;
   draw_tool->paused_count = 0;
+  draw_tool->preview      = NULL;
   draw_tool->item         = NULL;
 }
 
@@ -162,7 +167,8 @@ gimp_draw_tool_control (GimpTool       *tool,
       break;
 
     case GIMP_TOOL_ACTION_HALT:
-      gimp_draw_tool_stop (draw_tool);
+      if (gimp_draw_tool_is_active (draw_tool))
+        gimp_draw_tool_stop (draw_tool);
       break;
     }
 
@@ -188,6 +194,8 @@ gimp_draw_tool_draw (GimpDrawTool *draw_tool)
       draw_tool->paused_count == 0 &&
       ! draw_tool->draw_timeout)
     {
+      GimpDisplayShell *shell = gimp_display_get_shell (draw_tool->display);
+
       gimp_draw_tool_undraw (draw_tool);
 
       GIMP_DRAW_TOOL_GET_CLASS (draw_tool)->draw (draw_tool);
@@ -203,25 +211,34 @@ gimp_draw_tool_draw (GimpDrawTool *draw_tool)
             gimp_draw_tool_pop_group (draw_tool);
         }
 
-      if (draw_tool->item)
-        {
-          GimpDisplayShell *shell = gimp_display_get_shell (draw_tool->display);
+      if (draw_tool->preview)
+        gimp_display_shell_add_preview_item (shell, draw_tool->preview);
 
-          gimp_display_shell_add_item (shell, draw_tool->item);
-        }
+      if (draw_tool->item)
+        gimp_display_shell_add_tool_item (shell, draw_tool->item);
     }
 }
 
 static void
 gimp_draw_tool_undraw (GimpDrawTool *draw_tool)
 {
-  if (draw_tool->display && draw_tool->item)
+  if (draw_tool->display)
     {
       GimpDisplayShell *shell = gimp_display_get_shell (draw_tool->display);
 
-      gimp_display_shell_remove_item (shell, draw_tool->item);
-      g_object_unref (draw_tool->item);
-      draw_tool->item = NULL;
+      if (draw_tool->preview)
+        {
+          gimp_display_shell_remove_preview_item (shell, draw_tool->preview);
+          g_object_unref (draw_tool->preview);
+          draw_tool->preview = NULL;
+        }
+
+      if (draw_tool->item)
+        {
+          gimp_display_shell_remove_tool_item (shell, draw_tool->item);
+          g_object_unref (draw_tool->item);
+          draw_tool->item = NULL;
+        }
     }
 }
 
@@ -237,8 +254,7 @@ gimp_draw_tool_start (GimpDrawTool *draw_tool,
 {
   g_return_if_fail (GIMP_IS_DRAW_TOOL (draw_tool));
   g_return_if_fail (GIMP_IS_DISPLAY (display));
-
-  gimp_draw_tool_stop (draw_tool);
+  g_return_if_fail (gimp_draw_tool_is_active (draw_tool) == FALSE);
 
   draw_tool->display = display;
 
@@ -249,6 +265,7 @@ void
 gimp_draw_tool_stop (GimpDrawTool *draw_tool)
 {
   g_return_if_fail (GIMP_IS_DRAW_TOOL (draw_tool));
+  g_return_if_fail (gimp_draw_tool_is_active (draw_tool) == TRUE);
 
   gimp_draw_tool_undraw (draw_tool);
 
@@ -369,6 +386,31 @@ gimp_draw_tool_calc_distance_square (GimpDrawTool *draw_tool,
 }
 
 void
+gimp_draw_tool_add_preview (GimpDrawTool   *draw_tool,
+                            GimpCanvasItem *item)
+{
+  g_return_if_fail (GIMP_IS_DRAW_TOOL (draw_tool));
+  g_return_if_fail (GIMP_IS_CANVAS_ITEM (item));
+
+  if (! draw_tool->preview)
+    draw_tool->preview =
+      gimp_canvas_group_new (gimp_display_get_shell (draw_tool->display));
+
+  gimp_canvas_group_add_item (GIMP_CANVAS_GROUP (draw_tool->preview), item);
+}
+
+void
+gimp_draw_tool_remove_preview (GimpDrawTool   *draw_tool,
+                               GimpCanvasItem *item)
+{
+  g_return_if_fail (GIMP_IS_DRAW_TOOL (draw_tool));
+  g_return_if_fail (GIMP_IS_CANVAS_ITEM (item));
+  g_return_if_fail (draw_tool->preview != NULL);
+
+  gimp_canvas_group_remove_item (GIMP_CANVAS_GROUP (draw_tool->preview), item);
+}
+
+void
 gimp_draw_tool_add_item (GimpDrawTool   *draw_tool,
                          GimpCanvasItem *item)
 {
@@ -378,7 +420,8 @@ gimp_draw_tool_add_item (GimpDrawTool   *draw_tool,
   g_return_if_fail (GIMP_IS_CANVAS_ITEM (item));
 
   if (! draw_tool->item)
-    draw_tool->item = gimp_canvas_group_new (gimp_display_get_shell (draw_tool->display));
+    draw_tool->item =
+      gimp_canvas_group_new (gimp_display_get_shell (draw_tool->display));
 
   group = GIMP_CANVAS_GROUP (draw_tool->item);
 
@@ -599,6 +642,27 @@ gimp_draw_tool_add_rectangle (GimpDrawTool *draw_tool,
 }
 
 GimpCanvasItem *
+gimp_draw_tool_add_rectangle_guides (GimpDrawTool   *draw_tool,
+                                     GimpGuidesType  type,
+                                     gdouble         x,
+                                     gdouble         y,
+                                     gdouble         width,
+                                     gdouble         height)
+{
+  GimpCanvasItem *item;
+
+  g_return_val_if_fail (GIMP_IS_DRAW_TOOL (draw_tool), NULL);
+
+  item = gimp_canvas_rectangle_guides_new (gimp_display_get_shell (draw_tool->display),
+                                           x, y, width, height, type, 4);
+
+  gimp_draw_tool_add_item (draw_tool, item);
+  g_object_unref (item);
+
+  return item;
+}
+
+GimpCanvasItem *
 gimp_draw_tool_add_arc (GimpDrawTool *draw_tool,
                         gboolean      filled,
                         gdouble       x,
@@ -739,7 +803,9 @@ gimp_draw_tool_add_strokes (GimpDrawTool     *draw_tool,
 
 GimpCanvasItem *
 gimp_draw_tool_add_path (GimpDrawTool         *draw_tool,
-                         const GimpBezierDesc *desc)
+                         const GimpBezierDesc *desc,
+                         gdouble               x,
+                         gdouble               y)
 {
   GimpCanvasItem *item;
 
@@ -747,7 +813,7 @@ gimp_draw_tool_add_path (GimpDrawTool         *draw_tool,
   g_return_val_if_fail (desc != NULL, NULL);
 
   item = gimp_canvas_path_new (gimp_display_get_shell (draw_tool->display),
-                               desc, FALSE, FALSE);
+                               desc, x, y, FALSE, GIMP_PATH_STYLE_DEFAULT);
 
   gimp_draw_tool_add_item (draw_tool, item);
   g_object_unref (item);
@@ -831,6 +897,59 @@ gimp_draw_tool_add_text_cursor (GimpDrawTool   *draw_tool,
                                       cursor, overwrite);
 
   gimp_draw_tool_add_item (draw_tool, item);
+  g_object_unref (item);
+
+  return item;
+}
+
+GimpCanvasItem *
+gimp_draw_tool_add_transform_guides (GimpDrawTool      *draw_tool,
+                                     const GimpMatrix3 *transform,
+                                     GimpGuidesType     type,
+                                     gint               n_guides,
+                                     gdouble            x1,
+                                     gdouble            y1,
+                                     gdouble            x2,
+                                     gdouble            y2)
+{
+  GimpCanvasItem *item;
+
+  g_return_val_if_fail (GIMP_IS_DRAW_TOOL (draw_tool), NULL);
+  g_return_val_if_fail (transform != NULL, NULL);
+
+  item = gimp_canvas_transform_guides_new (gimp_display_get_shell (draw_tool->display),
+                                           transform, x1, y1, x2, y2,
+                                           type, n_guides);
+
+  gimp_draw_tool_add_item (draw_tool, item);
+  g_object_unref (item);
+
+  return item;
+}
+
+GimpCanvasItem *
+gimp_draw_tool_add_transform_preview (GimpDrawTool      *draw_tool,
+                                      GimpDrawable      *drawable,
+                                      const GimpMatrix3 *transform,
+                                      gdouble            x1,
+                                      gdouble            y1,
+                                      gdouble            x2,
+                                      gdouble            y2,
+                                      gboolean           perspective,
+                                      gdouble            opacity)
+{
+  GimpCanvasItem *item;
+
+  g_return_val_if_fail (GIMP_IS_DRAW_TOOL (draw_tool), NULL);
+  g_return_val_if_fail (GIMP_IS_DRAWABLE (drawable), NULL);
+  g_return_val_if_fail (transform != NULL, NULL);
+
+  item = gimp_canvas_transform_preview_new (gimp_display_get_shell (draw_tool->display),
+                                            drawable, transform,
+                                            x1, y1, x2, y2,
+                                            perspective, opacity);
+
+  gimp_draw_tool_add_preview (draw_tool, item);
   g_object_unref (item);
 
   return item;

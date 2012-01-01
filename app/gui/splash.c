@@ -24,6 +24,7 @@
 #include "libgimpbase/gimpbase.h"
 #include "libgimpmath/gimpmath.h"
 #include "libgimpcolor/gimpcolor.h"
+#include "libgimpwidgets/gimpwidgets.h"
 
 #include "gui-types.h"
 
@@ -133,7 +134,7 @@ splash_create (gboolean be_verbose)
   gtk_container_add (GTK_CONTAINER (splash->window), frame);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 0);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -198,7 +199,7 @@ splash_create (gboolean be_verbose)
   gtk_box_pack_end (GTK_BOX (vbox), splash->progress, FALSE, FALSE, 0);
   gtk_widget_show (splash->progress);
 
-  gtk_widget_show_now (splash->window);
+  gtk_widget_show (splash->window);
 
 #ifdef STARTUP_TIMER
   splash->timer = g_timer_new ();
@@ -495,8 +496,7 @@ splash_image_pick_from_dir (const gchar *dirname,
           if (be_verbose)
             g_printerr (pixbuf ? "OK\n" : "failed\n");
 
-          g_list_foreach (splashes, (GFunc) g_free, NULL);
-          g_list_free (splashes);
+          g_list_free_full (splashes, (GDestroyNotify) g_free);
         }
     }
 

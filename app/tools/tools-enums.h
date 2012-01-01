@@ -47,21 +47,6 @@ typedef enum
 } GimpButtonReleaseType;
 
 
-#define GIMP_TYPE_RECTANGLE_GUIDE (gimp_rectangle_guide_get_type ())
-
-GType gimp_rectangle_guide_get_type (void) G_GNUC_CONST;
-
-typedef enum
-{
-  GIMP_RECTANGLE_GUIDE_NONE,          /*< desc="No guides"       >*/
-  GIMP_RECTANGLE_GUIDE_CENTER_LINES,  /*< desc="Center lines"    >*/
-  GIMP_RECTANGLE_GUIDE_THIRDS,        /*< desc="Rule of thirds"  >*/
-  GIMP_RECTANGLE_GUIDE_FIFTHS,        /*< desc="Rule of fifths"  >*/
-  GIMP_RECTANGLE_GUIDE_GOLDEN,        /*< desc="Golden sections" >*/
-  GIMP_RECTANGLE_GUIDE_DIAGONALS      /*< desc="Diagonal lines"  >*/
-} GimpRectangleGuide;
-
-
 #define GIMP_TYPE_RECTANGLE_CONSTRAINT (gimp_rectangle_constraint_get_type ())
 
 GType gimp_rectangle_constraint_get_type (void) G_GNUC_CONST;
@@ -122,30 +107,6 @@ typedef enum
 } GimpTransformType;
 
 
-#define GIMP_TYPE_TRANSFORM_PREVIEW_TYPE (gimp_transform_preview_type_get_type ())
-
-GType gimp_transform_preview_type_get_type (void) G_GNUC_CONST;
-
-typedef enum
-{
-  GIMP_TRANSFORM_PREVIEW_TYPE_OUTLINE,     /*< desc="Outline"      >*/
-  GIMP_TRANSFORM_PREVIEW_TYPE_GRID,        /*< desc="Grid"         >*/
-  GIMP_TRANSFORM_PREVIEW_TYPE_IMAGE,       /*< desc="Image"        >*/
-  GIMP_TRANSFORM_PREVIEW_TYPE_IMAGE_GRID   /*< desc="Image + Grid" >*/
-} GimpTransformPreviewType;
-
-
-#define GIMP_TYPE_TRANSFORM_GRID_TYPE (gimp_transform_grid_type_get_type ())
-
-GType gimp_transform_grid_type_get_type (void) G_GNUC_CONST;
-
-typedef enum
-{
-  GIMP_TRANSFORM_GRID_TYPE_N_LINES,  /*< desc="Number of grid lines" >*/
-  GIMP_TRANSFORM_GRID_TYPE_SPACING   /*< desc="Grid line spacing"    >*/
-} GimpTransformGridType;
-
-
 #define GIMP_TYPE_VECTOR_MODE (gimp_vector_mode_get_type ())
 
 GType gimp_vector_mode_get_type (void) G_GNUC_CONST;
@@ -200,25 +161,8 @@ typedef enum /*< skip >*/
 typedef enum /*< skip >*/
 {
   GIMP_MOTION_MODE_EXACT,
-  GIMP_MOTION_MODE_HINT,
   GIMP_MOTION_MODE_COMPRESS
 } GimpMotionMode;
-
-/*  Possible transform functions  */
-typedef enum /*< skip >*/
-{
-  TRANSFORM_CREATING,
-  TRANSFORM_HANDLE_NONE,
-  TRANSFORM_HANDLE_NW, /* north west */
-  TRANSFORM_HANDLE_NE, /* north east */
-  TRANSFORM_HANDLE_SW, /* south west */
-  TRANSFORM_HANDLE_SE, /* south east */
-  TRANSFORM_HANDLE_N,  /* north      */
-  TRANSFORM_HANDLE_S,  /* south      */
-  TRANSFORM_HANDLE_E,  /* east       */
-  TRANSFORM_HANDLE_W,  /* west       */
-  TRANSFORM_HANDLE_CENTER
-} TransformAction;
 
 
 #endif /* __TOOLS_ENUMS_H__ */

@@ -143,7 +143,8 @@ gimp_color_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   GObject   *config = G_OBJECT (tool_options);
   GtkWidget *vbox;
   GtkWidget *frame;
-
+  GtkWidget *scale;
+ 
   if (GIMP_IS_HISTOGRAM_OPTIONS (tool_options))
     vbox = gimp_histogram_options_gui (tool_options);
   else
@@ -166,6 +167,7 @@ gimp_color_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   gtk_frame_set_label_widget (GTK_FRAME (frame), button);
   gtk_widget_show (button);
 
+  // gimp-painter-2.7
   gtk_widget_set_sensitive (scale,
                             GIMP_COLOR_OPTIONS (config)->sample_average);
 #endif
@@ -176,6 +178,11 @@ gimp_color_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   gtk_widget_show (frame);  
 
 //  g_object_set_data (G_OBJECT (button), "set_sensitive", scale);
+#if 0
+  g_object_bind_property (config, "sample-average",
+                          scale,  "sensitive",
+                          G_BINDING_SYNC_CREATE);
+#endif
 
   return vbox;
 }

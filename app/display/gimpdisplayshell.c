@@ -71,8 +71,10 @@
 #include "gimpdisplayshell-scroll.h"
 #include "gimpdisplayshell-selection.h"
 #include "gimpdisplayshell-title.h"
+#include "gimpdisplayshell-tool-events.h"
 #include "gimpdisplayshell-transform.h"
 #include "gimpimagewindow.h"
+#include "gimpmotionbuffer.h"
 #include "gimpstatusbar.h"
 
 #include "about.h"
@@ -116,9 +118,7 @@ struct _GimpDisplayShellOverlay
 
 static void      gimp_color_managed_iface_init     (GimpColorManagedInterface *iface);
 
-static GObject * gimp_display_shell_constructor    (GType             type,
-                                                    guint             n_params,
-                                                    GObjectConstructParam *params);
+static void      gimp_display_shell_constructed    (GObject          *object);
 static void      gimp_display_shell_dispose        (GObject          *object);
 static void      gimp_display_shell_finalize       (GObject          *object);
 static void      gimp_display_shell_set_property   (GObject          *object,
@@ -214,7 +214,7 @@ gimp_display_shell_class_init (GimpDisplayShellClass *klass)
                   gimp_marshal_VOID__VOID,
                   G_TYPE_NONE, 0);
 
-  object_class->constructor        = gimp_display_shell_constructor;
+  object_class->constructed        = gimp_display_shell_constructed;
   object_class->dispose            = gimp_display_shell_dispose;
   object_class->finalize           = gimp_display_shell_finalize;
   object_class->set_property       = gimp_display_shell_set_property;
@@ -299,24 +299,30 @@ gimp_display_shell_init (GimpDisplayShell *shell)
 
   shell->icon_size  = 32;
 
-  shell->cursor_format   = GIMP_CURSOR_FORMAT_BITMAP;
-  shell->current_cursor  = (GimpCursorType) -1;
-  shell->tool_cursor     = GIMP_TOOL_CURSOR_NONE;
-  shell->cursor_modifier = GIMP_CURSOR_MODIFIER_NONE;
-  shell->override_cursor = (GimpCursorType) -1;
+  shell->cursor_format     = GIMP_CURSOR_FORMAT_BITMAP;
+  shell->cursor_handedness = GIMP_HANDEDNESS_RIGHT;
+  shell->current_cursor    = (GimpCursorType) -1;
+  shell->tool_cursor       = GIMP_TOOL_CURSOR_NONE;
+  shell->cursor_modifier   = GIMP_CURSOR_MODIFIER_NONE;
+  shell->override_cursor   = (GimpCursorType) -1;
 
-  shell->event_history = g_array_new (FALSE, FALSE, sizeof (GimpCoords));
-  shell->event_queue   = g_array_new (FALSE, FALSE, sizeof (GimpCoords));
+  shell->motion_buffer   = gimp_motion_buffer_new ();
+
+  g_signal_connect (shell->motion_buffer, "stroke",
+                    G_CALLBACK (gimp_display_shell_buffer_stroke),
+                    shell);
+  g_signal_connect (shell->motion_buffer, "hover",
+                    G_CALLBACK (gimp_display_shell_buffer_hover),
+                    shell);
 
   shell->zoom_focus_pointer_queue = g_queue_new ();
 
-  gtk_widget_set_events (GTK_WIDGET (shell), (GDK_POINTER_MOTION_MASK      |
-                                              GDK_POINTER_MOTION_HINT_MASK |
-                                              GDK_BUTTON_PRESS_MASK        |
-                                              GDK_KEY_PRESS_MASK           |
-                                              GDK_KEY_RELEASE_MASK         |
-                                              GDK_FOCUS_CHANGE_MASK        |
-                                              GDK_VISIBILITY_NOTIFY_MASK   |
+  gtk_widget_set_events (GTK_WIDGET (shell), (GDK_POINTER_MOTION_MASK    |
+                                              GDK_BUTTON_PRESS_MASK      |
+                                              GDK_KEY_PRESS_MASK         |
+                                              GDK_KEY_RELEASE_MASK       |
+                                              GDK_FOCUS_CHANGE_MASK      |
+                                              GDK_VISIBILITY_NOTIFY_MASK |
                                               GDK_SCROLL_MASK));
 
   /*  zoom model callback  */
@@ -339,13 +345,10 @@ gimp_display_shell_init (GimpDisplayShell *shell)
                      GIMP_HELP_IMAGE_WINDOW, NULL);
 }
 
-static GObject *
-gimp_display_shell_constructor (GType                  type,
-                                guint                  n_params,
-                                GObjectConstructParam *params)
+static void
+gimp_display_shell_constructed (GObject *object)
 {
-  GObject               *object;
-  GimpDisplayShell      *shell;
+  GimpDisplayShell      *shell = GIMP_DISPLAY_SHELL (object);
   GimpDisplayConfig     *config;
   GimpImage             *image;
   GimpColorDisplayStack *filter;
@@ -361,9 +364,8 @@ gimp_display_shell_constructor (GType                  type,
   gint                   shell_width;
   gint                   shell_height;
 
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
-
-  shell = GIMP_DISPLAY_SHELL (object);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   g_assert (GIMP_IS_UI_MANAGER (shell->popup_manager));
   g_assert (GIMP_IS_DISPLAY (shell->display));
@@ -451,7 +453,7 @@ gimp_display_shell_constructor (GType                  type,
   /*  first, set up the container hierarchy  *********************************/
 
   /*  a hbox for the inner_table and the vertical scrollbar  */
-  upper_hbox = gtk_hbox_new (FALSE, 0);
+  upper_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_box_pack_start (GTK_BOX (shell), upper_hbox, TRUE, TRUE, 0);
   gtk_widget_show (upper_hbox);
 
@@ -463,14 +465,14 @@ gimp_display_shell_constructor (GType                  type,
   gtk_widget_show (inner_table);
 
   /*  the vbox containing the color button and the vertical scrollbar  */
-  right_vbox = gtk_vbox_new (FALSE, 1);
+  right_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 1);
   gtk_box_pack_start (GTK_BOX (upper_hbox), right_vbox, FALSE, FALSE, 0);
   gtk_widget_show (right_vbox);
 
   /*  the hbox containing the quickmask button, vertical scrollbar and
    *  the navigation button
    */
-  lower_hbox = gtk_hbox_new (FALSE, 1);
+  lower_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 1);
   gtk_box_pack_start (GTK_BOX (shell), lower_hbox, FALSE, FALSE, 0);
   gtk_widget_show (lower_hbox);
 
@@ -479,13 +481,13 @@ gimp_display_shell_constructor (GType                  type,
   /*  the horizontal scrollbar  */
   shell->hsbdata = GTK_ADJUSTMENT (gtk_adjustment_new (0, 0, image_width,
                                                        1, 1, image_width));
-  shell->hsb = gtk_hscrollbar_new (shell->hsbdata);
+  shell->hsb = gtk_scrollbar_new (GTK_ORIENTATION_HORIZONTAL, shell->hsbdata);
   gtk_widget_set_can_focus (shell->hsb, FALSE);
 
   /*  the vertical scrollbar  */
   shell->vsbdata = GTK_ADJUSTMENT (gtk_adjustment_new (0, 0, image_height,
                                                        1, 1, image_height));
-  shell->vsb = gtk_vscrollbar_new (shell->vsbdata);
+  shell->vsb = gtk_scrollbar_new (GTK_ORIENTATION_VERTICAL, shell->vsbdata);
   gtk_widget_set_can_focus (shell->vsb, FALSE);
 
   /*  create the contents of the inner_table  ********************************/
@@ -522,9 +524,7 @@ gimp_display_shell_constructor (GType                  type,
   gtk_widget_set_events (GTK_WIDGET (shell->hrule),
                          GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 
-  g_signal_connect_swapped (shell->canvas, "motion-notify-event",
-                            G_CALLBACK (GTK_WIDGET_GET_CLASS (shell->hrule)->motion_notify_event),
-                            shell->hrule);
+  gimp_ruler_add_track_widget (GIMP_RULER (shell->hrule), shell->canvas);
   g_signal_connect (shell->hrule, "button-press-event",
                     G_CALLBACK (gimp_display_shell_hruler_button_press),
                     shell);
@@ -536,12 +536,17 @@ gimp_display_shell_constructor (GType                  type,
   gtk_widget_set_events (GTK_WIDGET (shell->vrule),
                          GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
 
-  g_signal_connect_swapped (shell->canvas, "motion-notify-event",
-                            G_CALLBACK (GTK_WIDGET_GET_CLASS (shell->vrule)->motion_notify_event),
-                            shell->vrule);
+  gimp_ruler_add_track_widget (GIMP_RULER (shell->vrule), shell->canvas);
   g_signal_connect (shell->vrule, "button-press-event",
                     G_CALLBACK (gimp_display_shell_vruler_button_press),
                     shell);
+
+  /*  set the rulers as track widgets for each other, so we don't end up
+   *  with one ruler wrongly being stuck a few pixels off while we are
+   *  hovering the other
+   */
+  gimp_ruler_add_track_widget (GIMP_RULER (shell->hrule), shell->vrule);
+  gimp_ruler_add_track_widget (GIMP_RULER (shell->vrule), shell->hrule);
 
   gimp_help_set_help_data (shell->vrule, NULL, GIMP_HELP_IMAGE_WINDOW_RULER);
 
@@ -662,7 +667,7 @@ gimp_display_shell_constructor (GType                  type,
   gtk_widget_show (gtk_image);
 
   g_signal_connect (shell->nav_ebox, "button-press-event",
-                    G_CALLBACK (gimp_display_shell_nav_button_press),
+                    G_CALLBACK (gimp_display_shell_navigation_button_press),
                     shell);
 
   gimp_help_set_help_data (shell->nav_ebox,
@@ -742,8 +747,6 @@ gimp_display_shell_constructor (GType                  type,
 
   /* make sure the information is up-to-date */
   gimp_display_shell_scale_changed (shell);
-
-  return object;
 }
 
 static void
@@ -793,16 +796,10 @@ gimp_display_shell_dispose (GObject *object)
 
   gimp_display_shell_items_free (shell);
 
-  if (shell->event_history)
+  if (shell->motion_buffer)
     {
-      g_array_free (shell->event_history, TRUE);
-      shell->event_history = NULL;
-    }
-
-  if (shell->event_queue)
-    {
-      g_array_free (shell->event_queue, TRUE);
-      shell->event_queue = NULL;
+      g_object_unref (shell->motion_buffer);
+      shell->motion_buffer = NULL;
     }
 
   if (shell->zoom_focus_pointer_queue)
@@ -1324,6 +1321,9 @@ gimp_display_shell_empty (GimpDisplayShell *shell)
 
   gimp_statusbar_empty (GIMP_STATUSBAR (shell->statusbar));
 
+  /*  so wilber doesn't flicker  */
+  gtk_widget_set_double_buffered (shell->canvas, TRUE);
+
   gimp_display_shell_expose_full (shell);
 
   user_context = gimp_get_user_context (shell->display->gimp);
@@ -1378,6 +1378,9 @@ gimp_display_shell_fill (GimpDisplayShell *shell,
                                                                 TRUE,
                                                                 TRUE);
 
+  /*  we double buffer image drawing manually  */
+  gtk_widget_set_double_buffered (shell->canvas, FALSE);
+
   shell->fill_idle_id = g_idle_add_full (G_PRIORITY_LOW,
                                          (GSourceFunc) gimp_display_shell_fill_idle,
                                          shell, NULL);
@@ -1406,8 +1409,8 @@ gimp_display_shell_scale_changed (GimpDisplayShell *shell)
 
       shell->x_dest_inc = gimp_image_get_width  (image);
       shell->y_dest_inc = gimp_image_get_height (image);
-      shell->x_src_dec  = SCALEX (shell, gimp_image_get_width  (image));
-      shell->y_src_dec  = SCALEY (shell, gimp_image_get_height (image));
+      shell->x_src_dec  = shell->scale_x * shell->x_dest_inc;
+      shell->y_src_dec  = shell->scale_y * shell->y_dest_inc;
 
       if (shell->x_src_dec < 1)
         shell->x_src_dec = 1;
@@ -1753,24 +1756,24 @@ gimp_display_shell_set_highlight (GimpDisplayShell   *shell,
 {
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
 
-  gimp_canvas_item_begin_change (shell->passe_partout);
-
   if (highlight)
     {
-      g_object_set (shell->passe_partout,
-                    "visible", TRUE,
-                    "x",       (gdouble) highlight->x,
-                    "y",       (gdouble) highlight->y,
-                    "width",   (gdouble) highlight->width,
-                    "height",  (gdouble) highlight->height,
-                    NULL);
+      gimp_canvas_item_begin_change (shell->passe_partout);
+
+      gimp_canvas_rectangle_set (shell->passe_partout,
+                                 highlight->x,
+                                 highlight->y,
+                                 highlight->width,
+                                 highlight->height);
+
+      gimp_canvas_item_set_visible (shell->passe_partout, TRUE);
+
+      gimp_canvas_item_end_change (shell->passe_partout);
     }
   else
     {
       gimp_canvas_item_set_visible (shell->passe_partout, FALSE);
     }
-
-  gimp_canvas_item_end_change (shell->passe_partout);
 }
 
 /**

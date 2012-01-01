@@ -21,7 +21,6 @@
 
 #include <gegl.h>
 #include <gtk/gtk.h>
-#include <gdk/gdkkeysyms.h>
 
 #include "libgimpmath/gimpmath.h"
 #include "libgimpwidgets/gimpwidgets.h"
@@ -40,10 +39,10 @@
 #include "core/gimpimage-undo.h"
 #include "core/gimplayermask.h"
 #include "core/gimplayer-floating-sel.h"
-#include "core/gimpitem.h"
 #include "core/gimpundostack.h"
 
 #include "widgets/gimphelp-ids.h"
+#include "widgets/gimpwidgets-utils.h"
 
 #include "display/gimpcanvasitem.h"
 #include "display/gimpdisplay.h"
@@ -156,6 +155,13 @@ gimp_move_tool_init (GimpMoveTool *move_tool)
 {
   GimpTool *tool = GIMP_TOOL (move_tool);
 
+  gimp_tool_control_set_motion_mode        (tool->control,
+                                            GIMP_MOTION_MODE_COMPRESS);
+  gimp_tool_control_set_snap_to            (tool->control, FALSE);
+  gimp_tool_control_set_handle_empty_image (tool->control, TRUE);
+  gimp_tool_control_set_tool_cursor        (tool->control,
+                                            GIMP_TOOL_CURSOR_MOVE);
+
   move_tool->floating_layer     = NULL;
   move_tool->guide              = NULL;
 
@@ -167,11 +173,6 @@ gimp_move_tool_init (GimpMoveTool *move_tool)
 
   move_tool->old_active_layer   = NULL;
   move_tool->old_active_vectors = NULL;
-
-  gimp_tool_control_set_snap_to            (tool->control, FALSE);
-  gimp_tool_control_set_handle_empty_image (tool->control, TRUE);
-  gimp_tool_control_set_tool_cursor        (tool->control,
-                                            GIMP_TOOL_CURSOR_MOVE);
 }
 
 static void
@@ -242,7 +243,8 @@ gimp_move_tool_button_press (GimpTool            *tool,
 
               gimp_display_shell_selection_pause (shell);
 
-              gimp_draw_tool_start (GIMP_DRAW_TOOL (tool), display);
+              if (! gimp_draw_tool_is_active (GIMP_DRAW_TOOL (tool)))
+                gimp_draw_tool_start (GIMP_DRAW_TOOL (tool), display);
 
               gimp_tool_push_status_length (tool, display,
                                             _("Move Guide: "),
@@ -289,14 +291,20 @@ gimp_move_tool_button_press (GimpTool            *tool,
     {
     case GIMP_TRANSFORM_TYPE_PATH:
       if (gimp_image_get_active_vectors (image))
-        gimp_edit_selection_tool_start (tool, display, coords,
-                                        GIMP_TRANSLATE_MODE_VECTORS, TRUE);
+        {
+          gimp_tool_control_activate (tool->control);
+          gimp_edit_selection_tool_start (tool, display, coords,
+                                          GIMP_TRANSLATE_MODE_VECTORS, TRUE);
+        }
       break;
 
     case GIMP_TRANSFORM_TYPE_SELECTION:
       if (! gimp_channel_is_empty (gimp_image_get_mask (image)))
-        gimp_edit_selection_tool_start (tool, display, coords,
-                                        GIMP_TRANSLATE_MODE_MASK, TRUE);
+        {
+          gimp_tool_control_activate (tool->control);
+          gimp_edit_selection_tool_start (tool, display, coords,
+                                          GIMP_TRANSLATE_MODE_MASK, TRUE);
+        }
       break;
 
     case GIMP_TRANSFORM_TYPE_LAYER:
@@ -304,14 +312,23 @@ gimp_move_tool_button_press (GimpTool            *tool,
         GimpDrawable *drawable = gimp_image_get_active_drawable (image);
 
         if (GIMP_IS_LAYER_MASK (drawable))
-          gimp_edit_selection_tool_start (tool, display, coords,
-                                          GIMP_TRANSLATE_MODE_LAYER_MASK, TRUE);
+          {
+            gimp_tool_control_activate (tool->control);
+            gimp_edit_selection_tool_start (tool, display, coords,
+                                            GIMP_TRANSLATE_MODE_LAYER_MASK, TRUE);
+          }
         else if (GIMP_IS_CHANNEL (drawable))
-          gimp_edit_selection_tool_start (tool, display, coords,
-                                          GIMP_TRANSLATE_MODE_CHANNEL, TRUE);
+          {
+            gimp_tool_control_activate (tool->control);
+            gimp_edit_selection_tool_start (tool, display, coords,
+                                            GIMP_TRANSLATE_MODE_CHANNEL, TRUE);
+          }
         else if (GIMP_IS_LAYER (drawable))
-          gimp_edit_selection_tool_start (tool, display, coords,
-                                          GIMP_TRANSLATE_MODE_LAYER, TRUE);
+          {
+            gimp_tool_control_activate (tool->control);
+            gimp_edit_selection_tool_start (tool, display, coords,
+                                            GIMP_TRANSLATE_MODE_LAYER, TRUE);
+          }
       }
       break;
     }
@@ -330,8 +347,7 @@ gimp_move_tool_button_release (GimpTool              *tool,
   GimpDisplayShell *shell  = gimp_display_get_shell (display);
   GimpImage        *image  = gimp_display_get_image (display);
 
-  if (gimp_tool_control_is_active (tool->control))
-    gimp_tool_control_halt (tool->control);
+  gimp_tool_control_halt (tool->control);
 
   if (move->moving_guide)
     {
@@ -570,7 +586,8 @@ gimp_move_tool_modifier_key (GimpTool        *tool,
     {
       g_object_set (options, "move-current", ! options->move_current, NULL);
     }
-  else if (key == GDK_MOD1_MASK || key == GDK_CONTROL_MASK)
+  else if (key == GDK_MOD1_MASK ||
+           key == gimp_get_toggle_behavior_mask ())
     {
       GimpTransformType button_type;
 
@@ -578,7 +595,8 @@ gimp_move_tool_modifier_key (GimpTool        *tool,
 
       if (press)
         {
-          if (key == (state & (GDK_MOD1_MASK | GDK_CONTROL_MASK)))
+          if (key == (state & (GDK_MOD1_MASK |
+                               gimp_get_toggle_behavior_mask ())))
             {
               /*  first modifier pressed  */
 
@@ -587,7 +605,8 @@ gimp_move_tool_modifier_key (GimpTool        *tool,
         }
       else
         {
-          if (! (state & (GDK_MOD1_MASK | GDK_CONTROL_MASK)))
+          if (! (state & (GDK_MOD1_MASK |
+                          gimp_get_toggle_behavior_mask ())))
             {
               /*  last modifier released  */
 
@@ -599,7 +618,7 @@ gimp_move_tool_modifier_key (GimpTool        *tool,
         {
           button_type = GIMP_TRANSFORM_TYPE_SELECTION;
         }
-      else if (state & GDK_CONTROL_MASK)
+      else if (state & gimp_get_toggle_behavior_mask ())
         {
           button_type = GIMP_TRANSFORM_TYPE_PATH;
         }
@@ -629,7 +648,7 @@ gimp_move_tool_oper_update (GimpTool         *tool,
       gimp_display_shell_get_show_guides (shell)      &&
       proximity)
     {
-      const gint snap_distance = display->config->snap_distance;
+      gint snap_distance = display->config->snap_distance;
 
       guide = gimp_image_find_guide (image, coords->x, coords->y,
                                      FUNSCALEX (shell, snap_distance),

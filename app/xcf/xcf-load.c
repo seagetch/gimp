@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <cairo.h>
 #include <gegl.h>
 
 #include "libgimpbase/gimpbase.h"
@@ -82,7 +83,8 @@ static gboolean        xcf_load_layer_props   (XcfInfo      *info,
                                                gboolean     *apply_mask,
                                                gboolean     *edit_mask,
                                                gboolean     *show_mask,
-                                               guint32      *text_layer_flags);
+                                               guint32      *text_layer_flags,
+                                               guint32      *group_layer_flags);
 static gboolean        xcf_load_channel_props (XcfInfo      *info,
                                                GimpImage    *image,
                                                GimpChannel **channel);
@@ -534,11 +536,13 @@ xcf_load_image_props (XcfInfo   *info,
             if (xres < GIMP_MIN_RESOLUTION || xres > GIMP_MAX_RESOLUTION ||
                 yres < GIMP_MIN_RESOLUTION || yres > GIMP_MAX_RESOLUTION)
               {
+                GimpTemplate *template = image->gimp->config->default_image;
+
                 gimp_message_literal (info->gimp, G_OBJECT (info->progress),
 				      GIMP_MESSAGE_WARNING,
 				      "Warning, resolution out of range in XCF file");
-                xres = image->gimp->config->default_image->xresolution;
-                yres = image->gimp->config->default_image->yresolution;
+                xres = gimp_template_get_resolution_x (template);
+                yres = gimp_template_get_resolution_y (template);
               }
 
             gimp_image_set_resolution (image, xres, yres);
@@ -690,7 +694,8 @@ xcf_load_layer_props (XcfInfo    *info,
                       gboolean   *apply_mask,
                       gboolean   *edit_mask,
                       gboolean   *show_mask,
-                      guint32    *text_layer_flags)
+                      guint32    *text_layer_flags,
+                      guint32    *group_layer_flags)
 {
   PropType prop_type;
   guint32  prop_size;
@@ -816,7 +821,7 @@ xcf_load_layer_props (XcfInfo    *info,
             while (info->cp - base < prop_size)
               {
                 p = xcf_load_parasite (info);
-                gimp_item_parasite_attach (GIMP_ITEM (*layer), p);
+                gimp_item_parasite_attach (GIMP_ITEM (*layer), p, FALSE);
                 gimp_parasite_free (p);
               }
 
@@ -840,7 +845,7 @@ xcf_load_layer_props (XcfInfo    *info,
             gimp_object_set_name (GIMP_OBJECT (group),
                                   gimp_object_get_name (*layer));
 
-            GIMP_DRAWABLE (group)->type =
+            GIMP_DRAWABLE (group)->private->type =
               gimp_drawable_type (GIMP_DRAWABLE (*layer));
 
             g_object_ref_sink (*layer);
@@ -865,6 +870,10 @@ xcf_load_layer_props (XcfInfo    *info,
 
             *item_path = path;
           }
+          break;
+
+        case PROP_GROUP_ITEM_FLAGS:
+          info->cp += xcf_read_int32 (info->fp, group_layer_flags, 1);
           break;
 
         default:
@@ -1001,7 +1010,7 @@ xcf_load_channel_props (XcfInfo      *info,
             while ((info->cp - base) < prop_size)
               {
                 p = xcf_load_parasite (info);
-                gimp_item_parasite_attach (GIMP_ITEM (*channel), p);
+                gimp_item_parasite_attach (GIMP_ITEM (*channel), p, FALSE);
                 gimp_parasite_free (p);
               }
 
@@ -1058,6 +1067,7 @@ xcf_load_layer (XcfInfo    *info,
   gboolean       show_mask  = FALSE;
   gboolean       active;
   gboolean       floating;
+  guint32        group_layer_flags = 0;
   guint32        text_layer_flags = 0;
   gint           width;
   gint           height;
@@ -1086,7 +1096,7 @@ xcf_load_layer (XcfInfo    *info,
   /* read in the layer properties */
   if (! xcf_load_layer_props (info, image, &layer, item_path,
                               &apply_mask, &edit_mask, &show_mask,
-                              &text_layer_flags))
+                              &text_layer_flags, &group_layer_flags))
     goto error;
 
   xcf_progress_update (info);
@@ -1125,6 +1135,12 @@ xcf_load_layer (XcfInfo    *info,
 
       xcf_progress_update (info);
     }
+  else
+    {
+      gboolean expanded = group_layer_flags & XCF_GROUP_ITEM_EXPANDED;
+
+      gimp_viewable_set_expanded (GIMP_VIEWABLE (layer), expanded);
+    }
 
   /* read in the layer mask */
   if (layer_mask_offset != 0)
@@ -1147,9 +1163,8 @@ xcf_load_layer (XcfInfo    *info,
        * attach it so it can be added when all layers are loaded
        */
       g_object_set_data_full (G_OBJECT (layer), "gimp-layer-mask",
-                              g_object_ref (layer_mask),
+                              g_object_ref_sink (layer_mask),
                               (GDestroyNotify) g_object_unref);
-      g_object_ref_sink (layer_mask);
     }
 
   /* attach the floating selection... */
@@ -1511,7 +1526,6 @@ xcf_load_tile_rle (XcfInfo *info,
   if (data_length <= 0)
     return TRUE;
 
-  data = tile_data_pointer (tile, 0, 0);
   bpp = tile_bpp (tile);
 
   xcfdata = xcfodata = g_malloc (data_length);
@@ -1771,13 +1785,10 @@ xcf_load_vectors (XcfInfo   *info,
   guint32      active_index;
   guint32      num_paths;
   GimpVectors *active_vectors;
-  guint32      base;
 
 #ifdef GIMP_XCF_PATH_DEBUG
   g_printerr ("xcf_load_vectors\n");
 #endif
-
-  base = info->cp;
 
   info->cp += xcf_read_int32  (info->fp, &version, 1);
 
@@ -1859,7 +1870,7 @@ xcf_load_vector (XcfInfo   *info,
       if (! parasite)
         return FALSE;
 
-      gimp_item_parasite_attach (GIMP_ITEM (vectors), parasite);
+      gimp_item_parasite_attach (GIMP_ITEM (vectors), parasite, FALSE);
       gimp_parasite_free (parasite);
     }
 

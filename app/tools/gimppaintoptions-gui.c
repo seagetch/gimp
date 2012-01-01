@@ -31,6 +31,7 @@
 #include "paint/gimppaintoptions.h"
 
 #include "widgets/gimppropwidgets.h"
+#include "widgets/gimpspinscale.h"
 #include "widgets/gimpviewablebox.h"
 #include "widgets/gimpwidgets-constructors.h"
 #include "widgets/gimppopupbutton.h"
@@ -69,8 +70,13 @@ static GtkWidget * dynamics_options_gui       (GimpPaintOptions *paint_options,
                                                GType             tool_type,
                                                gboolean          horizontal);
 
-static void gimp_paint_options_gui_reset_size (GtkWidget        *button,
-                                               GimpPaintOptions *paint_options);
+static void gimp_paint_options_gui_reset_size  (GtkWidget        *button,
+                                                GimpPaintOptions *paint_options);
+static void gimp_paint_options_gui_reset_aspect_ratio
+                                               (GtkWidget        *button,
+                                                GimpPaintOptions *paint_options);
+static void gimp_paint_options_gui_reset_angle (GtkWidget        *button,
+                                                GimpPaintOptions *paint_options);
 
 static void       dynamics_options_create_view  (GtkWidget *button, 
                                                   GtkWidget **result, GObject *config);
@@ -80,6 +86,14 @@ static void       smoothing_options_create_view (GtkWidget *button,
                                                   GtkWidget **result, GObject *config);
 static void       texture_options_create_view   (GtkWidget *button, 
                                                   GtkWidget **result, GObject *config);
+#if 0
+static GtkWidget * dynamics_options_gui        (GimpPaintOptions *paint_options,
+                                                GType             tool_type);
+static GtkWidget * jitter_options_gui          (GimpPaintOptions *paint_options,
+                                                GType             tool_type);
+static GtkWidget * smoothing_options_gui       (GimpPaintOptions *paint_options,
+                                                GType             tool_type);
+#endif
 
 /*  public functions  */
 
@@ -152,7 +166,10 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 
       if (horizontal)
         button = gimp_brush_button_with_popup (config);
-      else
+      else 
+        {
+#if 0
+      {
         button = gimp_prop_brush_box_new (NULL, GIMP_CONTEXT (tool_options), _("Brush:"), 2,
                                           "brush-view-type", "brush-view-size");
       gimp_table_attach_aligned (GTK_TABLE (table),
@@ -161,13 +178,22 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
                                  _("Brush:"), 0.0, 0.5,
                                  button, 2, FALSE);
       gimp_tool_options_table_increment_next (&inc);
+      }
+#endif
+          button = gimp_prop_brush_box_new (NULL, GIMP_CONTEXT (tool_options),
+                                            _("Brush"), 2,
+                                            "brush-view-type", "brush-view-size",
+                                            "gimp-brush-editor");
+          gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
+          gtk_widget_show (button);
+        }
 
       /* brush size */
       if (horizontal)
         hbox = vbox;
       else
         {
-          hbox = gtk_hbox_new (FALSE, 2);
+          hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
           gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
           gtk_widget_show (hbox);
         }
@@ -175,6 +201,7 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
       scale = gimp_prop_spin_scale_new (config, "brush-size",
                                         _("Size"),
                                         0.01, 1.0, 2);
+      gimp_spin_scale_set_scale_limits (GIMP_SPIN_SCALE (scale), 1.0, 1000.0);
       gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
       gtk_widget_show (scale);
 
@@ -194,6 +221,7 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 
       if (!horizontal)
         {
+#if 0
           scale = gimp_prop_spin_scale_new (config, "brush-aspect-ratio",
                                             _("Aspect Ratio"),
                                             0.01, 0.1, 2);
@@ -210,6 +238,63 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
                                                _("Dynamics"), 2,
                                                "dynamics-view-type",
                                                "dynamics-view-size");
+          gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
+          gtk_widget_show (button);
+#endif
+
+          hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
+          gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
+          gtk_widget_show (hbox);
+
+          scale = gimp_prop_spin_scale_new (config, "brush-aspect-ratio",
+                                            _("Aspect Ratio"),
+                                            0.01, 0.1, 2);
+          gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
+          gtk_widget_show (scale);
+
+          button = gimp_stock_button_new (GIMP_STOCK_RESET, NULL);
+          gtk_button_set_relief (GTK_BUTTON (button), GTK_RELIEF_NONE);
+          gtk_image_set_from_stock (GTK_IMAGE (gtk_bin_get_child (GTK_BIN (button))),
+                                    GIMP_STOCK_RESET, GTK_ICON_SIZE_MENU);
+          gtk_box_pack_start (GTK_BOX (hbox), button, FALSE, FALSE, 0);
+          gtk_widget_show (button);
+
+          g_signal_connect (button, "clicked",
+                            G_CALLBACK (gimp_paint_options_gui_reset_aspect_ratio),
+                            options);
+
+          gimp_help_set_help_data (button,
+                                   _("Reset aspect ratio to brush's native"), NULL);
+
+          hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
+          gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
+          gtk_widget_show (hbox);
+
+          scale = gimp_prop_spin_scale_new (config, "brush-angle",
+                                            _("Angle"),
+                                            1.0, 5.0, 2);
+          gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
+          gtk_widget_show (scale);
+
+          button = gimp_stock_button_new (GIMP_STOCK_RESET, NULL);
+          gtk_button_set_relief (GTK_BUTTON (button), GTK_RELIEF_NONE);
+          gtk_image_set_from_stock (GTK_IMAGE (gtk_bin_get_child (GTK_BIN (button))),
+                                    GIMP_STOCK_RESET, GTK_ICON_SIZE_MENU);
+          gtk_box_pack_start (GTK_BOX (hbox), button, FALSE, FALSE, 0);
+          gtk_widget_show (button);
+
+          g_signal_connect (button, "clicked",
+                            G_CALLBACK (gimp_paint_options_gui_reset_angle),
+                            options);
+
+          gimp_help_set_help_data (button,
+                                   _("Reset angle to zero"), NULL);
+
+          button = gimp_prop_dynamics_box_new (NULL, GIMP_CONTEXT (tool_options),
+                                               _("Dynamics"), 2,
+                                               "dynamics-view-type",
+                                               "dynamics-view-size",
+                                               "gimp-dynamics-editor");
           gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
           gtk_widget_show (button);
         }
@@ -239,12 +324,20 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
       gtk_widget_show (frame);
     }
 
-  /* the "texture" toggle */
+  /* gimp-painter-2.7: the "texture" toggle */
   if (g_type_is_a (tool_type, GIMP_TYPE_BRUSH_TOOL) ||
       tool_type == GIMP_TYPE_SMUDGE_TOOL ||
       tool_type == GIMP_TYPE_DODGE_BURN_TOOL)
     {
       frame = texture_options_gui (options, tool_type, horizontal);
+      gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
+      gtk_widget_show (frame);
+    }
+
+  /*  the "smooth stroke" options  */
+  if (g_type_is_a (tool_type, GIMP_TYPE_PAINT_TOOL))
+    {
+      frame = smoothing_options_gui (options, tool_type);
       gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
       gtk_widget_show (frame);
     }
@@ -320,23 +413,32 @@ dynamics_options_create_view (GtkWidget *button, GtkWidget **result, GObject *co
   GtkWidget *hbox;
   GtkWidget *box;
 
-  vbox = gtk_vbox_new (FALSE, 2);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
+#if 0
+  frame = gimp_prop_expander_new (config, "dynamics-expanded",
+                                  _("Dynamics Options"));
+
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
+  gtk_container_add (GTK_CONTAINER (frame), vbox);
+#endif
+  gtk_widget_show (vbox);
 
   inner_frame = gimp_frame_new (_("Fade Options"));
   gtk_box_pack_start (GTK_BOX (vbox), inner_frame, FALSE, FALSE, 0);
   gtk_widget_show (inner_frame);
 
-  inner_vbox = gtk_vbox_new (FALSE, 2);
+  inner_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
   gtk_container_add (GTK_CONTAINER (inner_frame), inner_vbox);
   gtk_widget_show (inner_vbox);
 
   /*  the fade-out scale & unitmenu  */
-  hbox = gtk_hbox_new (FALSE, 2);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
   gtk_box_pack_start (GTK_BOX (inner_vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
   scale = gimp_prop_spin_scale_new (config, "fade-length",
                                     _("Fade length"), 1.0, 50.0, 0);
+  gimp_spin_scale_set_scale_limits (GIMP_SPIN_SCALE (scale), 1.0, 1000.0);
   gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
   gtk_widget_show (scale);
 
@@ -371,7 +473,8 @@ dynamics_options_create_view (GtkWidget *button, GtkWidget **result, GObject *co
                                         _("Gradient"), 2,
                                         "gradient-view-type",
                                         "gradient-view-size",
-                                        "gradient-reverse");
+                                        "gradient-reverse",
+                                        "gimp-gradient-editor");
       gtk_container_add (GTK_CONTAINER (inner_frame), box);
       gtk_widget_show (box);
     }
@@ -448,7 +551,12 @@ smoothing_options_create_view (GtkWidget *button, GtkWidget **result, GObject *c
   GtkWidget *scale;
   GList     *children;
 
-  vbox = gtk_vbox_new (FALSE, 2);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
+#if 0
+  frame = gimp_prop_expanding_frame_new (config, "use-smoothing",
+                                         _("Smooth stroke"),
+                                         vbox, NULL);
+#endif
   scale = gimp_prop_spin_scale_new (config, "smoothing-quality",
                                     _("Quality"),
                                     1, 20, 0);
@@ -456,7 +564,7 @@ smoothing_options_create_view (GtkWidget *button, GtkWidget **result, GObject *c
   gtk_widget_show (scale);
 
   scale = gimp_prop_spin_scale_new (config, "smoothing-factor",
-                                    _("Factor"),
+                                    _("Weight"),
                                     1, 10, 1);
   gtk_box_pack_start (GTK_BOX (vbox), scale, TRUE, TRUE, 0);
   gtk_widget_show (scale);
@@ -495,4 +603,22 @@ texture_options_create_view (GtkWidget *button, GtkWidget **result, GObject *con
   gimp_tool_options_setup_popup_layout (children, FALSE);
 
   *result = vbox;
+}
+
+static void
+gimp_paint_options_gui_reset_aspect_ratio (GtkWidget        *button,
+                                           GimpPaintOptions *paint_options)
+{
+   g_object_set (paint_options,
+                 "brush-aspect-ratio", 0.0,
+                 NULL);
+}
+
+static void
+gimp_paint_options_gui_reset_angle (GtkWidget        *button,
+                                    GimpPaintOptions *paint_options)
+{
+   g_object_set (paint_options,
+                 "brush-angle", 0.0,
+                 NULL);
 }

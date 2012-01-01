@@ -19,17 +19,21 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __GIMP_OLD_WIDGETS_H__
-#define __GIMP_OLD_WIDGETS_H__
-
 /*  These functions are deprecated and should not be used in newly
  *  written code.
  */
 
 #ifndef GIMP_DISABLE_DEPRECATED
 
+#if !defined (__GIMP_WIDGETS_H_INSIDE__) && !defined (GIMP_WIDGETS_COMPILATION)
+#error "Only <libgimpwidgets/gimpwidgets.h> can be included directly."
+#endif
+
+#ifndef __GIMP_OLD_WIDGETS_H__
+#define __GIMP_OLD_WIDGETS_H__
 
 G_BEGIN_DECLS
+
 
 /*
  *  Widget Constructors
@@ -51,8 +55,9 @@ GtkWidget * gimp_int_option_menu_new         (gboolean        menu_only,
 void        gimp_int_option_menu_set_history (GtkOptionMenu  *option_menu,
                                               gint            item_data);
 
-typedef gboolean (*GimpIntOptionMenuSensitivityCallback) (gint     item_data,
-                                                          gpointer callback_data);
+typedef gboolean (* GimpIntOptionMenuSensitivityCallback) (gint     item_data,
+                                                           gpointer callback_data);
+
 void  gimp_int_option_menu_set_sensitive (GtkOptionMenu    *option_menu,
                                           GimpIntOptionMenuSensitivityCallback callback,
                                           gpointer          callback_data);
@@ -85,20 +90,33 @@ void  gimp_option_menu_set_history   (GtkOptionMenu    *option_menu,
                                       gpointer          item_data);
 
 
-typedef gboolean (*GimpOptionMenuSensitivityCallback) (gpointer item_data,
-                                                       gpointer callback_data);
+typedef gboolean (* GimpOptionMenuSensitivityCallback) (gpointer item_data,
+                                                        gpointer callback_data);
 
 void  gimp_option_menu_set_sensitive (GtkOptionMenu    *option_menu,
                                       GimpOptionMenuSensitivityCallback callback,
                                       gpointer          callback_data);
 
 
-void gimp_menu_item_update           (GtkWidget        *widget,
+void   gimp_menu_item_update         (GtkWidget        *widget,
                                       gpointer          data);
+
+GtkWidget * gimp_pixmap_button_new   (gchar           **xpm_data,
+                                      const gchar      *text);
+
+
+/*
+ *  Standard Callbacks
+ */
+
+void   gimp_toggle_button_sensitive_update (GtkToggleButton *toggle_button);
+
+void   gimp_unit_menu_update               (GtkWidget       *widget,
+                                            gpointer         data);
+
 
 G_END_DECLS
 
+#endif /* __GIMP_OLD_WIDGETS_H__ */
 
 #endif /*  GIMP_DISABLE_DEPRECATED  */
-
-#endif /* __GIMP_OLD_WIDGETS_H__ */

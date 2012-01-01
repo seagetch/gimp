@@ -30,6 +30,7 @@
 
 #include "core/gimp.h"
 #include "core/gimp-transform-utils.h"
+#include "core/gimpbezierdesc.h"
 #include "core/gimpchannel-select.h"
 #include "core/gimpcontainer.h"
 #include "core/gimpcontext.h"
@@ -45,7 +46,6 @@
 #include "paint/gimppaintoptions.h"
 
 #include "gimpanchor.h"
-#include "gimpbezierdesc.h"
 #include "gimpstroke.h"
 #include "gimpvectors.h"
 #include "gimpvectors-preview.h"
@@ -268,8 +268,7 @@ gimp_vectors_finalize (GObject *object)
 
   if (vectors->strokes)
     {
-      g_list_foreach (vectors->strokes, (GFunc) g_object_unref, NULL);
-      g_list_free (vectors->strokes);
+      g_list_free_full (vectors->strokes, (GDestroyNotify) g_object_unref);
       vectors->strokes = NULL;
     }
 
@@ -558,7 +557,7 @@ gimp_vectors_stroke (GimpItem           *item,
       return FALSE;
     }
 
-  switch (stroke_options->method)
+  switch (gimp_stroke_options_get_method (stroke_options))
     {
     case GIMP_STROKE_METHOD_LIBART:
       retval = gimp_drawable_stroke_vectors (drawable,
@@ -568,16 +567,21 @@ gimp_vectors_stroke (GimpItem           *item,
 
     case GIMP_STROKE_METHOD_PAINT_CORE:
       {
-        GimpPaintInfo *paint_info;
-        GimpPaintCore *core;
+        GimpPaintInfo    *paint_info;
+        GimpPaintCore    *core;
+        GimpPaintOptions *paint_options;
+        gboolean          emulate_dynamics;
 
         paint_info = gimp_context_get_paint_info (GIMP_CONTEXT (stroke_options));
 
         core = g_object_new (paint_info->paint_type, NULL);
 
+        paint_options = gimp_stroke_options_get_paint_options (stroke_options);
+        emulate_dynamics = gimp_stroke_options_get_emulate_dynamics (stroke_options);
+
         retval = gimp_paint_core_stroke_vectors (core, drawable,
-                                                 stroke_options->paint_options,
-                                                 stroke_options->emulate_dynamics,
+                                                 paint_options,
+                                                 emulate_dynamics,
                                                  vectors, push_undo, error);
 
         g_object_unref (core);
@@ -641,13 +645,11 @@ gimp_vectors_new (GimpImage   *image,
 
   g_return_val_if_fail (GIMP_IS_IMAGE (image), NULL);
 
-  vectors = g_object_new (GIMP_TYPE_VECTORS, NULL);
-
-  gimp_item_configure (GIMP_ITEM (vectors), image,
-                       0, 0,
-                       gimp_image_get_width  (image),
-                       gimp_image_get_height (image),
-                       name);
+  vectors = GIMP_VECTORS (gimp_item_new (GIMP_TYPE_VECTORS,
+                                         image, name,
+                                         0, 0,
+                                         gimp_image_get_width  (image),
+                                         gimp_image_get_height (image)));
 
   return vectors;
 }
@@ -694,8 +696,7 @@ gimp_vectors_copy_strokes (const GimpVectors *src_vectors,
 
   if (dest_vectors->strokes)
     {
-      g_list_foreach (dest_vectors->strokes, (GFunc) g_object_unref, NULL);
-      g_list_free (dest_vectors->strokes);
+      g_list_free_full (dest_vectors->strokes, (GDestroyNotify) g_object_unref);
     }
 
   dest_vectors->strokes = NULL;

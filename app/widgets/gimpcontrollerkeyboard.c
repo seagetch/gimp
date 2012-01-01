@@ -45,9 +45,7 @@ struct _KeyboardEvent
 };
 
 
-static GObject     * gimp_controller_keyboard_constructor     (GType           type,
-                                                               guint           n_params,
-                                                               GObjectConstructParam *params);
+static void          gimp_controller_keyboard_constructed     (GObject        *object);
 
 static gint          gimp_controller_keyboard_get_n_events    (GimpController *controller);
 static const gchar * gimp_controller_keyboard_get_event_name  (GimpController *controller,
@@ -64,103 +62,103 @@ G_DEFINE_TYPE (GimpControllerKeyboard, gimp_controller_keyboard,
 
 static KeyboardEvent keyboard_events[] =
 {
-  { GDK_Up, GDK_MOD1_MASK | GDK_CONTROL_MASK | GDK_SHIFT_MASK,
+  { GDK_KEY_Up, GDK_MOD1_MASK | GDK_CONTROL_MASK | GDK_SHIFT_MASK,
     "cursor-up-shift-control-alt",
     N_("Cursor Up") },
-  { GDK_Up, GDK_MOD1_MASK | GDK_CONTROL_MASK,
+  { GDK_KEY_Up, GDK_MOD1_MASK | GDK_CONTROL_MASK,
     "cursor-up-control-alt",
     N_("Cursor Up") },
-  { GDK_Up, GDK_MOD1_MASK | GDK_SHIFT_MASK,
+  { GDK_KEY_Up, GDK_MOD1_MASK | GDK_SHIFT_MASK,
     "cursor-up-shift-alt",
     N_("Cursor Up") },
-  { GDK_Up, GDK_CONTROL_MASK | GDK_SHIFT_MASK,
+  { GDK_KEY_Up, GDK_CONTROL_MASK | GDK_SHIFT_MASK,
     "cursor-up-shift-control",
     N_("Cursor Up") },
-  { GDK_Up, GDK_MOD1_MASK,
+  { GDK_KEY_Up, GDK_MOD1_MASK,
     "cursor-up-alt",
     N_("Cursor Up") },
-  { GDK_Up, GDK_CONTROL_MASK,
+  { GDK_KEY_Up, GDK_CONTROL_MASK,
     "cursor-up-control",
     N_("Cursor Up") },
-  { GDK_Up, GDK_SHIFT_MASK,
+  { GDK_KEY_Up, GDK_SHIFT_MASK,
     "cursor-up-shift",
     N_("Cursor Up") },
-  { GDK_Up, 0,
+  { GDK_KEY_Up, 0,
     "cursor-up",
     N_("Cursor Up") },
 
-  { GDK_Down, GDK_MOD1_MASK | GDK_CONTROL_MASK | GDK_SHIFT_MASK,
+  { GDK_KEY_Down, GDK_MOD1_MASK | GDK_CONTROL_MASK | GDK_SHIFT_MASK,
     "cursor-down-shift-control-alt",
     N_("Cursor Down") },
-  { GDK_Down, GDK_MOD1_MASK | GDK_CONTROL_MASK,
+  { GDK_KEY_Down, GDK_MOD1_MASK | GDK_CONTROL_MASK,
     "cursor-down-control-alt",
     N_("Cursor Down") },
-  { GDK_Down, GDK_MOD1_MASK | GDK_SHIFT_MASK,
+  { GDK_KEY_Down, GDK_MOD1_MASK | GDK_SHIFT_MASK,
     "cursor-down-shift-alt",
     N_("Cursor Down") },
-  { GDK_Down, GDK_CONTROL_MASK | GDK_SHIFT_MASK,
+  { GDK_KEY_Down, GDK_CONTROL_MASK | GDK_SHIFT_MASK,
     "cursor-down-shift-control",
     N_("Cursor Down") },
-  { GDK_Down, GDK_MOD1_MASK,
+  { GDK_KEY_Down, GDK_MOD1_MASK,
     "cursor-down-alt",
     N_("Cursor Down") },
-  { GDK_Down, GDK_CONTROL_MASK,
+  { GDK_KEY_Down, GDK_CONTROL_MASK,
     "cursor-down-control",
     N_("Cursor Down") },
-  { GDK_Down, GDK_SHIFT_MASK,
+  { GDK_KEY_Down, GDK_SHIFT_MASK,
     "cursor-down-shift",
     N_("Cursor Down") },
-  { GDK_Down, 0,
+  { GDK_KEY_Down, 0,
     "cursor-down",
     N_("Cursor Down") },
 
-  { GDK_Left, GDK_MOD1_MASK | GDK_CONTROL_MASK | GDK_SHIFT_MASK,
+  { GDK_KEY_Left, GDK_MOD1_MASK | GDK_CONTROL_MASK | GDK_SHIFT_MASK,
     "cursor-left-shift-control-alt",
     N_("Cursor Left") },
-  { GDK_Left, GDK_MOD1_MASK | GDK_CONTROL_MASK,
+  { GDK_KEY_Left, GDK_MOD1_MASK | GDK_CONTROL_MASK,
     "cursor-left-control-alt",
     N_("Cursor Left") },
-  { GDK_Left, GDK_MOD1_MASK | GDK_SHIFT_MASK,
+  { GDK_KEY_Left, GDK_MOD1_MASK | GDK_SHIFT_MASK,
     "cursor-left-shift-alt",
     N_("Cursor Left") },
-  { GDK_Left, GDK_CONTROL_MASK | GDK_SHIFT_MASK,
+  { GDK_KEY_Left, GDK_CONTROL_MASK | GDK_SHIFT_MASK,
     "cursor-left-shift-control",
     N_("Cursor Left") },
-  { GDK_Left, GDK_MOD1_MASK,
+  { GDK_KEY_Left, GDK_MOD1_MASK,
     "cursor-left-alt",
     N_("Cursor Left") },
-  { GDK_Left, GDK_CONTROL_MASK,
+  { GDK_KEY_Left, GDK_CONTROL_MASK,
     "cursor-left-control",
     N_("Cursor Left") },
-  { GDK_Left, GDK_SHIFT_MASK,
+  { GDK_KEY_Left, GDK_SHIFT_MASK,
     "cursor-left-shift",
     N_("Cursor Left") },
-  { GDK_Left, 0,
+  { GDK_KEY_Left, 0,
     "cursor-left",
     N_("Cursor Left") },
 
-  { GDK_Right, GDK_MOD1_MASK | GDK_CONTROL_MASK | GDK_SHIFT_MASK,
+  { GDK_KEY_Right, GDK_MOD1_MASK | GDK_CONTROL_MASK | GDK_SHIFT_MASK,
     "cursor-right-shift-control-alt",
     N_("Cursor Right") },
-  { GDK_Right, GDK_MOD1_MASK | GDK_CONTROL_MASK,
+  { GDK_KEY_Right, GDK_MOD1_MASK | GDK_CONTROL_MASK,
     "cursor-right-control-alt",
     N_("Cursor Right") },
-  { GDK_Right, GDK_MOD1_MASK | GDK_SHIFT_MASK,
+  { GDK_KEY_Right, GDK_MOD1_MASK | GDK_SHIFT_MASK,
     "cursor-right-shift-alt",
     N_("Cursor Right") },
-  { GDK_Right, GDK_CONTROL_MASK | GDK_SHIFT_MASK,
+  { GDK_KEY_Right, GDK_CONTROL_MASK | GDK_SHIFT_MASK,
     "cursor-right-shift-control",
     N_("Cursor Right") },
-  { GDK_Right, GDK_MOD1_MASK,
+  { GDK_KEY_Right, GDK_MOD1_MASK,
     "cursor-right-alt",
     N_("Cursor Right") },
-  { GDK_Right, GDK_CONTROL_MASK,
+  { GDK_KEY_Right, GDK_CONTROL_MASK,
     "cursor-right-control",
     N_("Cursor Right") },
-  { GDK_Right, GDK_SHIFT_MASK,
+  { GDK_KEY_Right, GDK_SHIFT_MASK,
     "cursor-right-shift",
     N_("Cursor Right") },
-  { GDK_Right, 0,
+  { GDK_KEY_Right, 0,
     "cursor-right",
     N_("Cursor Right") }
 };
@@ -172,7 +170,7 @@ gimp_controller_keyboard_class_init (GimpControllerKeyboardClass *klass)
   GObjectClass        *object_class     = G_OBJECT_CLASS (klass);
   GimpControllerClass *controller_class = GIMP_CONTROLLER_CLASS (klass);
 
-  object_class->constructor         = gimp_controller_keyboard_constructor;
+  object_class->constructed         = gimp_controller_keyboard_constructed;
 
   controller_class->name            = _("Keyboard");
   controller_class->help_id         = GIMP_HELP_CONTROLLER_KEYBOARD;
@@ -208,21 +206,16 @@ gimp_controller_keyboard_init (GimpControllerKeyboard *keyboard)
     }
 }
 
-static GObject *
-gimp_controller_keyboard_constructor (GType                  type,
-                                      guint                  n_params,
-                                      GObjectConstructParam *params)
+static void
+gimp_controller_keyboard_constructed (GObject *object)
 {
-  GObject *object;
-
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   g_object_set (object,
                 "name",  _("Keyboard Events"),
                 "state", _("Ready"),
                 NULL);
-
-  return object;
 }
 
 static gint

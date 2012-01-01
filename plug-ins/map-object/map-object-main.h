@@ -6,6 +6,7 @@
 
 #define PLUG_IN_PROC   "plug-in-map-object"
 #define PLUG_IN_BINARY "map-object"
+#define PLUG_IN_ROLE   "gimp-map-object"
 
 #define TILE_CACHE_SIZE 16
 
@@ -61,8 +62,10 @@ typedef struct
 
   gint antialiasing;
   gint create_new_image;
+  gint create_new_layer;
   gint transparent_background;
   gint tiled;
+  gint livepreview;
   gint showgrid;
   gint showcaps;
 

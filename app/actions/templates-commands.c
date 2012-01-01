@@ -27,7 +27,6 @@
 #include "config/gimpcoreconfig.h"
 
 #include "core/gimp.h"
-#include "core/gimp-utils.h"
 #include "core/gimpcontainer.h"
 #include "core/gimpcontext.h"
 #include "core/gimpimage-new.h"
@@ -253,8 +252,10 @@ templates_new_response (GtkWidget             *dialog,
 {
   if (response_id == GTK_RESPONSE_OK)
     {
-      GimpTemplateEditor *editor   = GIMP_TEMPLATE_EDITOR (options->editor);
-      GimpTemplate       *template = editor->template;
+      GimpTemplateEditor *editor = GIMP_TEMPLATE_EDITOR (options->editor);
+      GimpTemplate       *template;
+
+      template = gimp_template_editor_get_template (editor);
 
       gimp_container_add (options->gimp->templates, GIMP_OBJECT (template));
       gimp_context_set_template (gimp_get_user_context (options->gimp),
@@ -272,8 +273,11 @@ templates_edit_response (GtkWidget             *dialog,
   if (response_id == GTK_RESPONSE_OK)
     {
       GimpTemplateEditor *editor = GIMP_TEMPLATE_EDITOR (options->editor);
+      GimpTemplate       *template;
 
-      gimp_config_sync (G_OBJECT (editor->template),
+      template = gimp_template_editor_get_template (editor);
+
+      gimp_config_sync (G_OBJECT (template),
                         G_OBJECT (options->template), 0);
     }
 
@@ -287,11 +291,14 @@ templates_delete_response (GtkWidget          *dialog,
 {
   if (response_id == GTK_RESPONSE_OK)
     {
-      GimpObject *new_active;
+      GimpObject *new_active = NULL;
 
-      new_active = gimp_container_get_neighbor_of_active (delete_data->container,
-                                                          delete_data->context,
-                                                          GIMP_OBJECT (delete_data->template));
+      if (delete_data->template ==
+          gimp_context_get_template (delete_data->context))
+        {
+          new_active = gimp_container_get_neighbor_of (delete_data->container,
+                                                       GIMP_OBJECT (delete_data->template));
+        }
 
       if (gimp_container_have (delete_data->container,
                                GIMP_OBJECT (delete_data->template)))

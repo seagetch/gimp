@@ -29,6 +29,7 @@
 
 #define PLUG_IN_PROC    "plug-in-unsharp-mask"
 #define PLUG_IN_BINARY  "unsharp-mask"
+#define PLUG_IN_ROLE    "gimp-unsharp-mask"
 
 #define SCALE_WIDTH   120
 #define ENTRY_WIDTH     5
@@ -396,7 +397,6 @@ gaussian_blur_line (const gdouble *cmatrix,
                     const gint     len,
                     const gint     bpp)
 {
-  const gdouble *cmatrix_p;
   const guchar  *src_p;
   const guchar  *src_p1;
   const gint     cmatrix_middle = cmatrix_length / 2;
@@ -481,7 +481,6 @@ gaussian_blur_line (const gdouble *cmatrix,
             {
               gdouble sum = 0;
 
-              cmatrix_p = cmatrix;
               src_p1 = src_p;
 
               for (j = 0; j < cmatrix_length; j++)
@@ -826,7 +825,7 @@ unsharp_mask_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Unsharp Mask"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Unsharp Mask"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -842,10 +841,10 @@ unsharp_mask_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_drawable_preview_new (drawable, NULL);

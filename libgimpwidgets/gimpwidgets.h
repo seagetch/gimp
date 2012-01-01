@@ -22,6 +22,7 @@
 #ifndef __GIMP_WIDGETS_H__
 #define __GIMP_WIDGETS_H__
 
+#define __GIMP_WIDGETS_H_INSIDE__
 
 #include <libgimpwidgets/gimpwidgetstypes.h>
 
@@ -78,8 +79,10 @@
 #include <libgimpwidgets/gimpwidgets-error.h>
 #include <libgimpwidgets/gimpzoommodel.h>
 
+#include <libgimpwidgets/gimp3migration.h>
 #include <libgimpwidgets/gimpoldwidgets.h>
 
+#undef __GIMP_WIDGETS_H_INSIDE__
 
 G_BEGIN_DECLS
 
@@ -234,19 +237,9 @@ GtkWidget * gimp_coordinates_new   (GimpUnit            unit,
                                     gdouble             ysize_100  /* % */);
 
 
-#ifndef GIMP_DISABLE_DEPRECATED
-
-GtkWidget * gimp_pixmap_button_new  (gchar             **xpm_data,
-                                     const gchar        *text);
-
-#endif
-
-
 /*
  *  Standard Callbacks
  */
-
-void gimp_toggle_button_sensitive_update (GtkToggleButton *toggle_button);
 
 void gimp_toggle_button_update           (GtkWidget       *widget,
                                           gpointer         data);
@@ -264,9 +257,6 @@ void gimp_float_adjustment_update        (GtkAdjustment   *adjustment,
                                           gpointer         data);
 
 void gimp_double_adjustment_update       (GtkAdjustment   *adjustment,
-                                          gpointer         data);
-
-void gimp_unit_menu_update               (GtkWidget       *widget,
                                           gpointer         data);
 
 

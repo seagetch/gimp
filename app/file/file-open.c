@@ -209,11 +209,10 @@ file_open_image (Gimp                *gimp,
       if (file_open_file_proc_is_import (file_proc))
         {
           /* Remember the import source */
-          g_object_set_data_full (G_OBJECT (image), GIMP_FILE_IMPORT_SOURCE_URI_KEY,
-                                  g_strdup (uri), (GDestroyNotify) g_free);
+          gimp_image_set_imported_uri (image, uri);
 
           /* We shall treat this file as an Untitled file */
-          gimp_object_set_name (GIMP_OBJECT (image), NULL);
+          gimp_image_set_uri (image, NULL);
         }
     }
 
@@ -403,7 +402,35 @@ file_open_with_proc_and_display (Gimp                *gimp,
 
   if (image)
     {
-      gimp_create_display (image->gimp, image, GIMP_UNIT_PIXEL, 1.0);
+      /* If the file was imported we want to set the layer name to the
+       * file name. For now, assume that multi-layered imported images
+       * have named the layers already, so only rename the layer of
+       * single-layered imported files. Note that this will also
+       * rename already named layers from e.g. single-layered PSD
+       * files. To solve this properly, we would need new file plug-in
+       * API.
+       */
+      if (! file_proc)
+        file_proc = gimp_image_get_load_proc (image);
+
+      if (file_open_file_proc_is_import (file_proc) &&
+          gimp_image_get_n_layers (image) == 1)
+        {
+          GimpObject *layer    = gimp_image_get_layer_iter (image)->data;
+          gchar      *basename = file_utils_uri_display_basename (uri);
+
+          gimp_item_rename (GIMP_ITEM (layer), basename, NULL);
+          gimp_image_undo_free (image);
+          gimp_image_clean_all (image);
+
+          g_free (basename);
+        }
+
+      if (gimp_create_display (image->gimp, image, GIMP_UNIT_PIXEL, 1.0))
+        {
+          /*  the display owns the image now  */
+          g_object_unref (image);
+        }
 
       if (! as_new)
         {
@@ -415,7 +442,7 @@ file_open_with_proc_and_display (Gimp                *gimp,
           /*  can only create a thumbnail if the passed uri and the
            *  resulting image's uri match.
            */
-          if (strcmp (uri, gimp_image_get_uri (image)) == 0)
+          if (strcmp (uri, gimp_image_get_uri_or_untitled (image)) == 0)
             {
               /*  no need to save a thumbnail if there's a good one already  */
               if (! gimp_imagefile_check_thumbnail (imagefile))
@@ -424,26 +451,6 @@ file_open_with_proc_and_display (Gimp                *gimp,
                 }
             }
         }
-
-      /* If the file was imported we want to set the layer name to the
-       * file name. For now, assume that multi-layered imported images
-       * have named the layers already, so only rename the layer of
-       * single-layered imported files. Note that this will also
-       * rename already named layers from e.g. single-layered PSD
-       * files. To solve this properly, we would need new file plug-in
-       * API.
-       */
-      if (file_open_file_proc_is_import (file_proc) &&
-          gimp_image_get_n_layers (image) == 1)
-        {
-          GimpObject *layer    = gimp_image_get_layer_iter (image)->data;
-          gchar      *basename = file_utils_uri_display_basename (uri);
-
-          gimp_object_take_name (layer, basename);
-        }
-
-      /*  the display owns the image now  */
-      g_object_unref (image);
 
       /*  announce that we opened this image  */
       gimp_image_opened (image->gimp, uri);
@@ -497,7 +504,8 @@ file_open_layers (Gimp                *gimp,
           g_list_free (layers);
 
           layer = gimp_image_merge_visible_layers (new_image, context,
-                                                   GIMP_CLIP_TO_IMAGE, FALSE);
+                                                   GIMP_CLIP_TO_IMAGE,
+                                                   FALSE, FALSE);
 
           layers = g_list_prepend (NULL, layer);
         }
@@ -594,7 +602,7 @@ file_open_sanitize_image (GimpImage *image,
                           gboolean   as_new)
 {
   if (as_new)
-    gimp_object_set_name (GIMP_OBJECT (image), NULL);
+    gimp_image_set_uri (image, NULL);
 
   /* clear all undo steps */
   gimp_image_undo_free (image);

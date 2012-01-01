@@ -92,17 +92,19 @@ window_actions_update (GimpActionGroup *group,
 
   if (GTK_IS_WINDOW (window))
     {
-      GdkDisplay *display;
       GdkScreen  *screen;
       gchar      *screen_name;
 
-      display = gtk_widget_get_display (window);
+#ifndef GIMP_UNSTABLE
+      {
+        GdkDisplay *display;
 
-      show_menu = (gdk_display_get_n_screens (display) > 1);
-
-#ifdef GIMP_UNSTABLE
+        display = gtk_widget_get_display (window);
+        show_menu = (gdk_display_get_n_screens (display) > 1);
+      }
+#else
       show_menu = TRUE;
-#endif
+#endif /* !GIMP_UNSTABLE */
 
       if (! show_menu)
         {

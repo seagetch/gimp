@@ -97,6 +97,7 @@ static gchar    * gimp_layer_get_description    (GimpViewable       *viewable,
                                                  gchar             **tooltip);
 
 static void       gimp_layer_removed            (GimpItem           *item);
+static void       gimp_layer_unset_removed      (GimpItem           *item);
 static gboolean   gimp_layer_is_attached        (const GimpItem     *item);
 static GimpItemTree * gimp_layer_get_tree       (GimpItem           *item);
 static GimpItem * gimp_layer_duplicate          (GimpItem           *item,
@@ -249,6 +250,7 @@ gimp_layer_class_init (GimpLayerClass *klass)
   viewable_class->get_description     = gimp_layer_get_description;
 
   item_class->removed                 = gimp_layer_removed;
+  item_class->unset_removed           = gimp_layer_unset_removed;
   item_class->is_attached             = gimp_layer_is_attached;
   item_class->get_tree                = gimp_layer_get_tree;
   item_class->duplicate               = gimp_layer_duplicate;
@@ -400,6 +402,17 @@ gimp_layer_dispose (GObject *object)
                                           gimp_layer_layer_mask_update,
                                           layer);
 
+  if (gimp_layer_is_floating_sel (layer))
+    {
+      GimpDrawable *fs_drawable = gimp_layer_get_floating_sel_drawable (layer);
+
+      /* only detach if this is actually the drawable's fs because the
+       * layer might be on the undo stack and not attached to anyhing
+       */
+      if (gimp_drawable_get_floating_sel (fs_drawable) == layer)
+        gimp_drawable_detach_floating_sel (fs_drawable);
+    }
+
   G_OBJECT_CLASS (parent_class)->dispose (object);
 }
 
@@ -491,6 +504,18 @@ gimp_layer_removed (GimpItem *item)
 
   if (GIMP_ITEM_CLASS (parent_class)->removed)
     GIMP_ITEM_CLASS (parent_class)->removed (item);
+}
+
+static void
+gimp_layer_unset_removed (GimpItem *item)
+{
+  GimpLayer *layer = GIMP_LAYER (item);
+
+  if (layer->mask)
+    gimp_item_unset_removed (GIMP_ITEM (layer->mask));
+
+  if (GIMP_ITEM_CLASS (parent_class)->unset_removed)
+    GIMP_ITEM_CLASS (parent_class)->unset_removed (item);
 }
 
 static gboolean
@@ -788,11 +813,21 @@ gimp_layer_get_node (GimpItem *item)
   GeglNode     *offset_node;
   GeglNode     *source;
   GeglNode     *mode_node;
+  gboolean      source_node_hijacked = FALSE;
 
   node = GIMP_ITEM_CLASS (parent_class)->get_node (item);
 
   source = gimp_drawable_get_source_node (drawable);
-  gegl_node_add_child (node, source);
+
+  /* if the source node already has a parent, we are a floating
+   * selection and the source node has been hijacked by the fs'
+   * drawable
+   */
+  if (gegl_node_get_parent (source))
+    source_node_hijacked = TRUE;
+
+  if (! source_node_hijacked)
+    gegl_node_add_child (node, source);
 
   g_warn_if_fail (layer->opacity_node == NULL);
 
@@ -800,8 +835,10 @@ gimp_layer_get_node (GimpItem *item)
                                              "operation", "gegl:opacity",
                                              "value",     layer->opacity,
                                              NULL);
-  gegl_node_connect_to (source,              "output",
-                        layer->opacity_node, "input");
+
+  if (! source_node_hijacked)
+    gegl_node_connect_to (source,              "output",
+                          layer->opacity_node, "input");
 
   if (layer->mask)
     {
@@ -1116,13 +1153,10 @@ gimp_layer_new (GimpImage            *image,
   g_return_val_if_fail (width > 0, NULL);
   g_return_val_if_fail (height > 0, NULL);
 
-  layer = g_object_new (GIMP_TYPE_LAYER, NULL);
-
-  gimp_drawable_configure (GIMP_DRAWABLE (layer),
-                           image,
-                           0, 0, width, height,
-                           type,
-                           name);
+  layer = GIMP_LAYER (gimp_drawable_new (GIMP_TYPE_LAYER,
+                                         image, name,
+                                         0, 0, width, height,
+                                         type));
 
   opacity = CLAMP (opacity, GIMP_OPACITY_TRANSPARENT, GIMP_OPACITY_OPAQUE);
 
@@ -1197,6 +1231,8 @@ gimp_layer_new_from_pixbuf (GdkPixbuf            *pixbuf,
 
   g_return_val_if_fail (GDK_IS_PIXBUF (pixbuf), NULL);
   g_return_val_if_fail (GIMP_IS_IMAGE (dest_image), NULL);
+  g_return_val_if_fail (GIMP_IMAGE_TYPE_BASE_TYPE (type) ==
+                        gimp_image_base_type (dest_image), NULL);
 
   pixel_region_init_data (&bufPR, gdk_pixbuf_get_pixels (pixbuf),
                           gdk_pixbuf_get_n_channels (pixbuf),
@@ -1459,6 +1495,10 @@ gimp_layer_add_mask (GimpLayer      *layer,
   g_signal_emit (layer, layer_signals[MASK_CHANGED], 0);
 
   g_object_notify (G_OBJECT (layer), "mask");
+
+  /*  if the mask came from the undo stack, reset its "removed" state  */
+  if (gimp_item_is_removed (GIMP_ITEM (mask)))
+    gimp_item_unset_removed (GIMP_ITEM (mask));
 
   return layer->mask;
 }

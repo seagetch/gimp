@@ -135,7 +135,7 @@ create_dialog (void)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("GIMPressionist"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("GIMPressionist"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -158,10 +158,10 @@ create_dialog (void)
                     G_CALLBACK (gtk_main_quit),
                     NULL);
 
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     hbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      hbox, TRUE, TRUE, 0);
   gtk_widget_show (hbox);
 
   preview_box = create_preview ();

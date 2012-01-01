@@ -35,6 +35,7 @@
 
 #define PLUG_IN_PROC   "plug-in-papertile"
 #define PLUG_IN_BINARY "tile-paper"
+#define PLUG_IN_ROLE   "gimp-tile-paper"
 
 /*===========================================================================*/
 /* TYPES                                                                     */
@@ -239,7 +240,7 @@ open_dialog (void)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Paper Tile"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Paper Tile"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -255,14 +256,14 @@ open_dialog (void)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_hbox = gtk_hbox_new (FALSE, 12);
+  main_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_hbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_hbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_hbox, TRUE, TRUE, 0);
   gtk_widget_show (main_hbox);
 
   /* Left */
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_box_pack_start (GTK_BOX (main_hbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 
@@ -343,7 +344,7 @@ open_dialog (void)
                     &p.params.centering);
 
   /* Right */
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_box_pack_start (GTK_BOX (main_hbox), vbox, TRUE, TRUE, 0);
   gtk_widget_show (vbox);
 
@@ -407,13 +408,13 @@ open_dialog (void)
                       color_button, TRUE, TRUE, 0);
   gtk_widget_show (color_button);
 
-  gtk_widget_set_sensitive (color_button,
-                            p.params.background_type == BACKGROUND_TYPE_COLOR);
-  g_object_set_data (G_OBJECT (button), "set_sensitive", color_button);
-
   g_signal_connect (color_button, "color-changed",
                     G_CALLBACK (gimp_color_button_get_color),
                     &p.params.background_color);
+
+  g_object_bind_property (button,       "active",
+                          color_button, "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   gtk_widget_show (dialog);
 
@@ -808,6 +809,7 @@ filter (void)
   gimp_pixel_rgn_set_rect (&dst, pixels, 0, 0, p.drawable->width,
                            p.drawable->height);
 
+  gimp_progress_update (1.0);
   gimp_drawable_flush (p.drawable);
   gimp_drawable_merge_shadow (p.drawable->drawable_id, TRUE);
   gimp_drawable_update (p.drawable->drawable_id,

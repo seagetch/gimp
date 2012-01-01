@@ -175,7 +175,9 @@ gimp_brush_load_brush (GimpContext  *context,
   if (read (fd, &header, sizeof (header)) != sizeof (header))
     {
       g_set_error (error, GIMP_DATA_ERROR, GIMP_DATA_ERROR_READ,
-                   _("Could not read %d bytes from '%s': %s"),
+                   ngettext ("Could not read %d byte from '%s': %s",
+                             "Could not read %d bytes from '%s': %s",
+                             (gint) sizeof (header)),
                    (gint) sizeof (header),
                    gimp_filename_to_utf8 (filename), g_strerror (errno));
       return NULL;
@@ -688,7 +690,6 @@ gimp_brush_load_abr_brush_v6 (FILE         *file,
 
   gint32     brush_size;
   gint32     brush_end;
-  gint32     complement_to_4;
   gint32     next_brush;
 
   gint32     top, left, bottom, right;
@@ -704,9 +705,11 @@ gimp_brush_load_abr_brush_v6 (FILE         *file,
 
   brush_size = abr_read_long (file);
   brush_end = brush_size;
+
   /* complement to 4 */
-  while (brush_end % 4 != 0) brush_end++;
-  complement_to_4 = brush_end - brush_size;
+  while (brush_end % 4 != 0)
+    brush_end++;
+
   next_brush = ftell (file) + brush_end;
 
   if (abr_hdr->count == 1)

@@ -33,6 +33,7 @@
 
 #define PLUG_IN_PROC    "plug-in-sharpen"
 #define PLUG_IN_BINARY  "sharpen"
+#define PLUG_IN_ROLE    "gimp-sharpen"
 #define PLUG_IN_VERSION "1.4.2 - 3 June 1998"
 #define SCALE_WIDTH     100
 
@@ -280,7 +281,6 @@ sharpen (GimpDrawable *drawable)
   gint          width;          /* Byte width of the image */
   gint          x1;             /* Selection bounds */
   gint          y1;
-  gint          x2;
   gint          y2;
   gint          sel_width;      /* Selection width */
   gint          sel_height;     /* Selection height */
@@ -293,7 +293,6 @@ sharpen (GimpDrawable *drawable)
                                       &x1, &y1, &sel_width, &sel_height))
     return;
 
-  x2 = x1 + sel_width;
   y2 = y1 + sel_height;
 
   img_bpp = gimp_drawable_bpp (drawable->drawable_id);
@@ -447,6 +446,7 @@ sharpen (GimpDrawable *drawable)
    * Update the screen...
    */
 
+  gimp_progress_update (1.0);
   gimp_drawable_flush (drawable);
   gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);
   gimp_drawable_update (drawable->drawable_id,
@@ -470,7 +470,7 @@ sharpen_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Sharpen"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Sharpen"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -486,10 +486,10 @@ sharpen_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_drawable_preview_new (drawable, NULL);
@@ -599,6 +599,9 @@ preview_update (GimpPreview *preview)
     case 4:
       filter = rgba_filter;
       break;
+    default:
+      g_error ("Programmer stupidity error: img_bpp is %d\n",
+               img_bpp);
     }
 
   /*

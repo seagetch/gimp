@@ -20,6 +20,10 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#if !defined (__GIMP_CONFIG_H_INSIDE__) && !defined (GIMP_CONFIG_COMPILATION)
+#error "Only <libgimpconfig/gimpconfig.h> can be included directly."
+#endif
+
 #ifndef __GIMP_SCANNER_H__
 #define __GIMP_SCANNER_H__
 
@@ -46,6 +50,8 @@ gboolean   gimp_scanner_parse_int                (GScanner     *scanner,
                                                   gint         *dest);
 gboolean   gimp_scanner_parse_float              (GScanner     *scanner,
                                                   gdouble      *dest);
+gboolean   gimp_scanner_parse_boolean            (GScanner     *scanner,
+                                                  gboolean     *dest);
 gboolean   gimp_scanner_parse_color              (GScanner     *scanner,
                                                   GimpRGB      *dest);
 gboolean   gimp_scanner_parse_matrix2            (GScanner     *scanner,

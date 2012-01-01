@@ -1,4 +1,4 @@
-#!/bin/sh 
+#!/bin/sh
 
 # This script does all the magic calls to automake/autoconf and
 # friends that are needed to configure a git clone. As described in
@@ -9,14 +9,14 @@
 # tools and you shouldn't use this script.  Just call ./configure
 # directly.
 
-ACLOCAL=${ACLOCAL-aclocal-1.9}
+ACLOCAL=${ACLOCAL-aclocal-1.11}
 AUTOCONF=${AUTOCONF-autoconf}
 AUTOHEADER=${AUTOHEADER-autoheader}
-AUTOMAKE=${AUTOMAKE-automake-1.9}
+AUTOMAKE=${AUTOMAKE-automake-1.11}
 LIBTOOLIZE=${LIBTOOLIZE-libtoolize}
 
 AUTOCONF_REQUIRED_VERSION=2.54
-AUTOMAKE_REQUIRED_VERSION=1.9.6
+AUTOMAKE_REQUIRED_VERSION=1.10.0
 INTLTOOL_REQUIRED_VERSION=0.40.1
 LIBTOOL_REQUIRED_VERSION=1.5
 LIBTOOL_WIN32_REQUIRED_VERSION=2.2
@@ -163,9 +163,6 @@ elif (automake-1.11 --version) < /dev/null > /dev/null 2>&1; then
 elif (automake-1.10 --version) < /dev/null > /dev/null 2>&1; then
    AUTOMAKE=automake-1.10
    ACLOCAL=aclocal-1.10
-elif (automake-1.9 --version) < /dev/null > /dev/null 2>&1; then
-   AUTOMAKE=automake-1.9
-   ACLOCAL=aclocal-1.9
 else
     echo
     echo "  You must have automake $AUTOMAKE_REQUIRED_VERSION or newer installed to compile $PROJECT."
@@ -228,7 +225,7 @@ test $TEST_TYPE $FILE || {
 echo
 echo "I am going to run ./configure with the following arguments:"
 echo
-echo "  --enable-maintainer-mode $AUTOGEN_CONFIGURE_ARGS $@"
+echo "  $AUTOGEN_CONFIGURE_ARGS $@"
 echo
 
 if test -z "$*"; then
@@ -293,7 +290,7 @@ intltoolize --automake || exit $?
 
 cd $ORIGDIR
 
-$srcdir/configure --enable-maintainer-mode $AUTOGEN_CONFIGURE_ARGS "$@"
+$srcdir/configure $AUTOGEN_CONFIGURE_ARGS "$@"
 RC=$?
 if test $RC -ne 0; then
   echo

@@ -174,7 +174,6 @@ script_fu_interface (SFScript  *script,
                      gint       start_arg)
 {
   GtkWidget    *dialog;
-  GtkWidget    *menu;
   GtkWidget    *vbox;
   GtkWidget    *vbox2;
   GtkSizeGroup *group;
@@ -223,7 +222,7 @@ script_fu_interface (SFScript  *script,
   title = g_strdup_printf (_("Script-Fu: %s"), sf_interface->title);
 
   sf_interface->dialog = dialog =
-    gimp_dialog_new (title, "script-fu",
+    gimp_dialog_new (title, "gimp-script-fu",
                      NULL, 0,
                      gimp_standard_help_func, script->name,
 
@@ -252,7 +251,7 @@ script_fu_interface (SFScript  *script,
 
   gtk_window_set_resizable (GTK_WINDOW (dialog), TRUE);
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       vbox, TRUE, TRUE, 0);
@@ -321,7 +320,6 @@ script_fu_interface (SFScript  *script,
               break;
 
             default:
-              menu = NULL;
               break;
             }
 
@@ -503,13 +501,13 @@ script_fu_interface (SFScript  *script,
           break;
 
         case SF_OPTION:
-          widget = gtk_combo_box_new_text ();
+          widget = gtk_combo_box_text_new ();
           for (list = arg->default_value.sfa_option.list;
                list;
                list = g_slist_next (list))
             {
-              gtk_combo_box_append_text (GTK_COMBO_BOX (widget),
-                                         gettext ((const gchar *) list->data));
+              gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (widget),
+                                              gettext (list->data));
             }
 
           gtk_combo_box_set_active (GTK_COMBO_BOX (widget),
@@ -563,7 +561,7 @@ script_fu_interface (SFScript  *script,
   g_object_unref (group);
 
   /* the script progress bar */
-  vbox2 = gtk_vbox_new (FALSE, 6);
+  vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_box_pack_end (GTK_BOX (vbox), vbox2, FALSE, FALSE, 0);
   gtk_widget_show (vbox2);
 

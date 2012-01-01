@@ -83,6 +83,7 @@
  ********************************/
 
 #define PLUG_IN_BINARY "noise-randomize"
+#define PLUG_IN_ROLE   "gimp-noise-randomize"
 
 /*
  *  progress meter update frequency
@@ -481,7 +482,6 @@ randomize (GimpDrawable *drawable,
   gint row, col;
   gint x1, y1, x2, y2;
   gint cnt;
-  gint has_alpha, ind;
   gint i, j, k;
 
   if (preview)
@@ -499,7 +499,6 @@ randomize (GimpDrawable *drawable,
     }
 
   bytes = drawable->bpp;
-  has_alpha = gimp_drawable_has_alpha(drawable->drawable_id);
 
   /*
    *  allocate row buffers
@@ -529,7 +528,7 @@ randomize (GimpDrawable *drawable,
        *  prepare the first row and previous row
        */
       randomize_prepare_row (sp, pr, x1, y1 - 1, (x2 - x1));
-      randomize_prepare_row (dp, cr, x1, y1, (x2 - x1));
+      randomize_prepare_row (sp, cr, x1, y1, (x2 - x1));
       /*
        *  loop through the rows, applying the selected convolution
        */
@@ -539,7 +538,6 @@ randomize (GimpDrawable *drawable,
           randomize_prepare_row (sp, nr, x1, row + 1, (x2 - x1));
 
           d = dest;
-          ind = 0;
           for (col = 0; col < (x2 - x1); col++)
             {
               if (g_rand_int_range (gr, 0, 100) <= (gint) pivals.rndm_pct)
@@ -728,7 +726,7 @@ randomize_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dlg = gimp_dialog_new (gettext (RNDM_NAME[rndm_type - 1]), PLUG_IN_BINARY,
+  dlg = gimp_dialog_new (gettext (RNDM_NAME[rndm_type - 1]), PLUG_IN_ROLE,
                          NULL, 0,
                          gimp_standard_help_func, PLUG_IN_PROC[rndm_type - 1],
 
@@ -744,10 +742,10 @@ randomize_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dlg));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dlg))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dlg))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_drawable_preview_new (drawable, NULL);

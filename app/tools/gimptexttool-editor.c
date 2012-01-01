@@ -32,6 +32,7 @@
 
 #include "core/gimp.h"
 #include "core/gimpimage.h"
+#include "core/gimptoolinfo.h"
 
 #include "text/gimptext.h"
 #include "text/gimptextlayout.h"
@@ -182,6 +183,7 @@ gimp_text_tool_editor_start (GimpTextTool *text_tool)
         gimp_image_get_resolution (text_tool->image, &xres, &yres);
 
       text_tool->style_editor = gimp_text_style_editor_new (gimp,
+                                                            text_tool->proxy,
                                                             text_tool->buffer,
                                                             gimp->fonts,
                                                             xres, yres);
@@ -215,12 +217,6 @@ gimp_text_tool_editor_position (GimpTextTool *text_tool)
                                        text_tool->style_overlay,
                                        x, y,
                                        GIMP_HANDLE_ANCHOR_SOUTH_WEST, 4, 12);
-
-#if 0
-      gimp_overlay_box_set_child_angle (GIMP_OVERLAY_BOX (shell->canvas),
-                                        text_tool->style_overlay,
-                                        0.5);
-#endif
 
       if (text_tool->image)
         {
@@ -450,21 +446,21 @@ gimp_text_tool_editor_key_press (GimpTextTool *text_tool,
 
   switch (kevent->keyval)
     {
-    case GDK_Return:
-    case GDK_KP_Enter:
-    case GDK_ISO_Enter:
+    case GDK_KEY_Return:
+    case GDK_KEY_KP_Enter:
+    case GDK_KEY_ISO_Enter:
       gimp_text_tool_reset_im_context (text_tool);
       gimp_text_tool_enter_text (text_tool, "\n");
       break;
 
-    case GDK_Tab:
-    case GDK_KP_Tab:
-    case GDK_ISO_Left_Tab:
+    case GDK_KEY_Tab:
+    case GDK_KEY_KP_Tab:
+    case GDK_KEY_ISO_Left_Tab:
       gimp_text_tool_reset_im_context (text_tool);
       gimp_text_tool_enter_text (text_tool, "\t");
       break;
 
-    case GDK_Escape:
+    case GDK_KEY_Escape:
       gimp_rectangle_tool_cancel (GIMP_RECTANGLE_TOOL (text_tool));
       gimp_tool_control (GIMP_TOOL (text_tool), GIMP_TOOL_ACTION_HALT,
                          GIMP_TOOL (text_tool)->display);
@@ -696,7 +692,7 @@ gimp_text_tool_move_cursor (GimpTextTool    *text_tool,
               index = gimp_text_buffer_get_iter_index (text_tool->buffer,
                                                        &cursor, TRUE);
 
-             if (count > 0)
+              if (count > 0)
                 {
                   pango_layout_move_cursor_visually (layout, TRUE, index, 0, 1,
                                                      &new_index, &trailing);
@@ -709,14 +705,14 @@ gimp_text_tool_move_cursor (GimpTextTool    *text_tool,
                   count++;
                 }
 
-             if (new_index != G_MAXINT && new_index != -1)
-               index = new_index;
-             else
-               break;
+              if (new_index != G_MAXINT && new_index != -1)
+                index = new_index;
+              else
+                break;
 
-             gimp_text_buffer_get_iter_at_index (text_tool->buffer,
-                                                 &cursor, index, TRUE);
-             gtk_text_iter_forward_chars (&cursor, trailing);
+              gimp_text_buffer_get_iter_at_index (text_tool->buffer,
+                                                  &cursor, index, TRUE);
+              gtk_text_iter_forward_chars (&cursor, trailing);
             }
         }
       break;
@@ -1136,6 +1132,8 @@ gimp_text_tool_editor_dialog (GimpTextTool *text_tool)
   GimpTextOptions   *options = GIMP_TEXT_TOOL_GET_OPTIONS (text_tool);
   GimpDialogFactory *dialog_factory;
   GtkWindow         *parent  = NULL;
+  gdouble            xres    = 1.0;
+  gdouble            yres    = 1.0;
 
   if (text_tool->editor_dialog)
     {
@@ -1152,11 +1150,15 @@ gimp_text_tool_editor_dialog (GimpTextTool *text_tool)
       parent = GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (shell)));
     }
 
+  if (text_tool->image)
+    gimp_image_get_resolution (text_tool->image, &xres, &yres);
+
   text_tool->editor_dialog =
-    gimp_text_options_editor_new (parent, options,
+    gimp_text_options_editor_new (parent, tool->tool_info->gimp, options,
                                   gimp_dialog_factory_get_menu_factory (dialog_factory),
                                   _("GIMP Text Editor"),
-                                  text_tool->buffer);
+                                  text_tool->proxy, text_tool->buffer,
+                                  xres, yres);
 
   g_object_add_weak_pointer (G_OBJECT (text_tool->editor_dialog),
                              (gpointer) &text_tool->editor_dialog);

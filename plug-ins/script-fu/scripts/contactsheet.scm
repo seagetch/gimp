@@ -176,6 +176,7 @@
         )
 
     (gimp-context-push)
+    (gimp-context-set-defaults)
     (gimp-context-set-foreground text-color)
     (gimp-context-set-background bg-color)
 
@@ -201,7 +202,7 @@
     (set! sheet-layer (car (gimp-layer-new sheet-img sheet-width sheet-height
                             RGB-IMAGE "Background"
                             100 NORMAL-MODE)))
-    (gimp-image-add-layer sheet-img sheet-layer 0)
+    (gimp-image-insert-layer sheet-img sheet-layer 0 0)
 
     (init-sheet-img sheet-img sheet-num sheet-width border-y off-y)
 
@@ -229,7 +230,7 @@
                             (car (gimp-image-get-active-drawable new-img))
                                   sheet-img)))
 
-              (gimp-image-add-layer sheet-img tmp-layer 0)
+              (gimp-image-insert-layer sheet-img tmp-layer 0 0)
 
               ;Move thumbnail in to position and center it in area available.
               (gimp-layer-set-offsets tmp-layer

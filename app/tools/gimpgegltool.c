@@ -109,7 +109,7 @@ gimp_gegl_tool_class_init (GimpGeglToolClass *klass)
 
   tool_class->initialize       = gimp_gegl_tool_initialize;
 
-  im_tool_class->shell_desc    = _("GEGL Operation");
+  im_tool_class->dialog_desc   = _("GEGL Operation");
 
   im_tool_class->get_operation = gimp_gegl_tool_get_operation;
   im_tool_class->map           = gimp_gegl_tool_map;
@@ -157,7 +157,7 @@ gimp_gegl_tool_initialize (GimpTool     *tool,
   if (gimp_drawable_is_indexed (drawable))
     {
       g_set_error_literal (error, GIMP_ERROR, GIMP_FAILED,
-			   _("GEGL operations do not operate on indexed layers."));
+                           _("GEGL operations do not operate on indexed layers."));
       return FALSE;
     }
 
@@ -234,7 +234,6 @@ static gboolean
 gimp_gegl_tool_operation_blacklisted (const gchar *name,
                                       const gchar *categories_str)
 {
-  gchar **categories;
   static const gchar * const category_blacklist[] =
   {
     "compositors",
@@ -244,7 +243,6 @@ gimp_gegl_tool_operation_blacklisted (const gchar *name,
     "input",
     "output",
     "programming",
-    "render",
     "transform",
     "video"
   };
@@ -255,13 +253,20 @@ gimp_gegl_tool_operation_blacklisted (const gchar *name,
     "gegl:path",
     "gegl:text",
     "gegl:layer",
+    "gegl:contrast-curve",
+    "gegl:fill-path",
+    "gegl:vector-stroke",
+    "gegl:lens-correct",
+    "gegl:hstack",
     "gimp-",
     "gimp:"
   };
-  gint i;
+
+  gchar **categories;
+  gint    i;
 
   /* Operations with no name are abstract base classes */
-  if (!name)
+  if (! name)
     return TRUE;
 
   for (i = 0; i < G_N_ELEMENTS (name_blacklist); i++)
@@ -270,8 +275,7 @@ gimp_gegl_tool_operation_blacklisted (const gchar *name,
         return TRUE;
     }
 
-
-  if (!categories_str)
+  if (! categories_str)
     return FALSE;
 
   categories = g_strsplit (categories_str, ":", 0);
@@ -279,8 +283,9 @@ gimp_gegl_tool_operation_blacklisted (const gchar *name,
   for (i = 0; i < G_N_ELEMENTS (category_blacklist); i++)
     {
       gint j;
+
       for (j = 0; categories[j]; j++)
-        if (g_str_equal (categories[j], category_blacklist[i]))
+        if (! strcmp (categories[j], category_blacklist[i]))
           {
             g_strfreev (categories);
             return TRUE;
@@ -288,6 +293,7 @@ gimp_gegl_tool_operation_blacklisted (const gchar *name,
     }
 
   g_strfreev (categories);
+
   return FALSE;
 }
 
@@ -364,7 +370,7 @@ gimp_gegl_tool_dialog (GimpImageMapTool *image_map_tool)
   main_vbox = gimp_image_map_tool_dialog_get_vbox (image_map_tool);
 
   /*  The operation combo box  */
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (main_vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -373,7 +379,7 @@ gimp_gegl_tool_dialog (GimpImageMapTool *image_map_tool)
   gtk_widget_show (label);
 
   store = gtk_list_store_new (N_COLUMNS,
-			      G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+                              G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
 
   opclasses = gimp_get_geglopclasses ();
 
@@ -385,9 +391,9 @@ gimp_gegl_tool_dialog (GimpImageMapTool *image_map_tool)
 
       if (g_str_has_prefix (opclass->name, "gegl:"))
         {
-	  label    = opclass->name + strlen ("gegl:");
-	  stock_id = GIMP_STOCK_GEGL;
-	}
+          label    = opclass->name + strlen ("gegl:");
+          stock_id = GIMP_STOCK_GEGL;
+        }
       else
         {
           label    = opclass->name;
@@ -396,8 +402,8 @@ gimp_gegl_tool_dialog (GimpImageMapTool *image_map_tool)
 
       gtk_list_store_insert_with_values (store, NULL, -1,
                                          COLUMN_NAME,     opclass->name,
-					 COLUMN_LABEL,    label,
-					 COLUMN_STOCK_ID, stock_id,
+                                         COLUMN_LABEL,    label,
+                                         COLUMN_STOCK_ID, stock_id,
                                          -1);
     }
 

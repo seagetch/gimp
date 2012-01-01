@@ -53,9 +53,7 @@
 
 static void  gimp_selection_editor_docked_iface_init (GimpDockedInterface *iface);
 
-static GObject * gimp_selection_editor_constructor (GType                type,
-                                                    guint                n_params,
-                                                    GObjectConstructParam *params);
+static void   gimp_selection_editor_constructed    (GObject             *object);
 
 static void   gimp_selection_editor_set_image      (GimpImageEditor     *editor,
                                                     GimpImage           *image);
@@ -92,7 +90,7 @@ gimp_selection_editor_class_init (GimpSelectionEditorClass *klass)
   GObjectClass         *object_class       = G_OBJECT_CLASS (klass);
   GimpImageEditorClass *image_editor_class = GIMP_IMAGE_EDITOR_CLASS (klass);
 
-  object_class->constructor     = gimp_selection_editor_constructor;
+  object_class->constructed     = gimp_selection_editor_constructed;
 
   image_editor_class->set_image = gimp_selection_editor_set_image;
 }
@@ -142,17 +140,13 @@ gimp_selection_editor_init (GimpSelectionEditor *editor)
   gtk_widget_set_sensitive (GTK_WIDGET (editor), FALSE);
 }
 
-static GObject *
-gimp_selection_editor_constructor (GType                  type,
-                                   guint                  n_params,
-                                   GObjectConstructParam *params)
+static void
+gimp_selection_editor_constructed (GObject *object)
 {
-  GObject             *object;
-  GimpSelectionEditor *editor;
+  GimpSelectionEditor *editor = GIMP_SELECTION_EDITOR (object);
 
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
-
-  editor = GIMP_SELECTION_EDITOR (object);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   editor->all_button =
     gimp_editor_add_action_button (GIMP_EDITOR (editor), "select",
@@ -183,8 +177,6 @@ gimp_selection_editor_constructor (GType                  type,
                                    "select-stroke-last-values",
                                    GDK_SHIFT_MASK,
                                    NULL);
-
-  return object;
 }
 
 static void
@@ -255,7 +247,7 @@ gimp_selection_view_button_press (GtkWidget           *widget,
   GimpSelectionOptions    *sel_options;
   GimpRegionSelectOptions *options;
   GimpDrawable            *drawable;
-  GimpChannelOps           operation = GIMP_CHANNEL_OP_REPLACE;
+  GimpChannelOps           operation;
   gint                     x, y;
   GimpRGB                  color;
 
@@ -278,21 +270,7 @@ gimp_selection_view_button_press (GtkWidget           *widget,
   if (! drawable)
     return TRUE;
 
-  if (bevent->state & GDK_SHIFT_MASK)
-    {
-      if (bevent->state & GDK_CONTROL_MASK)
-        {
-          operation = GIMP_CHANNEL_OP_INTERSECT;
-        }
-      else
-        {
-          operation = GIMP_CHANNEL_OP_ADD;
-        }
-    }
-  else if (bevent->state & GDK_CONTROL_MASK)
-    {
-      operation = GIMP_CHANNEL_OP_SUBTRACT;
-    }
+  operation = gimp_modifiers_to_channel_op (bevent->state);
 
   x = gimp_image_get_width  (image_editor->image) * bevent->x / renderer->width;
   y = gimp_image_get_height (image_editor->image) * bevent->y / renderer->height;

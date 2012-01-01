@@ -28,7 +28,9 @@
 #include "core/gimpimage.h"
 
 #include "widgets/gimphelp-ids.h"
+#include "widgets/gimpwidgets-utils.h"
 
+#include "display/gimpcanvasrectangle.h"
 #include "display/gimpdisplay.h"
 #include "display/gimpdisplayshell.h"
 #include "display/gimpdisplayshell-scale.h"
@@ -68,6 +70,8 @@ static void   gimp_magnify_tool_cursor_update  (GimpTool              *tool,
                                                 GimpDisplay           *display);
 
 static void   gimp_magnify_tool_draw           (GimpDrawTool          *draw_tool);
+
+static void   gimp_magnify_tool_update_items   (GimpMagnifyTool       *magnify);
 
 
 G_DEFINE_TYPE (GimpMagnifyTool, gimp_magnify_tool, GIMP_TYPE_DRAW_TOOL)
@@ -113,24 +117,22 @@ gimp_magnify_tool_init (GimpMagnifyTool *magnify_tool)
 {
   GimpTool *tool = GIMP_TOOL (magnify_tool);
 
-  magnify_tool->x = 0;
-  magnify_tool->y = 0;
-  magnify_tool->w = 0;
-  magnify_tool->h = 0;
-
   gimp_tool_control_set_scroll_lock            (tool->control, TRUE);
   gimp_tool_control_set_handle_empty_image     (tool->control, TRUE);
   gimp_tool_control_set_wants_click            (tool->control, TRUE);
   gimp_tool_control_set_snap_to                (tool->control, FALSE);
 
-  gimp_tool_control_set_cursor                 (tool->control,
-                                                GIMP_CURSOR_MOUSE);
   gimp_tool_control_set_tool_cursor            (tool->control,
                                                 GIMP_TOOL_CURSOR_ZOOM);
   gimp_tool_control_set_cursor_modifier        (tool->control,
                                                 GIMP_CURSOR_MODIFIER_PLUS);
   gimp_tool_control_set_toggle_cursor_modifier (tool->control,
                                                 GIMP_CURSOR_MODIFIER_MINUS);
+
+  magnify_tool->x = 0;
+  magnify_tool->y = 0;
+  magnify_tool->w = 0;
+  magnify_tool->h = 0;
 }
 
 static void
@@ -309,12 +311,10 @@ gimp_magnify_tool_motion (GimpTool         *tool,
 {
   GimpMagnifyTool *magnify = GIMP_MAGNIFY_TOOL (tool);
 
-  gimp_draw_tool_pause (GIMP_DRAW_TOOL (tool));
-
   magnify->w = coords->x - magnify->x;
   magnify->h = coords->y - magnify->y;
 
-  gimp_draw_tool_resume (GIMP_DRAW_TOOL (tool));
+  gimp_magnify_tool_update_items (magnify);
 }
 
 static void
@@ -326,7 +326,7 @@ gimp_magnify_tool_modifier_key (GimpTool        *tool,
 {
   GimpMagnifyOptions *options = GIMP_MAGNIFY_TOOL_GET_OPTIONS (tool);
 
-  if (key == GDK_CONTROL_MASK)
+  if (key == gimp_get_toggle_behavior_mask ())
     {
       switch (options->zoom_type)
         {
@@ -363,9 +363,23 @@ gimp_magnify_tool_draw (GimpDrawTool *draw_tool)
 {
   GimpMagnifyTool *magnify = GIMP_MAGNIFY_TOOL (draw_tool);
 
-  gimp_draw_tool_add_rectangle (draw_tool, FALSE,
-                                magnify->x,
-                                magnify->y,
-                                magnify->w,
-                                magnify->h);
+  magnify->rectangle =
+    gimp_draw_tool_add_rectangle (draw_tool, FALSE,
+                                  magnify->x,
+                                  magnify->y,
+                                  magnify->w,
+                                  magnify->h);
+}
+
+static void
+gimp_magnify_tool_update_items (GimpMagnifyTool *magnify)
+{
+  if (gimp_draw_tool_is_active (GIMP_DRAW_TOOL (magnify)))
+    {
+      gimp_canvas_rectangle_set (magnify->rectangle,
+                                 magnify->x,
+                                 magnify->y,
+                                 magnify->w,
+                                 magnify->h);
+    }
 }

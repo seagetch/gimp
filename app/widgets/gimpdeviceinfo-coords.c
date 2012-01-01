@@ -33,7 +33,7 @@ static const GimpCoords default_coords = GIMP_COORDS_DEFAULT_VALUES;
 gboolean
 gimp_device_info_get_event_coords (GimpDeviceInfo *info,
                                    GdkWindow      *window,
-                                   GdkEvent       *event,
+                                   const GdkEvent *event,
                                    GimpCoords     *coords)
 {
   gdouble x;
@@ -44,6 +44,31 @@ gimp_device_info_get_event_coords (GimpDeviceInfo *info,
 
       coords->x = x;
       gdk_event_get_axis (event, GDK_AXIS_Y, &coords->y);
+
+      /* translate event coordinates to window coordinates, only
+       * happens if we drag a guide from a ruler
+       */
+      if (event->any.window &&
+          event->any.window != window)
+        {
+          GtkWidget *src_widget;
+          GtkWidget *dest_widget;
+
+          src_widget = gtk_get_event_widget ((GdkEvent *) event);
+          gdk_window_get_user_data (window, (gpointer) &dest_widget);
+
+          if (src_widget && dest_widget)
+            {
+              gint offset_x;
+              gint offset_y;
+
+              gtk_widget_translate_coordinates (src_widget, dest_widget,
+                                                0, 0, &offset_x, &offset_y);
+
+              coords->x += offset_x;
+              coords->y += offset_y;
+            }
+        }
 
       if (gdk_event_get_axis (event, GDK_AXIS_PRESSURE, &coords->pressure))
         {
@@ -153,29 +178,32 @@ gimp_device_info_get_time_coords (GimpDeviceInfo *info,
   if (gdk_device_get_axis (info->device,
                            event->axes, GDK_AXIS_XTILT, &coords->xtilt))
     {
-      coords->xtilt = CLAMP (coords->xtilt, GIMP_COORDS_MIN_TILT,
-                             GIMP_COORDS_MAX_TILT);
+      coords->xtilt = gimp_device_info_map_axis (info,
+                                                 GDK_AXIS_XTILT,
+                                                 coords->xtilt);
     }
 
   if (gdk_device_get_axis (info->device,
                            event->axes, GDK_AXIS_YTILT, &coords->ytilt))
     {
-      coords->ytilt = CLAMP (coords->ytilt, GIMP_COORDS_MIN_TILT,
-                             GIMP_COORDS_MAX_TILT);
+      coords->ytilt = gimp_device_info_map_axis (info,
+                                                 GDK_AXIS_YTILT,
+                                                 coords->ytilt);
     }
 
   if (gdk_device_get_axis (info->device,
                            event->axes, GDK_AXIS_WHEEL, &coords->wheel))
     {
-      coords->wheel = CLAMP (coords->wheel, GIMP_COORDS_MIN_WHEEL,
-                             GIMP_COORDS_MAX_WHEEL);
+      coords->wheel = gimp_device_info_map_axis (info,
+                                                 GDK_AXIS_WHEEL,
+                                                 coords->wheel);
     }
 }
 
 gboolean
 gimp_device_info_get_event_state (GimpDeviceInfo  *info,
                                   GdkWindow       *window,
-                                  GdkEvent        *event,
+                                  const GdkEvent  *event,
                                   GdkModifierType *state)
 {
   if (gdk_event_get_state (event, state))

@@ -8,7 +8,9 @@ SUBDIRS = \
 # they want to use
 TESTS_ENVIRONMENT = \
 	GIMP_TESTING_ABS_TOP_SRCDIR=@abs_top_srcdir@ \
-	GIMP_TESTING_ABS_TOP_BUILDDIR=@abs_top_builddir@
+	GIMP_TESTING_ABS_TOP_BUILDDIR=@abs_top_builddir@ \
+	GIMP_TESTING_PLUGINDIRS=@abs_top_builddir@/plug-ins/common \
+	GIMP_TESTING_PLUGINDIRS_BASENAME_IGNORES=mkgen.pl
 
 # Run tests with xvfb-run if available
 if HAVE_XVFB_RUN
@@ -17,12 +19,17 @@ endif
 
 
 TESTS = \
-	test-core		\
-	test-session-management	\
-	test-tools		\
-	test-ui			\
+	test-core					\
+	test-gimpidtable				\
+	test-gimptilebackendtilemanager			\
+	test-save-and-export				\
+	test-session-2-6-compatibility			\
+	test-session-2-8-compatibility-multi-window	\
+	test-session-2-8-compatibility-single-window	\
+	test-single-window-mode				\
+	test-tools					\
+	test-ui						\
 	test-xcf
-
 
 EXTRA_PROGRAMS = $(TESTS)
 CLEANFILES = $(EXTRA_PROGRAMS)
@@ -31,8 +38,10 @@ $(TESTS): gimpdir-output
 
 noinst_LIBRARIES = libgimpapptestutils.a
 libgimpapptestutils_a_SOURCES = \
-	gimp-app-test-utils.c	\
-	gimp-app-test-utils.h
+	gimp-app-test-utils.c		\
+	gimp-app-test-utils.h		\
+	gimp-test-session-utils.c	\
+	gimp-test-session-utils.h
 
 libgimpbase = $(top_builddir)/libgimpbase/libgimpbase-$(GIMP_API_VERSION).la
 libgimpconfig = $(top_builddir)/libgimpconfig/libgimpconfig-$(GIMP_API_VERSION).la

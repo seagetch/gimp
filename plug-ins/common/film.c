@@ -33,6 +33,7 @@
 
 #define PLUG_IN_PROC        "plug-in-film"
 #define PLUG_IN_BINARY      "film"
+#define PLUG_IN_ROLE        "gimp-film"
 
 /* Maximum number of pictures per film */
 #define MAX_FILM_PICTURES   64
@@ -332,7 +333,7 @@ run (const gchar      *name,
 static gint32
 film (void)
 {
-  gint          width, height, tile_height;
+  gint          width, height;
   guchar       *hole;
   gint          film_height, film_width;
   gint          picture_width, picture_height;
@@ -363,8 +364,6 @@ film (void)
   gimp_context_push ();
   gimp_context_set_foreground (&filmvals.number_color);
   gimp_context_set_background (&filmvals.film_color);
-
-  tile_height = gimp_tile_height ();
 
   if (filmvals.keep_height) /* Search maximum picture height */
     {
@@ -470,7 +469,7 @@ film (void)
       height = gimp_image_height (image_ID_tmp);
       f = ((gdouble) picture_height) / (gdouble) height;
       picture_width = width * f;
-      if (gimp_image_base_type (image_ID_tmp) != GIMP_RGB_IMAGE)
+      if (gimp_image_base_type (image_ID_tmp) != GIMP_RGB)
         gimp_image_convert_rgb (image_ID_tmp);
       gimp_image_scale (image_ID_tmp, picture_width, picture_height);
 
@@ -517,6 +516,7 @@ film (void)
       g_free (layers);
       gimp_image_delete (image_ID_tmp);
     }
+  gimp_progress_update (1.0);
 
   gimp_image_flatten (image_ID_dst);
 
@@ -870,7 +870,7 @@ add_image_list (gboolean   add_box_flag,
   GtkTreeSelection *sel;
   gint              i;
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_box_pack_start (GTK_BOX (hbox), vbox, TRUE, TRUE, 0);
   gtk_widget_show (vbox);
 
@@ -959,13 +959,13 @@ create_selection_tab (GtkWidget *notebook,
   gint32       *image_id_list;
   gint          nimages, j;
 
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 12);
   gtk_notebook_append_page (GTK_NOTEBOOK (notebook), hbox,
                             gtk_label_new_with_mnemonic (_("Selection")));
   gtk_widget_show (hbox);
 
-  vbox2 = gtk_vbox_new (FALSE, 12);
+  vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_box_pack_start (GTK_BOX (hbox), vbox2, FALSE, FALSE, 0);
   gtk_widget_show (vbox2);
 
@@ -976,7 +976,7 @@ create_selection_tab (GtkWidget *notebook,
   gtk_box_pack_start (GTK_BOX (vbox2), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -1008,11 +1008,14 @@ create_selection_tab (GtkWidget *notebook,
                     G_CALLBACK (gimp_int_adjustment_update),
                     &filmvals.film_height);
 
-  g_object_set_data (G_OBJECT (toggle), "inverse_sensitive", spinbutton);
-  g_object_set_data
-    (G_OBJECT (spinbutton), "inverse_sensitive",
-     /* FIXME: eeeeeek */
-     g_list_nth_data (gtk_container_get_children (GTK_CONTAINER (table)), 1));
+  g_object_bind_property (toggle,     "active",
+                          spinbutton, "sensitive",
+                          G_BINDING_SYNC_CREATE | G_BINDING_INVERT_BOOLEAN);
+  g_object_bind_property (toggle,     "active",
+                          /* FIXME: eeeeeek */
+                          g_list_nth_data (gtk_container_get_children (GTK_CONTAINER (table)), 1), "sensitive",
+                          G_BINDING_SYNC_CREATE | G_BINDING_INVERT_BOOLEAN);
+
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (toggle),
                                 filmvals.keep_height);
 
@@ -1035,7 +1038,7 @@ create_selection_tab (GtkWidget *notebook,
   gtk_box_pack_start (GTK_BOX (vbox2), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -1100,7 +1103,8 @@ create_selection_tab (GtkWidget *notebook,
   gtk_box_pack_start (GTK_BOX (hbox), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 
-  hbox = gtk_hbox_new (TRUE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+  gtk_box_set_homogeneous (GTK_BOX (hbox), TRUE);
   gtk_container_add (GTK_CONTAINER (frame), hbox);
 
   /* Get a list of all image names */
@@ -1130,7 +1134,7 @@ create_advanced_tab (GtkWidget *notebook)
                             gtk_label_new_with_mnemonic (_("Ad_vanced")));
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -1221,7 +1225,7 @@ create_advanced_tab (GtkWidget *notebook)
                     G_CALLBACK (gimp_double_adjustment_update),
                     &filmvals.number_height);
 
-  hbox = gtk_hbox_new (FALSE, 0);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_box_pack_end (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -1244,7 +1248,7 @@ film_dialog (gint32 image_ID)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dlg = gimp_dialog_new (_("Filmstrip"), PLUG_IN_BINARY,
+  dlg = gimp_dialog_new (_("Filmstrip"), PLUG_IN_ROLE,
                          NULL, 0,
                          gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -1260,10 +1264,10 @@ film_dialog (gint32 image_ID)
 
   gimp_window_set_transient (GTK_WINDOW (dlg));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dlg))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dlg))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   notebook = gtk_notebook_new ();

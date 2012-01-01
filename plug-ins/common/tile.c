@@ -30,6 +30,7 @@
 
 #define PLUG_IN_PROC   "plug-in-tile"
 #define PLUG_IN_BINARY "tile"
+#define PLUG_IN_ROLE   "gimp-tile"
 
 
 typedef struct
@@ -128,8 +129,6 @@ run (const gchar      *name,
   GimpRunMode       run_mode;
   GimpPDBStatusType status    = GIMP_PDB_SUCCESS;
   gint32            new_layer = -1;
-  gint              width;
-  gint              height;
 
   run_mode = param[0].data.d_int32;
 
@@ -142,9 +141,6 @@ run (const gchar      *name,
   values[0].data.d_status = status;
   values[1].type          = GIMP_PDB_IMAGE;
   values[2].type          = GIMP_PDB_LAYER;
-
-  width  = gimp_drawable_width  (param[2].data.d_drawable);
-  height = gimp_drawable_height (param[2].data.d_drawable);
 
   switch (run_mode)
     {
@@ -339,6 +335,7 @@ tile (gint32  image_id,
             }
         }
     }
+  gimp_progress_update (1.0);
 
   gimp_drawable_update (new_layer->drawable_id,
                         0, 0, new_layer->width, new_layer->height);
@@ -397,7 +394,7 @@ tile_dialog (gint32 image_ID,
   tvals.new_width  = width;
   tvals.new_height = height;
 
-  dlg = gimp_dialog_new (_("Tile"), PLUG_IN_BINARY,
+  dlg = gimp_dialog_new (_("Tile"), PLUG_IN_ROLE,
                          NULL, 0,
                          gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -413,7 +410,7 @@ tile_dialog (gint32 image_ID,
 
   gimp_window_set_transient (GTK_WINDOW (dlg));
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dlg))),
                       vbox, TRUE, TRUE, 0);

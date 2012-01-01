@@ -40,6 +40,7 @@
 #define PLUG_IN_PROC_REMAP  "plug-in-colormap-remap"
 #define PLUG_IN_PROC_SWAP   "plug-in-colormap-swap"
 #define PLUG_IN_BINARY      "colormap-remap"
+#define PLUG_IN_ROLE        "gimp-colormap-remap"
 
 
 /* Declare local functions.
@@ -548,7 +549,7 @@ static gboolean
 remap_button_press (GtkWidget      *widget,
                     GdkEventButton *event)
 {
-  if (event->button == 3 && event->type == GDK_BUTTON_PRESS)
+  if (gdk_event_triggers_context_menu ((GdkEvent *) event))
     return remap_popup_menu (widget, event);
 
   return FALSE;
@@ -592,7 +593,7 @@ remap_dialog (gint32  image_ID,
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("Rearrange Colormap"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Rearrange Colormap"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC_REMAP,
 
@@ -610,10 +611,10 @@ remap_dialog (gint32  image_ID,
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      vbox, TRUE, TRUE, 0);
 
   cmap = gimp_image_get_colormap (image_ID, &ncols);
 
@@ -657,7 +658,7 @@ remap_dialog (gint32  image_ID,
   iconview = gtk_icon_view_new_with_model (GTK_TREE_MODEL (store));
   g_object_unref (store);
 
-  gtk_container_add (GTK_CONTAINER (vbox), iconview);
+  gtk_box_pack_start (GTK_BOX (vbox), iconview, TRUE, TRUE, 0);
 
   gtk_icon_view_set_selection_mode (GTK_ICON_VIEW (iconview),
                                     GTK_SELECTION_SINGLE);

@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in
 
-ACLOCAL_AMFLAGS = -I m4macros
+ACLOCAL_AMFLAGS = -I m4macros ${ACLOCAL_FLAGS}
 
 SUBDIRS = \
 	m4macros	\
@@ -43,7 +43,7 @@ pkgconfig_DATA = \
 
 AUTHORS: authors.xml authors.xsl
 if HAVE_XSLTPROC
-	$(XSLTPROC) -o $(@) authors.xsl $< || rm -f $(@)
+	$(XSLTPROC) -o $(@) $(top_srcdir)/authors.xsl $< || rm -f $(@)
 endif
 
 
@@ -73,9 +73,7 @@ EXTRA_DIST = \
 	authors.xml		\
 	authors.xsl		\
 	config.h.win32		\
-	gimp-zip.in		\
-	gimpdefs.msc		\
-	makefile.msc
+	gimp-zip.in
 
 
 DISTCHECK_CONFIGURE_FLAGS = --enable-gtk-doc

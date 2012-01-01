@@ -31,6 +31,7 @@
         )
 
     (gimp-context-push)
+    (gimp-context-set-defaults)
 
     (gimp-selection-none img)
     (script-fu-util-image-resize-from-layer img logo-layer)
@@ -44,7 +45,7 @@
     (gimp-edit-fill highlight-layer FOREGROUND-FILL)
     (gimp-context-set-background bg-color)
     (gimp-drawable-fill bg-layer BACKGROUND-FILL)
-    (gimp-selection-layer-alpha logo-layer)
+    (gimp-image-select-item img CHANNEL-OP-REPLACE logo-layer)
     (gimp-context-set-background '(0 0 0))
     (gimp-selection-feather img 7.5)
     (gimp-edit-fill shadow-layer BACKGROUND-FILL)

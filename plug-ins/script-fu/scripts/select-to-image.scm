@@ -38,12 +38,13 @@
         )
 
     (gimp-context-push)
+    (gimp-context-set-defaults)
 
     (gimp-image-undo-disable image)
 
     (if (= (car (gimp-selection-is-empty image)) TRUE)
         (begin
-          (gimp-selection-layer-alpha drawable)
+          (gimp-image-select-item image CHANNEL-OP-REPLACE drawable)
           (set! active-selection (car (gimp-selection-save image)))
           (set! from-selection FALSE)
         )
@@ -60,7 +61,7 @@
     (set! new-draw (car (gimp-layer-new new-image
                                         selection-width selection-height
                                         draw-type "Selection" 100 NORMAL-MODE)))
-    (gimp-image-insert-layer new-image new-draw -1 0)
+    (gimp-image-insert-layer new-image new-draw 0 0)
     (gimp-drawable-fill new-draw BACKGROUND-FILL)
 
     (let ((floating-sel (car (gimp-edit-paste new-draw FALSE))))

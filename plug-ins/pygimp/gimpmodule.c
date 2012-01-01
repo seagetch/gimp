@@ -1239,7 +1239,7 @@ pygimp_parasite_find(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s:parasite_find", &name))
         return NULL;
 
-    return pygimp_parasite_new(gimp_parasite_find(name));
+    return pygimp_parasite_new(gimp_get_parasite(name));
 }
 
 static PyObject *
@@ -1251,7 +1251,7 @@ pygimp_parasite_attach(PyObject *self, PyObject *args)
                           &PyGimpParasite_Type, &parasite))
         return NULL;
 
-    if (!gimp_parasite_attach(parasite->para)) {
+    if (!gimp_attach_parasite(parasite->para)) {
         PyErr_Format(pygimp_error, "could not attach parasite '%s'",
                      gimp_parasite_name(parasite->para));
         return NULL;
@@ -1274,7 +1274,7 @@ pygimp_attach_new_parasite(PyObject *self, PyObject *args)
 
     parasite = gimp_parasite_new (name, flags, size, data);
 
-    if (!gimp_parasite_attach (parasite)) {
+    if (!gimp_attach_parasite (parasite)) {
         PyErr_Format(pygimp_error, "could not attach new parasite '%s'", name);
         gimp_parasite_free (parasite);
         return NULL;
@@ -1294,7 +1294,7 @@ pygimp_parasite_detach(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s:parasite_detach", &name))
         return NULL;
 
-    if (!gimp_parasite_detach(name)) {
+    if (!gimp_detach_parasite(name)) {
         PyErr_Format(pygimp_error, "could not detach parasite '%s'", name);
         return NULL;
     }
@@ -1309,7 +1309,9 @@ pygimp_parasite_list(PyObject *self)
     gint num_parasites;
     gchar **parasites;
 
-    if (gimp_parasite_list(&num_parasites, &parasites)) {
+    parasites = gimp_get_parasite_list (&num_parasites);
+
+    if (parasites) {
         PyObject *ret;
         gint i;
 
@@ -1762,6 +1764,8 @@ static struct _PyGimp_Functions pygimp_api_functions = {
     pygimp_image_new,
     &PyGimpDisplay_Type,
     pygimp_display_new,
+    &PyGimpItem_Type,
+    pygimp_item_new,
     &PyGimpDrawable_Type,
     pygimp_drawable_new,
     &PyGimpLayer_Type,
@@ -1888,6 +1892,9 @@ initgimp(void)
     /* export the types used in gimpmodule */
     Py_INCREF(&PyGimpImage_Type);
     PyModule_AddObject(m, "Image", (PyObject *)&PyGimpImage_Type);
+
+    Py_INCREF(&PyGimpItem_Type);
+    PyModule_AddObject(m, "Item", (PyObject *)&PyGimpItem_Type);
 
     Py_INCREF(&PyGimpDrawable_Type);
     PyModule_AddObject(m, "Drawable", (PyObject *)&PyGimpDrawable_Type);

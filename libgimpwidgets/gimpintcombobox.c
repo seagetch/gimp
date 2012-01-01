@@ -129,8 +129,6 @@ gimp_int_combo_box_init (GimpIntComboBox *combo_box)
   gtk_combo_box_set_model (GTK_COMBO_BOX (combo_box), GTK_TREE_MODEL (store));
   g_object_unref (store);
 
-  priv = GIMP_INT_COMBO_BOX_GET_PRIVATE (combo_box);
-
   priv->pixbuf_renderer = cell = gtk_cell_renderer_pixbuf_new ();
   gtk_cell_layout_pack_start (GTK_CELL_LAYOUT (combo_box), cell, FALSE);
   gtk_cell_layout_set_attributes (GTK_CELL_LAYOUT (combo_box), cell,
@@ -268,7 +266,7 @@ gimp_int_combo_box_new_valist (const gchar *first_label,
        label;
        label = va_arg (values, const gchar *), value = va_arg (values, gint))
     {
-      GtkTreeIter  iter;
+      GtkTreeIter  iter = { 0, };
 
       gtk_list_store_append (store, &iter);
       gtk_list_store_set (store, &iter,

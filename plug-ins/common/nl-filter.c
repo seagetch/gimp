@@ -40,6 +40,7 @@
 
 #define PLUG_IN_PROC   "plug-in-nlfilt"
 #define PLUG_IN_BINARY "nl-filter"
+#define PLUG_IN_ROLE   "gimp-nl-filter"
 
 
 typedef struct
@@ -76,17 +77,17 @@ static void nlfilter            (GimpDrawable *drawable,
                                  GimpPreview  *preview);
 static gboolean nlfilter_dialog (GimpDrawable *drawable);
 
-static inline gint nlfiltInit   (gdouble       alpha,
-                                 gdouble       radius,
-                                 FilterType    filter);
+static gint nlfiltInit   (gdouble       alpha,
+                          gdouble       radius,
+                          FilterType    filter);
 
-static inline void nlfiltRow    (guchar       *srclast,
-                                 guchar       *srcthis,
-                                 guchar       *srcnext,
-                                 guchar       *dst,
-                                 gint          width,
-                                 gint          bpp,
-                                 gint          filtno);
+static void nlfiltRow    (guchar       *srclast,
+                          guchar       *srcthis,
+                          guchar       *srcnext,
+                          guchar       *dst,
+                          gint          width,
+                          gint          bpp,
+                          gint          filtno);
 
 const GimpPlugInInfo PLUG_IN_INFO =
 {
@@ -321,14 +322,13 @@ static gint noisevariance;
  * srclast, srcthis, and srcnext from [-bpp] to [width*bpp-1].
  * Beware if you use this code anywhere else!
  */
-static inline void
+static void
 nlfiltRow (guchar *srclast, guchar *srcthis, guchar *srcnext, guchar *dst,
            gint width, gint bpp, gint filtno)
 {
   gint    pf[9];
   guchar *ip0, *ip1, *ip2, *or, *orend;
 
-  or = dst;
   orend = dst + width * bpp;
   ip0 = srclast;
   ip1 = srcthis;
@@ -375,7 +375,7 @@ gint AVEDIV[7 * NOCSVAL];              /* divide by 7 to give average value */
 gint SQUARE[2 * NOCSVAL];              /* scaled square lookup table */
 
 /* Table initialisation function - return alpha range */
-static inline gint
+static gint
 nlfiltInit (gdouble alpha, gdouble radius, FilterType filter)
 {
    gint alpharange;                 /* alpha range value 0 - 3 */
@@ -989,6 +989,7 @@ nlfilter (GimpDrawable *drawable,
     }
   else
     {
+      gimp_progress_update (1.0);
       gimp_drawable_flush (drawable);
       gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);
       gimp_drawable_update (drawable->drawable_id, x1, y1, width, height);
@@ -1012,7 +1013,7 @@ nlfilter_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("NL Filter"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("NL Filter"), PLUG_IN_ROLE,
                          NULL, 0,
                          gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -1028,10 +1029,10 @@ nlfilter_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_drawable_preview_new (drawable, NULL);

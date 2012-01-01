@@ -22,13 +22,14 @@
 
 #include <string.h>
 
+#include <cairo.h>
 #include <gegl.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <pango/pangocairo.h>
 
 #include "libgimpbase/gimpbase.h"
+#include "libgimpcolor/gimpcolor.h"
 #include "libgimpconfig/gimpconfig.h"
-#include "libgimpwidgets/gimpcairo-utils.h"
 
 #include "text-types.h"
 
@@ -382,6 +383,7 @@ gimp_text_layer_new (GimpImage *image,
                      GimpText  *text)
 {
   GimpTextLayer *layer;
+  GimpImageType  type;
 
   g_return_val_if_fail (GIMP_IS_IMAGE (image), NULL);
   g_return_val_if_fail (GIMP_IS_TEXT (text), NULL);
@@ -389,13 +391,12 @@ gimp_text_layer_new (GimpImage *image,
   if (! text->text && ! text->markup)
     return NULL;
 
-  layer = g_object_new (GIMP_TYPE_TEXT_LAYER, NULL);
+  type = gimp_image_base_type_with_alpha (image);
 
-  gimp_drawable_configure (GIMP_DRAWABLE (layer),
-                           image,
-                           0, 0, 1, 1,
-                           gimp_image_base_type_with_alpha (image),
-                           NULL);
+  layer = GIMP_TEXT_LAYER (gimp_drawable_new (GIMP_TYPE_TEXT_LAYER,
+                                              image, NULL,
+                                              0, 0, 1, 1,
+                                              type));
 
   gimp_text_layer_set_text (layer, text);
 
@@ -539,13 +540,16 @@ gimp_item_is_text_layer (GimpItem *item)
 static void
 gimp_text_layer_text_changed (GimpTextLayer *layer)
 {
-  /*   If the text layer was created from a parasite, it's time to
-   *   remove that parasite now.
+  /*  If the text layer was created from a parasite, it's time to
+   *  remove that parasite now.
    */
   if (layer->text_parasite)
     {
-      gimp_parasite_list_remove (GIMP_ITEM (layer)->parasites,
-                                 layer->text_parasite);
+      /*  Don't push an undo because the parasite only exists temporarily
+       *  while the text layer is loaded from XCF.
+       */
+      gimp_item_parasite_detach (GIMP_ITEM (layer), layer->text_parasite,
+                                 FALSE);
       layer->text_parasite = NULL;
     }
 
@@ -559,6 +563,8 @@ gimp_text_layer_render (GimpTextLayer *layer)
   GimpItem       *item;
   GimpImage      *image;
   GimpTextLayout *layout;
+  gdouble         xres;
+  gdouble         yres;
   gint            width;
   gint            height;
 
@@ -577,7 +583,9 @@ gimp_text_layer_render (GimpTextLayer *layer)
       return FALSE;
     }
 
-  layout = gimp_text_layout_new (layer->text, image);
+  gimp_image_get_resolution (image, &xres, &yres);
+
+  layout = gimp_text_layout_new (layer->text, xres, yres);
 
   g_object_freeze_notify (G_OBJECT (drawable));
 
@@ -586,7 +594,7 @@ gimp_text_layer_render (GimpTextLayer *layer)
        height != gimp_item_get_height (item)))
     {
       TileManager *new_tiles = tile_manager_new (width, height,
-                                                 drawable->bytes);
+                                                 gimp_drawable_bytes (drawable));
 
       gimp_drawable_set_tiles (drawable, FALSE, NULL, new_tiles,
                                gimp_drawable_type (drawable));

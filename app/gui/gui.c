@@ -50,7 +50,6 @@
 #include "widgets/gimpcolorselectorpalette.h"
 #include "widgets/gimpcontrollers.h"
 #include "widgets/gimpdevices.h"
-#include "widgets/gimpdevicestatus.h"
 #include "widgets/gimpdialogfactory.h"
 #include "widgets/gimpdnd.h"
 #include "widgets/gimprender.h"
@@ -120,7 +119,6 @@ static void       gui_single_window_mode_notify (GimpGuiConfig      *gui_config,
 static void       gui_tearoff_menus_notify      (GimpGuiConfig      *gui_config,
                                                  GParamSpec         *pspec,
                                                  GtkUIManager       *manager);
-static void       gui_device_change_notify      (Gimp               *gimp);
 
 static void       gui_global_buffer_changed     (Gimp               *gimp);
 
@@ -253,8 +251,8 @@ static gchar *
 gui_sanity_check (void)
 {
 #define GTK_REQUIRED_MAJOR 2
-#define GTK_REQUIRED_MINOR 20
-#define GTK_REQUIRED_MICRO 0
+#define GTK_REQUIRED_MINOR 24
+#define GTK_REQUIRED_MICRO 7
 
   const gchar *mismatch = gtk_check_version (GTK_REQUIRED_MAJOR,
                                              GTK_REQUIRED_MINOR,
@@ -274,6 +272,7 @@ gui_sanity_check (void)
          gtk_major_version, gtk_minor_version, gtk_micro_version,
          GTK_REQUIRED_MAJOR, GTK_REQUIRED_MINOR, GTK_REQUIRED_MICRO);
     }
+
 #undef GTK_REQUIRED_MAJOR
 #undef GTK_REQUIRED_MINOR
 #undef GTK_REQUIRED_MICRO
@@ -412,7 +411,7 @@ gui_restore_callback (Gimp               *gimp,
                     G_CALLBACK (gui_global_buffer_changed),
                     NULL);
 
-  gimp_devices_init (gimp, gui_device_change_notify);
+  gimp_devices_init (gimp);
   gimp_controllers_init (gimp);
   session_init (gimp);
 
@@ -425,6 +424,22 @@ gui_restore_callback (Gimp               *gimp,
   status_callback (NULL, _("Tool Options"), 1.0);
   gimp_tools_restore (gimp);
 }
+
+#ifdef GDK_WINDOWING_QUARTZ
+static void
+gui_add_to_app_menu (GimpUIManager   *ui_manager,
+                     IgeMacMenuGroup *group,
+                     const gchar     *action_path,
+                     const gchar     *label)
+{
+  GtkWidget *item;
+
+  item = gtk_ui_manager_get_widget (GTK_UI_MANAGER (ui_manager), action_path);
+
+  if (GTK_IS_MENU_ITEM (item))
+    ige_mac_menu_add_app_menu_item (group, GTK_MENU_ITEM (item), label);
+}
+#endif
 
 static void
 gui_restore_after_callback (Gimp               *gimp,
@@ -449,7 +464,7 @@ gui_restore_after_callback (Gimp               *gimp,
                                                     "<Image>",
                                                     gimp,
                                                     gui_config->tearoff_menus);
-  gimp_ui_manager_update (image_ui_manager, NULL);
+  gimp_ui_manager_update (image_ui_manager, gimp);
 
 #ifdef GDK_WINDOWING_QUARTZ
   {
@@ -473,28 +488,27 @@ gui_restore_after_callback (Gimp               *gimp,
     /*  the about group  */
     group = ige_mac_menu_add_app_menu_group ();
 
-    item = gtk_ui_manager_get_widget (GTK_UI_MANAGER (image_ui_manager),
-                                      "/dummy-menubar/image-popup/Help/dialogs-about");
-    if (GTK_IS_MENU_ITEM (item))
-      ige_mac_menu_add_app_menu_item (group, GTK_MENU_ITEM (item), _("About GIMP"));
+    gui_add_to_app_menu (image_ui_manager, group,
+                         "/dummy-menubar/image-popup/Help/dialogs-about",
+                         _("About GIMP"));
 
     /*  the preferences group  */
     group = ige_mac_menu_add_app_menu_group ();
 
-    item = gtk_ui_manager_get_widget (GTK_UI_MANAGER (image_ui_manager),
-                                      "/dummy-menubar/image-popup/Edit/Preferences/dialogs-preferences");
-    if (GTK_IS_MENU_ITEM (item))
-      ige_mac_menu_add_app_menu_item (group, GTK_MENU_ITEM (item), NULL);
+#define PREFERENCES "/dummy-menubar/image-popup/Edit/Preferences/"
 
-    item = gtk_ui_manager_get_widget (GTK_UI_MANAGER (image_ui_manager),
-                                      "/dummy-menubar/image-popup/Edit/Preferences/dialogs-keyboard-shortcuts");
-    if (GTK_IS_MENU_ITEM (item))
-      ige_mac_menu_add_app_menu_item (group, GTK_MENU_ITEM (item), NULL);
+    gui_add_to_app_menu (image_ui_manager, group,
+                         PREFERENCES "dialogs-preferences", NULL);
+    gui_add_to_app_menu (image_ui_manager, group,
+                         PREFERENCES "dialogs-input-devices", NULL);
+    gui_add_to_app_menu (image_ui_manager, group,
+                         PREFERENCES "dialogs-keyboard-shortcuts", NULL);
+    gui_add_to_app_menu (image_ui_manager, group,
+                         PREFERENCES "dialogs-module-dialog", NULL);
+    gui_add_to_app_menu (image_ui_manager, group,
+                         PREFERENCES "plug-in-unit-editor", NULL);
 
-    item = gtk_ui_manager_get_widget (GTK_UI_MANAGER (image_ui_manager),
-                                      "/dummy-menubar/image-popup/Edit/Preferences/plug-in-unit-editor");
-    if (GTK_IS_MENU_ITEM (item))
-      ige_mac_menu_add_app_menu_item (group, GTK_MENU_ITEM (item), NULL);
+#undef PREFERENCES
   }
 #endif /* GDK_WINDOWING_QUARTZ */
 
@@ -559,15 +573,6 @@ gui_exit_callback (Gimp     *gimp,
 
       return TRUE; /* stop exit for now */
     }
-
-  /* Since single-window mode is not session managed yet, force
-   * disabling of the mode before exit to prevent loss of
-   * dockables. Make sure to do this _after_ we have asked about
-   * saving unsaved images.
-   */
-  g_object_set (gui_config,
-                "single-window-mode", FALSE,
-                NULL);
 
   gimp->message_handler = GIMP_CONSOLE;
 
@@ -685,24 +690,6 @@ gui_tearoff_menus_notify (GimpGuiConfig *gui_config,
                           GtkUIManager  *manager)
 {
   gtk_ui_manager_set_add_tearoffs (manager, gui_config->tearoff_menus);
-}
-
-static void
-gui_device_change_notify (Gimp *gimp)
-{
-  GimpSessionInfo *session_info;
-
-  session_info = gimp_dialog_factory_find_session_info (gimp_dialog_factory_get_singleton (),
-                                                        "gimp-device-status");
-
-  if (session_info && gimp_session_info_get_widget (session_info))
-    {
-      GtkWidget *device_status;
-
-      device_status = gtk_bin_get_child (GTK_BIN (gimp_session_info_get_widget (session_info)));
-
-      gimp_device_status_update (GIMP_DEVICE_STATUS (device_status));
-    }
 }
 
 static void

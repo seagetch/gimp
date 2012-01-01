@@ -26,9 +26,9 @@
 #include <jpeglib.h>
 #include <jerror.h>
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
 #include <libexif/exif-data.h>
-#endif /* HAVE_EXIF */
+#endif /* HAVE_LIBEXIF */
 
 #ifdef HAVE_LCMS
 #include <lcms.h>
@@ -39,16 +39,24 @@
 
 #include "libgimp/stdplugins-intl.h"
 
-#include "gimpexif.h"
-
 #include "jpeg.h"
 #include "jpeg-icc.h"
 #include "jpeg-settings.h"
 #include "jpeg-load.h"
+#ifdef HAVE_LIBEXIF
+#include "jpeg-exif.h"
+#include "gimpexif.h"
+#endif
 
 
-static void      jpeg_load_resolution  (gint32                         image_ID,
-                                        struct jpeg_decompress_struct *cinfo);
+static void  jpeg_load_resolution           (gint32    image_ID,
+                                             struct jpeg_decompress_struct
+                                                       *cinfo);
+
+#ifdef HAVE_LIBEXIF
+static gboolean  jpeg_load_exif_resolution  (gint32    image_ID,
+                                             ExifData *exif_data);
+#endif
 
 static void      jpeg_load_sanitize_comment (gchar    *comment);
 
@@ -85,8 +93,9 @@ load_image (const gchar  *filename,
   gint             tile_height;
   gint             scanlines;
   gint             i, start, end;
+#ifdef HAVE_LIBEXIF
   gint             orientation = 0;
-
+#endif
 #ifdef HAVE_LCMS
   cmsHTRANSFORM    cmyk_transform = NULL;
 #else
@@ -231,8 +240,6 @@ load_image (const gchar  *filename,
 
       gimp_image_undo_disable (image_ID);
       gimp_image_set_filename (image_ID, filename);
-
-      jpeg_load_resolution (image_ID, &cinfo);
     }
 
   if (preview)
@@ -260,7 +267,7 @@ load_image (const gchar  *filename,
       GString  *comment_buffer = NULL;
       guint8   *profile        = NULL;
       guint     profile_size   = 0;
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
       ExifData *exif_data      = NULL;
 #endif
 
@@ -299,7 +306,7 @@ load_image (const gchar  *filename,
               g_print ("jpeg-load: found EXIF block (%d bytes)\n",
                        (gint) (len - sizeof (JPEG_APP_HEADER_EXIF)));
 #endif
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
               if (! exif_data)
                 exif_data = exif_data_new ();
               /* if there are multiple blocks, their data will be merged */
@@ -307,6 +314,12 @@ load_image (const gchar  *filename,
 #endif
             }
         }
+
+#ifdef HAVE_LIBEXIF
+      if (!jpeg_load_exif_resolution (image_ID, exif_data))
+#endif
+        jpeg_load_resolution (image_ID, &cinfo);
+
       /* if we found any comments, then make a parasite for them */
       if (comment_buffer && comment_buffer->len)
         {
@@ -317,13 +330,13 @@ load_image (const gchar  *filename,
                                         GIMP_PARASITE_PERSISTENT,
                                         strlen (comment_buffer->str) + 1,
                                         comment_buffer->str);
-          gimp_image_parasite_attach (image_ID, parasite);
+          gimp_image_attach_parasite (image_ID, parasite);
           gimp_parasite_free (parasite);
 
           g_string_free (comment_buffer, TRUE);
         }
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
       /* if we found any EXIF block, then attach the metadata to the image */
       if (exif_data)
         {
@@ -387,7 +400,7 @@ load_image (const gchar  *filename,
                                         GIMP_PARASITE_PERSISTENT |
                                         GIMP_PARASITE_UNDOABLE,
                                         profile_size, profile);
-          gimp_image_parasite_attach (image_ID, parasite);
+          gimp_image_attach_parasite (image_ID, parasite);
           gimp_parasite_free (parasite);
         }
 
@@ -469,7 +482,7 @@ load_image (const gchar  *filename,
 
   gimp_image_insert_layer (image_ID, layer_ID, -1, 0);
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
   jpeg_exif_rotate_query (image_ID, orientation);
 #endif
 
@@ -517,6 +530,52 @@ jpeg_load_resolution (gint32                         image_ID,
     }
 }
 
+#ifdef HAVE_LIBEXIF
+
+static gboolean
+jpeg_load_exif_resolution (gint32        image_ID,
+                           ExifData     *exif_data)
+{
+  gboolean success;
+  gdouble xresolution;
+  gdouble yresolution;
+  gint    unit;
+
+  if (!exif_data)
+    return FALSE;
+
+  if (!jpeg_exif_get_resolution (exif_data,
+                                 &xresolution,
+                                 &yresolution,
+                                 &unit))
+    return FALSE;
+
+  switch (unit)
+    {
+    case 2:
+      success = TRUE;
+      break;
+    case 3: /* dots per cm */
+      xresolution *= 2.54;
+      yresolution *= 2.54;
+      gimp_image_set_unit (image_ID, GIMP_UNIT_MM);
+      success = TRUE;
+      break;
+    default:
+      g_warning ("Unknown EXIF resolution unit %d; skipping EXIF resolution.",
+                 unit);
+      success = FALSE;
+    }
+
+  if (success)
+    {
+      gimp_image_set_resolution (image_ID, xresolution, yresolution);
+    }
+
+  return success;
+}
+
+#endif /* HAVE_LIBEXIF */
 
 /*
  * A number of JPEG files have comments written in a local character set
@@ -543,7 +602,7 @@ jpeg_load_sanitize_comment (gchar *comment)
 }
 
 
-#ifdef HAVE_EXIF
+#ifdef HAVE_LIBEXIF
 
 typedef struct
 {
@@ -896,7 +955,7 @@ load_thumbnail_image (const gchar  *filename,
   return image_ID;
 }
 
-#endif /* HAVE_EXIF */
+#endif /* HAVE_LIBEXIF */
 
 
 static gpointer

@@ -32,6 +32,7 @@ pygimp_LTLIBRARIES = gimp.la _gimpenums.la gimpcolor.la _gimpui.la \
 
 gimp_la_SOURCES = \
 	gimpmodule.c		\
+	pygimp-item.c		\
 	pygimp-display.c	\
 	pygimp-drawable.c	\
 	pygimp-image.c		\
@@ -155,8 +156,7 @@ uninstall-local:
 
 EXTRA_DIST = \
 	$(pygimp_DATA)		\
-	$(codegen_files)	\
-	makefile.msc
+	$(codegen_files)
 
 gimpui.c: gimpui.defs gimpui.override gimpcolor-types.defs gimpenums-types.defs
 

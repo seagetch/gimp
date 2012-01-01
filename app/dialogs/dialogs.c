@@ -28,6 +28,11 @@
 
 #include "dialogs-types.h"
 
+#include "config/gimpguiconfig.h"
+
+#include "display/gimpdisplay.h"
+#include "display/gimpdisplayshell.h"
+
 #include "core/gimp.h"
 #include "core/gimpcontext.h"
 #include "core/gimplist.h"
@@ -37,10 +42,14 @@
 #include "widgets/gimphelp-ids.h"
 #include "widgets/gimpmenufactory.h"
 #include "widgets/gimpsessioninfo.h"
+#include "widgets/gimpsessioninfo-aux.h"
+#include "widgets/gimpsessionmanaged.h"
 #include "widgets/gimptoolbox.h"
 
 #include "dialogs.h"
 #include "dialogs-constructors.h"
+
+#include "gimp-log.h"
 
 #include "gimp-intl.h"
 
@@ -49,94 +58,106 @@ GimpContainer *global_recent_docks = NULL;
 
 
 #define FOREIGN(id, singleton, remember_size) \
-  { id             /* identifier       */, \
-    NULL           /* name             */, \
-    NULL           /* blurb            */, \
-    NULL           /* stock_id         */, \
-    NULL           /* help_id          */, \
-    NULL           /* new_func         */, \
-    0              /* view_size        */, \
-    singleton      /* singleton        */, \
-    TRUE           /* session_managed  */, \
-    remember_size  /* remember_size    */, \
-    FALSE          /* remember_if_open */, \
-    TRUE           /* hideable         */, \
-    FALSE          /* dockable         */}
+  { id                     /* identifier       */, \
+    NULL                   /* name             */, \
+    NULL                   /* blurb            */, \
+    NULL                   /* stock_id         */, \
+    NULL                   /* help_id          */, \
+    NULL                   /* new_func         */, \
+    dialogs_restore_dialog /* restore_func     */, \
+    0                      /* view_size        */, \
+    singleton              /* singleton        */, \
+    TRUE                   /* session_managed  */, \
+    remember_size          /* remember_size    */, \
+    FALSE                  /* remember_if_open */, \
+    TRUE                   /* hideable         */, \
+    FALSE                  /* image_window     */, \
+    FALSE                  /* dockable         */}
 
-#define FOREIGN_NOT_HIDEABLE(id, singleton, remember_size) \
-  { id             /* identifier       */, \
-    NULL           /* name             */, \
-    NULL           /* blurb            */, \
-    NULL           /* stock_id         */, \
-    NULL           /* help_id          */, \
-    NULL           /* new_func         */, \
-    0              /* view_size        */, \
-    singleton      /* singleton        */, \
-    TRUE           /* session_managed  */, \
-    remember_size  /* remember_size    */, \
-    FALSE          /* remember_if_open */, \
-    FALSE          /* hideable         */, \
-    FALSE          /* dockable         */}
+#define IMAGE_WINDOW(id, singleton, remember_size) \
+  { id                     /* identifier       */, \
+    NULL                   /* name             */, \
+    NULL                   /* blurb            */, \
+    NULL                   /* stock_id         */, \
+    NULL                   /* help_id          */, \
+    NULL                   /* new_func         */, \
+    dialogs_restore_window /* restore_func     */, \
+    0                      /* view_size        */, \
+    singleton              /* singleton        */, \
+    TRUE                   /* session_managed  */, \
+    remember_size          /* remember_size    */, \
+    TRUE                   /* remember_if_open */, \
+    FALSE                  /* hideable         */, \
+    TRUE                   /* image_window     */, \
+    FALSE                  /* dockable         */}
 
 #define TOPLEVEL(id, new_func, singleton, session_managed, remember_size) \
-  { id               /* identifier       */, \
-    NULL             /* name             */, \
-    NULL             /* blurb            */, \
-    NULL             /* stock_id         */, \
-    NULL             /* help_id          */, \
-    new_func         /* new_func         */, \
-    0                /* view_size        */, \
-    singleton        /* singleton        */, \
-    session_managed  /* session_managed  */, \
-    remember_size    /* remember_size    */, \
-    FALSE            /* remember_if_open */, \
-    TRUE             /* hideable         */, \
-    FALSE            /* dockable         */}
+  { id                     /* identifier       */, \
+    NULL                   /* name             */, \
+    NULL                   /* blurb            */, \
+    NULL                   /* stock_id         */, \
+    NULL                   /* help_id          */, \
+    new_func               /* new_func         */, \
+    dialogs_restore_dialog /* restore_func     */, \
+    0                      /* view_size        */, \
+    singleton              /* singleton        */, \
+    session_managed        /* session_managed  */, \
+    remember_size          /* remember_size    */, \
+    FALSE                  /* remember_if_open */, \
+    TRUE                   /* hideable         */, \
+    FALSE                  /* image_window     */, \
+    FALSE                  /* dockable         */}
 
 #define DOCKABLE(id, name, blurb, stock_id, help_id, new_func, view_size, singleton) \
-  { id         /* identifier       */, \
-    name       /* name             */, \
-    blurb      /* blurb            */, \
-    stock_id   /* stock_id         */, \
-    help_id    /* help_id          */, \
-    new_func   /* new_func         */, \
-    view_size  /* view_size        */, \
-    singleton  /* singleton        */, \
-    FALSE      /* session_managed  */, \
-    FALSE      /* remember_size    */, \
-    TRUE       /* remember_if_open */, \
-    TRUE       /* hideable         */, \
-    TRUE       /* dockable         */}
+  { id                     /* identifier       */, \
+    name                   /* name             */, \
+    blurb                  /* blurb            */, \
+    stock_id               /* stock_id         */, \
+    help_id                /* help_id          */, \
+    new_func               /* new_func         */, \
+    NULL                   /* restore_func     */, \
+    view_size              /* view_size        */, \
+    singleton              /* singleton        */, \
+    FALSE                  /* session_managed  */, \
+    FALSE                  /* remember_size    */, \
+    TRUE                   /* remember_if_open */, \
+    TRUE                   /* hideable         */, \
+    FALSE                  /* image_window     */, \
+    TRUE                   /* dockable         */}
 
 #define DOCK(id, new_func) \
-  { id         /* identifier       */, \
-    NULL       /* name             */, \
-    NULL       /* blurb            */, \
-    NULL       /* stock_id         */, \
-    NULL       /* help_id          */, \
-    new_func   /* new_func         */, \
-    0          /* view_size        */, \
-    FALSE      /* singleton        */, \
-    FALSE      /* session_managed  */, \
-    FALSE      /* remember_size    */, \
-    FALSE      /* remember_if_open */, \
-    TRUE       /* hideable         */, \
-    FALSE      /* dockable         */}
+  { id                     /* identifier       */, \
+    NULL                   /* name             */, \
+    NULL                   /* blurb            */, \
+    NULL                   /* stock_id         */, \
+    NULL                   /* help_id          */, \
+    new_func               /* new_func         */, \
+    dialogs_restore_dialog /* restore_func     */, \
+    0                      /* view_size        */, \
+    FALSE                  /* singleton        */, \
+    FALSE                  /* session_managed  */, \
+    FALSE                  /* remember_size    */, \
+    FALSE                  /* remember_if_open */, \
+    TRUE                   /* hideable         */, \
+    FALSE                  /* image_window     */, \
+    FALSE                  /* dockable         */}
 
 #define DOCK_WINDOW(id, new_func) \
-  { id         /* identifier       */, \
-    NULL       /* name             */, \
-    NULL       /* blurb            */, \
-    NULL       /* stock_id         */, \
-    NULL       /* help_id          */, \
-    new_func   /* new_func         */, \
-    0          /* view_size        */, \
-    FALSE      /* singleton        */, \
-    TRUE       /* session_managed  */, \
-    TRUE       /* remember_size    */, \
-    TRUE       /* remember_if_open */, \
-    TRUE       /* hideable         */, \
-    FALSE      /* dockable         */}
+  { id                     /* identifier       */, \
+    NULL                   /* name             */, \
+    NULL                   /* blurb            */, \
+    NULL                   /* stock_id         */, \
+    NULL                   /* help_id          */, \
+    new_func               /* new_func         */, \
+    dialogs_restore_dialog /* restore_func     */, \
+    0                      /* view_size        */, \
+    FALSE                  /* singleton        */, \
+    TRUE                   /* session_managed  */, \
+    TRUE                   /* remember_size    */, \
+    TRUE                   /* remember_if_open */, \
+    TRUE                   /* hideable         */, \
+    FALSE                  /* image_window     */, \
+    FALSE                  /* dockable         */}
 
 #define LISTGRID(id, name, blurb, stock_id, help_id, view_size) \
   { "gimp-"#id"-list"             /* identifier       */,  \
@@ -145,12 +166,14 @@ GimpContainer *global_recent_docks = NULL;
     stock_id                      /* stock_id         */,  \
     help_id                       /* help_id          */,  \
     dialogs_##id##_list_view_new  /* new_func         */,  \
+    NULL                          /* restore_func     */,  \
     view_size                     /* view_size        */,  \
     FALSE                         /* singleton        */,  \
     FALSE                         /* session_managed  */,  \
     FALSE                         /* remember_size    */,  \
     TRUE                          /* remember_if_open */,  \
     TRUE                          /* hideable         */,  \
+    FALSE                         /* image_window     */,  \
     TRUE                          /* dockable         */}, \
   { "gimp-"#id"-grid"             /* identifier       */,  \
     name                          /* name             */,  \
@@ -158,12 +181,14 @@ GimpContainer *global_recent_docks = NULL;
     stock_id                      /* stock_id         */,  \
     help_id                       /* help_id          */,  \
     dialogs_##id##_grid_view_new  /* new_func         */,  \
+    NULL                          /* restore_func     */,  \
     view_size                     /* view_size        */,  \
     FALSE                         /* singleton        */,  \
     FALSE                         /* session_managed  */,  \
     FALSE                         /* remember_size    */,  \
     TRUE                          /* remember_if_open */,  \
     TRUE                          /* hideable         */,  \
+    FALSE                         /* image_window     */,  \
     TRUE                          /* dockable         */}
 
 #define LIST(id, new_func, name, blurb, stock_id, help_id, view_size) \
@@ -173,13 +198,23 @@ GimpContainer *global_recent_docks = NULL;
     stock_id                            /* stock_id         */, \
     help_id                             /* help_id          */, \
     dialogs_##new_func##_list_view_new  /* new_func         */, \
+    NULL                                /* restore_func     */, \
     view_size                           /* view_size        */, \
     FALSE                               /* singleton        */, \
     FALSE                               /* session_managed  */, \
     FALSE                               /* remember_size    */, \
     TRUE                                /* remember_if_open */, \
     TRUE                                /* hideable         */, \
+    FALSE                               /* image_window     */, \
     TRUE                                /* dockable         */}
+
+
+static GtkWidget * dialogs_restore_dialog (GimpDialogFactory *factory,
+                                           GdkScreen         *screen,
+                                           GimpSessionInfo   *info);
+static GtkWidget * dialogs_restore_window (GimpDialogFactory *factory,
+                                           GdkScreen         *screen,
+                                           GimpSessionInfo   *info);
 
 
 static const GimpDialogFactoryEntry entries[] =
@@ -371,11 +406,77 @@ static const GimpDialogFactoryEntry entries[] =
             dialogs_tool_preset_editor_get, 0, TRUE),
 
   /*  image windows  */
-  FOREIGN_NOT_HIDEABLE ("gimp-empty-image-window",
-                        TRUE, TRUE),
-  FOREIGN_NOT_HIDEABLE ("gimp-single-image-window",
-                        TRUE, TRUE)
+  IMAGE_WINDOW ("gimp-empty-image-window",
+                TRUE, TRUE),
+  IMAGE_WINDOW ("gimp-single-image-window",
+                TRUE, TRUE)
 };
+
+/**
+ * dialogs_restore_dialog:
+ * @factory:
+ * @screen:
+ * @info:
+ *
+ * Creates a top level widget based on the given session info object
+ * in which other widgets later can be be put, typically also restored
+ * from the same session info object.
+ *
+ * Returns:
+ **/
+static GtkWidget *
+dialogs_restore_dialog (GimpDialogFactory *factory,
+                        GdkScreen         *screen,
+                        GimpSessionInfo   *info)
+{
+  GtkWidget      *dialog;
+  GimpCoreConfig *config = gimp_dialog_factory_get_context (factory)->gimp->config;
+
+  GIMP_LOG (DIALOG_FACTORY, "restoring toplevel \"%s\" (info %p)",
+            gimp_session_info_get_factory_entry (info)->identifier,
+            info);
+
+  dialog =
+    gimp_dialog_factory_dialog_new (factory, screen,
+                                    NULL /*ui_manager*/,
+                                    gimp_session_info_get_factory_entry (info)->identifier,
+                                    gimp_session_info_get_factory_entry (info)->view_size,
+                                    ! GIMP_GUI_CONFIG (config)->hide_docks);
+
+  g_object_set_data (G_OBJECT (dialog), GIMP_DIALOG_VISIBILITY_KEY,
+                     GINT_TO_POINTER (GIMP_GUI_CONFIG (config)->hide_docks ?
+                                      GIMP_DIALOG_VISIBILITY_HIDDEN :
+                                      GIMP_DIALOG_VISIBILITY_VISIBLE));
+
+  return dialog;
+}
+
+/**
+ * dialogs_restore_window:
+ * @factory:
+ * @screen:
+ * @info:
+ *
+ * "restores" the image window. We don't really restore anything since
+ * the image window is created earlier, so we just look for and return
+ * the already-created image window.
+ *
+ * Returns: 
+ **/
+static GtkWidget *
+dialogs_restore_window (GimpDialogFactory *factory,
+                        GdkScreen         *screen,
+                        GimpSessionInfo   *info)
+{
+  Gimp             *gimp    = gimp_dialog_factory_get_context (factory)->gimp;
+  GimpDisplay      *display = GIMP_DISPLAY (gimp_get_empty_display (gimp));
+  GimpDisplayShell *shell   = gimp_display_get_shell (display);
+  GtkWidget        *dialog;
+
+  dialog = GTK_WIDGET (gimp_display_shell_get_window (shell));
+
+  return dialog;
+}
 
 
 /*  public functions  */
@@ -403,12 +504,14 @@ dialogs_init (Gimp            *gimp,
                                         entries[i].stock_id,
                                         entries[i].help_id,
                                         entries[i].new_func,
+                                        entries[i].restore_func,
                                         entries[i].view_size,
                                         entries[i].singleton,
                                         entries[i].session_managed,
                                         entries[i].remember_size,
                                         entries[i].remember_if_open,
                                         entries[i].hideable,
+                                        entries[i].image_window,
                                         entries[i].dockable);
 
   global_recent_docks = gimp_list_new (GIMP_TYPE_SESSION_INFO, FALSE);
@@ -454,6 +557,18 @@ dialogs_ensure_factory_entry_on_recent_dock (GimpSessionInfo *info)
     }
 }
 
+static char *
+dialogs_get_dockrc_filename (void)
+{
+  const gchar *basename;
+
+  basename = g_getenv ("GIMP_TESTING_DOCKRC_NAME");
+  if (! basename)
+    basename = "dockrc";
+
+  return gimp_personal_rc_file (basename);
+}
+
 void
 dialogs_load_recent_docks (Gimp *gimp)
 {
@@ -462,7 +577,7 @@ dialogs_load_recent_docks (Gimp *gimp)
 
   g_return_if_fail (GIMP_IS_GIMP (gimp));
 
-  filename = gimp_personal_rc_file ("dockrc");
+  filename = dialogs_get_dockrc_filename ();
 
   if (gimp->be_verbose)
     g_print ("Parsing '%s'\n", gimp_filename_to_utf8 (filename));
@@ -497,7 +612,7 @@ dialogs_save_recent_docks (Gimp *gimp)
 
   g_return_if_fail (GIMP_IS_GIMP (gimp));
 
-  filename = gimp_personal_rc_file ("dockrc");
+  filename = dialogs_get_dockrc_filename ();
 
   if (gimp->be_verbose)
     g_print ("Writing '%s'\n", gimp_filename_to_utf8 (filename));

@@ -19,6 +19,8 @@
 
 #include <string.h>
 
+/* FIXME: #undef GTK_DISABLE_DEPRECATED */
+#undef GTK_DISABLE_DEPRECATED
 #include <gtk/gtk.h>
 
 #include "libgimpcolor/gimpcolor.h"
@@ -29,6 +31,7 @@
 #include "gimpwidgetstypes.h"
 
 #undef GIMP_DISABLE_DEPRECATED
+#include "gimpoldwidgets.h"
 #include "gimppropwidgets.h"
 #include "gimpunitmenu.h"
 
@@ -556,10 +559,10 @@ gimp_prop_boolean_combo_box_new (GObject     *config,
                 property_name, &value,
                 NULL);
 
-  combo_box = gtk_combo_box_new_text ();
+  combo_box = gtk_combo_box_text_new ();
 
-  gtk_combo_box_append_text (GTK_COMBO_BOX (combo_box), true_text);
-  gtk_combo_box_append_text (GTK_COMBO_BOX (combo_box), false_text);
+  gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo_box), true_text);
+  gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo_box), false_text);
 
   gtk_combo_box_set_active (GTK_COMBO_BOX (combo_box), value ? 0 : 1);
 

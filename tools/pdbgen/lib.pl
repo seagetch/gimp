@@ -17,7 +17,8 @@
 package Gimp::CodeGen::lib;
 
 # Generates all the libgimp C wrappers (used by plugins)
-$destdir = "$main::destdir/libgimp";
+$destdir  = "$main::destdir/libgimp";
+$builddir = "$main::builddir/libgimp";
 
 *arg_types = \%Gimp::CodeGen::pdb::arg_types;
 *arg_parse = \&Gimp::CodeGen::pdb::arg_parse;
@@ -508,12 +509,16 @@ LGPL
     # We generate two files, a _pdb.h file with prototypes for all
     # the functions we make, and a _pdb.c file for the actual implementation
     while (my($group, $out) = each %out) {
-        my $hname = "gimp${group}pdb.h"; 
-        my $cname = "gimp${group}pdb.c"; 
+        my $hname = "${group}pdb.h"; 
+        my $cname = "${group}pdb.c";
+        if ($group ne 'gimp') {
+	    $hname = "gimp${hname}"; 
+	    $cname = "gimp${cname}";
+        }
         $hname =~ s/_//g; $hname =~ s/pdb\./_pdb./;
         $cname =~ s/_//g; $cname =~ s/pdb\./_pdb./;
-	my $hfile = "$destdir/$hname$FILE_EXT";
-	my $cfile = "$destdir/$cname$FILE_EXT";
+	my $hfile = "$builddir/$hname$FILE_EXT";
+	my $cfile = "$builddir/$cname$FILE_EXT";
 
 	my $extra = {};
 	if (exists $main::grp{$group}->{extra}->{lib}) {
@@ -626,6 +631,10 @@ LGPL
         print HFILE $lgpl_bottom;
  	my $guard = "__GIMP_\U$group\E_PDB_H__";
 	print HFILE <<HEADER;
+#if !defined (__GIMP_H_INSIDE__) && !defined (GIMP_COMPILATION)
+#error "Only <libgimp/gimp.h> can be included directly."
+#endif
+
 #ifndef $guard
 #define $guard
 
@@ -642,7 +651,7 @@ G_END_DECLS
 #endif /* $guard */
 HEADER
 	close HFILE;
-	&write_file($hfile);
+	&write_file($hfile, $destdir);
 
 	open CFILE, "> $cfile" or die "Can't open $cfile: $!\n";
         print CFILE $lgpl_top;
@@ -672,24 +681,31 @@ SECTION_DOCS
 	print CFILE "\n", $extra->{code} if exists $extra->{code};
 	print CFILE $out->{code};
 	close CFILE;
-	&write_file($cfile);
+	&write_file($cfile, $destdir);
     }
 
     if (! $ENV{PDBGEN_GROUPS}) {
-        my $gimp_pdb = "$destdir/gimp_pdb.h$FILE_EXT";
-	open PFILE, "> $gimp_pdb" or die "Can't open $gimp_pdb: $!\n";
+        my $gimp_pdb_headers = "$builddir/gimp_pdb_headers.h$FILE_EXT";
+	open PFILE, "> $gimp_pdb_headers" or die "Can't open $gimp_pdb_headers: $!\n";
         print PFILE $lgpl_top;
-        print PFILE " * gimp_pdb.h\n";
+        print PFILE " * gimp_pdb_headers.h\n";
         print PFILE $lgpl_bottom;
-	my $guard = "__GIMP_PDB_H__";
+	my $guard = "__GIMP_PDB_HEADERS_H__";
 	print PFILE <<HEADER;
+#if !defined (__GIMP_H_INSIDE__) && !defined (GIMP_COMPILATION)
+#error "Only <libgimp/gimp.h> can be included directly."
+#endif
+
 #ifndef $guard
 #define $guard
 
 HEADER
 	my @groups;
 	foreach $group (keys %out) {
-	    my $hname = "gimp${group}pdb.h";
+	    my $hname = "${group}pdb.h";
+	    if ($group ne 'gimp') {
+		$hname = "gimp${hname}";
+	    }
 	    $hname =~ s/_//g; $hname =~ s/pdb\./_pdb./;
 	    push @groups, $hname;
 	}
@@ -701,6 +717,6 @@ HEADER
 #endif /* $guard */
 HEADER
 	close PFILE;
-	&write_file($gimp_pdb);
+	&write_file($gimp_pdb_headers, $destdir);
     }
 }

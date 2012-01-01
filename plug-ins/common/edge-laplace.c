@@ -30,6 +30,7 @@
 
 #define PLUG_IN_PROC   "plug-in-laplace"
 #define PLUG_IN_BINARY "edge-laplace"
+#define PLUG_IN_ROLE   "gimp-edge-laplace"
 
 
 /* Declare local functions.
@@ -368,6 +369,7 @@ laplace (GimpDrawable *drawable)
         gimp_progress_update ((gdouble) row / (gdouble) (y2 - y1));
     }
 
+  gimp_progress_update (1.0);
   /*  update the laplaced region  */
   gimp_drawable_flush (drawable);
   gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);

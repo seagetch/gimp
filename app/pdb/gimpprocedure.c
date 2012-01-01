@@ -23,7 +23,6 @@
 #include <gegl.h>
 
 #include "libgimpbase/gimpbase.h"
-#include "libgimpcolor/gimpcolor.h"
 
 #include "pdb-types.h"
 
@@ -524,8 +523,7 @@ gimp_procedure_add_argument (GimpProcedure *procedure,
 
   procedure->args[procedure->num_args] = pspec;
 
-  g_param_spec_ref (pspec);
-  g_param_spec_sink (pspec);
+  g_param_spec_ref_sink (pspec);
 
   procedure->num_args++;
 }
@@ -542,8 +540,7 @@ gimp_procedure_add_return_value (GimpProcedure *procedure,
 
   procedure->values[procedure->num_values] = pspec;
 
-  g_param_spec_ref (pspec);
-  g_param_spec_sink (pspec);
+  g_param_spec_ref_sink (pspec);
 
   procedure->num_values++;
 }
@@ -580,6 +577,14 @@ gimp_procedure_create_override (GimpProcedure   *procedure,
   return new_procedure;
 }
 
+gint
+gimp_procedure_name_compare (GimpProcedure *proc1,
+                             GimpProcedure *proc2)
+{
+  /* Assume there always is a name, don't bother with NULL checks */
+  return strcmp (proc1->original_name,
+                 proc2->original_name);
+}
 
 /*  private functions  */
 

@@ -206,36 +206,43 @@ gimp_canvas_rectangle_transform (GimpCanvasItem   *item,
                                  gdouble          *h)
 {
   GimpCanvasRectanglePrivate *private = GET_PRIVATE (item);
+  gdouble                     x1, y1;
+  gdouble                     x2, y2;
 
   gimp_display_shell_transform_xy_f (shell,
                                      MIN (private->x,
                                           private->x + private->width),
                                      MIN (private->y,
                                           private->y + private->height),
-                                     x, y);
+                                     &x1, &y1);
   gimp_display_shell_transform_xy_f (shell,
                                      MAX (private->x,
                                           private->x + private->width),
                                      MAX (private->y,
                                           private->y + private->height),
-                                     w, h);
+                                     &x2, &y2);
 
-  *w -= *x;
-  *h -= *y;
+  x1 = floor (x1);
+  y1 = floor (y1);
+  x2 = ceil (x2);
+  y2 = ceil (y2);
 
   if (private->filled)
     {
-      *x = floor (*x);
-      *y = floor (*y);
-      *w = ceil (*w);
-      *h = ceil (*h);
+      *x = x1;
+      *y = y1;
+      *w = x2 - x1;
+      *h = y2 - y1;
     }
   else
     {
-      *x = floor (*x) + 0.5;
-      *y = floor (*y) + 0.5;
-      *w = ceil (*w) - 1.0;
-      *h = ceil (*h) - 1.0;
+      *x = x1 + 0.5;
+      *y = y1 + 0.5;
+      *w = x2 - 0.5 - *x;
+      *h = y2 - 0.5 - *y;
+
+      *w = MAX (0.0, *w);
+      *h = MAX (0.0, *h);
     }
 }
 
@@ -263,7 +270,7 @@ gimp_canvas_rectangle_get_extents (GimpCanvasItem   *item,
                                    GimpDisplayShell *shell)
 {
   GimpCanvasRectanglePrivate *private = GET_PRIVATE (item);
-  GdkRectangle                rectangle;
+  cairo_rectangle_int_t       rectangle;
   gdouble                     x, y;
   gdouble                     w, h;
 
@@ -276,7 +283,7 @@ gimp_canvas_rectangle_get_extents (GimpCanvasItem   *item,
       rectangle.width  = ceil (w + 2.0);
       rectangle.height = ceil (h + 2.0);
 
-      return cairo_region_create_rectangle ((cairo_rectangle_int_t *) &rectangle);
+      return cairo_region_create_rectangle (&rectangle);
     }
   else if (w > 64 && h > 64)
     {
@@ -288,12 +295,12 @@ gimp_canvas_rectangle_get_extents (GimpCanvasItem   *item,
       rectangle.width  = 3.0;
       rectangle.height = ceil (h + 3.0);
 
-      region = cairo_region_create_rectangle ((cairo_rectangle_int_t *) &rectangle);
+      region = cairo_region_create_rectangle (&rectangle);
 
       /* right */
       rectangle.x      = floor (x + w - 1.5);
 
-      cairo_region_union_rectangle (region, (cairo_rectangle_int_t *) &rectangle);
+      cairo_region_union_rectangle (region, &rectangle);
 
       /* top */
       rectangle.x      = floor (x - 1.5);
@@ -301,12 +308,12 @@ gimp_canvas_rectangle_get_extents (GimpCanvasItem   *item,
       rectangle.width  = ceil (w + 3.0);
       rectangle.height = 3.0;
 
-      cairo_region_union_rectangle (region, (cairo_rectangle_int_t *) &rectangle);
+      cairo_region_union_rectangle (region, &rectangle);
 
       /* bottom */
       rectangle.y      = floor (y + h - 1.5);
 
-      cairo_region_union_rectangle (region, (cairo_rectangle_int_t *) &rectangle);
+      cairo_region_union_rectangle (region, &rectangle);
 
       return region;
     }
@@ -317,7 +324,7 @@ gimp_canvas_rectangle_get_extents (GimpCanvasItem   *item,
       rectangle.width  = ceil (w + 3.0);
       rectangle.height = ceil (h + 3.0);
 
-      return cairo_region_create_rectangle ((cairo_rectangle_int_t *) &rectangle);
+      return cairo_region_create_rectangle (&rectangle);
     }
 }
 
@@ -339,4 +346,25 @@ gimp_canvas_rectangle_new (GimpDisplayShell *shell,
                        "height", height,
                        "filled", filled,
                        NULL);
+}
+
+void
+gimp_canvas_rectangle_set (GimpCanvasItem *rectangle,
+                           gdouble         x,
+                           gdouble         y,
+                           gdouble         width,
+                           gdouble         height)
+{
+  g_return_if_fail (GIMP_IS_CANVAS_RECTANGLE (rectangle));
+
+  gimp_canvas_item_begin_change (rectangle);
+
+  g_object_set (rectangle,
+                "x",      x,
+                "y",      y,
+                "width",  width,
+                "height", height,
+                NULL);
+
+  gimp_canvas_item_end_change (rectangle);
 }

@@ -49,8 +49,6 @@ struct _GimpDisplayShell
 {
   GtkBox             parent_instance;
 
-  /* --- cacheline 2 boundary (128 bytes) was 20 bytes ago --- */
-
   GimpDisplay       *display;
 
   GimpUIManager     *popup_manager;
@@ -63,8 +61,6 @@ struct _GimpDisplayShell
   gboolean           snap_to_grid;     /*  should the grid be snapped to?     */
   gboolean           snap_to_canvas;   /*  should the canvas be snapped to?   */
   gboolean           snap_to_vectors;  /*  should the active path be snapped  */
-
-  /* --- cacheline 3 boundary (192 bytes) --- */
 
   GimpUnit           unit;
 
@@ -83,25 +79,12 @@ struct _GimpDisplayShell
   gint               x_dest_inc;
   gint               y_dest_inc;
 
-  /* --- cacheline 4 boundary (256 bytes) --- */
-
   GimpZoomModel     *zoom;
 
   gdouble            last_scale;       /*  scale used when reverting zoom     */
   guint              last_scale_time;  /*  time when last_scale was set       */
   gint               last_offset_x;    /*  offsets used when reverting zoom   */
   gint               last_offset_y;
-
-  guint32            last_motion_time; /*  previous time of a forwarded motion event  */
-  guint32            last_read_motion_time;
-  gdouble            last_motion_delta_time;
-  gdouble            last_motion_delta_x;
-  gdouble            last_motion_delta_y;
-  gdouble            last_motion_distance;
-
-  /* --- cacheline 5 boundary (320 bytes) --- */
-
-  GimpCoords         last_coords;      /* last motion event                   */
 
   gdouble            other_scale;      /*  scale factor entered in Zoom->Other*/
 
@@ -137,11 +120,13 @@ struct _GimpDisplayShell
 
   GimpCanvasItem    *canvas_item;      /*  items drawn on the canvas          */
   GimpCanvasItem    *passe_partout;    /*  item for the highlight             */
+  GimpCanvasItem    *preview_items;    /*  item for previews                  */
   GimpCanvasItem    *vectors;          /*  item proxy of vectors              */
   GimpCanvasItem    *grid;             /*  item proxy of the grid             */
   GimpCanvasItem    *guides;           /*  item proxies of guides             */
   GimpCanvasItem    *sample_points;    /*  item proxies of sample points      */
   GimpCanvasItem    *layer_boundary;   /*  item for the layer boundary        */
+  GimpCanvasItem    *tool_items;       /*  tools items, below the cursor      */
   GimpCanvasItem    *cursor;           /*  item for the software cursor       */
 
   guint              title_idle_id;    /*  title update idle ID               */
@@ -155,11 +140,12 @@ struct _GimpDisplayShell
   guint              fill_idle_id;     /*  display_shell_fill() idle ID       */
 
   GimpCursorFormat   cursor_format;    /*  Currently used cursor format       */
+  GimpHandedness     cursor_handedness;/*  Handedness for cursor display      */
   GimpCursorType     current_cursor;   /*  Currently installed main cursor    */
   GimpToolCursorType tool_cursor;      /*  Current Tool cursor                */
   GimpCursorModifier cursor_modifier;  /*  Cursor modifier (plus, minus, ...) */
 
-  GimpCursorType     override_cursor;  /*  Overriding cursor                 */
+  GimpCursorType     override_cursor;  /*  Overriding cursor                  */
   gboolean           using_override_cursor;
   gboolean           draw_cursor;      /* should we draw software cursor ?    */
 
@@ -179,11 +165,16 @@ struct _GimpDisplayShell
   GimpTreeHandler   *vectors_visible_handler;
 
   gboolean           zoom_on_resize;
-  gboolean           show_transform_preview;
 
   gboolean           size_allocate_from_configure_event;
 
   /*  the state of gimp_display_shell_tool_events()  */
+  gboolean           pointer_grabbed;
+  guint32            pointer_grab_time;
+
+  gboolean           keyboard_grabbed;
+  guint32            keyboard_grab_time;
+
   gboolean           space_pressed;
   gboolean           space_release_pending;
   const gchar       *space_shaded_tool;
@@ -193,20 +184,12 @@ struct _GimpDisplayShell
   gint               scroll_start_y;
   gpointer           scroll_info;
 
-  gboolean           button_press_before_focus;
-
   GimpDrawable      *mask;
   GimpRGB            mask_color;
 
-  GArray            *event_history;
-  GArray            *event_queue;
-  gboolean           event_delay;      /* TRUE if theres an unsent event in
-                                          the history buffer                  */
+  GimpMotionBuffer  *motion_buffer;
 
   GQueue            *zoom_focus_pointer_queue;
-
-  gint               event_delay_timeout;
-  GdkModifierType    last_active_state;
 };
 
 struct _GimpDisplayShellClass

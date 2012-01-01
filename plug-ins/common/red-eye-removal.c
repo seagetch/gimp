@@ -75,6 +75,7 @@ static void     redeye_inner_loop     (const guchar     *src,
 
 #define PLUG_IN_PROC    "plug-in-red-eye-removal"
 #define PLUG_IN_BINARY  "red-eye-removal"
+#define PLUG_IN_ROLE    "gimp-red-eye-removal"
 
 
 const GimpPlugInInfo PLUG_IN_INFO =
@@ -138,7 +139,7 @@ dialog (gint32        image_id,
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Red Eye Removal"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Red Eye Removal"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
                             GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
@@ -152,10 +153,10 @@ dialog (gint32        image_id,
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_zoom_preview_new (drawable);
@@ -323,6 +324,7 @@ remove_redeye (GimpDrawable *drawable)
         gimp_progress_update ((gdouble) progress / (gdouble) max_progress);
     }
 
+  gimp_progress_update (1.0);
   gimp_drawable_flush (drawable);
   gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);
   gimp_drawable_update (drawable->drawable_id, x, y, width, height);

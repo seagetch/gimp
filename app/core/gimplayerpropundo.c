@@ -28,13 +28,11 @@
 #include "gimplayerpropundo.h"
 
 
-static GObject * gimp_layer_prop_undo_constructor (GType                  type,
-                                                   guint                  n_params,
-                                                   GObjectConstructParam *params);
+static void   gimp_layer_prop_undo_constructed (GObject             *object);
 
-static void      gimp_layer_prop_undo_pop         (GimpUndo              *undo,
-                                                   GimpUndoMode           undo_mode,
-                                                   GimpUndoAccumulator   *accum);
+static void   gimp_layer_prop_undo_pop         (GimpUndo            *undo,
+                                                GimpUndoMode         undo_mode,
+                                                GimpUndoAccumulator *accum);
 
 
 G_DEFINE_TYPE (GimpLayerPropUndo, gimp_layer_prop_undo, GIMP_TYPE_ITEM_UNDO)
@@ -48,7 +46,7 @@ gimp_layer_prop_undo_class_init (GimpLayerPropUndoClass *klass)
   GObjectClass  *object_class = G_OBJECT_CLASS (klass);
   GimpUndoClass *undo_class   = GIMP_UNDO_CLASS (klass);
 
-  object_class->constructor = gimp_layer_prop_undo_constructor;
+  object_class->constructed = gimp_layer_prop_undo_constructed;
 
   undo_class->pop           = gimp_layer_prop_undo_pop;
 }
@@ -58,23 +56,17 @@ gimp_layer_prop_undo_init (GimpLayerPropUndo *undo)
 {
 }
 
-static GObject *
-gimp_layer_prop_undo_constructor (GType                  type,
-                                  guint                  n_params,
-                                  GObjectConstructParam *params)
+static void
+gimp_layer_prop_undo_constructed (GObject *object)
 {
-  GObject           *object;
-  GimpLayerPropUndo *layer_prop_undo;
-  GimpImage         *image;
+  GimpLayerPropUndo *layer_prop_undo = GIMP_LAYER_PROP_UNDO (object);
   GimpLayer         *layer;
 
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
-
-  layer_prop_undo = GIMP_LAYER_PROP_UNDO (object);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   g_assert (GIMP_IS_LAYER (GIMP_ITEM_UNDO (object)->item));
 
-  image = GIMP_UNDO (object)->image;
   layer = GIMP_LAYER (GIMP_ITEM_UNDO (object)->item);
 
   switch (GIMP_UNDO (object)->undo_type)
@@ -94,8 +86,6 @@ gimp_layer_prop_undo_constructor (GType                  type,
     default:
       g_assert_not_reached ();
     }
-
-  return object;
 }
 
 static void

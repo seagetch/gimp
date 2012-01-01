@@ -261,9 +261,9 @@ static cairo_region_t *
 gimp_canvas_sample_point_get_extents (GimpCanvasItem   *item,
                                       GimpDisplayShell *shell)
 {
-  GdkRectangle rectangle;
-  gdouble      x, y;
-  gint         x1, x2, y1, y2;
+  cairo_rectangle_int_t rectangle;
+  gdouble               x, y;
+  gint                  x1, x2, y1, y2;
 
   gimp_canvas_sample_point_transform (item, shell, &x, &y);
 
@@ -281,7 +281,7 @@ gimp_canvas_sample_point_get_extents (GimpCanvasItem   *item,
   rectangle.width  += 5;
   rectangle.height += 5;
 
-  return cairo_region_create_rectangle ((cairo_rectangle_int_t *) &rectangle);
+  return cairo_region_create_rectangle (&rectangle);
 }
 
 static void
@@ -338,4 +338,21 @@ gimp_canvas_sample_point_new (GimpDisplayShell *shell,
                        "index",              index,
                        "sample-point-style", sample_point_style,
                        NULL);
+}
+
+void
+gimp_canvas_sample_point_set (GimpCanvasItem *sample_point,
+                              gint            x,
+                              gint            y)
+{
+  g_return_if_fail (GIMP_IS_CANVAS_SAMPLE_POINT (sample_point));
+
+  gimp_canvas_item_begin_change (sample_point);
+
+  g_object_set (sample_point,
+                "x", x,
+                "y", y,
+                NULL);
+
+  gimp_canvas_item_end_change (sample_point);
 }

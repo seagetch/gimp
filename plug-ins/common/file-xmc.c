@@ -82,6 +82,7 @@
 #define SAVE_PROC2             "file-xmc-save2"
 
 #define PLUG_IN_BINARY         "file-xmc"
+#define PLUG_IN_ROLE           "gimp-file-xmc"
 /* We use "xmc" as the file extension of X cursor for convenience */
 #define XCURSOR_EXTENSION      "xmc"
 #define XCURSOR_MIME_TYPE      "image/x-xcursor"
@@ -650,10 +651,6 @@ load_image (const gchar *filename, GError **error)
   gchar *framename;             /* name of layer */
   guint32 *tmppixel;            /* pixel data (guchar * bpp = guint32) */
 
-  /* initialize image here, thus avoiding compiler warnings */
-
-  image_ID = -1;
-
   /*
    * Open the file and check it is a valid X cursor
    */
@@ -686,14 +683,14 @@ load_image (const gchar *filename, GError **error)
       if (imagesp->images[i]->width > MAX_LOAD_DIMENSION)
         {
           g_set_error (error, 0, 0,
-                       _("The width of frame %d of '%s' is too big for X cursor."),
+                       _("Frame %d of '%s' is too wide for an X cursor."),
                        i + 1, gimp_filename_to_utf8 (filename));
           return -1;
         }
       if (imagesp->images[i]->height > MAX_LOAD_DIMENSION)
         {
           g_set_error (error, 0, 0,
-                       _("The height of frame %d of '%s' is too big for X cursor."),
+                       _("Frame %d of '%s' is too high for an X cursor."),
                        i + 1, gimp_filename_to_utf8 (filename));
           return -1;
         }
@@ -767,7 +764,11 @@ load_image (const gchar *filename, GError **error)
                                0, 0, drawable->width, drawable->height);
 
       gimp_progress_update ( (i + 1) / imagesp->nimage);
+
+      gimp_drawable_flush (drawable);
+      gimp_drawable_detach (drawable);
     }
+  gimp_progress_update (1.0);
   /* free temporary buffer */
   g_free(tmppixel);
 
@@ -796,13 +797,7 @@ load_image (const gchar *filename, GError **error)
   XcursorCommentsDestroy (commentsp);
   fclose (fp);
 
-  /*
-   * Update the display...
-   */
-
   gimp_progress_end ();
-  gimp_drawable_flush (drawable);
-  gimp_drawable_detach (drawable);
 
   return image_ID;
 }
@@ -940,14 +935,14 @@ load_thumbnail (const gchar *filename, gint32 thumb_size,
   if (*thumb_width > MAX_LOAD_DIMENSION)
     {
       g_set_error (error, 0, 0,
-                   _("The width of '%s' is too big for X cursor."),
+                   _("'%s' is too wide for an X cursor."),
                    gimp_filename_to_utf8 (filename));
       return -1;
     }
   if (*thumb_height > MAX_LOAD_DIMENSION)
     {
       g_set_error (error, 0, 0,
-                   _("The height of '%s' is too big for X cursor."),
+                   _("'%s' is too high for an X cursor."),
                    gimp_filename_to_utf8 (filename));
       return -1;
     }
@@ -1087,7 +1082,7 @@ save_dialog (const gint32 image_ID, GimpParamRegion *hotspotRange)
                     G_CALLBACK (gimp_int_adjustment_update),
                     &xmcparas.x);
   gimp_help_set_help_data (tmpwidget,
-                         _("Enter the X coordinate of the hot spot."
+                         _("Enter the X coordinate of the hot spot. "
                            "The origin is top left corner."),
                          NULL);
   gimp_table_attach_aligned (GTK_TABLE (table), 0, 0,
@@ -1105,7 +1100,7 @@ save_dialog (const gint32 image_ID, GimpParamRegion *hotspotRange)
                     &xmcparas.y);
   /* tooltip */
   gimp_help_set_help_data (tmpwidget,
-                         _("Enter the Y coordinate of the hot spot."
+                         _("Enter the Y coordinate of the hot spot. "
                            "The origin is top left corner."),
                          NULL);
   gimp_table_attach_aligned (GTK_TABLE (table), 1, 0,
@@ -1187,7 +1182,7 @@ save_dialog (const gint32 image_ID, GimpParamRegion *hotspotRange)
    * delay
    */
   /* spin button */
-  box = gtk_hbox_new (FALSE, 6);
+  box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_widget_show (box);
   tmpwidget = gimp_spin_button_new (&adjustment,
                                     xmcvals.delay, CURSOR_MINIMUM_DELAY,
@@ -1319,7 +1314,7 @@ save_dialog (const gint32 image_ID, GimpParamRegion *hotspotRange)
   gtk_text_view_set_wrap_mode (GTK_TEXT_VIEW (tmpwidget), GTK_WRAP_WORD);
   g_object_unref (textbuffer);
   gtk_text_view_set_wrap_mode (GTK_TEXT_VIEW (tmpwidget), GTK_WRAP_WORD);
-  gtk_container_add (GTK_CONTAINER (box), tmpwidget);
+  gtk_box_pack_start (GTK_BOX (box), tmpwidget, TRUE, TRUE, 0);
   gtk_widget_show (tmpwidget);
   /* tooltip */
   gimp_help_set_help_data (tmpwidget,
@@ -1491,7 +1486,7 @@ save_image (const gchar *filename,
       if (drawable->bpp != 4)
         {
           g_set_error (error, 0, 0,
-          _("This plug-in can only handle RGBA image format with 8bit color depth."));
+          _("This plug-in can only handle RGBA image files with 8bit color depth."));
           return FALSE;
         }
       /* get framename of this layer */
@@ -1509,21 +1504,21 @@ save_image (const gchar *filename,
       if (drawable->width > MAX_SAVE_DIMENSION)
         {
           g_set_error (error, 0, 0,
-                       _("Width of '%s' is too large. Please reduce more than %dpx."),
+                       _("Frame '%s' is too wide. Please reduce to no more than %dpx."),
                        gimp_any_to_utf8 (framename, -1, NULL), MAX_SAVE_DIMENSION);
           return FALSE;
         }
       if (drawable->height > MAX_SAVE_DIMENSION)
         {
           g_set_error (error, 0, 0,
-                       _("Height of '%s' is too large. Please reduce more than %dpx."),
+                       _("Frame '%s' is too high. Please reduce to no more than %dpx."),
                        gimp_any_to_utf8 (framename, -1, NULL), MAX_SAVE_DIMENSION);
           return FALSE;
         }
       if (drawable->height == 0 ||drawable->width == 0)
         {
           g_set_error (error, 0, 0,
-                       _("The size of '%s' is zero!"),
+                       _("Width and/or height of frame '%s' is zero!"),
                        gimp_any_to_utf8 (framename, -1, NULL));
           return FALSE;
         }
@@ -1563,9 +1558,10 @@ save_image (const gchar *filename,
                                &save_rgn))
             { /* if hotspot is not on save_rgn */
               g_set_error (error, 0, 0,
-                           _("Cannot save the cursor because the hot spot is not on '%s'.\n"
-                             "Try to change the hot spot position, layer geometry or "
-                             "save without auto-crop."),
+                           _("Cannot save the cursor because the hot spot "
+                             "is not on frame '%s'.\n"
+                             "Try to change the hot spot position, "
+                             "layer geometry or save without auto-crop."),
                            gimp_any_to_utf8 (framename, -1, NULL));
               return FALSE;
             }
@@ -1654,6 +1650,7 @@ save_image (const gchar *filename,
 
       gimp_progress_update ((i + 1) / imagesp->nimage);
     }
+  gimp_progress_update (1.0);
 
   /*
    * comment parsing
@@ -1718,19 +1715,19 @@ save_image (const gchar *filename,
   /* actual warning about dimensions */
   if (dimension_warn)
     {
-      g_message (_("Your cursor was successfully saved but it contains one "
-                   "or more frames which width or height is more than %ipx.\n"
+      g_message (_("Your cursor was successfully saved but it contains one or "
+                   "more frames whose width or height is more than %ipx.\n"
                    "It will clutter the screen in some environments."),
                    MAX_BITMAP_CURSOR_SIZE);
     }
   if (size_warn)
     {
       g_message (_("Your cursor was successfully saved but it contains one "
-                   "or more frames which nominal size is not "
-                   "supported by gnome-appearance-properties.\n"
+                   "or more frames whose nominal size is not supported by "
+                   "GNOME settings.\n"
                    "You can satisfy it by checking \"Replace the size of all "
-                   "frame...\" in save dialog, or Your cursor may not appear "
-                   "in gnome-appearance-properties."));
+                   "frames...\" in the save dialog, or your cursor may not "
+                   "appear in GNOME settings."));
     }
   /*
    * Done with the file...
@@ -1747,7 +1744,7 @@ save_image (const gchar *filename,
   /* Save the comment back to the original image */
   for (i = 0; i < 3; i++)
     {
-      gimp_image_parasite_detach (orig_image_ID, parasiteName[i]);
+      gimp_image_detach_parasite (orig_image_ID, parasiteName[i]);
 
       if (xmcparas.comments[i])
         {
@@ -1914,11 +1911,11 @@ set_comment_to_pname (const gint32  image_ID,
   g_return_val_if_fail (image_ID != -1, FALSE);
   g_return_val_if_fail (content, FALSE);
 
-  parasite = gimp_image_parasite_find (image_ID, pname);
+  parasite = gimp_image_get_parasite (image_ID, pname);
   if (! parasite)
     {
       parasite = gimp_parasite_new (pname, GIMP_PARASITE_PERSISTENT,
-                         strlen (content) + 1, content);
+                                    strlen (content) + 1, content);
     }
   else
     {
@@ -1934,7 +1931,7 @@ set_comment_to_pname (const gint32  image_ID,
 
   if (parasite)
     {
-      ret = gimp_image_parasite_attach (image_ID, parasite);
+      ret = gimp_image_attach_parasite (image_ID, parasite);
       gimp_parasite_free (parasite);
     }
 
@@ -1954,7 +1951,7 @@ get_comment_from_pname (const gint32  image_ID,
 
   g_return_val_if_fail (image_ID != -1, NULL);
 
-  parasite = gimp_image_parasite_find (image_ID, pname);
+  parasite = gimp_image_get_parasite (image_ID, pname);
   length = gimp_parasite_data_size (parasite);
 
   if (parasite)
@@ -1962,8 +1959,8 @@ get_comment_from_pname (const gint32  image_ID,
       if (length > XCURSOR_COMMENT_MAX_LEN)
         {
           length = XCURSOR_COMMENT_MAX_LEN;
-          g_message (_("The parasite \"%s\" is too long for X cursor.\n"
-                       "The overflowed string was dropped."),
+          g_message (_("The parasite \"%s\" is too long for an X cursor "
+                       "comment. It was cut off to fit."),
                      gimp_any_to_utf8 (pname, -1,NULL));
         }
 
@@ -1995,7 +1992,7 @@ set_hotspot_to_parasite (gint32 image_ID)
 
   if (parasite)
     {
-      ret = gimp_image_parasite_attach (image_ID, parasite);
+      ret = gimp_image_attach_parasite (image_ID, parasite);
       gimp_parasite_free (parasite);
     }
 
@@ -2017,7 +2014,7 @@ get_hotspot_from_parasite (gint32 image_ID)
 
   DM_XMC("function: getHotsopt\n");
 
-  parasite = gimp_image_parasite_find (image_ID, "hot-spot");
+  parasite = gimp_image_get_parasite (image_ID, "hot-spot");
   if (!parasite)  /* cannot find a parasite named "hot-spot". */
     {
       return FALSE;

@@ -29,26 +29,36 @@
  */
 struct _GimpSessionInfoDock
 {
-  /* Identifier written to/read from sessionrc */
-  gchar *identifier;
+  /* Type of dock, written to/read from sessionrc. E.g. 'gimp-dock' or
+   * 'gimp-toolbox'
+   */
+  gchar             *dock_type;
+
+  /* What side this dock is in in single-window mode. Either
+   * GIMP_ARRANGE_LEFT, GIMP_ARRANGE_RIGHT or -1.
+   */
+  GimpAlignmentType  side;
+
+  /* GtkPaned position of this dock */
+  gint               position;
 
   /*  list of GimpSessionInfoBook  */
-  GList *books;
+  GList             *books;
 };
 
-GimpSessionInfoDock * gimp_session_info_dock_new         (const gchar          *identifier);
+GimpSessionInfoDock * gimp_session_info_dock_new         (const gchar          *dock_type);
 void                  gimp_session_info_dock_free        (GimpSessionInfoDock  *dock_info);
 void                  gimp_session_info_dock_serialize   (GimpConfigWriter     *writer,
                                                           GimpSessionInfoDock  *dock);
 GTokenType            gimp_session_info_dock_deserialize (GScanner             *scanner,
                                                           gint                  scope,
                                                           GimpSessionInfoDock **info,
-                                                          const gchar          *identifier);
+                                                          const gchar          *dock_type);
 GimpSessionInfoDock * gimp_session_info_dock_from_widget (GimpDock             *dock);
-void                  gimp_session_info_dock_restore     (GimpSessionInfoDock  *dock_info,
+GimpDock            * gimp_session_info_dock_restore     (GimpSessionInfoDock  *dock_info,
                                                           GimpDialogFactory    *factory,
                                                           GdkScreen            *screen,
-                                                          GimpDockWindow       *dock_window);
+                                                          GimpDockContainer    *dock_container);
 
 
 #endif  /* __GIMP_SESSION_INFO_DOCK_H__ */

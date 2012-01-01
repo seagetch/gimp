@@ -51,7 +51,8 @@ AM_CPPFLAGS = \
 	-DGIMP_DATA_VERSION=\"$(GIMP_DATA_VERSION)\"		\
 	-DGIMP_SYSCONF_VERSION=\"$(GIMP_SYSCONF_VERSION)\"	\
 	-DGIMP_PLUGIN_VERSION=\"$(GIMP_PLUGIN_VERSION)\"	\
-	-DG_LOG_DOMAIN=\"LibGimpBase\"
+	-DG_LOG_DOMAIN=\"LibGimpBase\"				\
+	-DGIMP_BASE_COMPILATION
 
 AM_CCASFLAGS = \
 	-I$(top_builddir)	\
@@ -64,7 +65,6 @@ INCLUDES = \
 	-I$(includedir)
 
 EXTRA_DIST = \
-	makefile.msc	\
 	gimpbase.def
 
 lib_LTLIBRARIES = libgimpbase-2.0.la

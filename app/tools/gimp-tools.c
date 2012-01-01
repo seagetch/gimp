@@ -30,9 +30,9 @@
 
 #include "core/gimp.h"
 #include "core/gimp-contexts.h"
+#include "core/gimplist.h"
 #include "core/gimptoolinfo.h"
 #include "core/gimptooloptions.h"
-#include "core/gimptoolpresets.h"
 
 #include "gimp-tools.h"
 #include "gimptooloptions-gui.h"
@@ -225,8 +225,7 @@ gimp_tools_exit (Gimp *gimp)
   default_order = g_object_get_data (G_OBJECT (gimp),
                                      "gimp-tools-default-order");
 
-  g_list_foreach (default_order, (GFunc) g_free, NULL);
-  g_list_free (default_order);
+  g_list_free_full (default_order, (GDestroyNotify) g_free);
 
   g_object_set_data (G_OBJECT (gimp), "gimp-tools-default-order", NULL);
 

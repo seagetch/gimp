@@ -31,6 +31,7 @@
 
 #define PLUG_IN_PROC     "plug-in-unit-editor"
 #define PLUG_IN_BINARY   "unit-editor"
+#define PLUG_IN_ROLE     "gimp-unit-editor"
 #define RESPONSE_REFRESH 1
 
 enum
@@ -165,9 +166,6 @@ run (const gchar      *name,
      GimpParam       **return_vals)
 {
   static GimpParam values[2];
-  GimpRunMode      run_mode;
-
-  run_mode = param[0].data.d_int32;
 
   INIT_I18N ();
 
@@ -204,7 +202,7 @@ new_unit_dialog (GtkWidget *main_dialog,
 
   GimpUnit   unit = GIMP_UNIT_PIXEL;
 
-  dialog = gimp_dialog_new (_("Add a New Unit"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Add a New Unit"), PLUG_IN_ROLE,
                             main_dialog, GTK_DIALOG_MODAL,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -407,7 +405,7 @@ unit_editor_dialog (void)
   tv = gtk_tree_view_new_with_model (GTK_TREE_MODEL (list_store));
   g_object_unref (list_store);
 
-  dialog = gimp_dialog_new (_("Unit Editor"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Unit Editor"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -462,8 +460,8 @@ unit_editor_dialog (void)
                                   GTK_POLICY_NEVER,
                                   GTK_POLICY_ALWAYS);
   gtk_container_set_border_width (GTK_CONTAINER (scrolled_win), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     scrolled_win);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      scrolled_win, TRUE, TRUE, 0);
   gtk_widget_show (scrolled_win);
 
   gtk_widget_set_size_request (tv, -1, 220);

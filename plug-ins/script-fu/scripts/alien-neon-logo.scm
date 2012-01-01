@@ -45,6 +45,7 @@
         )
 
     (gimp-context-push)
+    (gimp-context-set-defaults)
 
     (script-fu-util-image-resize-from-layer img logo-layer)
     (script-fu-util-image-add-layers img bands-layer bg-layer)
@@ -54,7 +55,7 @@
     (gimp-context-set-background '(0 0 0))
     (gimp-edit-fill bands-layer BACKGROUND-FILL)
     ; The text layer is never shown: it is only used to create a selection
-    (gimp-selection-layer-alpha logo-layer)
+    (gimp-image-select-item img CHANNEL-OP-REPLACE logo-layer)
     (gimp-context-set-foreground '(255 255 255))
     (gimp-edit-fill bands-layer FOREGROUND-FILL)
 
@@ -74,7 +75,7 @@
         (let ((bands-layer-mask (car (gimp-layer-create-mask bands-layer
                                                              ADD-BLACK-MASK))))
           (gimp-layer-add-mask bands-layer bands-layer-mask)
-          (gimp-selection-layer-alpha logo-layer)
+          (gimp-image-select-item img CHANNEL-OP-REPLACE logo-layer)
           (gimp-selection-border img fade-size)
           (gimp-edit-fill bands-layer-mask FOREGROUND-FILL)
           (gimp-layer-remove-mask bands-layer MASK-APPLY)))

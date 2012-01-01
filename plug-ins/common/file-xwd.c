@@ -64,6 +64,7 @@
 #define LOAD_PROC      "file-xwd-load"
 #define SAVE_PROC      "file-xwd-save"
 #define PLUG_IN_BINARY "file-xwd"
+#define PLUG_IN_ROLE   "gimp-file-xwd"
 
 
 typedef gulong  L_CARD32;
@@ -562,6 +563,7 @@ load_image (const gchar  *filename,
         }
       break;
     }
+  gimp_progress_update (1.0);
 
   fclose (ifp);
 
@@ -622,14 +624,22 @@ save_image (const gchar  *filename,
   gimp_progress_init_printf (_("Saving '%s'"),
                              gimp_filename_to_utf8 (filename));
 
-  if (drawable_type == GIMP_INDEXED_IMAGE)
-    retval = save_index (ofp, image_ID, drawable_ID, 0);
-  else if (drawable_type == GIMP_GRAY_IMAGE)
-    retval = save_index (ofp, image_ID, drawable_ID, 1);
-  else if (drawable_type == GIMP_RGB_IMAGE)
-    retval = save_rgb (ofp, image_ID, drawable_ID);
-  else
-    retval = FALSE;
+  switch (drawable_type)
+    {
+    case GIMP_INDEXED_IMAGE:
+      retval = save_index (ofp, image_ID, drawable_ID, 0);
+      break;
+    case GIMP_GRAY_IMAGE:
+      retval = save_index (ofp, image_ID, drawable_ID, 1);
+      break;
+    case GIMP_RGB_IMAGE:
+      retval = save_rgb (ofp, image_ID, drawable_ID);
+      break;
+    default:
+      retval = FALSE;
+    }
+
+  gimp_progress_update (1.0);
 
   fclose (ofp);
 
@@ -1221,7 +1231,7 @@ load_xwd_f2_d1_b1 (const gchar     *filename,
   register int     pix8;
   register guchar *dest, *src;
   guchar           c1, c2, c3, c4;
-  gint             width, height, linepad, scan_lines, tile_height;
+  gint             width, height, scan_lines, tile_height;
   gint             i, j, ncols;
   gchar           *temp;
   guchar           bit2byte[256 * 8];
@@ -1270,10 +1280,6 @@ load_xwd_f2_d1_b1 (const gchar     *filename,
         for (i = 7; i >= 0; i--)
           *(temp++) = ((j & (1 << i)) != 0);
     }
-
-  linepad = xwdhdr->l_bytes_per_line - (xwdhdr->l_pixmap_width+7)/8;
-  if (linepad < 0)
-    linepad = 0;
 
   dest = data;
   scan_lines = 0;
@@ -1688,9 +1694,10 @@ load_xwd_f2_d24_b32 (const gchar     *filename,
     bluemap[blue] = (blue * 255) / maxblue;
 
   ncols = xwdhdr->l_colormap_entries;
-  if (xwdhdr->l_ncolors < ncols) ncols = xwdhdr->l_ncolors;
+  if (xwdhdr->l_ncolors < ncols)
+    ncols = xwdhdr->l_ncolors;
 
-  ncols = set_pixelmap (ncols, xwdcolmap, &pixel_map);
+  set_pixelmap (ncols, xwdcolmap, &pixel_map);
 
   /* What do we have to consume after a line has finished ? */
   linepad =   xwdhdr->l_bytes_per_line
@@ -1824,7 +1831,7 @@ load_xwd_f1_d24_b1 (const gchar     *filename,
                     L_XWDCOLOR      *xwdcolmap)
 {
   register guchar *dest, outmask, inmask, do_reverse;
-  gint             width, height, linepad, i, j, plane, fromright;
+  gint             width, height, i, j, plane, fromright;
   gint             tile_height, tile_start, tile_end;
   gint             indexed, bytes_per_pixel;
   gint             maxred, maxgreen, maxblue;
@@ -1862,11 +1869,6 @@ load_xwd_f1_d24_b1 (const gchar     *filename,
 
   tile_height = gimp_tile_height ();
   data = g_malloc (tile_height * width * bytes_per_pixel);
-
-  linepad =   xwdhdr->l_bytes_per_line
-    - (xwdhdr->l_pixmap_width+7)/8;
-  if (linepad < 0)
-    linepad = 0;
 
   for (j = 0; j < 256; j++)   /* Create an array for reversing bits */
     {
@@ -1933,7 +1935,7 @@ load_xwd_f1_d24_b1 (const gchar     *filename,
     }
   else
     {
-      ncols = set_pixelmap (ncols, xwdcolmap, &pixel_map);
+      set_pixelmap (ncols, xwdcolmap, &pixel_map);
     }
 
   do_reverse = !xwdhdr->l_bitmap_bit_order;
@@ -2086,14 +2088,12 @@ save_index (FILE    *ofp,
   L_XWDCOLOR       xwdcolmap[256];
   GimpPixelRgn     pixel_rgn;
   GimpDrawable    *drawable;
-  GimpImageType    drawable_type;
 
 #ifdef XWD_DEBUG
   printf ("save_index ()\n");
 #endif
 
   drawable      = gimp_drawable_get (drawable_ID);
-  drawable_type = gimp_drawable_type (drawable_ID);
   width         = drawable->width;
   height        = drawable->height;
   tile_height   = gimp_tile_height ();
@@ -2214,14 +2214,12 @@ save_rgb (FILE   *ofp,
   L_XWDFILEHEADER  xwdhdr;
   GimpPixelRgn     pixel_rgn;
   GimpDrawable    *drawable;
-  GimpImageType    drawable_type;
 
 #ifdef XWD_DEBUG
   printf ("save_rgb ()\n");
 #endif
 
   drawable      = gimp_drawable_get (drawable_ID);
-  drawable_type = gimp_drawable_type (drawable_ID);
   width         = drawable->width;
   height        = drawable->height;
   tile_height   = gimp_tile_height ();

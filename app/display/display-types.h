@@ -24,38 +24,27 @@
 #include "display/display-enums.h"
 
 
-#if CAIRO_VERSION >= CAIRO_VERSION_ENCODE(1, 9, 15)
-#define USE_CAIRO_REGION
-#endif
+typedef struct _GimpCanvas               GimpCanvas;
+typedef struct _GimpCanvasGroup          GimpCanvasGroup;
+typedef struct _GimpCanvasItem           GimpCanvasItem;
 
-#ifndef USE_CAIRO_REGION
-#define cairo_region_t GdkRegion
-#define cairo_rectangle_int_t GdkRectangle
-#define cairo_region_destroy gdk_region_destroy
-#define cairo_region_union gdk_region_union
-#define cairo_region_create_rectangle gdk_region_rectangle
-#define cairo_region_union_rectangle gdk_region_union_with_rect
-#define cairo_region_get_extents gdk_region_get_clipbox
-#define cairo_region_subtract gdk_region_subtract
-#define cairo_region_xor gdk_region_xor
-#endif
+typedef struct _GimpDisplay              GimpDisplay;
+typedef struct _GimpDisplayShell         GimpDisplayShell;
+typedef struct _GimpMotionBuffer         GimpMotionBuffer;
 
+typedef struct _GimpImageWindow          GimpImageWindow;
+typedef struct _GimpMultiWindowStrategy  GimpMultiWindowStrategy;
+typedef struct _GimpSingleWindowStrategy GimpSingleWindowStrategy;
+typedef struct _GimpWindowStrategy       GimpWindowStrategy;
 
-typedef struct _GimpCanvas            GimpCanvas;
-typedef struct _GimpCanvasItem        GimpCanvasItem;
-typedef struct _GimpCanvasGroup       GimpCanvasGroup;
+typedef struct _GimpCursorView           GimpCursorView;
+typedef struct _GimpNavigationEditor     GimpNavigationEditor;
+typedef struct _GimpScaleComboBox        GimpScaleComboBox;
+typedef struct _GimpStatusbar            GimpStatusbar;
 
-typedef struct _GimpDisplay           GimpDisplay;
-typedef struct _GimpDisplayShell      GimpDisplayShell;
+typedef struct _GimpToolDialog           GimpToolDialog;
 
-typedef struct _GimpImageWindow       GimpImageWindow;
-
-typedef struct _GimpCursorView        GimpCursorView;
-typedef struct _GimpNavigationEditor  GimpNavigationEditor;
-typedef struct _GimpScaleComboBox     GimpScaleComboBox;
-typedef struct _GimpStatusbar         GimpStatusbar;
-
-typedef struct _Selection             Selection;
+typedef struct _Selection                Selection;
 
 
 #endif /* __DISPLAY_TYPES_H__ */

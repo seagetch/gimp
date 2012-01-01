@@ -96,6 +96,7 @@
         )
 
   (gimp-context-push)
+  (gimp-context-set-feather FALSE)
 
   (gimp-image-undo-disable image)
 
@@ -119,12 +120,12 @@
 
 ; add the background layer
   (gimp-drawable-fill bg-layer BACKGROUND-FILL)
-  (gimp-image-add-layer image bg-layer -1)
+  (gimp-image-insert-layer image bg-layer 0 -1)
 
 ; add the film layer
   (gimp-context-set-background '(0 0 0))
   (gimp-drawable-fill film-layer BACKGROUND-FILL)
-  (gimp-image-add-layer image film-layer -1)
+  (gimp-image-insert-layer image film-layer 0 -1)
 
 ; add the text
   (gimp-context-set-foreground font-color)
@@ -185,22 +186,18 @@
 
     (gimp-selection-none image)
     (while (< hole 8)
-           (gimp-rect-select image
-                             (* hole-space hole)
-                             top-y
-                             hole-width
-                             hole-height
-                             CHANNEL-OP-ADD
-                             FALSE
-                             0)
-           (gimp-rect-select image
-                             (* hole-space hole)
-                             bottom-y
-                             hole-width
-                             hole-height
-                             CHANNEL-OP-ADD
-                             FALSE
-                             0)
+           (gimp-image-select-rectangle image
+                                        CHANNEL-OP-ADD
+                                        (* hole-space hole)
+                                        top-y
+                                        hole-width
+                                        hole-height)
+           (gimp-image-select-rectangle image
+                                        CHANNEL-OP-ADD
+                                        (* hole-space hole)
+                                        bottom-y
+                                        hole-width
+                                        hole-height)
            (set! hole (+ hole 1))
     )
 
@@ -214,8 +211,8 @@
   )
 
 ; reorder the layers
-  (gimp-image-raise-layer image pic-layer)
-  (gimp-image-raise-layer image pic-layer)
+  (gimp-image-raise-item image pic-layer)
+  (gimp-image-raise-item image pic-layer)
 
 ; eventually rotate the whole thing back
   (if (< ratio 1)

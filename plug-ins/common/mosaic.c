@@ -34,6 +34,7 @@
 
 #define PLUG_IN_PROC    "plug-in-mosaic"
 #define PLUG_IN_BINARY  "mosaic"
+#define PLUG_IN_ROLE    "gimp-mosaic"
 
 #define SCALE_WIDTH     150
 
@@ -480,7 +481,6 @@ mosaic (GimpDrawable *drawable,
 {
   gint     x1, y1, x2, y2;
   gint     width, height;
-  gint     alpha;
   GimpRGB  color;
 
   /*  Find the mask bounds  */
@@ -546,8 +546,6 @@ mosaic (GimpDrawable *drawable,
       break;
     }
 
-  alpha = drawable->bpp - 1;
-
   light_x = -cos (mvals.light_dir * G_PI / 180.0);
   light_y =  sin (mvals.light_dir * G_PI / 180.0);
   scale = (mvals.tile_spacing > mvals.tile_size / 2.0) ?
@@ -589,7 +587,7 @@ mosaic_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Mosaic"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Mosaic"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -605,10 +603,10 @@ mosaic_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   /* A preview */
@@ -620,7 +618,7 @@ mosaic_dialog (GimpDrawable *drawable)
                             drawable);
 
   /*  The hbox -- splits the scripts and the info vbox  */
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_box_pack_start (GTK_BOX (main_vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -724,7 +722,7 @@ mosaic_dialog (GimpDrawable *drawable)
                             preview);
 
   /*  the vertical box and its toggle buttons  */
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_box_pack_start (GTK_BOX (hbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 
@@ -816,14 +814,11 @@ find_gradients (GimpDrawable *drawable,
 {
   GimpPixelRgn  src_rgn;
   GimpPixelRgn  dest_rgn;
-  gint          bytes;
   gint          i, j;
   guchar       *gr, *dh, *dv;
   gint          hmax, vmax;
   gint          row, rows;
   gint          ith_row;
-
-  bytes = drawable->bpp;
 
   /*  allocate the gradient maps  */
   h_grad = g_new (guchar, width * height);
@@ -1461,7 +1456,7 @@ grid_localize (gint x1,
                gint x2,
                gint y2)
 {
-  gint     width, height;
+  gint     width;
   gint     i, j;
   gint     k, l;
   gint     x3, y3, x4, y4;
@@ -1473,7 +1468,6 @@ grid_localize (gint x1,
   Vertex  *pt;
 
   width  = x2 - x1;
-  height = y2 - y1;
   size = (gint) mvals.tile_size;
   rand_localize = size * (1.0 - mvals.tile_neatness);
 
@@ -1557,7 +1551,6 @@ grid_render (GimpDrawable *drawable,
            pr != NULL;
            pr = gimp_pixel_rgns_process (pr))
         {
-          size = src_rgn.w * src_rgn.h;
           dest = src_rgn.data;
 
           for (i = 0; i < src_rgn.h ; i++)
@@ -1976,7 +1969,7 @@ clip_point (gdouble *dir,
             gdouble  y2,
             Polygon *poly_new)
 {
-  gdouble det, m11, m12, m21, m22;
+  gdouble det, m11, m12;
   gdouble side1, side2;
   gdouble t;
   gdouble vec[2];
@@ -2013,8 +2006,6 @@ clip_point (gdouble *dir,
 
       m11 = vec[1] / det;
       m12 = -vec[0] / det;
-      m21 = -dir[1] / det;
-      m22 = dir[0] / det;
 
       t = m11 * x1 + m12 * y1;
 
@@ -2049,7 +2040,7 @@ find_poly_dir (Polygon *poly,
   gint    xe, ye;
   gint    min_x, min_y;
   gint    max_x, max_y;
-  gint    size_x, size_y;
+  gint    size_y;
   gint   *max_scanlines;
   gint   *min_scanlines;
   guchar *dm, *dv, *dh;
@@ -2073,7 +2064,6 @@ find_poly_dir (Polygon *poly,
   max_y = (gint) dmax_y;
 
   size_y = max_y - min_y;
-  size_x = max_x - min_x;
 
   min_scanlines = g_new (gint, size_y);
   max_scanlines = g_new (gint, size_y);
@@ -2165,7 +2155,7 @@ find_poly_color (Polygon      *poly,
   gint          xe, ye;
   gint          min_x, min_y;
   gint          max_x, max_y;
-  gint          size_x, size_y;
+  gint          size_y;
   gint         *max_scanlines;
   gint         *min_scanlines;
   gint          col_sum[4] = {0, 0, 0, 0};
@@ -2185,7 +2175,6 @@ find_poly_color (Polygon      *poly,
   max_y = (gint) dmax_y;
 
   size_y = max_y - min_y;
-  size_x = max_x - min_x;
 
   min_scanlines = g_new (int, size_y);
   max_scanlines = g_new (int, size_y);

@@ -19,7 +19,6 @@
 #define __GIMP_PAINT_CORE_H__
 
 
-#include "libgimpmath/gimpvector.h"
 #include "core/gimpobject.h"
 #include "gimppaintoptions.h" /* GimpCircularQueue */
 
@@ -204,9 +203,9 @@ void      gimp_paint_core_validate_canvas_tiles     (GimpPaintCore    *core,
                                                      gint              w,
                                                      gint              h);
 
-GimpCoords gimp_paint_core_get_smoothed_coords      (GimpPaintCore    *core,
+void      gimp_paint_core_smooth_coords             (GimpPaintCore    *core,
                                                      GimpPaintOptions *paint_options,
-                                                     const GimpCoords *original_coords);
+                                                     GimpCoords       *coords);
 
 
 #endif  /*  __GIMP_PAINT_CORE_H__  */

@@ -73,6 +73,7 @@
 
 #define LOAD_PROC      "file-tiff-load"
 #define PLUG_IN_BINARY "file-tiff-load"
+#define PLUG_IN_ROLE   "gimp-file-tiff-load"
 
 
 typedef struct
@@ -137,7 +138,6 @@ static void      load_paths    (TIFF         *tif,
 static void      read_separate (const guchar *source,
                                 channel_data *channel,
                                 gushort       bps,
-                                gushort       photomet,
                                 gint          startcol,
                                 gint          startrow,
                                 gint          rows,
@@ -475,7 +475,7 @@ load_dialog (TIFF              *tif,
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("Import from TIFF"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Import from TIFF"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, LOAD_PROC,
 
@@ -491,10 +491,10 @@ load_dialog (TIFF              *tif,
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      vbox, TRUE, TRUE, 0);
   gtk_widget_show (vbox);
 
   /* Page Selector */
@@ -579,7 +579,6 @@ load_image (const gchar        *filename,
   gboolean      is_bw;
 
   gint          i, j;
-  gint          ilayer;
   gboolean      worst_case = FALSE;
 
   TiffSaveVals  save_vals;
@@ -606,10 +605,10 @@ load_image (const gchar        *filename,
   /* We will loop through the all pages in case of multipage TIFF
      and load every page as a separate layer. */
 
-  ilayer = 0;
-
   for (li = 0; li < pages->n_pages; li++)
     {
+      gint ilayer;
+
       TIFFSetDirectory (tif, pages->pages[li]);
       ilayer = pages->pages[li];
 
@@ -802,7 +801,7 @@ load_image (const gchar        *filename,
                                         GIMP_PARASITE_PERSISTENT |
                                         GIMP_PARASITE_UNDOABLE,
                                         profile_size, icc_profile);
-          gimp_image_parasite_attach (image, parasite);
+          gimp_image_attach_parasite (image, parasite);
           gimp_parasite_free (parasite);
         }
 #endif
@@ -834,7 +833,7 @@ load_image (const gchar        *filename,
 
       parasite = gimp_parasite_new ("tiff-save-options", 0,
                                     sizeof (save_vals), &save_vals);
-      gimp_image_parasite_attach (image, parasite);
+      gimp_image_attach_parasite (image, parasite);
       gimp_parasite_free (parasite);
 
       /* Attach a parasite containing the image description.  Pretend to
@@ -849,7 +848,7 @@ load_image (const gchar        *filename,
             parasite = gimp_parasite_new ("gimp-comment",
                                           GIMP_PARASITE_PERSISTENT,
                                           strlen (img_desc) + 1, img_desc);
-            gimp_image_parasite_attach (image, parasite);
+            gimp_image_attach_parasite (image, parasite);
             gimp_parasite_free (parasite);
           }
       }
@@ -1554,7 +1553,7 @@ load_lines (TIFF         *tif,
               for (i = 0; i < rows; ++i)
                 TIFFReadScanline(tif, buffer + i * lineSize, y + i, s);
 
-              read_separate (buffer, channel, bps, photomet,
+              read_separate (buffer, channel, bps,
                              y, 0, rows, cols, alpha, extra, s);
             }
         }
@@ -2143,7 +2142,6 @@ static void
 read_separate (const guchar *source,
                channel_data *channel,
                gushort       bps,
-               gushort       photomet,
                gint          startrow,
                gint          startcol,
                gint          rows,
@@ -2163,14 +2161,9 @@ read_separate (const guchar *source,
     }
 
   if (sample < channel[0].drawable->bpp)
-    {
-      c = 0;
-    }
+    c = 0;
   else
-    {
-      c = (sample - channel[0].drawable->bpp) + 4;
-      photomet = PHOTOMETRIC_MINISBLACK;
-    }
+    c = (sample - channel[0].drawable->bpp) + 4;
 
   gimp_pixel_rgn_init (&(channel[c].pixel_rgn), channel[c].drawable,
                          startcol, startrow, cols, rows, TRUE, FALSE);

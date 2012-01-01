@@ -34,6 +34,7 @@
 #include "gimpgrouplayer.h"
 #include "gimpimage.h"
 #include "gimpimage-undo-push.h"
+#include "gimpdrawable-private.h" /* eek */
 #include "gimpdrawablestack.h"
 #include "gimppickable.h"
 #include "gimpprojectable.h"
@@ -42,8 +43,32 @@
 #include "gimp-intl.h"
 
 
-static void            gimp_projectable_iface_init   (GimpProjectableInterface  *iface);
+typedef struct _GimpGroupLayerPrivate GimpGroupLayerPrivate;
 
+struct _GimpGroupLayerPrivate
+{
+  GimpContainer  *children;
+  GimpProjection *projection;
+  GeglNode       *graph;
+  GeglNode       *offset_node;
+  gint            suspend_resize;
+  gboolean        expanded;
+
+  /*  hackish temp states to make the projection/tiles stuff work  */
+  gboolean        reallocate_projection;
+  gint            reallocate_width;
+  gint            reallocate_height;
+};
+
+#define GET_PRIVATE(item) G_TYPE_INSTANCE_GET_PRIVATE (item, \
+                                                       GIMP_TYPE_GROUP_LAYER, \
+                                                       GimpGroupLayerPrivate)
+
+
+static void            gimp_projectable_iface_init   (GimpProjectableInterface  *iface);
+static void            gimp_pickable_iface_init      (GimpPickableInterface     *iface);
+
+static void            gimp_group_layer_finalize     (GObject         *object);
 static void            gimp_group_layer_set_property (GObject         *object,
                                                       guint            property_id,
                                                       const GValue    *value,
@@ -52,12 +77,17 @@ static void            gimp_group_layer_get_property (GObject         *object,
                                                       guint            property_id,
                                                       GValue          *value,
                                                       GParamSpec      *pspec);
-static void            gimp_group_layer_finalize     (GObject         *object);
 
 static gint64          gimp_group_layer_get_memsize  (GimpObject      *object,
                                                       gint64          *gui_size);
 
+static gboolean        gimp_group_layer_get_size     (GimpViewable    *viewable,
+                                                      gint            *width,
+                                                      gint            *height);
 static GimpContainer * gimp_group_layer_get_children (GimpViewable    *viewable);
+static gboolean        gimp_group_layer_get_expanded (GimpViewable    *viewable);
+static void            gimp_group_layer_set_expanded (GimpViewable    *viewable,
+                                                      gboolean         expanded);
 
 static GimpItem      * gimp_group_layer_duplicate    (GimpItem        *item,
                                                       GType            new_type);
@@ -110,6 +140,11 @@ static void            gimp_group_layer_convert_type (GimpDrawable      *drawabl
 
 static GeglNode      * gimp_group_layer_get_graph    (GimpProjectable *projectable);
 static GList         * gimp_group_layer_get_layers   (GimpProjectable *projectable);
+static gint            gimp_group_layer_get_opacity_at
+                                                     (GimpPickable    *pickable,
+                                                      gint             x,
+                                                      gint             y);
+
 
 static void            gimp_group_layer_child_add    (GimpContainer   *container,
                                                       GimpLayer       *child,
@@ -143,7 +178,10 @@ static void            gimp_group_layer_proj_update  (GimpProjection    *proj,
 
 G_DEFINE_TYPE_WITH_CODE (GimpGroupLayer, gimp_group_layer, GIMP_TYPE_LAYER,
                          G_IMPLEMENT_INTERFACE (GIMP_TYPE_PROJECTABLE,
-                                                gimp_projectable_iface_init))
+                                                gimp_projectable_iface_init)
+                         G_IMPLEMENT_INTERFACE (GIMP_TYPE_PICKABLE,
+                                                gimp_pickable_iface_init))
+
 
 #define parent_class gimp_group_layer_parent_class
 
@@ -164,7 +202,10 @@ gimp_group_layer_class_init (GimpGroupLayerClass *klass)
   gimp_object_class->get_memsize   = gimp_group_layer_get_memsize;
 
   viewable_class->default_stock_id = "gtk-directory";
+  viewable_class->get_size         = gimp_group_layer_get_size;
   viewable_class->get_children     = gimp_group_layer_get_children;
+  viewable_class->set_expanded     = gimp_group_layer_set_expanded;
+  viewable_class->get_expanded     = gimp_group_layer_get_expanded;
 
   item_class->duplicate            = gimp_group_layer_duplicate;
   item_class->convert              = gimp_group_layer_convert;
@@ -186,6 +227,8 @@ gimp_group_layer_class_init (GimpGroupLayerClass *klass)
 
   drawable_class->estimate_memsize = gimp_group_layer_estimate_memsize;
   drawable_class->convert_type     = gimp_group_layer_convert_type;
+
+  g_type_class_add_private (klass, sizeof (GimpGroupLayerPrivate));
 }
 
 static void
@@ -202,36 +245,81 @@ gimp_projectable_iface_init (GimpProjectableInterface *iface)
 }
 
 static void
+gimp_pickable_iface_init (GimpPickableInterface *iface)
+{
+  iface->get_opacity_at = gimp_group_layer_get_opacity_at;
+}
+
+static void
 gimp_group_layer_init (GimpGroupLayer *group)
 {
-  group->children = gimp_drawable_stack_new (GIMP_TYPE_LAYER);
+  GimpGroupLayerPrivate *private = GET_PRIVATE (group);
 
-  g_signal_connect (group->children, "add",
+  private->children = gimp_drawable_stack_new (GIMP_TYPE_LAYER);
+  private->expanded = TRUE;
+
+  g_signal_connect (private->children, "add",
                     G_CALLBACK (gimp_group_layer_child_add),
                     group);
-  g_signal_connect (group->children, "remove",
+  g_signal_connect (private->children, "remove",
                     G_CALLBACK (gimp_group_layer_child_remove),
                     group);
 
-  gimp_container_add_handler (group->children, "notify::offset-x",
+  gimp_container_add_handler (private->children, "notify::offset-x",
                               G_CALLBACK (gimp_group_layer_child_move),
                               group);
-  gimp_container_add_handler (group->children, "notify::offset-y",
+  gimp_container_add_handler (private->children, "notify::offset-y",
                               G_CALLBACK (gimp_group_layer_child_move),
                               group);
-  gimp_container_add_handler (group->children, "size-changed",
+  gimp_container_add_handler (private->children, "size-changed",
                               G_CALLBACK (gimp_group_layer_child_resize),
                               group);
 
-  g_signal_connect (group->children, "update",
+  g_signal_connect (private->children, "update",
                     G_CALLBACK (gimp_group_layer_stack_update),
                     group);
 
-  group->projection = gimp_projection_new (GIMP_PROJECTABLE (group));
+  private->projection = gimp_projection_new (GIMP_PROJECTABLE (group));
 
-  g_signal_connect (group->projection, "update",
+  g_signal_connect (private->projection, "update",
                     G_CALLBACK (gimp_group_layer_proj_update),
                     group);
+}
+
+static void
+gimp_group_layer_finalize (GObject *object)
+{
+  GimpGroupLayerPrivate *private = GET_PRIVATE (object);
+
+  if (private->children)
+    {
+      g_signal_handlers_disconnect_by_func (private->children,
+                                            gimp_group_layer_child_add,
+                                            object);
+      g_signal_handlers_disconnect_by_func (private->children,
+                                            gimp_group_layer_child_remove,
+                                            object);
+      g_signal_handlers_disconnect_by_func (private->children,
+                                            gimp_group_layer_stack_update,
+                                            object);
+
+      g_object_unref (private->children);
+      private->children = NULL;
+    }
+
+  if (private->projection)
+    {
+      g_object_unref (private->projection);
+      private->projection = NULL;
+    }
+
+  if (private->graph)
+    {
+      g_object_unref (private->graph);
+      private->graph = NULL;
+    }
+
+  G_OBJECT_CLASS (parent_class)->finalize (object);
 }
 
 static void
@@ -262,62 +350,60 @@ gimp_group_layer_get_property (GObject    *object,
     }
 }
 
-static void
-gimp_group_layer_finalize (GObject *object)
-{
-  GimpGroupLayer *group = GIMP_GROUP_LAYER (object);
-
-  if (group->children)
-    {
-      g_signal_handlers_disconnect_by_func (group->children,
-                                            gimp_group_layer_child_add,
-                                            group);
-      g_signal_handlers_disconnect_by_func (group->children,
-                                            gimp_group_layer_child_remove,
-                                            group);
-      g_signal_handlers_disconnect_by_func (group->children,
-                                            gimp_group_layer_stack_update,
-                                            group);
-
-      g_object_unref (group->children);
-      group->children = NULL;
-    }
-
-  if (group->projection)
-    {
-      g_object_unref (group->projection);
-      group->projection = NULL;
-    }
-
-  if (group->graph)
-    {
-      g_object_unref (group->graph);
-      group->graph = NULL;
-    }
-
-  G_OBJECT_CLASS (parent_class)->finalize (object);
-}
-
 static gint64
 gimp_group_layer_get_memsize (GimpObject *object,
                               gint64     *gui_size)
 {
-  GimpGroupLayer *group   = GIMP_GROUP_LAYER (object);
-  gint64          memsize = 0;
+  GimpGroupLayerPrivate *private = GET_PRIVATE (object);
+  gint64                 memsize = 0;
 
-  memsize += gimp_object_get_memsize (GIMP_OBJECT (group->children), gui_size);
-  memsize += gimp_object_get_memsize (GIMP_OBJECT (group->projection), gui_size);
+  memsize += gimp_object_get_memsize (GIMP_OBJECT (private->children), gui_size);
+  memsize += gimp_object_get_memsize (GIMP_OBJECT (private->projection), gui_size);
 
   return memsize + GIMP_OBJECT_CLASS (parent_class)->get_memsize (object,
                                                                   gui_size);
 }
 
+static gboolean
+gimp_group_layer_get_size (GimpViewable *viewable,
+                           gint         *width,
+                           gint         *height)
+{
+  GimpGroupLayerPrivate *private = GET_PRIVATE (viewable);
+
+  if (private->reallocate_width  != 0 &&
+      private->reallocate_height != 0)
+    {
+      *width  = private->reallocate_width;
+      *height = private->reallocate_height;
+
+      return TRUE;
+    }
+
+  return GIMP_VIEWABLE_CLASS (parent_class)->get_size (viewable, width, height);
+}
+
 static GimpContainer *
 gimp_group_layer_get_children (GimpViewable *viewable)
 {
+  return GET_PRIVATE (viewable)->children;
+}
+
+static gboolean
+gimp_group_layer_get_expanded (GimpViewable *viewable)
+{
   GimpGroupLayer *group = GIMP_GROUP_LAYER (viewable);
 
-  return group->children;
+  return GET_PRIVATE (group)->expanded;
+}
+
+static void
+gimp_group_layer_set_expanded (GimpViewable *viewable,
+                               gboolean      expanded)
+{
+  GimpGroupLayer *group = GIMP_GROUP_LAYER (viewable);
+
+  GET_PRIVATE (group)->expanded = expanded;
 }
 
 static GimpItem *
@@ -332,14 +418,15 @@ gimp_group_layer_duplicate (GimpItem *item,
 
   if (GIMP_IS_GROUP_LAYER (new_item))
     {
-      GimpGroupLayer *group     = GIMP_GROUP_LAYER (item);
-      GimpGroupLayer *new_group = GIMP_GROUP_LAYER (new_item);
-      gint            position  = 0;
-      GList          *list;
+      GimpGroupLayerPrivate *private     = GET_PRIVATE (item);
+      GimpGroupLayer        *new_group   = GIMP_GROUP_LAYER (new_item);
+      GimpGroupLayerPrivate *new_private = GET_PRIVATE (new_item);
+      gint                   position    = 0;
+      GList                 *list;
 
       gimp_group_layer_suspend_resize (new_group, FALSE);
 
-      for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (group->children));
+      for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
            list;
            list = g_list_next (list))
         {
@@ -367,15 +454,13 @@ gimp_group_layer_duplicate (GimpItem *item,
           gimp_viewable_set_parent (GIMP_VIEWABLE (new_child),
                                     GIMP_VIEWABLE (new_group));
 
-          gimp_container_insert (new_group->children,
+          gimp_container_insert (new_private->children,
                                  GIMP_OBJECT (new_child),
                                  position++);
         }
 
-      /* FIXME: need to change the item's extents to resume_resize()
-       * will actually reallocate the projection's pyramid
-       */
-      GIMP_ITEM (new_group)->width++;
+      /*  force the projection to reallocate itself  */
+      GET_PRIVATE (new_group)->reallocate_projection = TRUE;
 
       gimp_group_layer_resume_resize (new_group, FALSE);
     }
@@ -387,10 +472,10 @@ static void
 gimp_group_layer_convert (GimpItem  *item,
                           GimpImage *dest_image)
 {
-  GimpGroupLayer *group = GIMP_GROUP_LAYER (item);
-  GList          *list;
+  GimpGroupLayerPrivate *private = GET_PRIVATE (item);
+  GList                 *list;
 
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (group->children));
+  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
        list;
        list = g_list_next (list))
     {
@@ -408,14 +493,15 @@ gimp_group_layer_translate (GimpItem *item,
                             gint      offset_y,
                             gboolean  push_undo)
 {
-  GimpGroupLayer *group = GIMP_GROUP_LAYER (item);
-  GimpLayerMask  *mask;
-  GList          *list;
+  GimpGroupLayer        *group   = GIMP_GROUP_LAYER (item);
+  GimpGroupLayerPrivate *private = GET_PRIVATE (item);
+  GimpLayerMask         *mask;
+  GList                 *list;
 
   /*  don't push an undo here because undo will call us again  */
   gimp_group_layer_suspend_resize (group, FALSE);
 
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (group->children));
+  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
        list;
        list = g_list_next (list))
     {
@@ -449,13 +535,14 @@ gimp_group_layer_scale (GimpItem              *item,
                         GimpInterpolationType  interpolation_type,
                         GimpProgress          *progress)
 {
-  GimpGroupLayer *group = GIMP_GROUP_LAYER (item);
-  GimpLayerMask  *mask;
-  GList          *list;
-  gdouble         width_factor;
-  gdouble         height_factor;
-  gint            old_offset_x;
-  gint            old_offset_y;
+  GimpGroupLayer        *group   = GIMP_GROUP_LAYER (item);
+  GimpGroupLayerPrivate *private = GET_PRIVATE (item);
+  GimpLayerMask         *mask;
+  GList                 *list;
+  gdouble                width_factor;
+  gdouble                height_factor;
+  gint                   old_offset_x;
+  gint                   old_offset_y;
 
   width_factor  = (gdouble) new_width  / (gdouble) gimp_item_get_width  (item);
   height_factor = (gdouble) new_height / (gdouble) gimp_item_get_height (item);
@@ -465,7 +552,7 @@ gimp_group_layer_scale (GimpItem              *item,
 
   gimp_group_layer_suspend_resize (group, TRUE);
 
-  list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (group->children));
+  list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
 
   while (list)
     {
@@ -502,7 +589,7 @@ gimp_group_layer_scale (GimpItem              *item,
         }
       else
         {
-          gimp_container_remove (group->children, GIMP_OBJECT (child));
+          gimp_container_remove (private->children, GIMP_OBJECT (child));
         }
     }
 
@@ -525,17 +612,18 @@ gimp_group_layer_resize (GimpItem    *item,
                          gint         offset_x,
                          gint         offset_y)
 {
-  GimpGroupLayer *group = GIMP_GROUP_LAYER (item);
-  GimpLayerMask  *mask;
-  GList          *list;
-  gint            x, y;
+  GimpGroupLayer        *group   = GIMP_GROUP_LAYER (item);
+  GimpGroupLayerPrivate *private = GET_PRIVATE (item);
+  GimpLayerMask         *mask;
+  GList                 *list;
+  gint                   x, y;
 
   x = gimp_item_get_offset_x (item) - offset_x;
   y = gimp_item_get_offset_y (item) - offset_y;
 
   gimp_group_layer_suspend_resize (group, TRUE);
 
-  list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (group->children));
+  list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
 
   while (list)
     {
@@ -575,7 +663,7 @@ gimp_group_layer_resize (GimpItem    *item,
         }
       else
         {
-          gimp_container_remove (group->children, GIMP_OBJECT (child));
+          gimp_container_remove (private->children, GIMP_OBJECT (child));
         }
     }
 
@@ -595,13 +683,14 @@ gimp_group_layer_flip (GimpItem            *item,
                        gdouble              axis,
                        gboolean             clip_result)
 {
-  GimpGroupLayer *group = GIMP_GROUP_LAYER (item);
-  GimpLayerMask  *mask;
-  GList          *list;
+  GimpGroupLayer        *group   = GIMP_GROUP_LAYER (item);
+  GimpGroupLayerPrivate *private = GET_PRIVATE (item);
+  GimpLayerMask         *mask;
+  GList                 *list;
 
   gimp_group_layer_suspend_resize (group, TRUE);
 
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (group->children));
+  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
        list;
        list = g_list_next (list))
     {
@@ -628,13 +717,14 @@ gimp_group_layer_rotate (GimpItem         *item,
                          gdouble           center_y,
                          gboolean          clip_result)
 {
-  GimpGroupLayer *group = GIMP_GROUP_LAYER (item);
-  GimpLayerMask  *mask;
-  GList          *list;
+  GimpGroupLayer        *group   = GIMP_GROUP_LAYER (item);
+  GimpGroupLayerPrivate *private = GET_PRIVATE (item);
+  GimpLayerMask         *mask;
+  GList                 *list;
 
   gimp_group_layer_suspend_resize (group, TRUE);
 
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (group->children));
+  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
        list;
        list = g_list_next (list))
     {
@@ -663,13 +753,14 @@ gimp_group_layer_transform (GimpItem               *item,
                             GimpTransformResize     clip_result,
                             GimpProgress           *progress)
 {
-  GimpGroupLayer *group = GIMP_GROUP_LAYER (item);
-  GimpLayerMask  *mask;
-  GList          *list;
+  GimpGroupLayer        *group   = GIMP_GROUP_LAYER (item);
+  GimpGroupLayerPrivate *private = GET_PRIVATE (item);
+  GimpLayerMask         *mask;
+  GList                 *list;
 
   gimp_group_layer_suspend_resize (group, TRUE);
 
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (group->children));
+  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
        list;
        list = g_list_next (list))
     {
@@ -697,12 +788,12 @@ gimp_group_layer_estimate_memsize (const GimpDrawable *drawable,
                                    gint                width,
                                    gint                height)
 {
-  GimpGroupLayer    *group   = GIMP_GROUP_LAYER (drawable);
-  GList             *list;
-  GimpImageBaseType  base_type;
-  gint64             memsize = 0;
+  GimpGroupLayerPrivate *private = GET_PRIVATE (drawable);
+  GList                 *list;
+  GimpImageBaseType      base_type;
+  gint64                 memsize = 0;
 
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (group->children));
+  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
        list;
        list = g_list_next (list))
     {
@@ -737,9 +828,10 @@ gimp_group_layer_convert_type (GimpDrawable      *drawable,
                                GimpImageBaseType  new_base_type,
                                gboolean           push_undo)
 {
-  GimpGroupLayer *group = GIMP_GROUP_LAYER (drawable);
-  TileManager    *tiles;
-  GimpImageType   new_type;
+  GimpGroupLayer        *group   = GIMP_GROUP_LAYER (drawable);
+  GimpGroupLayerPrivate *private = GET_PRIVATE (drawable);
+  TileManager           *tiles;
+  GimpImageType          new_type;
 
   if (push_undo)
     {
@@ -757,12 +849,11 @@ gimp_group_layer_convert_type (GimpDrawable      *drawable,
    *  type to the new values so the projection will create its tiles
    *  with the right depth
    */
-  drawable->type  = new_type;
-  drawable->bytes = GIMP_IMAGE_TYPE_BYTES (new_type);
+  drawable->private->type = new_type;
 
   gimp_projectable_structure_changed (GIMP_PROJECTABLE (drawable));
 
-  tiles = gimp_projection_get_tiles_at_level (group->projection,
+  tiles = gimp_projection_get_tiles_at_level (private->projection,
                                               0, NULL);
 
   gimp_drawable_set_tiles_full (drawable,
@@ -775,47 +866,57 @@ gimp_group_layer_convert_type (GimpDrawable      *drawable,
 static GeglNode *
 gimp_group_layer_get_graph (GimpProjectable *projectable)
 {
-  GimpGroupLayer *group = GIMP_GROUP_LAYER (projectable);
-  GeglNode       *layers_node;
-  GeglNode       *output;
-  gint            off_x;
-  gint            off_y;
+  GimpGroupLayer        *group   = GIMP_GROUP_LAYER (projectable);
+  GimpGroupLayerPrivate *private = GET_PRIVATE (projectable);
+  GeglNode              *layers_node;
+  GeglNode              *output;
+  gint                   off_x;
+  gint                   off_y;
 
-  if (group->graph)
-    return group->graph;
+  if (private->graph)
+    return private->graph;
 
-  group->graph = gegl_node_new ();
+  private->graph = gegl_node_new ();
 
   layers_node =
-    gimp_drawable_stack_get_graph (GIMP_DRAWABLE_STACK (group->children));
+    gimp_drawable_stack_get_graph (GIMP_DRAWABLE_STACK (private->children));
 
-  gegl_node_add_child (group->graph, layers_node);
+  gegl_node_add_child (private->graph, layers_node);
 
   gimp_item_get_offset (GIMP_ITEM (group), &off_x, &off_y);
 
-  group->offset_node = gegl_node_new_child (group->graph,
-                                            "operation", "gegl:translate",
-                                            "x",         (gdouble) -off_x,
-                                            "y",         (gdouble) -off_y,
-                                            NULL);
+  private->offset_node = gegl_node_new_child (private->graph,
+                                              "operation", "gegl:translate",
+                                              "x",         (gdouble) -off_x,
+                                              "y",         (gdouble) -off_y,
+                                              NULL);
 
-  gegl_node_connect_to (layers_node,        "output",
-                        group->offset_node, "input");
+  gegl_node_connect_to (layers_node,          "output",
+                        private->offset_node, "input");
 
-  output = gegl_node_get_output_proxy (group->graph, "output");
+  output = gegl_node_get_output_proxy (private->graph, "output");
 
-  gegl_node_connect_to (group->offset_node, "output",
-                        output,             "input");
+  gegl_node_connect_to (private->offset_node, "output",
+                        output,               "input");
 
-  return group->graph;
+  return private->graph;
 }
 
 static GList *
 gimp_group_layer_get_layers (GimpProjectable *projectable)
 {
-  GimpGroupLayer *group = GIMP_GROUP_LAYER (projectable);
+  GimpGroupLayerPrivate *private = GET_PRIVATE (projectable);
 
-  return gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (group->children));
+  return gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
+}
+
+static gint
+gimp_group_layer_get_opacity_at (GimpPickable *pickable,
+                                 gint          x,
+                                 gint          y)
+{
+  /* Only consider child layers as having content */
+  return 0;
 }
 
 
@@ -825,21 +926,29 @@ GimpLayer *
 gimp_group_layer_new (GimpImage *image)
 {
   GimpGroupLayer *group;
+  GimpImageType   type;
 
   g_return_val_if_fail (GIMP_IS_IMAGE (image), NULL);
 
-  group = g_object_new (GIMP_TYPE_GROUP_LAYER, NULL);
+  type = gimp_image_base_type_with_alpha (image);
 
-  gimp_drawable_configure (GIMP_DRAWABLE (group),
-                           image,
-                           0, 0, 1, 1,
-                           gimp_image_base_type_with_alpha (image),
-                           NULL);
+  group = GIMP_GROUP_LAYER (gimp_drawable_new (GIMP_TYPE_GROUP_LAYER,
+                                               image, NULL,
+                                               0, 0, 1, 1,
+                                               type));
 
   if (gimp_image_get_projection (image)->use_gegl)
-    group->projection->use_gegl = TRUE;
+    GET_PRIVATE (group)->projection->use_gegl = TRUE;
 
   return GIMP_LAYER (group);
+}
+
+GimpProjection *
+gimp_group_layer_get_projection (GimpGroupLayer *group)
+{
+  g_return_val_if_fail (GIMP_IS_GROUP_LAYER (group), NULL);
+
+  return GET_PRIVATE (group)->projection;
 }
 
 void
@@ -859,17 +968,21 @@ gimp_group_layer_suspend_resize (GimpGroupLayer *group,
     gimp_image_undo_push_group_layer_suspend (gimp_item_get_image (item),
                                               NULL, group);
 
-  group->suspend_resize++;
+  GET_PRIVATE (group)->suspend_resize++;
 }
 
 void
 gimp_group_layer_resume_resize (GimpGroupLayer *group,
                                 gboolean        push_undo)
 {
-  GimpItem *item;
+  GimpGroupLayerPrivate *private;
+  GimpItem              *item;
 
   g_return_if_fail (GIMP_IS_GROUP_LAYER (group));
-  g_return_if_fail (group->suspend_resize > 0);
+
+  private = GET_PRIVATE (group);
+
+  g_return_if_fail (private->suspend_resize > 0);
 
   item = GIMP_ITEM (group);
 
@@ -880,9 +993,9 @@ gimp_group_layer_resume_resize (GimpGroupLayer *group,
     gimp_image_undo_push_group_layer_resume (gimp_item_get_image (item),
                                              NULL, group);
 
-  group->suspend_resize--;
+  private->suspend_resize--;
 
-  if (group->suspend_resize == 0)
+  if (private->suspend_resize == 0)
     {
       gimp_group_layer_update_size (group);
     }
@@ -925,7 +1038,7 @@ gimp_group_layer_child_resize (GimpLayer      *child,
 static void
 gimp_group_layer_update (GimpGroupLayer *group)
 {
-  if (group->suspend_resize == 0)
+  if (GET_PRIVATE (group)->suspend_resize == 0)
     {
       gimp_group_layer_update_size (group);
     }
@@ -934,19 +1047,20 @@ gimp_group_layer_update (GimpGroupLayer *group)
 static void
 gimp_group_layer_update_size (GimpGroupLayer *group)
 {
-  GimpItem *item       = GIMP_ITEM (group);
-  gint      old_x      = gimp_item_get_offset_x (item);
-  gint      old_y      = gimp_item_get_offset_y (item);
-  gint      old_width  = gimp_item_get_width  (item);
-  gint      old_height = gimp_item_get_height (item);
-  gint      x          = 0;
-  gint      y          = 0;
-  gint      width      = 1;
-  gint      height     = 1;
-  gboolean  first      = TRUE;
-  GList    *list;
+  GimpGroupLayerPrivate *private    = GET_PRIVATE (group);
+  GimpItem              *item       = GIMP_ITEM (group);
+  gint                   old_x      = gimp_item_get_offset_x (item);
+  gint                   old_y      = gimp_item_get_offset_y (item);
+  gint                   old_width  = gimp_item_get_width  (item);
+  gint                   old_height = gimp_item_get_height (item);
+  gint                   x          = 0;
+  gint                   y          = 0;
+  gint                   width      = 1;
+  gint                   height     = 1;
+  gboolean               first      = TRUE;
+  GList                 *list;
 
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (group->children));
+  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
        list;
        list = g_list_next (list))
     {
@@ -972,34 +1086,33 @@ gimp_group_layer_update_size (GimpGroupLayer *group)
         }
     }
 
-  if (x      != old_x     ||
-      y      != old_y     ||
-      width  != old_width ||
+  if (private->reallocate_projection ||
+      x      != old_x                ||
+      y      != old_y                ||
+      width  != old_width            ||
       height != old_height)
     {
-      if (width  != old_width ||
+      if (private->reallocate_projection ||
+          width  != old_width            ||
           height != old_height)
         {
           TileManager *tiles;
 
-          /*  FIXME: find a better way to do this: need to set the item's
-           *  extents to the new values so the projection will create
-           *  its tiles with the right size
+          private->reallocate_projection = FALSE;
+
+          /*  temporarily change the return values of gimp_viewable_get_size()
+           *  so the projection allocates itself correctly
            */
-          item->width  = width;
-          item->height = height;
+          private->reallocate_width  = width;
+          private->reallocate_height = height;
 
           gimp_projectable_structure_changed (GIMP_PROJECTABLE (group));
 
-          tiles = gimp_projection_get_tiles_at_level (group->projection,
+          tiles = gimp_projection_get_tiles_at_level (private->projection,
                                                       0, NULL);
 
-          /*  FIXME: need to set the item's extents back to the old
-           *  values so gimp_drawable_set_tiles_full() will emit all
-           *  signals needed by the layer tree to update itself
-           */
-          item->width  = old_width;
-          item->height = old_height;
+          private->reallocate_width  = 0;
+          private->reallocate_height = 0;
 
           gimp_drawable_set_tiles_full (GIMP_DRAWABLE (group),
                                         FALSE, NULL,
@@ -1020,8 +1133,8 @@ gimp_group_layer_update_size (GimpGroupLayer *group)
                                        x, y, width, height);
         }
 
-      if (group->offset_node)
-        gegl_node_set (group->offset_node,
+      if (private->offset_node)
+        gegl_node_set (private->offset_node,
                        "x", (gdouble) -x,
                        "y", (gdouble) -y,
                        NULL);
@@ -1054,7 +1167,7 @@ gimp_group_layer_stack_update (GimpDrawableStack *stack,
    *  when the actual read happens, so this it not a performance
    *  problem)
    */
-  gimp_pickable_flush (GIMP_PICKABLE (group->projection));
+  gimp_pickable_flush (GIMP_PICKABLE (GET_PRIVATE (group)->projection));
 }
 
 static void

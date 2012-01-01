@@ -19,6 +19,10 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#if !defined (__GIMP_WIDGETS_H_INSIDE__) && !defined (GIMP_WIDGETS_COMPILATION)
+#error "Only <libgimpwidgets/gimpwidgets.h> can be included directly."
+#endif
+
 #ifndef __GIMP_PATH_EDITOR_H__
 #define __GIMP_PATH_EDITOR_H__
 
@@ -39,7 +43,7 @@ typedef struct _GimpPathEditorClass  GimpPathEditorClass;
 
 struct _GimpPathEditor
 {
-  GtkVBox            parent_instance;
+  GtkBox             parent_instance;
 
   GtkWidget         *upper_hbox;
 
@@ -62,7 +66,7 @@ struct _GimpPathEditor
 
 struct _GimpPathEditorClass
 {
-  GtkVBoxClass  parent_class;
+  GtkBoxClass  parent_class;
 
   void (* path_changed)     (GimpPathEditor *editor);
   void (* writable_changed) (GimpPathEditor *editor);

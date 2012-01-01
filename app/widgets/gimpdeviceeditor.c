@@ -36,6 +36,7 @@
 #include "gimpdeviceeditor.h"
 #include "gimpdeviceinfo.h"
 #include "gimpdeviceinfoeditor.h"
+#include "gimpdevicemanager.h"
 #include "gimpdevices.h"
 #include "gimpmessagebox.h"
 #include "gimpmessagedialog.h"
@@ -74,42 +75,40 @@ struct _GimpDeviceEditorPrivate
                                      GimpDeviceEditorPrivate)
 
 
-static GObject * gimp_device_editor_constructor    (GType                  type,
-                                                    guint                  n_params,
-                                                    GObjectConstructParam *params);
-static void      gimp_device_editor_dispose        (GObject               *object);
-static void      gimp_device_editor_set_property   (GObject               *object,
-                                                    guint                  property_id,
-                                                    const GValue          *value,
-                                                    GParamSpec            *pspec);
-static void      gimp_device_editor_get_property   (GObject               *object,
-                                                    guint                  property_id,
-                                                    GValue                *value,
-                                                    GParamSpec            *pspec);
+static void   gimp_device_editor_constructed    (GObject           *object);
+static void   gimp_device_editor_dispose        (GObject           *object);
+static void   gimp_device_editor_set_property   (GObject           *object,
+                                                 guint              property_id,
+                                                 const GValue      *value,
+                                                 GParamSpec        *pspec);
+static void   gimp_device_editor_get_property   (GObject           *object,
+                                                 guint              property_id,
+                                                 GValue            *value,
+                                                 GParamSpec        *pspec);
 
-static void      gimp_device_editor_add_device     (GimpContainer         *container,
-                                                    GimpDeviceInfo        *info,
-                                                    GimpDeviceEditor      *editor);
-static void      gimp_device_editor_remove_device  (GimpContainer         *container,
-                                                    GimpDeviceInfo        *info,
-                                                    GimpDeviceEditor      *editor);
-static void      gimp_device_editor_device_changed (GimpDeviceInfo        *info,
-                                                    GimpDeviceEditor      *editor);
+static void   gimp_device_editor_add_device     (GimpContainer     *container,
+                                                 GimpDeviceInfo    *info,
+                                                 GimpDeviceEditor  *editor);
+static void   gimp_device_editor_remove_device  (GimpContainer     *container,
+                                                 GimpDeviceInfo    *info,
+                                                 GimpDeviceEditor  *editor);
+static void   gimp_device_editor_device_changed (GimpDeviceInfo    *info,
+                                                 GimpDeviceEditor  *editor);
 
-static void      gimp_device_editor_select_device  (GimpContainerView     *view,
-                                                    GimpViewable          *viewable,
-                                                    gpointer               insert_data,
-                                                    GimpDeviceEditor      *editor);
+static void   gimp_device_editor_select_device  (GimpContainerView *view,
+                                                 GimpViewable      *viewable,
+                                                 gpointer           insert_data,
+                                                 GimpDeviceEditor  *editor);
 
-static void      gimp_device_editor_switch_page    (GtkNotebook           *notebook,
-                                                    gpointer               page,
-                                                    guint                  page_num,
-                                                    GimpDeviceEditor      *editor);
-static void      gimp_device_editor_delete_clicked (GtkWidget             *button,
-                                                    GimpDeviceEditor      *editor);
+static void   gimp_device_editor_switch_page    (GtkNotebook       *notebook,
+                                                 gpointer           page,
+                                                 guint              page_num,
+                                                 GimpDeviceEditor  *editor);
+static void   gimp_device_editor_delete_clicked (GtkWidget         *button,
+                                                 GimpDeviceEditor  *editor);
 
 
-G_DEFINE_TYPE (GimpDeviceEditor, gimp_device_editor, GTK_TYPE_BOX)
+G_DEFINE_TYPE (GimpDeviceEditor, gimp_device_editor, GTK_TYPE_PANED)
 
 #define parent_class gimp_device_editor_parent_class
 
@@ -119,7 +118,7 @@ gimp_device_editor_class_init (GimpDeviceEditorClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
-  object_class->constructor  = gimp_device_editor_constructor;
+  object_class->constructed  = gimp_device_editor_constructed;
   object_class->dispose      = gimp_device_editor_dispose;
   object_class->set_property = gimp_device_editor_set_property;
   object_class->get_property = gimp_device_editor_get_property;
@@ -147,15 +146,13 @@ gimp_device_editor_init (GimpDeviceEditor *editor)
   gtk_orientable_set_orientation (GTK_ORIENTABLE (editor),
                                   GTK_ORIENTATION_HORIZONTAL);
 
-  gtk_box_set_spacing (GTK_BOX (editor), 12);
-
   gtk_icon_size_lookup_for_settings (gtk_widget_get_settings (GTK_WIDGET (editor)),
                                      GTK_ICON_SIZE_BUTTON,
                                      &icon_width, &icon_height);
 
   private->treeview = gimp_container_tree_view_new (NULL, NULL, icon_height, 0);
   gtk_widget_set_size_request (private->treeview, 200, -1);
-  gtk_box_pack_start (GTK_BOX (editor), private->treeview, FALSE, FALSE, 0);
+  gtk_paned_pack1 (GTK_PANED (editor), private->treeview, FALSE, TRUE);
   gtk_widget_show (private->treeview);
 
   g_signal_connect_object (private->treeview, "select-item",
@@ -173,8 +170,8 @@ gimp_device_editor_init (GimpDeviceEditor *editor)
 
   gtk_widget_set_sensitive (private->delete_button, FALSE);
 
-  vbox = gtk_vbox_new (FALSE, 12);
-  gtk_box_pack_start (GTK_BOX (editor), vbox, TRUE, TRUE, 0);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
+  gtk_paned_pack2 (GTK_PANED (editor), vbox, TRUE, TRUE);
   gtk_widget_show (vbox);
 
   ebox = gtk_event_box_new ();
@@ -182,7 +179,7 @@ gimp_device_editor_init (GimpDeviceEditor *editor)
   gtk_box_pack_start (GTK_BOX (vbox), ebox, FALSE, FALSE, 0);
   gtk_widget_show (ebox);
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 4);
   gtk_container_add (GTK_CONTAINER (ebox), hbox);
   gtk_widget_show (hbox);
@@ -212,25 +209,20 @@ gimp_device_editor_init (GimpDeviceEditor *editor)
                     editor);
 }
 
-static GObject *
-gimp_device_editor_constructor (GType                   type,
-                                guint                   n_params,
-                                GObjectConstructParam  *params)
+static void
+gimp_device_editor_constructed (GObject *object)
 {
-  GObject                 *object;
-  GimpDeviceEditor        *editor;
-  GimpDeviceEditorPrivate *private;
+  GimpDeviceEditor        *editor  = GIMP_DEVICE_EDITOR (object);
+  GimpDeviceEditorPrivate *private = GIMP_DEVICE_EDITOR_GET_PRIVATE (editor);
   GimpContainer           *devices;
   GList                   *list;
 
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
-
-  editor  = GIMP_DEVICE_EDITOR (object);
-  private = GIMP_DEVICE_EDITOR_GET_PRIVATE (editor);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   g_assert (GIMP_IS_GIMP (private->gimp));
 
-  devices = gimp_devices_get_list (private->gimp);
+  devices = GIMP_CONTAINER (gimp_devices_get_manager (private->gimp));
 
   /*  connect to "remove" before the container view does so we can get
    *  the notebook child stored in its model
@@ -260,15 +252,15 @@ gimp_device_editor_constructor (GType                   type,
     {
       gimp_device_editor_add_device (devices, list->data, editor);
     }
-
-  return object;
 }
 
 static void
 gimp_device_editor_dispose (GObject *object)
 {
   GimpDeviceEditorPrivate *private = GIMP_DEVICE_EDITOR_GET_PRIVATE (object);
-  GimpContainer           *devices = gimp_devices_get_list (private->gimp);
+  GimpContainer           *devices;
+
+  devices = GIMP_CONTAINER (gimp_devices_get_manager (private->gimp));
 
   g_signal_handlers_disconnect_by_func (devices,
                                         gimp_device_editor_add_device,
@@ -484,7 +476,7 @@ gimp_device_editor_delete_response (GtkWidget        *dialog,
         {
           GimpContainer *devices;
 
-          devices = gimp_devices_get_list (private->gimp);
+          devices = GIMP_CONTAINER (gimp_devices_get_manager (private->gimp));
 
           gimp_container_remove (devices, selected->data);
 

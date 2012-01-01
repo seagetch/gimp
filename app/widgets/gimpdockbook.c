@@ -31,11 +31,13 @@
 #include "core/gimpcontext.h"
 #include "core/gimpmarshal.h"
 
+#include "gimpdialogfactory.h"
 #include "gimpdnd.h"
 #include "gimpdock.h"
 #include "gimpdockable.h"
 #include "gimpdockbook.h"
 #include "gimpdocked.h"
+#include "gimpdockcontainer.h"
 #include "gimpdockwindow.h"
 #include "gimphelp-ids.h"
 #include "gimpmenufactory.h"
@@ -88,6 +90,7 @@ struct _GimpDockbookPrivate
    */
   GList          *dockables;
 
+  /* implementation for gimp-painter-2.7 */
   GtkWidget      *menu_button;
   
   gboolean        horizontal;
@@ -285,6 +288,9 @@ gimp_dockbook_init (GimpDockbook *dockbook)
   gtk_widget_set_can_focus (dockbook->p->menu_button, FALSE);
   gtk_button_set_relief (GTK_BUTTON (dockbook->p->menu_button),
                          GTK_RELIEF_NONE);
+  gtk_notebook_set_action_widget (notebook,
+                                  dockbook->p->menu_button,
+                                  GTK_PACK_END);
   gtk_widget_show (dockbook->p->menu_button);
 
   image = gtk_image_new_from_stock (GIMP_STOCK_MENU_LEFT, GTK_ICON_SIZE_MENU);
@@ -329,12 +335,6 @@ gimp_dockbook_finalize (GObject *object)
     {
       g_object_unref (dockbook->p->ui_manager);
       dockbook->p->ui_manager = NULL;
-    }
-
-    if (dockbook->p->menu_button)
-    {
-      gtk_widget_unparent (dockbook->p->menu_button);
-      dockbook->p->menu_button = NULL;
     }
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
@@ -1049,6 +1049,51 @@ gimp_dockbook_add (GimpDockbook *dockbook,
   g_signal_emit (dockbook, dockbook_signals[DOCKABLE_ADDED], 0, dockable);
 }
 
+/**
+ * gimp_dockbook_add_from_dialog_factory:
+ * @dockbook:    The #DockBook
+ * @identifiers: The dockable identifier(s)
+ * @position:    The insert position
+ *
+ * Add a dockable from the dialog factory associated wth the dockbook.
+ **/
+GtkWidget *
+gimp_dockbook_add_from_dialog_factory (GimpDockbook *dockbook,
+                                       const gchar  *identifiers,
+                                       gint          position)
+{
+  GtkWidget *dockable;
+  GimpDock  *dock;
+  gchar     *identifier;
+  gchar     *p;
+
+  g_return_val_if_fail (GIMP_IS_DOCKBOOK (dockbook), NULL);
+  g_return_val_if_fail (identifiers != NULL, NULL);
+
+  identifier = g_strdup (identifiers);
+
+  p = strchr (identifier, '|');
+
+  if (p)
+    *p = '\0';
+
+  dock     = gimp_dockbook_get_dock (dockbook);
+  dockable = gimp_dialog_factory_dockable_new (gimp_dock_get_dialog_factory (dock),
+                                               dock,
+                                               identifier, -1);
+
+  g_free (identifier);
+
+  /*  Maybe gimp_dialog_factory_dockable_new() returned an already
+   *  existing singleton dockable, so check if it already is
+   *  attached to a dockbook.
+   */
+  if (dockable && ! gimp_dockable_get_dockbook (GIMP_DOCKABLE (dockable)))
+    gimp_dockbook_add (dockbook, GIMP_DOCKABLE (dockable), position);
+
+  return dockable;
+}
+
 void
 gimp_dockbook_remove (GimpDockbook *dockbook,
                       GimpDockable *dockable)
@@ -1137,7 +1182,8 @@ gimp_dockbook_create_tab_widget (GimpDockbook *dockbook,
 
   /* EEK */
   dock_window = gimp_dock_window_from_dock (dockbook->p->dock);
-  if (dock_window && gimp_dock_window_get_ui_manager (dock_window))
+  if (dock_window &&
+      gimp_dock_container_get_ui_manager (GIMP_DOCK_CONTAINER (dock_window)))
     {
       const gchar *dialog_id;
 
@@ -1146,10 +1192,13 @@ gimp_dockbook_create_tab_widget (GimpDockbook *dockbook,
 
       if (dialog_id)
         {
-          GimpActionGroup *group;
+          GimpDockContainer *dock_container;
+          GimpActionGroup   *group;
+
+          dock_container = GIMP_DOCK_CONTAINER (dock_window);
 
           group = gimp_ui_manager_get_action_group
-            (gimp_dock_window_get_ui_manager (dock_window), "dialogs");
+            (gimp_dock_container_get_ui_manager (dock_container), "dialogs");
 
           if (group)
             {
@@ -1372,17 +1421,12 @@ gimp_dockbook_tab_drag_begin (GtkWidget      *widget,
                               GdkDragContext *context,
                               GimpDockable   *dockable)
 {
-  GimpDock          *dock;
-  GimpPanedBoxClass *paned_box_class;
-  GtkAllocation      allocation;
-  GtkWidget         *window;
-  GtkWidget         *view;
-  GtkRequisition     requisition;
-  gint               drag_x;
-  gint               drag_y;
-
-  dock            = GIMP_DOCK (gimp_dockable_get_dockbook (dockable)->p->dock);
-  paned_box_class = GIMP_PANED_BOX_GET_CLASS (gimp_dock_get_vbox (dock));
+  GtkAllocation   allocation;
+  GtkWidget      *window;
+  GtkWidget      *view;
+  GtkRequisition  requisition;
+  gint            drag_x;
+  gint            drag_y;
 
   gtk_widget_get_allocation (widget, &allocation);
 
@@ -1420,14 +1464,10 @@ gimp_dockbook_tab_drag_end (GtkWidget      *widget,
                             GdkDragContext *context,
                             GimpDockable   *dockable)
 {
-  GimpDock          *dock;
-  GimpPanedBoxClass *paned_box_class;
-  GtkWidget         *drag_widget;
+  GtkWidget *drag_widget;
 
-  dock            = GIMP_DOCK (gimp_dockable_get_dockbook (dockable)->p->dock);
-  paned_box_class = GIMP_PANED_BOX_GET_CLASS (gimp_dock_get_vbox (dock));
-  drag_widget     = g_object_get_data (G_OBJECT (dockable),
-                                       "gimp-dock-drag-widget");
+  drag_widget = g_object_get_data (G_OBJECT (dockable),
+                                   "gimp-dock-drag-widget");
 
   /*  finding the drag_widget means the drop was not successful, so
    *  pop up a new dock and move the dockable there

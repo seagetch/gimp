@@ -26,13 +26,11 @@
 
 #include "widgets-types.h"
 
-#include "core/gimpcontainer.h"
+#include "core/gimpcontext.h"
 #include "core/gimpdatafactory.h"
-#include "core/gimpviewable.h"
 
-#include "gimpcontainerview.h"
-#include "gimpeditor.h"
 #include "gimpdynamicsfactoryview.h"
+#include "gimpmenufactory.h"
 #include "gimpviewrenderer.h"
 
 
@@ -52,40 +50,31 @@ gimp_dynamics_factory_view_init (GimpDynamicsFactoryView *view)
 
 GtkWidget *
 gimp_dynamics_factory_view_new (GimpViewType      view_type,
-                               GimpDataFactory  *factory,
-                               GimpContext      *context,
-                               gint              view_size,
-                               gint              view_border_width,
-                               GimpMenuFactory  *menu_factory)
+                                GimpDataFactory  *factory,
+                                GimpContext      *context,
+                                gint              view_size,
+                                gint              view_border_width,
+                                GimpMenuFactory  *menu_factory)
 {
-  GimpDynamicsFactoryView *factory_view;
-  GimpContainerEditor     *editor;
-
   g_return_val_if_fail (GIMP_IS_DATA_FACTORY (factory), NULL);
+  g_return_val_if_fail (GIMP_IS_CONTEXT (context), NULL);
   g_return_val_if_fail (view_size > 0 &&
                         view_size <= GIMP_VIEWABLE_MAX_PREVIEW_SIZE, NULL);
   g_return_val_if_fail (view_border_width >= 0 &&
                         view_border_width <= GIMP_VIEW_MAX_BORDER_WIDTH,
                         NULL);
+  g_return_val_if_fail (menu_factory == NULL ||
+                        GIMP_IS_MENU_FACTORY (menu_factory), NULL);
 
-  factory_view = g_object_new (GIMP_TYPE_DYNAMICS_FACTORY_VIEW, NULL);
-
-  if (! gimp_data_factory_view_construct (GIMP_DATA_FACTORY_VIEW (factory_view),
-                                          view_type,
-                                          factory,
-                                          context,
-                                          view_size, view_border_width,
-                                          menu_factory, "<Dynamics>",
-                                          "/dynamics-popup",
-                                          "dynamics"))
-    {
-      g_object_unref (factory_view);
-      return NULL;
-    }
-
-  editor = GIMP_CONTAINER_EDITOR (factory_view);
-
-  gtk_widget_hide (gimp_data_factory_view_get_duplicate_button (GIMP_DATA_FACTORY_VIEW (factory_view)));
-
-  return GTK_WIDGET (factory_view);
+  return g_object_new (GIMP_TYPE_DYNAMICS_FACTORY_VIEW,
+                       "view-type",         view_type,
+                       "data-factory",      factory,
+                       "context",           context,
+                       "view-size",         view_size,
+                       "view-border-width", view_border_width,
+                       "menu-factory",      menu_factory,
+                       "menu-identifier",   "<Dynamics>",
+                       "ui-path",           "/dynamics-popup",
+                       "action-group",      "dynamics",
+                       NULL);
 }

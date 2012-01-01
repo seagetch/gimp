@@ -108,8 +108,6 @@ xjpg_load_layer (const char    *filename,
   cinfo.err = jpeg_std_error (&jerr.pub);
   jerr.pub.error_exit = my_error_exit;
 
-  l_layer_type = GIMP_GRAY_IMAGE;
-
   if ((infile = g_fopen (filename, "rb")) == NULL)
   {
       g_warning ("can't open \"%s\"\n", filename);
@@ -227,6 +225,7 @@ xjpg_load_layer (const char    *filename,
 
       gimp_progress_update ((double) cinfo.output_scanline / (double) cinfo.output_height);
   }
+  gimp_progress_update (1.0);
 
   /* Step 7: Finish decompression */
 
@@ -273,7 +272,6 @@ xjpg_load_layer_alpha (const char *filename,
 {
   GimpPixelRgn l_pixel_rgn;
   GimpDrawable *l_drawable;
-  GimpImageType  l_layer_type;
   struct jpeg_decompress_struct cinfo;
   struct my_error_mgr jerr;
   FILE *infile;
@@ -290,8 +288,6 @@ xjpg_load_layer_alpha (const char *filename,
   /* We set up the normal JPEG error routines. */
   cinfo.err = jpeg_std_error (&jerr.pub);
   jerr.pub.error_exit = my_error_exit;
-
-  l_layer_type = GIMP_GRAY_IMAGE;
 
   /* add alpha channel */
   gimp_layer_add_alpha (layer_id);
@@ -421,6 +417,7 @@ xjpg_load_layer_alpha (const char *filename,
 
       gimp_progress_update ((double) cinfo.output_scanline / (double) cinfo.output_height);
   }
+  gimp_progress_update (1.0);
 
   /* Step 7: Finish decompression */
 
@@ -618,6 +615,7 @@ xjpg_load_channel (const char   *filename,
 
       gimp_progress_update ((double) cinfo.output_scanline / (double) cinfo.output_height);
   }
+  gimp_progress_update (1.0);
 
   /* Step 7: Finish decompression */
 
@@ -690,8 +688,6 @@ xjpg_save_drawable (const char     *filename,
   guchar alpha_byte;
   guchar volatile l_alpha_sum;
 
-  alpha_offset = 0;
-  has_alpha = 0;
   src = NULL;
   temp = NULL;
   data = NULL;
@@ -913,6 +909,7 @@ xjpg_save_drawable (const char     *filename,
       if ((cinfo.next_scanline % 5) == 0)
 	gimp_progress_update ((double) cinfo.next_scanline / (double) cinfo.image_height);
   }
+  gimp_progress_update (1.0);
 
   /* Step 6: Finish compression */
   jpeg_finish_compress (&cinfo);

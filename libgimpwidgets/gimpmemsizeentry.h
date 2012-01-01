@@ -19,6 +19,10 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#if !defined (__GIMP_WIDGETS_H_INSIDE__) && !defined (GIMP_WIDGETS_COMPILATION)
+#error "Only <libgimpwidgets/gimpwidgets.h> can be included directly."
+#endif
+
 #ifndef __GIMP_MEMSIZE_ENTRY_H__
 #define __GIMP_MEMSIZE_ENTRY_H__
 
@@ -37,23 +41,23 @@ typedef struct _GimpMemsizeEntryClass  GimpMemsizeEntryClass;
 
 struct _GimpMemsizeEntry
 {
-  GtkHBox            parent_instance;
+  GtkBox         parent_instance;
 
   /*< private >*/
-  guint64            value;
-  guint64            lower;
-  guint64            upper;
+  guint64        value;
+  guint64        lower;
+  guint64        upper;
 
-  guint              shift;
+  guint          shift;
 
-  GtkAdjustment     *adjustment;
-  GtkWidget         *spinbutton;
-  GtkWidget         *menu;
+  GtkAdjustment *adjustment;
+  GtkWidget     *spinbutton;
+  GtkWidget     *menu;
 };
 
 struct _GimpMemsizeEntryClass
 {
-  GtkHBoxClass       parent_class;
+  GtkBoxClass  parent_class;
 
   void (* value_changed)  (GimpMemsizeEntry *entry);
 

@@ -41,6 +41,13 @@
 #include "gimp-intl.h"
 
 
+/* The first authors are the creators and maintainers, don't shuffle
+ * them
+ */
+#define START_INDEX (G_N_ELEMENTS (creators)    - 1 /*NULL*/ + \
+                     G_N_ELEMENTS (maintainers) - 1 /*NULL*/)
+
+
 typedef struct
 {
   GtkWidget   *dialog;
@@ -101,7 +108,7 @@ about_dialog_create (GimpContext *context)
       copyright = g_strdup_printf (GIMP_COPYRIGHT, GIMP_GIT_LAST_COMMIT_YEAR);
 
       widget = g_object_new (GTK_TYPE_ABOUT_DIALOG,
-                             "role",               "about-dialog",
+                             "role",               "gimp-about",
                              "window-position",    GTK_WIN_POS_CENTER,
                              "title",              _("About GIMP"),
                              "program-name",       GIMP_ACRONYM,
@@ -145,13 +152,13 @@ about_dialog_create (GimpContext *context)
       container = gtk_dialog_get_content_area (GTK_DIALOG (widget));
       children = gtk_container_get_children (GTK_CONTAINER (container));
 
-      if (GTK_IS_VBOX (children->data))
+      if (GTK_IS_BOX (children->data))
         {
           about_dialog_add_animation (children->data, dialog);
           about_dialog_add_message (children->data);
         }
       else
-        g_warning ("%s: ooops, no vbox in this container?", G_STRLOC);
+        g_warning ("%s: ooops, no box in this container?", G_STRLOC);
 
       g_list_free (children);
     }
@@ -242,9 +249,6 @@ about_dialog_reshuffle (GimpAboutDialog *dialog)
   for (i = 0; i < dialog->n_authors; i++)
     dialog->shuffle[i] = i;
 
-  /* here we rely on the authors array having Peter and Spencer first */
-#define START_INDEX 2
-
   for (i = START_INDEX; i < dialog->n_authors; i++)
     {
       gint j = g_rand_int_range (gr, START_INDEX, dialog->n_authors);
@@ -258,8 +262,6 @@ about_dialog_reshuffle (GimpAboutDialog *dialog)
           dialog->shuffle[i] = t;
         }
     }
-
-#undef START_INDEX
 
   g_rand_free (gr);
 }

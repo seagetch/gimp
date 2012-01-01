@@ -55,6 +55,7 @@
 #define LOAD_PROC      "file-pix-load"
 #define SAVE_PROC      "file-pix-save"
 #define PLUG_IN_BINARY "file-pix"
+#define PLUG_IN_ROLE   "gimp-file-pix"
 
 
 /* #define PIX_DEBUG */
@@ -474,6 +475,8 @@ load_image (const gchar  *filename,
       g_free (dest_base);
     }
 
+  gimp_progress_update (1.0);
+
   gimp_drawable_flush (drawable);
   gimp_drawable_detach (drawable);
 
@@ -635,6 +638,7 @@ save_image (const gchar  *filename,
           gimp_progress_update ((double) i / (double) drawable->height);
         }
     }
+  gimp_progress_update (1.0);
 
   g_free (src_base);
 

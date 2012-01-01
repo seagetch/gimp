@@ -110,6 +110,7 @@ static const guint8 mail_icon[] =
 
 #define PLUG_IN_PROC   "plug-in-mail-image"
 #define PLUG_IN_BINARY "mail"
+#define PLUG_IN_ROLE   "gimp-mail"
 
 typedef struct
 {
@@ -403,7 +404,7 @@ save_dialog (void)
       g_free (gump_from);
     }
 
-  dlg = gimp_dialog_new (_("Send by Email"), PLUG_IN_BINARY,
+  dlg = gimp_dialog_new (_("Send by Email"), PLUG_IN_ROLE,
                          NULL, 0,
                          gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -419,7 +420,7 @@ save_dialog (void)
 
   gimp_window_set_transient (GTK_WINDOW (dlg));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dlg))),
                       main_vbox, TRUE, TRUE, 0);
@@ -452,7 +453,7 @@ save_dialog (void)
   gtk_entry_set_max_length (GTK_ENTRY (entry), BUFFER_SIZE - 1);
   gtk_entry_set_text (GTK_ENTRY (entry), mail_info.receipt);
   gimp_table_attach_aligned (GTK_TABLE (table), 0, row++,
-                             _("_To:"), 0.0, 0.5,
+                             C_("email-address", "_To:"), 0.0, 0.5,
                              entry, 1, FALSE);
   g_signal_connect (entry, "changed",
                     G_CALLBACK (mail_entry_callback),
@@ -466,7 +467,7 @@ save_dialog (void)
   gtk_entry_set_max_length (GTK_ENTRY (entry), BUFFER_SIZE - 1);
   gtk_entry_set_text (GTK_ENTRY (entry), mail_info.from);
   gimp_table_attach_aligned (GTK_TABLE (table), 0, row++,
-                             _("_From:"), 0.0, 0.5,
+                             C_("email-address", "_From:"), 0.0, 0.5,
                              entry, 1, FALSE);
   g_signal_connect (entry, "changed",
                     G_CALLBACK (mail_entry_callback),

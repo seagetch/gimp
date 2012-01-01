@@ -94,40 +94,38 @@ struct _GimpDeviceInfoEditorPrivate
                                      GimpDeviceInfoEditorPrivate)
 
 
-static GObject * gimp_device_info_editor_constructor  (GType                  type,
-                                                       guint                  n_params,
-                                                       GObjectConstructParam *params);
-static void      gimp_device_info_editor_finalize     (GObject               *object);
-static void      gimp_device_info_editor_set_property (GObject               *object,
-                                                       guint                  property_id,
-                                                       const GValue          *value,
-                                                       GParamSpec            *pspec);
-static void      gimp_device_info_editor_get_property (GObject               *object,
-                                                       guint                  property_id,
-                                                       GValue                *value,
-                                                       GParamSpec            *pspec);
+static void   gimp_device_info_editor_constructed   (GObject              *object);
+static void   gimp_device_info_editor_finalize      (GObject              *object);
+static void   gimp_device_info_editor_set_property  (GObject              *object,
+                                                     guint                 property_id,
+                                                     const GValue         *value,
+                                                     GParamSpec           *pspec);
+static void   gimp_device_info_editor_get_property  (GObject              *object,
+                                                     guint                 property_id,
+                                                     GValue               *value,
+                                                     GParamSpec           *pspec);
 
-static void      gimp_device_info_editor_set_axes     (GimpDeviceInfoEditor  *editor);
+static void   gimp_device_info_editor_set_axes      (GimpDeviceInfoEditor *editor);
 
-static void      gimp_device_info_editor_axis_changed (GtkCellRendererCombo  *combo,
-                                                       const gchar           *path_string,
-                                                       GtkTreeIter           *new_iter,
-                                                       GimpDeviceInfoEditor  *editor);
-static void     gimp_device_info_editor_axis_selected (GtkTreeSelection      *selection,
-                                                       GimpDeviceInfoEditor  *editor);
+static void   gimp_device_info_editor_axis_changed  (GtkCellRendererCombo *combo,
+                                                     const gchar          *path_string,
+                                                     GtkTreeIter          *new_iter,
+                                                     GimpDeviceInfoEditor *editor);
+static void   gimp_device_info_editor_axis_selected (GtkTreeSelection     *selection,
+                                                     GimpDeviceInfoEditor *editor);
 
-static void     gimp_device_info_editor_key_edited    (GtkCellRendererAccel  *accel,
-                                                       const char            *path_string,
-                                                       guint                  accel_key,
-                                                       GdkModifierType        accel_mask,
-                                                       guint                  hardware_keycode,
-                                                       GimpDeviceInfoEditor  *editor);
-static void     gimp_device_info_editor_key_cleared   (GtkCellRendererAccel  *accel,
-                                                       const char            *path_string,
-                                                       GimpDeviceInfoEditor  *editor);
+static void   gimp_device_info_editor_key_edited    (GtkCellRendererAccel *accel,
+                                                     const char           *path_string,
+                                                     guint                 accel_key,
+                                                     GdkModifierType       accel_mask,
+                                                     guint                 hardware_keycode,
+                                                     GimpDeviceInfoEditor *editor);
+static void   gimp_device_info_editor_key_cleared   (GtkCellRendererAccel *accel,
+                                                     const char           *path_string,
+                                                     GimpDeviceInfoEditor *editor);
 
-static void     gimp_device_info_editor_curve_reset   (GtkWidget             *button,
-                                                       GimpCurve             *curve);
+static void   gimp_device_info_editor_curve_reset   (GtkWidget            *button,
+                                                     GimpCurve            *curve);
 
 
 G_DEFINE_TYPE (GimpDeviceInfoEditor, gimp_device_info_editor, GTK_TYPE_BOX)
@@ -151,7 +149,7 @@ gimp_device_info_editor_class_init (GimpDeviceInfoEditorClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
-  object_class->constructor  = gimp_device_info_editor_constructor;
+  object_class->constructed  = gimp_device_info_editor_constructed;
   object_class->finalize     = gimp_device_info_editor_finalize;
   object_class->set_property = gimp_device_info_editor_set_property;
   object_class->get_property = gimp_device_info_editor_get_property;
@@ -186,7 +184,7 @@ gimp_device_info_editor_init (GimpDeviceInfoEditor *editor)
 
   gtk_box_set_spacing (GTK_BOX (editor), 12);
 
-  private->vbox = gtk_vbox_new (FALSE, 6);
+  private->vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_box_pack_start (GTK_BOX (editor), private->vbox, TRUE, TRUE, 0);
   gtk_widget_show (private->vbox);
 
@@ -317,13 +315,10 @@ gimp_device_info_editor_init (GimpDeviceInfoEditor *editor)
   gtk_widget_show (key_view);
 }
 
-static GObject *
-gimp_device_info_editor_constructor (GType                   type,
-                                     guint                   n_params,
-                                     GObjectConstructParam  *params)
+static void
+gimp_device_info_editor_constructed (GObject *object)
 {
-  GObject                     *object;
-  GimpDeviceInfoEditor        *editor;
+  GimpDeviceInfoEditor        *editor  = GIMP_DEVICE_INFO_EDITOR (object);
   GimpDeviceInfoEditorPrivate *private;
   GtkWidget                   *hbox;
   GtkWidget                   *label;
@@ -332,16 +327,16 @@ gimp_device_info_editor_constructor (GType                   type,
   gint                         n_keys;
   gint                         i;
 
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
-
-  editor  = GIMP_DEVICE_INFO_EDITOR (object);
   private = GIMP_DEVICE_INFO_EDITOR_GET_PRIVATE (object);
+
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   g_assert (GIMP_IS_DEVICE_INFO (private->info));
 
   /*  the mode menu  */
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (private->vbox), hbox, FALSE, FALSE, 0);
   gtk_box_reorder_child (GTK_BOX (private->vbox), hbox, 0);
   gtk_widget_show (hbox);
@@ -432,7 +427,7 @@ gimp_device_info_editor_constructor (GType                   type,
           GtkWidget *combo;
           GtkWidget *button;
 
-          vbox = gtk_vbox_new (FALSE, 0);
+          vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
           gtk_box_set_spacing (GTK_BOX (vbox), 6);
           gtk_container_add (GTK_CONTAINER (frame), vbox);
           gtk_widget_show (vbox);
@@ -453,9 +448,9 @@ gimp_device_info_editor_constructor (GType                   type,
           gtk_container_add (GTK_CONTAINER (frame), view);
           gtk_widget_show (view);
 
-          gimp_curve_view_set_curve (GIMP_CURVE_VIEW (view), curve);
+          gimp_curve_view_set_curve (GIMP_CURVE_VIEW (view), curve, NULL);
 
-          hbox = gtk_hbox_new (FALSE, 0);
+          hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
           gtk_box_set_spacing (GTK_BOX (hbox), 6);
           gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 0);
           gtk_widget_show (hbox);
@@ -494,8 +489,6 @@ gimp_device_info_editor_constructor (GType                   type,
           gtk_widget_show (label);
         }
     }
-
-  return object;
 }
 
 static void

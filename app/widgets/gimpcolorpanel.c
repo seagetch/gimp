@@ -20,6 +20,7 @@
 #include <gtk/gtk.h>
 
 #include "libgimpcolor/gimpcolor.h"
+#include "libgimpwidgets/gimpwidgets.h"
 
 #include "widgets-types.h"
 
@@ -97,7 +98,7 @@ static gboolean
 gimp_color_panel_button_press (GtkWidget      *widget,
                                GdkEventButton *bevent)
 {
-  if (bevent->button == 3)
+  if (gdk_event_triggers_context_menu ((GdkEvent *) bevent))
     {
       GimpColorButton *color_button;
       GimpColorPanel  *color_panel;
@@ -196,20 +197,18 @@ gimp_color_panel_new (const gchar       *title,
                       gint               width,
                       gint               height)
 {
-  GimpColorPanel *panel;
-
   g_return_val_if_fail (title != NULL, NULL);
   g_return_val_if_fail (color != NULL, NULL);
+  g_return_val_if_fail (width > 0, NULL);
+  g_return_val_if_fail (height > 0, NULL);
 
-  panel = g_object_new (GIMP_TYPE_COLOR_PANEL,
-                        "title", title,
-                        "type",  type,
-                        "color", color,
-                        NULL);
-
-  gtk_widget_set_size_request (GTK_WIDGET (panel), width, height);
-
-  return GTK_WIDGET (panel);
+  return g_object_new (GIMP_TYPE_COLOR_PANEL,
+                       "title",       title,
+                       "type",        type,
+                       "color",       color,
+                       "area-width",  width,
+                       "area-height", height,
+                       NULL);
 }
 
 static void

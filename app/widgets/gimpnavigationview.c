@@ -36,6 +36,7 @@
 
 #include "gimpnavigationview.h"
 #include "gimpviewrenderer.h"
+#include "gimpwidgets-utils.h"
 
 
 #define BORDER_WIDTH 2
@@ -246,9 +247,8 @@ gimp_navigation_view_button_press (GtkWidget      *widget,
   tx = bevent->x;
   ty = bevent->y;
 
-  switch (bevent->button)
+  if (bevent->type == GDK_BUTTON_PRESS && bevent->button == 1)
     {
-    case 1:
       if (! (tx >  nav_view->p_x &&
              tx < (nav_view->p_x + nav_view->p_width) &&
              ty >  nav_view->p_y &&
@@ -276,10 +276,6 @@ gimp_navigation_view_button_press (GtkWidget      *widget,
         }
 
       gimp_navigation_view_grab_pointer (nav_view);
-      break;
-
-    default:
-      break;
     }
 
   return TRUE;
@@ -291,18 +287,13 @@ gimp_navigation_view_button_release (GtkWidget      *widget,
 {
   GimpNavigationView *nav_view = GIMP_NAVIGATION_VIEW (widget);
 
-  switch (bevent->button)
+  if (bevent->button == 1 && nav_view->has_grab)
     {
-    case 1:
       nav_view->has_grab = FALSE;
 
       gtk_grab_remove (widget);
       gdk_display_pointer_ungrab (gtk_widget_get_display (widget),
                                   GDK_CURRENT_TIME);
-      break;
-
-    default:
-      break;
     }
 
   return TRUE;
@@ -312,7 +303,7 @@ static gboolean
 gimp_navigation_view_scroll (GtkWidget      *widget,
                              GdkEventScroll *sevent)
 {
-  if (sevent->state & GDK_CONTROL_MASK)
+  if (sevent->state & gimp_get_toggle_behavior_mask ())
     {
       switch (sevent->direction)
         {
@@ -404,19 +395,19 @@ gimp_navigation_view_key_press (GtkWidget   *widget,
 
   switch (kevent->keyval)
     {
-    case GDK_Up:
+    case GDK_KEY_Up:
       scroll_y = -1;
       break;
 
-    case GDK_Left:
+    case GDK_KEY_Left:
       scroll_x = -1;
       break;
 
-    case GDK_Right:
+    case GDK_KEY_Right:
       scroll_x = 1;
       break;
 
-    case GDK_Down:
+    case GDK_KEY_Down:
       scroll_y = 1;
       break;
 

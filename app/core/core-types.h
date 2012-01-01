@@ -21,6 +21,7 @@
 
 #include "libgimpmodule/gimpmoduletypes.h"
 #include "libgimpthumb/gimpthumb-types.h"
+#include "libgimpmath/gimpmathtypes.h"
 
 #include "base/base-types.h"
 
@@ -72,7 +73,7 @@ typedef struct _GimpDocumentList      GimpDocumentList;
 typedef struct _GimpDrawableStack     GimpDrawableStack;
 typedef struct _GimpFilteredContainer GimpFilteredContainer;
 typedef struct _GimpItemStack         GimpItemStack;
-typedef struct _GimpToolPresets       GimpToolPresets;
+typedef struct _GimpTaggedContainer   GimpTaggedContainer;
 
 
 /*  not really a container  */
@@ -99,6 +100,7 @@ typedef struct _GimpToolInfo        GimpToolInfo;
 typedef struct _GimpDataFactory      GimpDataFactory;
 typedef struct _GimpData             GimpData;
 typedef struct _GimpBrush            GimpBrush;
+typedef struct _GimpBrushCache       GimpBrushCache;
 typedef struct _GimpBrushClipboard   GimpBrushClipboard;
 typedef struct _GimpBrushGenerated   GimpBrushGenerated;
 typedef struct _GimpBrushPipe        GimpBrushPipe;
@@ -151,6 +153,7 @@ typedef struct _GimpUndoAccumulator   GimpUndoAccumulator;
 typedef struct _GimpBuffer          GimpBuffer;
 typedef struct _GimpEnvironTable    GimpEnvironTable;
 typedef struct _GimpGuide           GimpGuide;
+typedef struct _GimpIdTable         GimpIdTable;
 typedef struct _GimpImageMap        GimpImageMap;
 typedef struct _GimpImageMapConfig  GimpImageMapConfig;
 typedef struct _GimpImagefile       GimpImagefile;
@@ -180,6 +183,23 @@ typedef struct _GimpPaletteEntry    GimpPaletteEntry;
 typedef struct _GimpSamplePoint     GimpSamplePoint;
 typedef struct _GimpScanConvert     GimpScanConvert;
 typedef         guint32             GimpTattoo;
+
+/* The following hack is made so that we can reuse the definition
+ * the cairo definition of cairo_path_t without having to translate
+ * between our own version of a bezier description and cairos version.
+ *
+ * to avoid having to include <cairo.h> in each and every file
+ * including this file we only use the "real" definition when cairo.h
+ * already has been included and use something else.
+ *
+ * Note that if you really want to work with GimpBezierDesc (except just
+ * passing pointers to it around) you also need to include <cairo.h>.
+ */
+#ifdef CAIRO_VERSION
+typedef cairo_path_t GimpBezierDesc;
+#else
+typedef void * GimpBezierDesc;
+#endif
 
 
 /*  functions  */

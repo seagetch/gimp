@@ -85,6 +85,10 @@ static void             gimp_canvas_handle_draw         (GimpCanvasItem   *item,
                                                          cairo_t          *cr);
 static cairo_region_t * gimp_canvas_handle_get_extents  (GimpCanvasItem   *item,
                                                          GimpDisplayShell *shell);
+static gboolean         gimp_canvas_handle_hit          (GimpCanvasItem   *item,
+                                                         GimpDisplayShell *shell,
+                                                         gdouble           x,
+                                                         gdouble           y);
 
 
 G_DEFINE_TYPE (GimpCanvasHandle, gimp_canvas_handle,
@@ -104,6 +108,7 @@ gimp_canvas_handle_class_init (GimpCanvasHandleClass *klass)
 
   item_class->draw           = gimp_canvas_handle_draw;
   item_class->get_extents    = gimp_canvas_handle_get_extents;
+  item_class->hit            = gimp_canvas_handle_hit;
 
   g_object_class_install_property (object_class, PROP_TYPE,
                                    g_param_spec_enum ("type", NULL, NULL,
@@ -349,7 +354,7 @@ gimp_canvas_handle_get_extents (GimpCanvasItem   *item,
                                 GimpDisplayShell *shell)
 {
   GimpCanvasHandlePrivate *private = GET_PRIVATE (item);
-  GdkRectangle             rectangle;
+  cairo_rectangle_int_t    rectangle;
   gdouble                  x, y;
 
   gimp_canvas_handle_transform (item, shell, &x, &y);
@@ -377,7 +382,51 @@ gimp_canvas_handle_get_extents (GimpCanvasItem   *item,
       break;
     }
 
-  return cairo_region_create_rectangle ((cairo_rectangle_int_t *) &rectangle);
+  return cairo_region_create_rectangle (&rectangle);
+}
+
+static gboolean
+gimp_canvas_handle_hit (GimpCanvasItem   *item,
+                        GimpDisplayShell *shell,
+                        gdouble           x,
+                        gdouble           y)
+{
+  GimpCanvasHandlePrivate *private = GET_PRIVATE (item);
+  gdouble                  handle_tx, handle_ty;
+  gdouble                  tx, ty;
+
+  gimp_canvas_handle_transform (item, shell, &handle_tx, &handle_ty);
+
+  gimp_display_shell_transform_xy_f (shell,
+                                     x, y,
+                                     &tx, &ty);
+
+  switch (private->type)
+    {
+    case GIMP_HANDLE_SQUARE:
+    case GIMP_HANDLE_FILLED_SQUARE:
+     return (tx == CLAMP (tx, handle_tx, handle_tx + private->width) &&
+              ty == CLAMP (ty, handle_ty, handle_ty + private->height));
+
+    case GIMP_HANDLE_CIRCLE:
+    case GIMP_HANDLE_FILLED_CIRCLE:
+    case GIMP_HANDLE_CROSS:
+      {
+        gint width = private->width;
+
+        if (width != private->height)
+          width = (width + private->height) / 2;
+
+        width /= 2;
+
+        return ((SQR (handle_tx - tx) + SQR (handle_ty - ty)) < SQR (width));
+      }
+
+    default:
+      break;
+    }
+
+  return FALSE;
 }
 
 GimpCanvasItem *
@@ -403,14 +452,35 @@ gimp_canvas_handle_new (GimpDisplayShell *shell,
 }
 
 void
-gimp_canvas_handle_set_angles (GimpCanvasHandle *handle,
-                               gdouble           start_angle,
-                               gdouble           slice_angle)
+gimp_canvas_handle_set_position (GimpCanvasItem *handle,
+                                 gdouble         x,
+                                 gdouble         y)
 {
   g_return_if_fail (GIMP_IS_CANVAS_HANDLE (handle));
+
+  gimp_canvas_item_begin_change (handle);
+
+  g_object_set (handle,
+                "x", x,
+                "y", y,
+                NULL);
+
+  gimp_canvas_item_end_change (handle);
+}
+
+void
+gimp_canvas_handle_set_angles (GimpCanvasItem *handle,
+                               gdouble         start_angle,
+                               gdouble         slice_angle)
+{
+  g_return_if_fail (GIMP_IS_CANVAS_HANDLE (handle));
+
+  gimp_canvas_item_begin_change (handle);
 
   g_object_set (handle,
                 "start-angle", start_angle,
                 "slice-angle", slice_angle,
                 NULL);
+
+  gimp_canvas_item_end_change (handle);
 }

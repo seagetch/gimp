@@ -33,7 +33,9 @@
 #include "gimpeditor.h"
 #include "gimpfontview.h"
 #include "gimphelp-ids.h"
+#include "gimpmenufactory.h"
 #include "gimpuimanager.h"
+#include "gimpviewrenderer.h"
 
 #include "gimp-intl.h"
 
@@ -72,18 +74,26 @@ gimp_font_view_new (GimpViewType     view_type,
   GimpFontView        *font_view;
   GimpContainerEditor *editor;
 
-  font_view = g_object_new (GIMP_TYPE_FONT_VIEW, NULL);
+  g_return_val_if_fail (GIMP_IS_CONTAINER (container), NULL);
+  g_return_val_if_fail (GIMP_IS_CONTEXT (context), NULL);
+  g_return_val_if_fail (view_size > 0 &&
+                        view_size <= GIMP_VIEWABLE_MAX_PREVIEW_SIZE, NULL);
+  g_return_val_if_fail (view_border_width >= 0 &&
+                        view_border_width <= GIMP_VIEW_MAX_BORDER_WIDTH,
+                        NULL);
+  g_return_val_if_fail (menu_factory == NULL ||
+                        GIMP_IS_MENU_FACTORY (menu_factory), NULL);
 
-  if (! gimp_container_editor_construct (GIMP_CONTAINER_EDITOR (font_view),
-                                         view_type,
-                                         container,context,
-                                         view_size, view_border_width,
-                                         menu_factory, "<Fonts>",
-                                         "/fonts-popup"))
-    {
-      g_object_unref (font_view);
-      return NULL;
-    }
+  font_view = g_object_new (GIMP_TYPE_FONT_VIEW,
+                            "view-type",         view_type,
+                            "container",         container,
+                            "context",           context,
+                            "view-size",         view_size,
+                            "view-border-width", view_border_width,
+                            "menu-factory",      menu_factory,
+                            "menu-identifier",   "<Fonts>",
+                            "ui-path",           "/fonts-popup",
+                            NULL);
 
   editor = GIMP_CONTAINER_EDITOR (font_view);
 
@@ -94,14 +104,15 @@ gimp_font_view_new (GimpViewType     view_type,
     gimp_editor_add_action_button (GIMP_EDITOR (editor->view), "fonts",
                                    "fonts-refresh", NULL);
 
-  gimp_ui_manager_update (GIMP_EDITOR (editor->view)->ui_manager, editor);
+  gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor->view)),
+                          editor);
 
   return GTK_WIDGET (font_view);
 }
 
 static void
 gimp_font_view_activate_item (GimpContainerEditor *editor,
-                                GimpViewable        *viewable)
+                              GimpViewable        *viewable)
 {
   if (GIMP_CONTAINER_EDITOR_CLASS (parent_class)->activate_item)
     GIMP_CONTAINER_EDITOR_CLASS (parent_class)->activate_item (editor, viewable);

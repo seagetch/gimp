@@ -32,6 +32,7 @@
 #include "gimppropwidgets.h"
 #include "gimpstock.h"
 #include "gimpwidgets.h"
+#include "gimp3migration.h"
 
 #include "libgimp/libgimp-intl.h"
 
@@ -127,7 +128,7 @@ static GdkPixbuf * gimp_page_selector_add_frame    (GtkWidget        *widget,
                                                     GdkPixbuf        *pixbuf);
 
 
-G_DEFINE_TYPE (GimpPageSelector, gimp_page_selector, GTK_TYPE_VBOX)
+G_DEFINE_TYPE (GimpPageSelector, gimp_page_selector, GTK_TYPE_BOX)
 
 #define parent_class gimp_page_selector_parent_class
 
@@ -235,11 +236,14 @@ gimp_page_selector_init (GimpPageSelector *selector)
   priv->n_pages = 0;
   priv->target  = GIMP_PAGE_SELECTOR_TARGET_LAYERS;
 
+  gtk_orientable_set_orientation (GTK_ORIENTABLE (selector),
+                                  GTK_ORIENTATION_VERTICAL);
+
   gtk_box_set_spacing (GTK_BOX (selector), 12);
 
   /*  Pages  */
 
-  vbox = gtk_vbox_new (FALSE, 2);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
   gtk_box_pack_start (GTK_BOX (selector), vbox, TRUE, TRUE, 0);
   gtk_widget_show (vbox);
 
@@ -285,11 +289,11 @@ gimp_page_selector_init (GimpPageSelector *selector)
 
   /*  Select all button & range entry  */
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (selector), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
-  hbbox = gtk_hbutton_box_new ();
+  hbbox = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
   gtk_box_pack_start (GTK_BOX (hbox), hbbox, FALSE, FALSE, 0);
   gtk_widget_show (hbbox);
 
@@ -321,7 +325,7 @@ gimp_page_selector_init (GimpPageSelector *selector)
 
   /*  Target combo  */
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_start (GTK_BOX (selector), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -988,8 +992,7 @@ gimp_page_selector_get_selected_pages (GimpPageSelector *selector,
   qsort (array, *n_selected_pages, sizeof (gint),
          gimp_page_selector_int_compare);
 
-  g_list_foreach (selected, (GFunc) gtk_tree_path_free, NULL);
-  g_list_free (selected);
+  g_list_free_full (selected, (GDestroyNotify) gtk_tree_path_free);
 
   return array;
 }
@@ -1167,8 +1170,7 @@ gimp_page_selector_selection_changed (GtkIconView      *icon_view,
 
   selected = gtk_icon_view_get_selected_items (GTK_ICON_VIEW (priv->view));
   n_selected = g_list_length (selected);
-  g_list_foreach (selected, (GFunc) gtk_tree_path_free, NULL);
-  g_list_free (selected);
+  g_list_free_full (selected, (GDestroyNotify) gtk_tree_path_free);
 
   if (n_selected == 0)
     {
@@ -1394,9 +1396,7 @@ stretch_frame_image (GdkPixbuf *frame_image,
                      gint       dest_height)
 {
   GdkPixbuf *pixbuf;
-  guchar    *pixels;
   gint       frame_width, frame_height;
-  gint       row_stride;
   gint       target_width,  target_frame_width;
   gint       target_height, target_frame_height;
 
@@ -1406,9 +1406,6 @@ stretch_frame_image (GdkPixbuf *frame_image,
   pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB, TRUE, 8,
                            dest_width, dest_height);
   gdk_pixbuf_fill (pixbuf, 0);
-
-  row_stride = gdk_pixbuf_get_rowstride (pixbuf);
-  pixels = gdk_pixbuf_get_pixels (pixbuf);
 
   target_width = dest_width - left_offset - right_offset;
   target_height = dest_height - top_offset - bottom_offset;

@@ -226,9 +226,9 @@ static cairo_region_t *
 gimp_canvas_line_get_extents (GimpCanvasItem   *item,
                               GimpDisplayShell *shell)
 {
-  GdkRectangle rectangle;
-  gdouble      x1, y1;
-  gdouble      x2, y2;
+  cairo_rectangle_int_t rectangle;
+  gdouble               x1, y1;
+  gdouble               x2, y2;
 
   gimp_canvas_line_transform (item, shell, &x1, &y1, &x2, &y2);
 
@@ -247,7 +247,7 @@ gimp_canvas_line_get_extents (GimpCanvasItem   *item,
       rectangle.height = ceil (ABS (y2 - y1) + 5.0);
     }
 
-  return cairo_region_create_rectangle ((cairo_rectangle_int_t *) &rectangle);
+  return cairo_region_create_rectangle (&rectangle);
 }
 
 GimpCanvasItem *
@@ -266,4 +266,25 @@ gimp_canvas_line_new (GimpDisplayShell *shell,
                        "x2",    x2,
                        "y2",    y2,
                        NULL);
+}
+
+void
+gimp_canvas_line_set (GimpCanvasItem *line,
+                      gdouble         x1,
+                      gdouble         y1,
+                      gdouble         x2,
+                      gdouble         y2)
+{
+  g_return_if_fail (GIMP_IS_CANVAS_LINE (line));
+
+  gimp_canvas_item_begin_change (line);
+
+  g_object_set (line,
+                "x1", x1,
+                "y1", y1,
+                "x2", x2,
+                "y2", y2,
+                NULL);
+
+  gimp_canvas_item_end_change (line);
 }

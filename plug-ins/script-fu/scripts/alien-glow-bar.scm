@@ -39,12 +39,13 @@
         )
 
     (gimp-context-push)
+    (gimp-context-set-feather FALSE)
 
     (gimp-image-undo-disable img)
     (gimp-image-resize img (+ length height) (+ height height) 0 0)
-    (gimp-image-insert-layer img bg-layer -1 1)
-    (gimp-image-insert-layer img glow-layer -1 -1)
-    (gimp-image-insert-layer img ruler-layer -1 -1)
+    (gimp-image-insert-layer img bg-layer 0 1)
+    (gimp-image-insert-layer img glow-layer 0 -1)
+    (gimp-image-insert-layer img ruler-layer 0 -1)
 
    ; (gimp-layer-set-lock-alpha ruler-layer TRUE)
     (gimp-context-set-background bg-color)
@@ -52,9 +53,9 @@
     (gimp-edit-clear glow-layer)
     (gimp-edit-clear ruler-layer)
 
-    (gimp-rect-select img
+    (gimp-image-select-rectangle img CHANNEL-OP-REPLACE
                       (/ height 2) (/ height 2)
-                      length height CHANNEL-OP-REPLACE FALSE 0)
+                      length height)
     (gimp-context-set-foreground '(79 79 79))
     (gimp-context-set-background '(0 0 0))
 

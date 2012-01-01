@@ -353,7 +353,7 @@ repaint (ppm_t *p, ppm_t *a)
   int         tx = 0, ty = 0;
   ppm_t       tmp = {0, 0, NULL};
   ppm_t       atmp = {0, 0, NULL};
-  int         r, g, b, n, h, i, j, on, sn;
+  int         r, g, b, h, i, j, on, sn;
   int         num_brushes, maxbrushwidth, maxbrushheight;
   guchar      back[3] = {0, 0, 0};
   ppm_t      *brushes, *shadows;
@@ -361,13 +361,11 @@ repaint (ppm_t *p, ppm_t *a)
   double     *brushes_sum;
   int         cx, cy, maxdist;
   double      scale, relief, startangle, anglespan, density, bgamma;
-  double      thissum;
   int         max_progress;
   ppm_t       paper_ppm = {0, 0, NULL};
   ppm_t       dirmap = {0, 0, NULL};
   ppm_t       sizmap = {0, 0, NULL};
   int        *xpos = NULL, *ypos = NULL;
-  int         step = 1;
   int         progstep;
   static int  running = 0;
 
@@ -466,7 +464,6 @@ repaint (ppm_t *p, ppm_t *a)
     }
 
   brush = &brushes[0];
-  thissum = brushes_sum[0];
 
   maxbrushwidth = maxbrushheight = 0;
   for (i = 0; i < num_brushes; i++)
@@ -789,9 +786,8 @@ repaint (ppm_t *p, ppm_t *a)
     {
       i = (int)(tmp.width * density / maxbrushwidth) *
           (int)(tmp.height * density / maxbrushheight);
-      step = i;
 #if 0
-    g_printerr("step=%d i=%d\n", step, i);
+    g_printerr("i=%d\n", i);
 #endif
     }
 
@@ -830,6 +826,9 @@ repaint (ppm_t *p, ppm_t *a)
 
   for (; i; i--)
     {
+      int n;
+      double thissum;
+
       if (i % progstep == 0)
         {
           if(runningvals.run)
@@ -885,7 +884,7 @@ repaint (ppm_t *p, ppm_t *a)
             continue;
         }
 
-      n = sn = on = 0;
+      sn = on = 0;
 
       switch (runningvals.orient_type)
         {

@@ -351,9 +351,8 @@ gimp_dash_editor_button_press (GtkWidget      *widget,
 
   if (bevent->button == 1 && bevent->type == GDK_BUTTON_PRESS)
     {
-      gdk_pointer_grab (gtk_widget_get_window (widget), FALSE,
-                        GDK_BUTTON_RELEASE_MASK | GDK_BUTTON1_MOTION_MASK,
-                        NULL, NULL, bevent->time);
+      gtk_grab_add (widget);
+
       index = dash_x_to_index (editor, bevent->x);
 
       editor->edit_mode = ! editor->segments [index];
@@ -375,8 +374,7 @@ gimp_dash_editor_button_release (GtkWidget      *widget,
 
   if (bevent->button == 1)
     {
-      gdk_display_pointer_ungrab (gtk_widget_get_display (GTK_WIDGET (editor)),
-                                  bevent->time);
+      gtk_grab_remove (widget);
 
       update_options_from_segments (editor);
     }
@@ -464,6 +462,8 @@ gimp_dash_editor_shift_left (GimpDashEditor *editor)
 static void
 update_segments_from_options (GimpDashEditor *editor)
 {
+  GArray *dash_info;
+
   if (editor->stroke_options == NULL || editor->segments == NULL)
     return;
 
@@ -471,7 +471,9 @@ update_segments_from_options (GimpDashEditor *editor)
 
   gtk_widget_queue_draw (GTK_WIDGET (editor));
 
-  gimp_dash_pattern_fill_segments (editor->stroke_options->dash_info,
+  dash_info = gimp_stroke_options_get_dash_info (editor->stroke_options);
+
+  gimp_dash_pattern_fill_segments (dash_info,
                                    editor->segments, editor->n_segments);
 }
 

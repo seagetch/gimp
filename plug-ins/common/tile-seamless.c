@@ -200,7 +200,7 @@ tile_region (GimpDrawable *drawable,
   gint          bpp;
   gint          wodd, hodd;
   gint          w, h, x, y;
-  gint          rgn1_x, rgn2_x, off_x;
+  gint          rgn1_x, rgn2_x;
   static gint   progress = 0;
   gint          max_progress;
   GimpPixelRgn  src1_rgn, src2_rgn, dest1_rgn, dest2_rgn;
@@ -224,13 +224,11 @@ tile_region (GimpDrawable *drawable,
     {
       rgn1_x = x1;
       rgn2_x = x1 + w + wodd;
-      off_x = w + wodd;
     }
   else
     {
       rgn1_x = x1 + w + wodd;
       rgn2_x = x1;
-      off_x = -w - wodd;
     }
 
   asymmetry_correction = !wodd && !left;
@@ -351,6 +349,7 @@ tile (GimpDrawable *drawable)
 
   tile_region (drawable, TRUE, x1, y1, x2, y2);
   tile_region (drawable, FALSE, x1, y1, x2, y2);
+  gimp_progress_update (1.0);
 
   gimp_drawable_flush (drawable);
   gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);

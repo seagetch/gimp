@@ -36,6 +36,7 @@
 
 #define PLUG_IN_PROC   "plug-in-ccanalyze"
 #define PLUG_IN_BINARY "color-cube-analyze"
+#define PLUG_IN_ROLE   "gimp-color-cube-analyze"
 
 /* size of histogram image */
 #define PREWIDTH  256
@@ -352,7 +353,7 @@ doDialog (void)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Colorcube Analysis"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Colorcube Analysis"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -362,12 +363,12 @@ doDialog (void)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       vbox, TRUE, TRUE, 0);
 
-  hbox = gtk_hbox_new (FALSE, 0);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
 
   frame = gtk_frame_new (NULL);

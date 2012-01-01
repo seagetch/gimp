@@ -41,6 +41,7 @@
 #include "gimppaletteview.h"
 #include "gimpuimanager.h"
 #include "gimpviewrendererpalette.h"
+#include "gimpwidgets-utils.h"
 
 #include "gimp-intl.h"
 
@@ -56,9 +57,7 @@
 
 static void gimp_colormap_editor_docked_iface_init (GimpDockedInterface *face);
 
-static GObject * gimp_colormap_editor_constructor  (GType               type,
-                                                    guint               n_params,
-                                                    GObjectConstructParam *params);
+static void   gimp_colormap_editor_constructed     (GObject            *object);
 static void   gimp_colormap_editor_dispose         (GObject            *object);
 static void   gimp_colormap_editor_finalize        (GObject            *object);
 
@@ -126,7 +125,7 @@ gimp_colormap_editor_class_init (GimpColormapEditorClass* klass)
   GtkWidgetClass       *widget_class       = GTK_WIDGET_CLASS (klass);
   GimpImageEditorClass *image_editor_class = GIMP_IMAGE_EDITOR_CLASS (klass);
 
-  object_class->constructor     = gimp_colormap_editor_constructor;
+  object_class->constructed     = gimp_colormap_editor_constructed;
   object_class->dispose         = gimp_colormap_editor_dispose;
   object_class->finalize        = gimp_colormap_editor_finalize;
 
@@ -216,17 +215,13 @@ gimp_colormap_editor_init (GimpColormapEditor *editor)
                     editor);
 }
 
-static GObject *
-gimp_colormap_editor_constructor (GType                  type,
-                                  guint                  n_params,
-                                  GObjectConstructParam *params)
+static void
+gimp_colormap_editor_constructed (GObject *object)
 {
-  GObject            *object;
-  GimpColormapEditor *editor;
+  GimpColormapEditor *editor = GIMP_COLORMAP_EDITOR (object);
 
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
-
-  editor = GIMP_COLORMAP_EDITOR (object);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   gimp_editor_add_action_button (GIMP_EDITOR (editor), "colormap",
                                  "colormap-edit-color",
@@ -235,10 +230,8 @@ gimp_colormap_editor_constructor (GType                  type,
   gimp_editor_add_action_button (GIMP_EDITOR (editor), "colormap",
                                  "colormap-add-color-from-fg",
                                  "colormap-add-color-from-bg",
-                                 GDK_CONTROL_MASK,
+                                 gimp_get_toggle_behavior_mask (),
                                  NULL);
-
-  return object;
 }
 
 static void
@@ -577,7 +570,7 @@ gimp_colormap_editor_entry_clicked (GimpPaletteView    *view,
 
   gimp_colormap_editor_set_index (editor, entry->position, NULL);
 
-  if (state & GDK_CONTROL_MASK)
+  if (state & gimp_get_toggle_behavior_mask ())
     gimp_context_set_background (image_editor->context, &entry->color);
   else
     gimp_context_set_foreground (image_editor->context, &entry->color);
@@ -600,7 +593,7 @@ gimp_colormap_editor_entry_activated (GimpPaletteView    *view,
 {
   gimp_colormap_editor_set_index (editor, entry->position, NULL);
 
-  gimp_ui_manager_activate_action (GIMP_EDITOR (editor)->ui_manager,
+  gimp_ui_manager_activate_action (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
                                    "colormap",
                                    "colormap-edit-color");
 }

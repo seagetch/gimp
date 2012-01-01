@@ -40,9 +40,7 @@
 
 /*  local function prototypes  */
 
-static GObject * gimp_dynamics_editor_constructor  (GType              type,
-                                                    guint              n_params,
-                                                    GObjectConstructParam *params);
+static void   gimp_dynamics_editor_constructed     (GObject            *object);
 static void   gimp_dynamics_editor_finalize        (GObject            *object);
 
 static void   gimp_dynamics_editor_set_data        (GimpDataEditor     *editor,
@@ -87,7 +85,7 @@ gimp_dynamics_editor_class_init (GimpDynamicsEditorClass *klass)
   GObjectClass        *object_class = G_OBJECT_CLASS (klass);
   GimpDataEditorClass *editor_class = GIMP_DATA_EDITOR_CLASS (klass);
 
-  object_class->constructor = gimp_dynamics_editor_constructor;
+  object_class->constructed = gimp_dynamics_editor_constructed;
   object_class->finalize    = gimp_dynamics_editor_finalize;
 
   editor_class->set_data    = gimp_dynamics_editor_set_data;
@@ -160,18 +158,13 @@ gimp_dynamics_editor_init (GimpDynamicsEditor *editor)
     }
 }
 
-static GObject *
-gimp_dynamics_editor_constructor (GType                  type,
-                                  guint                  n_params,
-                                  GObjectConstructParam *params)
+static void
+gimp_dynamics_editor_constructed (GObject *object)
 {
-  GObject *object;
-
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   gimp_docked_set_show_button_bar (GIMP_DOCKED (object), FALSE);
-
-  return object;
 }
 
 static void
@@ -312,7 +305,6 @@ gimp_dynamics_editor_add_output_row (GObject     *config,
                                      gint         row)
 {
   GtkWidget *label;
-  GtkWidget *button;
   gint       column = 1;
 
   label = gtk_label_new (row_label);
@@ -321,32 +313,32 @@ gimp_dynamics_editor_add_output_row (GObject     *config,
                     GTK_SHRINK | GTK_FILL, GTK_SHRINK | GTK_FILL, 0, 0);
   gtk_widget_show (label);
 
-  button = dynamics_check_button_new (config, "use-pressure",
-                                      table, column, row);
+  dynamics_check_button_new (config, "use-pressure",
+                             table, column, row);
   column++;
 
-  button = dynamics_check_button_new (config, "use-velocity",
-                                      table, column, row);
+  dynamics_check_button_new (config, "use-velocity",
+                             table, column, row);
   column++;
 
-  button = dynamics_check_button_new (config, "use-direction",
-                                      table, column, row);
+  dynamics_check_button_new (config, "use-direction",
+                             table, column, row);
   column++;
 
-  button = dynamics_check_button_new (config,  "use-tilt",
-                                      table, column, row);
+  dynamics_check_button_new (config,  "use-tilt",
+                             table, column, row);
   column++;
 
-  button = dynamics_check_button_new (config,  "use-wheel",
-                                      table, column, row);
+  dynamics_check_button_new (config,  "use-wheel",
+                             table, column, row);
   column++;
 
-  button = dynamics_check_button_new (config, "use-random",
-                                      table, column, row);
+  dynamics_check_button_new (config, "use-random",
+                             table, column, row);
   column++;
 
-  button = dynamics_check_button_new (config, "use-fade",
-                                      table, column, row);
+  dynamics_check_button_new (config, "use-fade",
+                             table, column, row);
   column++;
 }
 

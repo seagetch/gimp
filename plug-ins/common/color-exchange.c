@@ -44,6 +44,7 @@
 
 #define PLUG_IN_PROC   "plug-in-exchange"
 #define PLUG_IN_BINARY "color-exchange"
+#define PLUG_IN_ROLE   "gimp-color-exchange"
 
 #define SCALE_WIDTH    128
 
@@ -283,7 +284,7 @@ exchange_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Color Exchange"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Color Exchange"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -300,10 +301,10 @@ exchange_dialog (GimpDrawable *drawable)
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
   /* do some boxes here */
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   frame = gimp_frame_new (_("Middle-Click Inside Preview to "
@@ -339,7 +340,7 @@ exchange_dialog (GimpDrawable *drawable)
 
   /* and our scales */
 
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_box_pack_start (GTK_BOX (main_vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -355,7 +356,7 @@ exchange_dialog (GimpDrawable *drawable)
       gtk_box_pack_start (GTK_BOX (hbox), frame, FALSE, FALSE, 0);
       gtk_widget_show (frame);
 
-      vbox = gtk_vbox_new (FALSE, 0);
+      vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
       gtk_container_add (GTK_CONTAINER (frame), vbox);
       gtk_widget_show (vbox);
 
@@ -658,7 +659,7 @@ exchange (GimpDrawable *drawable,
   guchar       *src_row, *dest_row;
   gint          x, y, bpp = drawable->bpp;
   gboolean      has_alpha;
-  gint          x1, y1, x2, y2;
+  gint          x1, y1, y2;
   gint          width, height;
   GimpRGB       min;
   GimpRGB       max;
@@ -667,17 +668,14 @@ exchange (GimpDrawable *drawable,
     {
       gimp_preview_get_position (preview, &x1, &y1);
       gimp_preview_get_size (preview, &width, &height);
-
-      x2 = x1 + width;
-      y2 = y1 + height;
     }
-  else
+  else if (! gimp_drawable_mask_intersect (drawable->drawable_id,
+                                           &x1, &y1, &width, &height))
     {
-      gimp_drawable_mask_bounds (drawable->drawable_id, &x1, &y1, &x2, &y2);
-
-      width  = x2 - x1;
-      height = y2 - y1;
+      return;
     }
+
+  y2 = y1 + height;
 
   has_alpha = gimp_drawable_has_alpha (drawable->drawable_id);
   /* allocate memory */
@@ -776,6 +774,7 @@ exchange (GimpDrawable *drawable,
     }
   else
     {
+      gimp_progress_update (1.0);
       /* update the processed region */
       gimp_drawable_flush (drawable);
       gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);

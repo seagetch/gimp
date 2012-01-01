@@ -16,6 +16,7 @@ INCLUDES = \
 	-I$(top_srcdir)		\
 	-I$(top_builddir)/app	\
 	-I$(top_srcdir)/app	\
+	$(CAIRO_CFLAGS)		\
 	$(GDK_PIXBUF_CFLAGS)	\
 	-I$(includedir)
 
@@ -61,10 +62,7 @@ libappconfig_a_SOURCES = \
 	$(libappconfig_a_built_sources)	\
 	$(libappconfig_a_sources)
 
-
 EXTRA_PROGRAMS = test-config
-
-EXTRA_DIST = makefile.msc
 
 #
 # unit tests for the GimpConfig system

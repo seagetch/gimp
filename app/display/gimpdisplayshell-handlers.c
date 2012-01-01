@@ -639,12 +639,9 @@ gimp_display_shell_guide_move_handler (GimpImage        *image,
 
   item = gimp_canvas_proxy_group_get_item (group, guide);
 
-  gimp_canvas_item_begin_change (item);
-  g_object_set (item,
-                "orientation", gimp_guide_get_orientation (guide),
-                "position",    gimp_guide_get_position (guide),
-                NULL);
-  gimp_canvas_item_end_change (item);
+  gimp_canvas_guide_set (item,
+                         gimp_guide_get_orientation (guide),
+                         gimp_guide_get_position (guide));
 }
 
 static void
@@ -673,9 +670,10 @@ gimp_display_shell_sample_point_add_handler (GimpImage        *image,
 
       item = gimp_canvas_proxy_group_get_item (group, sample_point);
 
-      g_object_set (item,
-                    "index", i,
-                    NULL);
+      if (item)
+        g_object_set (item,
+                      "index", i,
+                      NULL);
     }
 }
 
@@ -699,9 +697,10 @@ gimp_display_shell_sample_point_remove_handler (GimpImage        *image,
 
       item = gimp_canvas_proxy_group_get_item (group, sample_point);
 
-      g_object_set (item,
-                    "index", i,
-                    NULL);
+      if (item)
+        g_object_set (item,
+                      "index", i,
+                      NULL);
     }
 }
 
@@ -715,12 +714,7 @@ gimp_display_shell_sample_point_move_handler (GimpImage        *image,
 
   item = gimp_canvas_proxy_group_get_item (group, sample_point);
 
-  gimp_canvas_item_begin_change (item);
-  g_object_set (item,
-                "x", sample_point->x,
-                "y", sample_point->y,
-                NULL);
-  gimp_canvas_item_end_change (item);
+  gimp_canvas_sample_point_set (item, sample_point->x, sample_point->y);
 }
 
 static void
@@ -855,11 +849,7 @@ gimp_display_shell_vectors_thaw_handler (GimpVectors      *vectors,
 
   item = gimp_canvas_proxy_group_get_item (group, vectors);
 
-  gimp_canvas_item_begin_change (item);
-  g_object_set (item,
-                "path", gimp_vectors_get_bezier (vectors),
-                NULL);
-  gimp_canvas_item_end_change (item);
+  gimp_canvas_path_set (item, gimp_vectors_get_bezier (vectors));
 }
 
 static void
@@ -885,8 +875,9 @@ gimp_display_shell_vectors_add_handler (GimpContainer    *container,
 
   item = gimp_canvas_path_new (shell,
                                gimp_vectors_get_bezier (vectors),
+                               0, 0,
                                FALSE,
-                               TRUE);
+                               GIMP_PATH_STYLE_VECTORS);
   gimp_canvas_item_set_visible (item,
                                 gimp_item_get_visible (GIMP_ITEM (vectors)));
 

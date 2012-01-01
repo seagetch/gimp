@@ -177,6 +177,7 @@ gimp_smudge_start (GimpPaintCore    *paint_core,
                    GimpPaintOptions *paint_options,
                    const GimpCoords *coords)
 {
+#if 0
   GimpSmudge        *smudge     = GIMP_SMUDGE (paint_core);
   GimpBrushCore     *brush_core = GIMP_BRUSH_CORE (paint_core);
   GimpSmudgeOptions *options    = GIMP_SMUDGE_OPTIONS (paint_options);
@@ -185,8 +186,12 @@ gimp_smudge_start (GimpPaintCore    *paint_core,
   PixelRegion        srcPR;
   gint               bytes;
   gint               x, y, w, h;
-
-  image = gimp_item_get_image (GIMP_ITEM (drawable));
+#endif
+  GimpSmudge  *smudge = GIMP_SMUDGE (paint_core);
+  TempBuf     *area;
+  PixelRegion  srcPR;
+  gint         bytes;
+  gint         x, y, w, h;
 
   if (gimp_drawable_is_indexed (drawable))
     return FALSE;
@@ -264,31 +269,39 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
                     GimpPaintOptions *paint_options,
                     const GimpCoords *coords)
 {
-  GimpSmudge        *smudge     = GIMP_SMUDGE (paint_core);
+#if 0
   GimpBrushCore     *brush_core = GIMP_BRUSH_CORE (paint_core);
-  GimpSmudgeOptions *options    = GIMP_SMUDGE_OPTIONS (paint_options);
-  GimpContext       *context    = GIMP_CONTEXT (paint_options);
-  GimpDynamics      *dynamics   = GIMP_BRUSH_CORE (paint_core)->dynamics;
-  GimpImage         *image;
-  TempBuf           *area;
-  PixelRegion        srcPR, destPR, tempPR;
-  gdouble            fade_point;
-  gdouble            opacity;
-  gdouble            rate;
-  gdouble            dynamic_rate;
-  gint               x, y, w, h;
-  gdouble            hardness;
-  TempBuf           *old_canvas_buf = NULL;
+#endif
+  GimpSmudge         *smudge   = GIMP_SMUDGE (paint_core);
+  GimpSmudgeOptions  *options  = GIMP_SMUDGE_OPTIONS (paint_options);
+  GimpContext        *context  = GIMP_CONTEXT (paint_options);
+  GimpDynamics       *dynamics = GIMP_BRUSH_CORE (paint_core)->dynamics;
+  GimpDynamicsOutput *opacity_output;
+  GimpDynamicsOutput *rate_output;
+  GimpDynamicsOutput *hardness_output;
+  GimpImage          *image;
+  TempBuf            *area;
+  PixelRegion         srcPR, destPR, tempPR;
+  gdouble             fade_point;
+  gdouble             opacity;
+  gdouble             rate;
+  gdouble             dynamic_rate;
+  gint                x, y, w, h;
+  gdouble             hardness;
+  TempBuf           *old_canvas_buf = NULL; /* gimp-painter-2.7 */
 
   if (gimp_drawable_is_indexed (drawable))
     return;
 
   image = gimp_item_get_image (GIMP_ITEM (drawable));
 
+  opacity_output = gimp_dynamics_get_output (dynamics,
+                                             GIMP_DYNAMICS_OUTPUT_OPACITY);
+
   fade_point = gimp_paint_options_get_fade (paint_options, image,
                                             paint_core->pixel_dist);
 
-  opacity = gimp_dynamics_output_get_linear_value (dynamics->opacity_output,
+  opacity = gimp_dynamics_output_get_linear_value (opacity_output,
                                                    coords,
                                                    paint_options,
                                                    fade_point);
@@ -311,7 +324,10 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
                      area->x, area->y, area->width, area->height, FALSE);
 
   /* Enable dynamic rate */
-  dynamic_rate = gimp_dynamics_output_get_linear_value (dynamics->rate_output,
+  rate_output = gimp_dynamics_get_output (dynamics,
+                                          GIMP_DYNAMICS_OUTPUT_RATE);
+
+  dynamic_rate = gimp_dynamics_output_get_linear_value (rate_output,
                                                         coords,
                                                         paint_options,
                                                         fade_point);
@@ -438,7 +454,10 @@ gimp_smudge_motion (GimpPaintCore    *paint_core,
       }
   }
   
-  hardness = gimp_dynamics_output_get_linear_value (dynamics->hardness_output,
+  hardness_output = gimp_dynamics_get_output (dynamics,
+                                              GIMP_DYNAMICS_OUTPUT_HARDNESS);
+
+  hardness = gimp_dynamics_output_get_linear_value (hardness_output,
                                                     coords,
                                                     paint_options,
                                                     fade_point);

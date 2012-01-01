@@ -19,8 +19,12 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __GIMPENV_H__
-#define __GIMPENV_H__
+#if !defined (__GIMP_BASE_H_INSIDE__) && !defined (GIMP_BASE_COMPILATION)
+#error "Only <libgimpbase/gimpbase.h> can be included directly."
+#endif
+
+#ifndef __GIMP_ENV_H__
+#define __GIMP_ENV_H__
 
 
 G_BEGIN_DECLS
@@ -29,11 +33,11 @@ G_BEGIN_DECLS
 
 
 #ifdef G_OS_WIN32
-#  ifdef LIBGIMP_COMPILATION
+#  ifdef __GIMP_ENV_C__
 #    define GIMPVAR __declspec(dllexport)
-#  else  /* !LIBGIMP_COMPILATION */
+#  else  /* !__GIMP_ENV_C__ */
 #    define GIMPVAR extern __declspec(dllimport)
-#  endif /* !LIBGIMP_COMPILATION */
+#  endif /* !__GIMP_ENV_C__ */
 #else  /* !G_OS_WIN32 */
 #  define GIMPVAR extern
 #endif
@@ -72,4 +76,4 @@ void          gimp_env_init                   (gboolean            plug_in);
 
 G_END_DECLS
 
-#endif  /*  __GIMPENV_H__  */
+#endif  /*  __GIMP_ENV_H__  */

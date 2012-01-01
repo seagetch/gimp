@@ -36,6 +36,7 @@
 #include <string.h>
 
 #include <libgimp/gimp.h>
+#undef GDK_DISABLE_DEPRECATED
 #include <libgimp/gimpui.h>
 
 #include "libgimp/stdplugins-intl.h"
@@ -43,6 +44,7 @@
 
 #define PLUG_IN_PROC   "plug-in-animationplay"
 #define PLUG_IN_BINARY "animation-play"
+#define PLUG_IN_ROLE   "gimp-animation-play"
 #define DITHERTYPE     GDK_RGB_DITHER_NORMAL
 
 
@@ -259,7 +261,7 @@ static gboolean
 button_press (GtkWidget      *widget,
               GdkEventButton *event)
 {
-  if (event->button == 3 && event->type == GDK_BUTTON_PRESS)
+  if (gdk_event_triggers_context_menu ((GdkEvent *) event))
     return popup_menu (widget, event);
 
   return FALSE;
@@ -604,7 +606,7 @@ build_dialog (GimpImageBaseType  basetype,
 
   ui_manager = ui_manager_new (window);
 
-  main_vbox = gtk_vbox_new (FALSE, 0);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_container_add (GTK_CONTAINER (window), main_vbox);
   gtk_widget_show (main_vbox);
 
@@ -618,7 +620,7 @@ build_dialog (GimpImageBaseType  basetype,
   gtk_separator_tool_item_set_draw (GTK_SEPARATOR_TOOL_ITEM (item), FALSE);
   gtk_tool_item_set_expand (item, TRUE);
 
-  vbox = gtk_vbox_new (FALSE, 2);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
   gtk_box_pack_start (GTK_BOX (main_vbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 
@@ -641,7 +643,7 @@ build_dialog (GimpImageBaseType  basetype,
                     G_CALLBACK (button_press),
                     NULL);
 
-  hbox = gtk_hbox_new (FALSE, 2);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -649,7 +651,7 @@ build_dialog (GimpImageBaseType  basetype,
   gtk_box_pack_end (GTK_BOX (hbox), progress, TRUE, TRUE, 0);
   gtk_widget_show (progress);
 
-  speedcombo = gtk_combo_box_new_text ();
+  speedcombo = gtk_combo_box_text_new ();
   gtk_box_pack_end (GTK_BOX (hbox), speedcombo, FALSE, FALSE, 0);
   gtk_widget_show (speedcombo);
 
@@ -659,7 +661,7 @@ build_dialog (GimpImageBaseType  basetype,
 
       /* list is given in "fps" - frames per second */
       text = g_strdup_printf  (_("%d fps"), get_fps (index));
-      gtk_combo_box_append_text (GTK_COMBO_BOX (speedcombo), text);
+      gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (speedcombo), text);
       g_free (text);
     }
 
@@ -671,7 +673,7 @@ build_dialog (GimpImageBaseType  basetype,
 
   gimp_help_set_help_data (speedcombo, _("Default framerate"), NULL);
 
-  speedcombo = gtk_combo_box_new_text ();
+  speedcombo = gtk_combo_box_text_new ();
   gtk_box_pack_end (GTK_BOX (hbox), speedcombo, FALSE, FALSE, 0);
   gtk_widget_show (speedcombo);
 
@@ -680,7 +682,7 @@ build_dialog (GimpImageBaseType  basetype,
       gchar *text;
 
       text = g_strdup_printf  ("%g\303\227", (100 / get_duration_factor (index)) / 100);
-      gtk_combo_box_append_text (GTK_COMBO_BOX (speedcombo), text);
+      gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (speedcombo), text);
       g_free (text);
     }
 

@@ -27,6 +27,7 @@
 
 #define PLUG_IN_PROC   "plug-in-borderaverage"
 #define PLUG_IN_BINARY "border-average"
+#define PLUG_IN_ROLE   "gimp-border-average"
 
 
 /* Declare local functions.
@@ -227,8 +228,6 @@ static void
 borderaverage (GimpDrawable *drawable,
                GimpRGB      *result)
 {
-  gint    width;
-  gint    height;
   gint    x1, x2, y1, y2;
   gint    bytes;
   gint    max;
@@ -268,8 +267,6 @@ borderaverage (GimpDrawable *drawable,
   /*  Get the size of the input image. (This will/must be the same
    *  as the size of the output image.
    */
-  width = drawable->width;
-  height = drawable->height;
   bytes = drawable->bpp;
 
   gimp_tile_cache_ntiles (2 * ((x2 - x1) / gimp_tile_width () + 1));
@@ -347,7 +344,7 @@ borderaverage_dialog (gint32        image_ID,
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("Borderaverage"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Borderaverage"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -363,17 +360,17 @@ borderaverage_dialog (gint32        image_ID,
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   frame = gimp_frame_new (_("Border Size"));
   gtk_box_pack_start (GTK_BOX (main_vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), hbox);
   gtk_widget_show (hbox);
 
@@ -416,7 +413,7 @@ borderaverage_dialog (gint32        image_ID,
   gtk_box_pack_start (GTK_BOX (main_vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), hbox);
   gtk_widget_show (hbox);
 

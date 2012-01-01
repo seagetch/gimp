@@ -90,9 +90,6 @@ gimp_display_shell_draw_get_scaled_image_size_for_scale (GimpDisplayShell *shell
   TileManager    *tiles;
   gdouble         scale_x;
   gdouble         scale_y;
-  gint            level;
-  gint            level_width;
-  gint            level_height;
 
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
 
@@ -104,15 +101,10 @@ gimp_display_shell_draw_get_scaled_image_size_for_scale (GimpDisplayShell *shell
 
   gimp_display_shell_calculate_scale_x_and_y (shell, scale, &scale_x, &scale_y);
 
-  level = gimp_projection_get_level (proj, scale_x, scale_y);
+  tiles = gimp_projection_get_tiles_at_level (proj, 0, NULL);
 
-  tiles = gimp_projection_get_tiles_at_level (proj, level, NULL);
-
-  level_width  = tile_manager_width (tiles);
-  level_height = tile_manager_height (tiles);
-
-  if (w) *w = PROJ_ROUND (level_width  * (scale_x * (1 << level)));
-  if (h) *h = PROJ_ROUND (level_height * (scale_y * (1 << level)));
+  if (w) *w = scale_x * tile_manager_width (tiles);
+  if (h) *h = scale_y * tile_manager_height (tiles);
 }
 
 void

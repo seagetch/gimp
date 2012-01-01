@@ -29,6 +29,7 @@
 
 #define SAVE_PROC      "file-header-save"
 #define PLUG_IN_BINARY "file-header"
+#define PLUG_IN_ROLE   "gimp-file-header"
 
 
 /* Declare some local functions.
@@ -163,7 +164,7 @@ save_image (const gchar *filename,
   const gchar   *newline   = "\"\n\t\"";
   gchar          buf[4];
   guchar        *d         = NULL;
-  guchar        *data;
+  guchar        *data      = NULL;
   guchar        *cmap;
   gint           colors;
 

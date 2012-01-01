@@ -32,6 +32,7 @@
 
 
 #define PLUG_IN_BINARY        "print"
+#define PLUG_IN_ROLE          "gimp-print"
 
 #define PRINT_PROC_NAME       "file-print-gtk"
 #define PAGE_SETUP_PROC_NAME  "file-print-gtk-page-setup"
@@ -93,8 +94,8 @@ query (void)
 {
   static const GimpParamDef print_args[] =
   {
-    { GIMP_PDB_INT32,    "run-mode", "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
-    { GIMP_PDB_IMAGE,    "image",    "Image to print"               }
+    { GIMP_PDB_INT32,    "run-mode", "The run mode { RUN-INTERACTIVE (0) }" },
+    { GIMP_PDB_IMAGE,    "image",    "Image to print"                       }
   };
 
   gimp_install_procedure (PRINT_PROC_NAME,

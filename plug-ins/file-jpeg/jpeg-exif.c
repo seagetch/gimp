@@ -30,19 +30,15 @@
 #include <jpeglib.h>
 #include <jerror.h>
 
-#ifdef HAVE_EXIF
-
 #include <libexif/exif-content.h>
 #include <libexif/exif-data.h>
 #include <libexif/exif-utils.h>
 
-#define EXIF_HEADER_SIZE 8
-
 #include <libgimp/gimp.h>
 #include <libgimp/gimpui.h>
 
+#include "jpeg-exif.h"
 #include "gimpexif.h"
-
 #include "jpeg.h"
 #include "jpeg-settings.h"
 
@@ -96,6 +92,70 @@ jpeg_exif_get_orientation (ExifData *exif_data)
     }
 
   return 0;
+}
+
+
+gboolean
+jpeg_exif_get_resolution (ExifData *exif_data,
+                          gdouble  *xresolution,
+                          gdouble  *yresolution,
+                          gint     *unit)
+{
+  gboolean       success;
+  ExifEntry     *entry;
+  gint           byte_order;
+  gdouble        xres;
+  gdouble        yres;
+  gint           ruint;
+  ExifRational   r;
+
+  success = FALSE;
+  byte_order = exif_data_get_byte_order (exif_data);
+
+  do
+    {
+      entry = exif_content_get_entry (exif_data->ifd[EXIF_IFD_0],
+                                      EXIF_TAG_X_RESOLUTION);
+      if (!entry)
+        break;
+
+      r = exif_get_rational (entry->data, byte_order);
+      if (r.denominator == 0.0)
+        break;
+      xres = r.numerator / r.denominator;
+
+      entry = exif_content_get_entry (exif_data->ifd[EXIF_IFD_0],
+                                      EXIF_TAG_Y_RESOLUTION);
+      if (!entry)
+        break;
+
+      r = exif_get_rational (entry->data, byte_order);
+      if (r.denominator == 0.0)
+        break;
+      yres = r.numerator / r.denominator;
+
+      entry = exif_content_get_entry (exif_data->ifd[EXIF_IFD_0],
+                                      EXIF_TAG_RESOLUTION_UNIT);
+      if (!entry)
+        break;
+
+      ruint = exif_get_short (entry->data, byte_order);
+      if ((ruint != 2) && /* inches */
+          (ruint != 3))   /* centimetres */
+        break;
+
+      success = TRUE;
+    }
+  while (0);
+
+  if (success)
+    {
+      *xresolution = xres;
+      *yresolution = yres;
+      *unit = ruint;
+    }
+
+  return success;
 }
 
 
@@ -253,7 +313,7 @@ jpeg_exif_rotate_query (gint32 image_ID,
   if (orientation < 2 || orientation > 8)
     return;
 
-  parasite = gimp_parasite_find (JPEG_EXIF_ROTATE_PARASITE);
+  parasite = gimp_get_parasite (JPEG_EXIF_ROTATE_PARASITE);
 
   if (parasite)
     {
@@ -289,7 +349,7 @@ jpeg_exif_rotate_query_dialog (gint32 image_ID)
   GdkPixbuf *pixbuf;
   gint       response;
 
-  dialog = gimp_dialog_new (_("Rotate Image?"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Rotate Image?"), PLUG_IN_ROLE,
                             NULL, 0, NULL, NULL,
 
                             _("_Keep Orientation"), GTK_RESPONSE_CANCEL,
@@ -305,13 +365,13 @@ jpeg_exif_rotate_query_dialog (gint32 image_ID)
   gtk_window_set_resizable (GTK_WINDOW (dialog), FALSE);
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_box_pack_start (GTK_BOX (hbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 
@@ -343,7 +403,7 @@ jpeg_exif_rotate_query_dialog (gint32 image_ID)
       g_free (name);
     }
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_box_pack_start (GTK_BOX (hbox), vbox, TRUE, TRUE, 0);
   gtk_widget_show (vbox);
 
@@ -388,7 +448,7 @@ jpeg_exif_rotate_query_dialog (gint32 image_ID)
       parasite = gimp_parasite_new (JPEG_EXIF_ROTATE_PARASITE,
                                     GIMP_PARASITE_PERSISTENT,
                                     strlen (str), str);
-      gimp_parasite_attach (parasite);
+      gimp_attach_parasite (parasite);
       gimp_parasite_free (parasite);
     }
 
@@ -396,6 +456,3 @@ jpeg_exif_rotate_query_dialog (gint32 image_ID)
 
   return (response == GTK_RESPONSE_OK);
 }
-
-
-#endif /* HAVE_EXIF */

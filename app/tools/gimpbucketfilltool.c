@@ -32,6 +32,7 @@
 #include "core/gimppickable.h"
 
 #include "widgets/gimphelp-ids.h"
+#include "widgets/gimpwidgets-utils.h"
 
 #include "display/gimpdisplay.h"
 
@@ -219,7 +220,7 @@ gimp_bucket_fill_tool_modifier_key (GimpTool        *tool,
 {
   GimpBucketFillOptions *options = GIMP_BUCKET_FILL_TOOL_GET_OPTIONS (tool);
 
-  if (key == GDK_CONTROL_MASK)
+  if (key == gimp_get_toggle_behavior_mask ())
     {
       switch (options->fill_mode)
         {

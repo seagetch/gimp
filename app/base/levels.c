@@ -17,12 +17,11 @@
 
 #include "config.h"
 
+#include <cairo.h>
 #include <glib-object.h>
 
+#include "libgimpcolor/gimpcolor.h"
 #include "libgimpmath/gimpmath.h"
-
-#include "libgimpcolor/gimpcolortypes.h"
-#include "libgimpcolor/gimprgb.h"
 
 #include "base-types.h"
 

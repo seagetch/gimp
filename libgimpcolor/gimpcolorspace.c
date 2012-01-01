@@ -91,7 +91,7 @@ gimp_rgb_to_hsv (const GimpRGB *rgb,
         {
           hsv->h = 2.0 + (rgb->b - rgb->r) / delta;
         }
-      else if (rgb->b == max)
+      else
         {
           hsv->h = 4.0 + (rgb->r - rgb->g) / delta;
         }
@@ -233,7 +233,7 @@ gimp_rgb_to_hsl (const GimpRGB *rgb,
         {
           hsl->h = 2.0 + (rgb->b - rgb->r) / delta;
         }
-      else if (rgb->b == max)
+      else
         {
           hsl->h = 4.0 + (rgb->r - rgb->g) / delta;
         }
@@ -972,8 +972,6 @@ gimp_rgb_to_hsv4 (const guchar *rgb,
   green = rgb[1] / 255.0;
   blue  = rgb[2] / 255.0;
 
-  h = 0.0; /* Shut up -Wall */
-
   if (red > green)
     {
       max = MAX (red,   blue);
@@ -1005,7 +1003,7 @@ gimp_rgb_to_hsv4 (const guchar *rgb,
         h = (green - blue) / delta;
       else if (green == max)
         h = 2 + (blue - red) / delta;
-      else if (blue == max)
+      else
         h = 4 + (red - green) / delta;
 
       h /= 6.0;

@@ -19,6 +19,7 @@
 
 #include <string.h>
 
+#include <cairo.h>
 #include <glib-object.h>
 
 #include "libgimpcolor/gimpcolor.h"
@@ -1973,9 +1974,6 @@ copy_region (PixelRegion *src,
 {
   gpointer pr;
 
-#ifdef COWSHOW
-  fputc ('[',stderr);
-#endif
   for (pr = pixel_regions_register (2, src, dest);
        pr != NULL;
        pr = pixel_regions_process (pr))
@@ -1989,9 +1987,6 @@ copy_region (PixelRegion *src,
           src->h  == tile_eheight (src->curtile) &&
           dest->h == tile_eheight (dest->curtile))
         {
-#ifdef COWSHOW
-          fputc('!',stderr);
-#endif
           tile_manager_map_over_tile (dest->tiles,
                                       dest->curtile, src->curtile);
         }
@@ -2002,10 +1997,6 @@ copy_region (PixelRegion *src,
           gint          h      = src->h;
           gint          pixels = src->w * src->bytes;
 
-#ifdef COWSHOW
-          fputc ('.',stderr);
-#endif
-
           while (h --)
             {
               memcpy (d, s, pixels);
@@ -2015,11 +2006,6 @@ copy_region (PixelRegion *src,
             }
         }
     }
-
-#ifdef COWSHOW
-  fputc (']',stderr);
-  fputc ('\n',stderr);
-#endif
 }
 
 void
@@ -3387,7 +3373,6 @@ border_region (PixelRegion *src,
   /* TODO: Figure out role clearly in algorithm. */
   guchar **density;
 
-  guchar   last_max;
   gint16   last_index;
 
   if (xradius < 0 || yradius < 0)
@@ -3628,12 +3613,13 @@ border_region (PixelRegion *src,
             max[x] = -yradius - 1;
         }
 
-      last_max =  max[0][density[-1]];
       last_index = 1;
 
        /* render scan line */
       for (x = 0 ; x < src->w; x++)
         {
+          guchar last_max;
+
           last_index--;
 
           if (last_index >= 0)
@@ -4438,7 +4424,7 @@ combine_regions (PixelRegion          *src1,
                  const gboolean       *affect,
                  CombinationMode       type)
 {
-  gboolean has_alpha1, has_alpha2;
+  gboolean has_alpha1;
   guint i;
   struct combine_regions_struct st;
 
@@ -4447,24 +4433,22 @@ combine_regions (PixelRegion          *src1,
     {
     case COMBINE_INTEN_INTEN:
     case COMBINE_INDEXED_INDEXED:
-      has_alpha1 = has_alpha2 = FALSE;
+      has_alpha1 = FALSE;
       break;
     case COMBINE_INTEN_A_INTEN:
     case COMBINE_INTEN_A_INDEXED:
       has_alpha1 = TRUE;
-      has_alpha2 = FALSE;
       break;
     case COMBINE_INTEN_INTEN_A:
     case COMBINE_INDEXED_INDEXED_A:
       has_alpha1 = FALSE;
-      has_alpha2 = TRUE;
       break;
     case COMBINE_INTEN_A_INTEN_A:
     case COMBINE_INDEXED_A_INDEXED_A:
-      has_alpha1 = has_alpha2 = TRUE;
+      has_alpha1 = TRUE;
       break;
     default:
-      has_alpha1 = has_alpha2 = FALSE;
+      has_alpha1 = FALSE;
     }
 
   st.opacity    = opacity;

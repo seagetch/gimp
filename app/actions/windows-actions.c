@@ -19,6 +19,7 @@
 
 #include <gegl.h>
 #include <gtk/gtk.h>
+#include <gdk/gdkkeysyms.h>
 
 #include "libgimpbase/gimpbase.h"
 #include "libgimpwidgets/gimpwidgets.h"
@@ -41,6 +42,7 @@
 #include "widgets/gimphelp-ids.h"
 
 #include "display/gimpdisplay.h"
+#include "display/gimpdisplay-utils.h"
 
 #include "dialogs/dialogs.h"
 
@@ -59,6 +61,8 @@ static void  windows_actions_display_remove            (GimpContainer     *conta
 static void  windows_actions_image_notify              (GimpDisplay       *display,
                                                         const GParamSpec  *unused,
                                                         GimpActionGroup   *group);
+static void  windows_actions_update_display_accels     (GimpActionGroup   *group);
+
 static void  windows_actions_dock_window_added         (GimpDialogFactory *factory,
                                                         GimpDockWindow    *dock_window,
                                                         GimpActionGroup   *group);
@@ -79,6 +83,13 @@ static void  windows_actions_single_window_mode_notify (GimpDisplayConfig *confi
                                                         GimpActionGroup   *group);
 
 
+/* The only reason we have "Tab" in the action entries below is to
+ * give away the hardcoded keyboard shortcut. If the user changes the
+ * shortcut to something else, both that shortcut and Tab will
+ * work. The reason we have the shortcut hardcoded is beccause
+ * gtk_accelerator_valid() returns FALSE for GDK_tab.
+ */
+
 static const GimpActionEntry windows_actions[] =
 {
   { "windows-menu",         NULL, NC_("windows-action",
@@ -87,19 +98,24 @@ static const GimpActionEntry windows_actions[] =
                                       "_Recently Closed Docks") },
   { "windows-dialogs-menu", NULL, NC_("windows-action",
                                       "_Dockable Dialogs")      },
+
+  { "windows-show-display-next", NULL,
+    NC_("windows-action", "Next Image"), "<alt>Tab",
+    NC_("windows-action", "Switch to the next image"),
+    G_CALLBACK (windows_show_display_next_cmd_callback),
+    NULL },
+
+  { "windows-show-display-previous", NULL,
+    NC_("windows-action", "Previous Image"), "<alt><shift>Tab",
+    NC_("windows-action", "Switch to the previous image"),
+    G_CALLBACK (windows_show_display_previous_cmd_callback),
+    NULL }
 };
 
 static const GimpToggleActionEntry windows_toggle_actions[] =
 {
   { "windows-hide-docks", NULL,
-    NC_("windows-action", "Hide Docks"),
-    /* The only reason we have Tab here is to give away the hardcoded
-     * keyboard shortcut. If the user changes the shortcut to
-     * something else, both that shortcut and Tab will work. The
-     * reason we have the shortcut hardcoded is beccause
-     * gtk_accelerator_valid() returns FALSE for GDK_tab.
-     */
-    "Tab",
+    NC_("windows-action", "Hide Docks"), "Tab",
     NC_("windows-action", "When enabled docks and other dialogs are hidden, leaving only image windows."),
     G_CALLBACK (windows_hide_docks_cmd_callback),
     FALSE,
@@ -229,8 +245,7 @@ windows_actions_display_remove (GimpContainer   *container,
                                 GimpActionGroup *group)
 {
   GtkAction *action;
-  gchar     *action_name = g_strdup_printf ("windows-display-%04d",
-                                            gimp_display_get_ID (display));
+  gchar     *action_name = gimp_display_get_action_name (display);
 
   action = gtk_action_group_get_action (GTK_ACTION_GROUP (group), action_name);
 
@@ -238,6 +253,8 @@ windows_actions_display_remove (GimpContainer   *container,
     gtk_action_group_remove_action (GTK_ACTION_GROUP (group), action);
 
   g_free (action_name);
+
+  windows_actions_update_display_accels (group);
 }
 
 static void
@@ -250,8 +267,7 @@ windows_actions_image_notify (GimpDisplay      *display,
   if (image)
     {
       GtkAction *action;
-      gchar     *action_name = g_strdup_printf ("windows-display-%04d",
-                                                gimp_display_get_ID (display));
+      gchar     *action_name = gimp_display_get_action_name (display);
 
       action = gtk_action_group_get_action (GTK_ACTION_GROUP (group),
                                             action_name);
@@ -270,6 +286,9 @@ windows_actions_image_notify (GimpDisplay      *display,
 
           gimp_action_group_add_actions (group, NULL, &entry, 1);
 
+          gimp_action_group_set_action_always_show_image (group, action_name,
+                                                          TRUE);
+
           action = gtk_action_group_get_action (GTK_ACTION_GROUP (group),
                                                 action_name);
 
@@ -283,7 +302,7 @@ windows_actions_image_notify (GimpDisplay      *display,
         gchar       *escaped;
         gchar       *title;
 
-        uri = gimp_image_get_uri (image);
+        uri = gimp_image_get_uri_or_untitled (image);
 
         filename = file_utils_uri_display_name (uri);
         basename = file_utils_uri_display_basename (uri);
@@ -308,10 +327,53 @@ windows_actions_image_notify (GimpDisplay      *display,
       }
 
       g_free (action_name);
+
+      windows_actions_update_display_accels (group);
     }
   else
     {
       windows_actions_display_remove (group->gimp->displays, display, group);
+    }
+}
+
+static void
+windows_actions_update_display_accels (GimpActionGroup *group)
+{
+  GList *list;
+  gint   i;
+
+  for (list = gimp_get_display_iter (group->gimp), i = 0;
+       list && i < 10;
+       list = g_list_next (list), i++)
+    {
+      GimpDisplay *display = list->data;
+      GtkAction   *action;
+      gchar       *action_name;
+
+      if (! gimp_display_get_image (display))
+        break;
+
+      action_name = gimp_display_get_action_name (display);
+
+      action = gtk_action_group_get_action (GTK_ACTION_GROUP (group),
+                                            action_name);
+
+      if (action)
+        {
+          const gchar *accel_path;
+          guint        accel_key;
+
+          accel_path = gtk_action_get_accel_path (action);
+
+          if (i < 9)
+            accel_key = GDK_KEY_1 + i;
+          else
+            accel_key = GDK_KEY_0;
+
+          gtk_accel_map_change_entry (accel_path,
+                                      accel_key, GDK_MOD1_MASK,
+                                      TRUE);
+        }
     }
 }
 

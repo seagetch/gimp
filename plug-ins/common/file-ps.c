@@ -114,6 +114,7 @@ static const gchar dversio[] = "v1.17  19-Sep-2004";
 #define SAVE_PS_PROC         "file-ps-save"
 #define SAVE_EPS_PROC        "file-eps-save"
 #define PLUG_IN_BINARY       "file-ps"
+#define PLUG_IN_ROLE         "gimp-file-ps"
 
 
 #define STR_LENGTH 64
@@ -1220,12 +1221,21 @@ save_image (const gchar  *filename,
 
   save_ps_header (ofp, filename);
 
-  if (drawable_type == GIMP_GRAY_IMAGE)
-    retval = save_gray (ofp, image_ID, drawable_ID);
-  else if (drawable_type == GIMP_INDEXED_IMAGE)
-    retval = save_index (ofp, image_ID, drawable_ID);
-  else if (drawable_type == GIMP_RGB_IMAGE)
-    retval = save_rgb (ofp, image_ID, drawable_ID);
+  switch (drawable_type)
+    {
+    case GIMP_INDEXED_IMAGE:
+      retval = save_index (ofp, image_ID, drawable_ID);
+      break;
+    case GIMP_GRAY_IMAGE:
+      retval = save_gray (ofp, image_ID, drawable_ID);
+      break;
+    case GIMP_RGB_IMAGE:
+      retval = save_rgb (ofp, image_ID, drawable_ID);
+      break;
+    default:
+      g_message (_("Cannot operate on unknown image types."));
+      retval = FALSE;
+    }
 
   save_ps_trailer (ofp);
 
@@ -2127,6 +2137,7 @@ load_ps (const gchar *filename,
           if (err) break;
         }
     }
+  gimp_progress_update (1.0);
 
   g_free (data);
   g_free (byteline);
@@ -2171,7 +2182,6 @@ save_ps_setup (FILE   *ofp,
 {
   double x_offset, y_offset, x_size, y_size;
   double urx, ury;
-  double x_scale, y_scale;
   double width_inch, height_inch;
   double f1, f2, dx, dy;
   int xtrans, ytrans;
@@ -2243,8 +2253,6 @@ save_ps_setup (FILE   *ofp,
     case   0: dx = 0.0; dy = y_size*72.0;
       break;
     case  90: dx = dy = 0.0;
-      x_scale = 72.0 * width_inch;
-      y_scale = -72.0 * height_inch;
       break;
     case 180: dx = x_size*72.0; dy = 0.0;
       break;
@@ -2384,7 +2392,6 @@ save_ps_preview (FILE   *ofp,
                  gint32  drawable_ID)
 {
   register guchar *bwptr, *greyptr;
-  GimpImageType drawable_type;
   GimpDrawable *drawable;
   GimpPixelRgn src_rgn;
   int width, height, x, y, nbsl, out_count;
@@ -2397,7 +2404,6 @@ save_ps_preview (FILE   *ofp,
   if (psvals.preview_size <= 0) return;
 
   drawable = gimp_drawable_get (drawable_ID);
-  drawable_type = gimp_drawable_type (drawable_ID);
 
   /* Calculate size of preview */
   if (   (drawable->width <= psvals.preview_size)
@@ -2497,6 +2503,7 @@ save_ps_preview (FILE   *ofp,
       if ((y % 20) == 0)
         gimp_progress_update ((double)(y) / (double)height);
     }
+  gimp_progress_update (1.0);
 
   fprintf (ofp, "%%%%EndPreview\n");
 
@@ -2519,11 +2526,9 @@ save_gray  (FILE   *ofp,
   unsigned char *packb = NULL;
   GimpPixelRgn pixel_rgn;
   GimpDrawable *drawable;
-  GimpImageType drawable_type;
   int level2 = (psvals.level > 1);
 
   drawable = gimp_drawable_get (drawable_ID);
-  drawable_type = gimp_drawable_type (drawable_ID);
   width = drawable->width;
   height = drawable->height;
   tile_height = gimp_tile_height ();
@@ -2580,6 +2585,7 @@ save_gray  (FILE   *ofp,
       if ((i % 20) == 0)
         gimp_progress_update ((double) i / (double) height);
     }
+  gimp_progress_update (1.0);
 
   if (level2)
     {
@@ -2622,13 +2628,11 @@ save_bw (FILE   *ofp,
   guchar *hex_scanline;
   GimpPixelRgn pixel_rgn;
   GimpDrawable *drawable;
-  GimpImageType drawable_type;
   gint level2 = (psvals.level > 1);
 
   cmap = gimp_image_get_colormap (image_ID, &ncols);
 
   drawable = gimp_drawable_get (drawable_ID);
-  drawable_type = gimp_drawable_type (drawable_ID);
   width = drawable->width;
   height = drawable->height;
   tile_height = gimp_tile_height ();
@@ -2709,6 +2713,7 @@ save_bw (FILE   *ofp,
       if ((i % 20) == 0)
         gimp_progress_update ((double) i / (double) height);
     }
+  gimp_progress_update (1.0);
 
   if (level2)
     {
@@ -2753,7 +2758,6 @@ save_index (FILE   *ofp,
   char coltab[256*6], *ct;
   GimpPixelRgn pixel_rgn;
   GimpDrawable *drawable;
-  GimpImageType drawable_type;
   int level2 = (psvals.level > 1);
 
   cmap = cmap_start = gimp_image_get_colormap (image_ID, &ncols);
@@ -2783,7 +2787,6 @@ save_index (FILE   *ofp,
     return (save_bw (ofp, image_ID, drawable_ID));
 
   drawable = gimp_drawable_get (drawable_ID);
-  drawable_type = gimp_drawable_type (drawable_ID);
   width = drawable->width;
   height = drawable->height;
   tile_height = gimp_tile_height ();
@@ -2864,6 +2867,7 @@ save_index (FILE   *ofp,
       if ((i % 20) == 0)
         gimp_progress_update ((double) i / (double) height);
     }
+  gimp_progress_update (1.0);
 
   ps_end_data (ofp);
   fprintf (ofp, "showpage\n");
@@ -2900,11 +2904,9 @@ save_rgb (FILE   *ofp,
   guchar *packb = NULL, *plane = NULL;
   GimpPixelRgn pixel_rgn;
   GimpDrawable *drawable;
-  GimpImageType drawable_type;
   int level2 = (psvals.level > 1);
 
   drawable = gimp_drawable_get (drawable_ID);
-  drawable_type = gimp_drawable_type (drawable_ID);
   width = drawable->width;
   height = drawable->height;
   tile_height = gimp_tile_height ();
@@ -2993,6 +2995,7 @@ save_rgb (FILE   *ofp,
       if ((i % 20) == 0)
         gimp_progress_update ((double) i / (double) height);
     }
+  gimp_progress_update (1.0);
 
   ps_end_data (ofp);
   fprintf (ofp, "showpage\n");
@@ -3089,7 +3092,7 @@ load_dialog (const gchar *filename,
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("Import from PostScript"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Import from PostScript"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, LOAD_PS_PROC,
 
@@ -3105,7 +3108,7 @@ load_dialog (const gchar *filename,
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       main_vbox, TRUE, TRUE, 0);
@@ -3127,7 +3130,8 @@ load_dialog (const gchar *filename,
                                 dialog);
     }
 
-  hbox = gtk_hbox_new (TRUE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
+  gtk_box_set_homogeneous (GTK_BOX (hbox), TRUE);
   gtk_box_pack_start (GTK_BOX (main_vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -3135,7 +3139,7 @@ load_dialog (const gchar *filename,
   frame = gimp_frame_new (_("Rendering"));
   gtk_box_pack_start (GTK_BOX (hbox), frame, FALSE, TRUE, 0);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
 
   /* Resolution/Width/Height/Pages labels */
@@ -3196,11 +3200,13 @@ load_dialog (const gchar *filename,
       gimp_help_set_help_data (GTK_WIDGET (entry),
                                _("Pages to load (e.g.: 1-4 or 1,3,5-7)"), NULL);
 
-      target = gtk_combo_box_new_text ();
-      gtk_combo_box_insert_text (GTK_COMBO_BOX (target),
-                                 GIMP_PAGE_SELECTOR_TARGET_LAYERS, _("Layers"));
-      gtk_combo_box_insert_text (GTK_COMBO_BOX (target),
-                                 GIMP_PAGE_SELECTOR_TARGET_IMAGES, _("Images"));
+      target = gtk_combo_box_text_new ();
+      gtk_combo_box_text_insert_text (GTK_COMBO_BOX_TEXT (target),
+                                      GIMP_PAGE_SELECTOR_TARGET_LAYERS,
+                                      _("Layers"));
+      gtk_combo_box_text_insert_text (GTK_COMBO_BOX_TEXT (target),
+                                      GIMP_PAGE_SELECTOR_TARGET_IMAGES,
+                                      _("Images"));
       gtk_combo_box_set_active (GTK_COMBO_BOX (target), (int) ps_pagemode);
       gimp_table_attach_aligned (GTK_TABLE (table), 0, 4,
                                  _("Open as"), 0.0, 0.5,
@@ -3233,7 +3239,8 @@ load_dialog (const gchar *filename,
   gtk_box_pack_start (GTK_BOX (hbox), frame, FALSE, TRUE, 0);
   gtk_widget_show (frame);
 
-  hbox = gtk_hbox_new (TRUE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
+  gtk_box_set_homogeneous (GTK_BOX (hbox), TRUE);
   gtk_box_pack_start (GTK_BOX (main_vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -3241,9 +3248,9 @@ load_dialog (const gchar *filename,
                                     G_CALLBACK (gimp_radio_button_update),
                                     &plvals.textalpha, plvals.textalpha,
 
-                                    _("None"),   1, NULL,
-                                    _("Weak"),   2, NULL,
-                                    _("Strong"), 4, NULL,
+                                    C_("antialiasing", "None"), 1, NULL,
+                                    _("Weak"),                  2, NULL,
+                                    _("Strong"),                4, NULL,
 
                                     NULL);
   gtk_box_pack_start (GTK_BOX (hbox), frame, FALSE, TRUE, 0);
@@ -3253,9 +3260,9 @@ load_dialog (const gchar *filename,
                                     G_CALLBACK (gimp_radio_button_update),
                                     &plvals.graphicsalpha, plvals.graphicsalpha,
 
-                                    _("None"),   1, NULL,
-                                    _("Weak"),   2, NULL,
-                                    _("Strong"), 4, NULL,
+                                    C_("antialiasing", "None"), 1, NULL,
+                                    _("Weak"),                  2, NULL,
+                                    _("Strong"),                4, NULL,
 
                                     NULL);
   gtk_box_pack_start (GTK_BOX (hbox), frame, FALSE, TRUE, 0);
@@ -3330,7 +3337,7 @@ save_dialog (void)
   dialog = gimp_export_dialog_new (_("PostScript"), PLUG_IN_BINARY, SAVE_PS_PROC);
 
   /* Main hbox */
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 12);
   gtk_box_pack_start (GTK_BOX (gimp_export_dialog_get_content_area (dialog)),
                       hbox, FALSE, FALSE, 0);
@@ -3338,7 +3345,7 @@ save_dialog (void)
 
   for (j = 0; j < G_N_ELEMENTS (main_vbox); j++)
     {
-      main_vbox[j] = gtk_vbox_new (FALSE, 12);
+      main_vbox[j] = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
       gtk_box_pack_start (GTK_BOX (hbox), main_vbox[j], FALSE, TRUE, 0);
       gtk_widget_show (main_vbox[j]);
     }
@@ -3347,7 +3354,7 @@ save_dialog (void)
   frame = gimp_frame_new (_("Image Size"));
   gtk_box_pack_start (GTK_BOX (main_vbox[0]), frame, FALSE, TRUE, 0);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
 
   /* Width/Height/X-/Y-offset labels */
@@ -3443,7 +3450,7 @@ save_dialog (void)
   frame = gimp_frame_new (_("Output"));
   gtk_box_pack_start (GTK_BOX (main_vbox[1]), frame, TRUE, TRUE, 0);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
 
   toggle = gtk_check_button_new_with_mnemonic (_("_PostScript level 2"));
@@ -3479,8 +3486,9 @@ save_dialog (void)
   gtk_box_pack_start (GTK_BOX (vbox), table, FALSE, FALSE, 0);
   gtk_widget_show (table);
 
-  g_object_set_data (G_OBJECT (toggle), "set_sensitive", table);
-  gtk_widget_set_sensitive (table, psvals.preview);
+  g_object_bind_property (toggle, "active",
+                          table,  "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   spinbutton = gimp_spin_button_new (&adj, psvals.preview_size,
                                      0, 1024, 1, 10, 0, 1, 0);

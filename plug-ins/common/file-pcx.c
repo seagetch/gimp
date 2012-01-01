@@ -35,6 +35,7 @@
 #define LOAD_PROC      "file-pcx-load"
 #define SAVE_PROC      "file-pcx-save"
 #define PLUG_IN_BINARY "file-pcx"
+#define PLUG_IN_ROLE   "gimp-file-pcx"
 
 /* Declare local functions.  */
 
@@ -466,6 +467,8 @@ load_image (const gchar  *filename,
       fclose (fd);
       return -1;
     }
+
+  gimp_progress_update (1.0);
 
   gimp_pixel_rgn_init (&pixel_rgn, drawable, 0, 0, width, height, TRUE, FALSE);
   gimp_pixel_rgn_set_rect (&pixel_rgn, dest, 0, 0, width, height);

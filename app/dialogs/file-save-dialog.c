@@ -194,53 +194,21 @@ file_save_dialog_response (GtkWidget *save_dialog,
                                        FALSE))
         {
           /* Save was successful, now store the URI in a couple of
-           * places
+           * places that depend on it being the user that made a
+           * save. Lower-level URI management is handled in
+           * file_save()
            */
           if (dialog->save_a_copy)
-            {
-              g_object_set_data_full (G_OBJECT (dialog->image),
-                                      GIMP_FILE_SAVE_A_COPY_URI_KEY,
-                                      g_strdup (uri), (GDestroyNotify) g_free);
-            }
+            gimp_image_set_save_a_copy_uri (dialog->image, uri);
 
           if (! dialog->export)
-            {
-              g_object_set_data_full (G_OBJECT (dialog->image->gimp),
-                                      GIMP_FILE_SAVE_LAST_URI_KEY,
-                                      g_strdup (uri), (GDestroyNotify) g_free);
-
-              /* Forget the import source when we save. We interpret a
-               * save as that the user is not interested in being able
-               * to quickly export back to the original any longer
-               */
-              g_object_set_data (G_OBJECT (dialog->image),
-                                 GIMP_FILE_IMPORT_SOURCE_URI_KEY,
-                                 NULL);
-            }
+            g_object_set_data_full (G_OBJECT (dialog->image->gimp),
+                                    GIMP_FILE_SAVE_LAST_URI_KEY,
+                                    g_strdup (uri), (GDestroyNotify) g_free);
           else
-            {
-              g_object_set_data_full (G_OBJECT (dialog->image->gimp),
-                                      GIMP_FILE_EXPORT_LAST_URI_KEY,
-                                      g_strdup (uri), (GDestroyNotify) g_free);
-
-              /* Remeber the last entered Export URI for the image. We
-               * only need to do this explicitly when exporting. It
-               * happens implicitly when saving since the GimpObject name
-               * of a GimpImage is the last-save URI
-               */
-              g_object_set_data_full (G_OBJECT (dialog->image),
-                                      GIMP_FILE_EXPORT_URI_KEY,
-                                      g_strdup (uri), (GDestroyNotify) g_free);
-
-              /* Update 'Export to' to the last exported URI */
-              g_object_set_data_full (G_OBJECT (dialog->image),
-                                      GIMP_FILE_EXPORT_TO_URI_KEY,
-                                      g_strdup (uri), (GDestroyNotify) g_free);
-            }
-
-          g_object_set_data_full (G_OBJECT (dialog->image->gimp),
-                                  GIMP_FILE_SAVE_LAST_URI_KEY,
-                                  g_strdup (uri), (GDestroyNotify) g_free);
+            g_object_set_data_full (G_OBJECT (dialog->image->gimp),
+                                    GIMP_FILE_EXPORT_LAST_URI_KEY,
+                                    g_strdup (uri), (GDestroyNotify) g_free);
 
           /*  make sure the menus are updated with the keys we've just set  */
           gimp_image_flush (dialog->image);
@@ -346,22 +314,17 @@ file_save_dialog_check_uri (GtkWidget            *save_dialog,
 
           if (ext)
             {
-              gchar *ext_uri      = g_strconcat (uri,      ".", ext, NULL);
-              gchar *ext_basename = g_strconcat (basename, ".", ext, NULL);
+              gchar *ext_basename;
               gchar *utf8;
 
               GIMP_LOG (SAVE_DIALOG, "appending .%s to basename", ext);
 
+              ext_basename = g_strconcat (basename, ".", ext, NULL);
+
               g_free (uri);
               g_free (basename);
 
-              uri      = ext_uri;
               basename = ext_basename;
-
-              uri_proc      = file_procedure_find (file_save_dialog_get_procs (dialog, gimp),
-                                                    uri, NULL);
-              basename_proc = file_procedure_find (file_save_dialog_get_procs (dialog, gimp),
-                                                   basename, NULL);
 
               utf8 = g_filename_to_utf8 (basename, -1, NULL, NULL, NULL);
               gtk_file_chooser_set_current_name (GTK_FILE_CHOOSER (save_dialog),
@@ -377,7 +340,6 @@ file_save_dialog_check_uri (GtkWidget            *save_dialog,
                */
               gtk_dialog_response (GTK_DIALOG (save_dialog), GTK_RESPONSE_OK);
 
-              g_free (uri);
               g_free (basename);
 
               return FALSE;

@@ -45,6 +45,7 @@
 
 #define PLUG_IN_PROC   "plug-in-small-tiles"
 #define PLUG_IN_BINARY "tile-small"
+#define PLUG_IN_ROLE   "gimp-tile-small"
 
 /***** Magic numbers *****/
 
@@ -367,7 +368,7 @@ tileit_dialog (void)
 
   cache_preview (); /* Get the preview image */
 
-  dlg = gimp_dialog_new (_("Small Tiles"), PLUG_IN_BINARY,
+  dlg = gimp_dialog_new (_("Small Tiles"), PLUG_IN_ROLE,
                          NULL, 0,
                          gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -383,17 +384,17 @@ tileit_dialog (void)
 
   gimp_window_set_transient (GTK_WINDOW (dlg));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dlg))),
                       main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_box_pack_start (GTK_BOX (main_vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
-  vbox = gtk_vbox_new (FALSE, 0);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_box_pack_start (GTK_BOX (hbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 
@@ -421,11 +422,12 @@ tileit_dialog (void)
   gtk_box_pack_start (GTK_BOX (hbox), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
-  hbox = gtk_hbox_new (TRUE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+  gtk_box_set_homogeneous (GTK_BOX (hbox), TRUE);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -505,8 +507,9 @@ tileit_dialog (void)
                     GTK_FILL | GTK_SHRINK , GTK_FILL, 0, 0);
   gtk_widget_show (label);
 
-  gtk_widget_set_sensitive (label, FALSE);
-  g_object_set_data (G_OBJECT (toggle), "set_sensitive", label);
+  g_object_bind_property (toggle, "active",
+                          label,  "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   spinbutton = gimp_spin_button_new (&adj, 2, 1, 6, 1, 1, 0, 1, 0);
   gtk_label_set_mnemonic_widget (GTK_LABEL (label), spinbutton);
@@ -520,8 +523,9 @@ tileit_dialog (void)
 
   exp_call.r_adj = adj;
 
-  gtk_widget_set_sensitive (spinbutton, FALSE);
-  g_object_set_data (G_OBJECT (label), "set_sensitive", spinbutton);
+  g_object_bind_property (toggle,     "active",
+                          spinbutton, "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   label = gtk_label_new_with_mnemonic (_("Col_umn:"));
   gtk_misc_set_alignment (GTK_MISC (label), 1.0, 0.5);
@@ -529,8 +533,9 @@ tileit_dialog (void)
   gtk_table_attach (GTK_TABLE (table), label, 1, 2, 3, 4,
                     GTK_FILL , GTK_FILL, 0, 0);
 
-  gtk_widget_set_sensitive (label, FALSE);
-  g_object_set_data (G_OBJECT (spinbutton), "set_sensitive", label);
+  g_object_bind_property (toggle, "active",
+                          label,  "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   spinbutton = gimp_spin_button_new (&adj, 2, 1, 6, 1, 1, 0, 1, 0);
   gtk_label_set_mnemonic_widget (GTK_LABEL (label), spinbutton);
@@ -544,8 +549,9 @@ tileit_dialog (void)
 
   exp_call.c_adj = adj;
 
-  gtk_widget_set_sensitive (spinbutton, FALSE);
-  g_object_set_data (G_OBJECT (label), "set_sensitive", spinbutton);
+  g_object_bind_property (toggle,     "active",
+                          spinbutton, "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   g_object_set_data (G_OBJECT (toggle), "gimp-item-data",
                      GINT_TO_POINTER (EXPLICIT));
@@ -564,8 +570,9 @@ tileit_dialog (void)
 
   exp_call.applybut = button;
 
-  gtk_widget_set_sensitive (button, FALSE);
-  g_object_set_data (G_OBJECT (spinbutton), "set_sensitive", button);
+  g_object_bind_property (toggle,     "active",
+                          spinbutton, "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   /* Widget for selecting the Opacity */
 
@@ -978,12 +985,10 @@ do_tiles(void)
 
           for (col = dest_rgn.x; col < (dest_rgn.x + dest_rgn.w); col++)
             {
-              gint an_action;
-
-              an_action = tiles_xy (sel_width,
-                                    sel_height,
-                                    col-sel_x1,row-sel_y1,
-                                    &nc,&nr);
+              tiles_xy (sel_width,
+                        sel_height,
+                        col-sel_x1,row-sel_y1,
+                        &nc,&nr);
 
               gimp_pixel_fetcher_get_pixel (pft, nc + sel_x1, nr + sel_y1,
                                             pixel);
@@ -1001,6 +1006,7 @@ do_tiles(void)
       progress += dest_rgn.w * dest_rgn.h;
       gimp_progress_update ((double) progress / max_progress);
     }
+  gimp_progress_update (1.0);
 
   gimp_pixel_fetcher_destroy (pft);
 

@@ -99,8 +99,8 @@ gradient_editor_left_color_cmd_callback (GtkAction *action,
                     editor);
 
   gtk_widget_set_sensitive (GTK_WIDGET (editor), FALSE);
-  gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                          GIMP_EDITOR (editor)->popup_data);
+  gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                          gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
 
   gtk_window_present (GTK_WINDOW (editor->color_dialog));
 }
@@ -250,8 +250,8 @@ gradient_editor_right_color_cmd_callback (GtkAction *action,
                     editor);
 
   gtk_widget_set_sensitive (GTK_WIDGET (editor), FALSE);
-  gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                          GIMP_EDITOR (editor)->popup_data);
+  gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                          gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
 
   gtk_window_present (GTK_WINDOW (editor->color_dialog));
 }
@@ -442,7 +442,7 @@ gradient_editor_replicate_cmd_callback (GtkAction *action,
   GtkWidget          *vbox;
   GtkWidget          *label;
   GtkWidget          *scale;
-  GtkObject          *scale_data;
+  GtkAdjustment      *scale_data;
   const gchar        *title;
   const gchar        *desc;
 
@@ -480,7 +480,7 @@ gradient_editor_replicate_cmd_callback (GtkAction *action,
                     G_CALLBACK (gradient_editor_replicate_response),
                     editor);
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       vbox, TRUE, TRUE, 0);
@@ -499,9 +499,9 @@ gradient_editor_replicate_cmd_callback (GtkAction *action,
 
   /*  Scale  */
   editor->replicate_times = 2;
-  scale_data  = gtk_adjustment_new (2.0, 2.0, 21.0, 1.0, 1.0, 1.0);
+  scale_data  = GTK_ADJUSTMENT (gtk_adjustment_new (2.0, 2.0, 21.0, 1.0, 1.0, 1.0));
 
-  scale = gtk_hscale_new (GTK_ADJUSTMENT (scale_data));
+  scale = gtk_scale_new (GTK_ORIENTATION_HORIZONTAL, scale_data);
   gtk_scale_set_digits (GTK_SCALE (scale), 0);
   gtk_scale_set_value_pos (GTK_SCALE (scale), GTK_POS_TOP);
   gtk_box_pack_start (GTK_BOX (vbox), scale, FALSE, TRUE, 4);
@@ -512,8 +512,8 @@ gradient_editor_replicate_cmd_callback (GtkAction *action,
                     &editor->replicate_times);
 
   gtk_widget_set_sensitive (GTK_WIDGET (editor), FALSE);
-  gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                          GIMP_EDITOR (editor)->popup_data);
+  gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                          gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
 
   gtk_widget_show (dialog);
 }
@@ -544,7 +544,7 @@ gradient_editor_split_uniformly_cmd_callback (GtkAction *action,
   GtkWidget          *vbox;
   GtkWidget          *label;
   GtkWidget          *scale;
-  GtkObject          *scale_data;
+  GtkAdjustment      *scale_data;
   const gchar        *title;
   const gchar        *desc;
 
@@ -583,7 +583,7 @@ gradient_editor_split_uniformly_cmd_callback (GtkAction *action,
                     editor);
 
   /*  The main vbox  */
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       vbox, TRUE, TRUE, 0);
@@ -602,9 +602,9 @@ gradient_editor_split_uniformly_cmd_callback (GtkAction *action,
 
   /*  Scale  */
   editor->split_parts = 2;
-  scale_data = gtk_adjustment_new (2.0, 2.0, 21.0, 1.0, 1.0, 1.0);
+  scale_data = GTK_ADJUSTMENT (gtk_adjustment_new (2.0, 2.0, 21.0, 1.0, 1.0, 1.0));
 
-  scale = gtk_hscale_new (GTK_ADJUSTMENT (scale_data));
+  scale = gtk_scale_new (GTK_ORIENTATION_HORIZONTAL, scale_data);
   gtk_scale_set_digits (GTK_SCALE (scale), 0);
   gtk_scale_set_value_pos (GTK_SCALE (scale), GTK_POS_TOP);
   gtk_box_pack_start (GTK_BOX (vbox), scale, FALSE, FALSE, 4);
@@ -615,8 +615,8 @@ gradient_editor_split_uniformly_cmd_callback (GtkAction *action,
                     &editor->split_parts);
 
   gtk_widget_set_sensitive (GTK_WIDGET (editor), FALSE);
-  gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                          GIMP_EDITOR (editor)->popup_data);
+  gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                          gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
 
   gtk_widget_show (dialog);
 }
@@ -742,8 +742,8 @@ gradient_editor_left_color_update (GimpColorDialog      *dialog,
       gtk_widget_destroy (editor->color_dialog);
       editor->color_dialog = NULL;
       gtk_widget_set_sensitive (GTK_WIDGET (editor), TRUE);
-      gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                              GIMP_EDITOR (editor)->popup_data);
+      gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                              gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
       break;
 
     case GIMP_COLOR_DIALOG_CANCEL:
@@ -754,8 +754,8 @@ gradient_editor_left_color_update (GimpColorDialog      *dialog,
       gtk_widget_destroy (editor->color_dialog);
       editor->color_dialog = NULL;
       gtk_widget_set_sensitive (GTK_WIDGET (editor), TRUE);
-      gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                              GIMP_EDITOR (editor)->popup_data);
+      gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                              gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
       break;
     }
 }
@@ -790,8 +790,8 @@ gradient_editor_right_color_update (GimpColorDialog      *dialog,
       gtk_widget_destroy (editor->color_dialog);
       editor->color_dialog = NULL;
       gtk_widget_set_sensitive (GTK_WIDGET (editor), TRUE);
-      gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                              GIMP_EDITOR (editor)->popup_data);
+      gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                              gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
       break;
 
     case GIMP_COLOR_DIALOG_CANCEL:
@@ -802,8 +802,8 @@ gradient_editor_right_color_update (GimpColorDialog      *dialog,
       gtk_widget_destroy (editor->color_dialog);
       editor->color_dialog = NULL;
       gtk_widget_set_sensitive (GTK_WIDGET (editor), TRUE);
-      gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                              GIMP_EDITOR (editor)->popup_data);
+      gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                              gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
       break;
     }
 }
@@ -889,8 +889,8 @@ gradient_editor_split_uniform_response (GtkWidget          *widget,
 {
   gtk_widget_destroy (widget);
   gtk_widget_set_sensitive (GTK_WIDGET (editor), TRUE);
-  gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                          GIMP_EDITOR (editor)->popup_data);
+  gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                          gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
 
   if (response_id == GTK_RESPONSE_OK)
     {
@@ -914,8 +914,8 @@ gradient_editor_replicate_response (GtkWidget          *widget,
 {
   gtk_widget_destroy (widget);
   gtk_widget_set_sensitive (GTK_WIDGET (editor), TRUE);
-  gimp_ui_manager_update (GIMP_EDITOR (editor)->ui_manager,
-                          GIMP_EDITOR (editor)->popup_data);
+  gimp_ui_manager_update (gimp_editor_get_ui_manager (GIMP_EDITOR (editor)),
+                          gimp_editor_get_popup_data (GIMP_EDITOR (editor)));
 
   if (response_id == GTK_RESPONSE_OK)
     {

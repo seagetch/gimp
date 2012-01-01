@@ -52,6 +52,7 @@
 #define LOAD_PROC      "file-xbm-load"
 #define SAVE_PROC      "file-xbm-save"
 #define PLUG_IN_BINARY "file-xbm"
+#define PLUG_IN_ROLE   "gimp-file-xbm"
 
 
 /* Wear your GIMP with pride! */
@@ -375,7 +376,7 @@ run (const gchar      *name,
       if (run_mode == GIMP_RUN_INTERACTIVE)
         {
           /* Get the parasites */
-          parasite = gimp_image_parasite_find (image_ID, "gimp-comment");
+          parasite = gimp_image_get_parasite (image_ID, "gimp-comment");
 
           if (parasite)
             {
@@ -388,7 +389,7 @@ run (const gchar      *name,
               gimp_parasite_free (parasite);
             }
 
-          parasite = gimp_image_parasite_find (image_ID, "hot-spot");
+          parasite = gimp_image_get_parasite (image_ID, "hot-spot");
 
           if (parasite)
             {
@@ -866,7 +867,7 @@ load_image (const gchar  *filename,
       parasite = gimp_parasite_new ("gimp-comment",
                                     GIMP_PARASITE_PERSISTENT,
                                     strlen (comment) + 1, (gpointer) comment);
-      gimp_image_parasite_attach (image_ID, parasite);
+      gimp_image_attach_parasite (image_ID, parasite);
       gimp_parasite_free (parasite);
 
       g_free (comment);
@@ -885,7 +886,7 @@ load_image (const gchar  *filename,
                                     GIMP_PARASITE_PERSISTENT,
                                     strlen (str) + 1, (gpointer) str);
       g_free (str);
-      gimp_image_parasite_attach (image_ID, parasite);
+      gimp_image_attach_parasite (image_ID, parasite);
       gimp_parasite_free (parasite);
     }
 
@@ -945,6 +946,7 @@ load_image (const gchar  *filename,
       gimp_progress_update ((double) (i + tileheight) / (double) height);
       gimp_pixel_rgn_set_rect (&pixel_rgn, data, 0, i, width, tileheight);
     }
+  gimp_progress_update (1.0);
 
   g_free (data);
 
@@ -1161,6 +1163,7 @@ save_image (const gchar  *filename,
 
       gimp_progress_update ((double) (i + tileheight) / (double) height);
     }
+  gimp_progress_update (1.0);
 
   /* Write the trailer. */
   fprintf (fp, " };\n");
@@ -1191,7 +1194,7 @@ save_dialog (gint32 drawable_ID)
                       frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
 
   /*  X10 format  */
@@ -1252,8 +1255,9 @@ save_dialog (gint32 drawable_ID)
   gtk_box_pack_start (GTK_BOX (vbox), table, FALSE, FALSE, 0);
   gtk_widget_show (table);
 
-  g_object_set_data (G_OBJECT (toggle), "set_sensitive", table);
-  gtk_widget_set_sensitive (table, xsvals.use_hot);
+  g_object_bind_property (toggle, "active",
+                          table,  "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   spinbutton = gimp_spin_button_new (&adj, xsvals.x_hot, 0,
                                      gimp_drawable_width (drawable_ID) - 1,
@@ -1305,8 +1309,9 @@ save_dialog (gint32 drawable_ID)
                     G_CALLBACK (mask_ext_entry_callback),
                     NULL);
 
-  g_object_set_data (G_OBJECT (toggle), "set_sensitive", entry);
-  gtk_widget_set_sensitive (entry, xsvals.write_mask);
+  g_object_bind_property (toggle, "active",
+                          entry,  "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   gtk_widget_set_sensitive (frame, gimp_drawable_has_alpha (drawable_ID));
 

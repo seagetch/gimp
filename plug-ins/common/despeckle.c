@@ -36,6 +36,7 @@
 
 #define PLUG_IN_PROC     "plug-in-despeckle"
 #define PLUG_IN_BINARY   "despeckle"
+#define PLUG_IN_ROLE     "gimp-despeckle"
 #define PLUG_IN_VERSION  "May 2010"
 #define SCALE_WIDTH      100
 #define ENTRY_WIDTH        3
@@ -437,7 +438,7 @@ despeckle_dialog (void)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Despeckle"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Despeckle"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -453,10 +454,10 @@ despeckle_dialog (void)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_drawable_preview_new (drawable, NULL);
@@ -471,7 +472,7 @@ despeckle_dialog (void)
   gtk_box_pack_start (GTK_BOX (main_vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -856,7 +857,7 @@ despeckle_median (guchar   *src,
   guint  progress;
   guint  max_progress;
   gint   x, y;
-  gint   input_radius = radius;
+  gint   adapt_radius;
   gint   pos;
   gint   ymin;
   gint   ymax;
@@ -870,14 +871,14 @@ despeckle_median (guchar   *src,
   if (! preview)
     gimp_progress_init(_("Despeckle"));
 
-
+  adapt_radius = radius;
   for (y = 0; y < height; y++)
     {
       x = 0;
-      ymin = MAX (0, y - radius);
-      ymax = MIN (height - 1, y + radius);
-      xmin = MAX (0, x - radius);
-      xmax = MIN (width - 1, x + radius);
+      ymin = MAX (0, y - adapt_radius);
+      ymax = MIN (height - 1, y + adapt_radius);
+      xmin = MAX (0, x - adapt_radius);
+      xmax = MIN (width - 1, x + adapt_radius);
       hist0   = 0;
       histrest = 0;
       hist255 = 0;
@@ -894,10 +895,10 @@ despeckle_median (guchar   *src,
         {
           const guchar *pixel;
 
-          ymin = MAX (0, y - radius); /* update ymin, ymax when radius changed (FILTER_ADAPTIVE) */
-          ymax = MIN (height - 1, y + radius);
-          xmin = MAX (0, x - radius);
-          xmax = MIN (width - 1, x + radius);
+          ymin = MAX (0, y - adapt_radius); /* update ymin, ymax when adapt_radius changed (FILTER_ADAPTIVE) */
+          ymax = MIN (height - 1, y + adapt_radius);
+          xmin = MAX (0, x - adapt_radius);
+          xmax = MIN (width - 1, x + adapt_radius);
 
           update_histogram (&histogram,
                             src, width, bpp, xmin, ymin, xmax, ymax);
@@ -919,14 +920,14 @@ despeckle_median (guchar   *src,
            */
           if (filter_type & FILTER_ADAPTIVE)
             {
-              if (hist0 >= radius || hist255 >= radius)
+              if (hist0 >= adapt_radius || hist255 >= adapt_radius)
                 {
-                  if (radius < input_radius)
-                    radius++;
+                  if (adapt_radius < radius)
+                    adapt_radius++;
                 }
-              else if (radius > 1)
+              else if (adapt_radius > 1)
                 {
-                  radius--;
+                  adapt_radius--;
                 }
             }
         }

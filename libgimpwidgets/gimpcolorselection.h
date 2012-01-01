@@ -19,6 +19,10 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#if !defined (__GIMP_WIDGETS_H_INSIDE__) && !defined (GIMP_WIDGETS_COMPILATION)
+#error "Only <libgimpwidgets/gimpwidgets.h> can be included directly."
+#endif
+
 #ifndef __GIMP_COLOR_SELECTION_H__
 #define __GIMP_COLOR_SELECTION_H__
 
@@ -39,7 +43,7 @@ typedef struct _GimpColorSelectionClass GimpColorSelectionClass;
 
 struct _GimpColorSelection
 {
-  GtkVBox                   parent_instance;
+  GtkBox                    parent_instance;
 
   gboolean                  show_alpha;
 
@@ -59,7 +63,7 @@ struct _GimpColorSelection
 
 struct _GimpColorSelectionClass
 {
-  GtkVBoxClass  parent_class;
+  GtkBoxClass  parent_class;
 
   void (* color_changed) (GimpColorSelection *selection);
 

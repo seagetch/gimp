@@ -16,7 +16,8 @@
 
 package Gimp::CodeGen::app;
 
-$destdir = "$main::destdir/app/pdb";
+$destdir  = "$main::destdir/app/pdb";
+$builddir = "$main::builddir/app/pdb";
 
 *arg_types = \%Gimp::CodeGen::pdb::arg_types;
 *arg_parse = \&Gimp::CodeGen::pdb::arg_parse;
@@ -76,7 +77,7 @@ sub declare_args {
 		warn "Array without number of elements param in $proc->{name}";
 	    }
 
-	    unless (exists $_->{no_declare}) {
+	    unless (exists $_->{no_declare} || exists $_->{dead}) {
 		if ($outargs) {
 		    $result .= "  $arg->{type}$_->{name} = $arg->{init_value}";
 		}
@@ -112,7 +113,9 @@ sub marshal_inargs {
 	my $value;
 
 	$value = "&args->values[$argc]";
-	$result .= eval qq/"  $arg->{get_value_func};\n"/;
+	if (!exists $_->{dead}) {
+	    $result .= eval qq/"  $arg->{get_value_func};\n"/;
+	}
 
 	$argc++;
 
@@ -810,7 +813,7 @@ GPL
 	    $extra = $main::grp{$group}->{extra}->{app}
 	}
 
-	my $cfile = "$destdir/".canonicalize(${group})."-cmds.c$FILE_EXT";
+	my $cfile = "$builddir/".canonicalize(${group})."-cmds.c$FILE_EXT";
 	open CFILE, "> $cfile" or die "Can't open $cfile: $!\n";
 	print CFILE $gpl;
 	print CFILE qq/#include "config.h"\n\n/;
@@ -821,7 +824,7 @@ GPL
 	print CFILE "\nvoid\nregister_${group}_procs (GimpPDB *pdb)\n";
 	print CFILE "{\n  GimpProcedure *procedure;\n$out->{register}}\n";
 	close CFILE;
-	&write_file($cfile);
+	&write_file($cfile, $destdir);
 
 	my $decl = "register_${group}_procs";
 	push @group_decls, $decl;
@@ -832,7 +835,7 @@ GPL
     }
 
     if (! $ENV{PDBGEN_GROUPS}) {
-	my $internal = "$destdir/internal-procs.h$FILE_EXT";
+	my $internal = "$builddir/internal-procs.h$FILE_EXT";
 	open IFILE, "> $internal" or die "Can't open $internal: $!\n";
 	print IFILE $gpl;
 	my $guard = "__INTERNAL_PROCS_H__";
@@ -854,9 +857,9 @@ HEADER
 #endif /* $guard */
 HEADER
 	close IFILE;
-	&write_file($internal);
+	&write_file($internal, $destdir);
 
-	$internal = "$destdir/internal-procs.c$FILE_EXT";
+	$internal = "$builddir/internal-procs.c$FILE_EXT";
 	open IFILE, "> $internal" or die "Can't open $internal: $!\n";
 	print IFILE $gpl;
 	print IFILE qq@#include "config.h"\n\n@;
@@ -876,7 +879,7 @@ $group_procs
 }
 BODY
 	close IFILE;
-	&write_file($internal);
+	&write_file($internal, $destdir);
     }
 }
 

@@ -47,6 +47,7 @@
 #define LOAD_PROC        "file-sgi-load"
 #define SAVE_PROC        "file-sgi-save"
 #define PLUG_IN_BINARY   "file-sgi"
+#define PLUG_IN_ROLE     "gimp-file-sgi"
 #define PLUG_IN_VERSION  "1.1.1 - 17 May 1998"
 
 
@@ -476,6 +477,7 @@ load_image (const gchar  *filename,
               *pptr = rows[i][x] >> 8;
         }
     }
+  gimp_progress_update (1.0);
 
   /*
    * Do the last n rows (count always > 0)
@@ -538,7 +540,6 @@ save_image (const gchar  *filename,
   gimp_pixel_rgn_init (&pixel_rgn, drawable, 0, 0, drawable->width,
                        drawable->height, FALSE, FALSE);
 
-  zsize = 0;
   switch (gimp_drawable_type (drawable_ID))
     {
     case GIMP_GRAY_IMAGE :
@@ -624,7 +625,8 @@ save_image (const gchar  *filename,
         };
 
       gimp_progress_update ((double) y / (double) drawable->height);
-    };
+    }
+  gimp_progress_update (1.0);
 
   /*
    * Done with the file...

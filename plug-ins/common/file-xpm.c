@@ -71,6 +71,7 @@ ABCDEFGHIJKLMNOPQRSTUVWXYZ`";
 #define LOAD_PROC      "file-xpm-load"
 #define SAVE_PROC      "file-xpm-save"
 #define PLUG_IN_BINARY "file-xpm"
+#define PLUG_IN_ROLE   "gimp-file-xpm"
 #define SCALE_WIDTH    125
 
 /* Structs for the save dialog */
@@ -520,6 +521,7 @@ parse_image (gint32    image_ID,
                                drawable->width, scanlines);
 
     }
+  gimp_progress_update (1.0);
 
   g_free(buf);
 
@@ -703,6 +705,7 @@ save_image (const gchar  *filename,
           gimp_progress_update ((gdouble) (i+j) / (gdouble) height);
         }
     }
+  gimp_progress_update (1.0);
 
   g_free (buffer);
 

@@ -62,7 +62,8 @@ gimp_flip_options_class_init (GimpFlipOptionsClass *klass)
   object_class->get_property = gimp_flip_options_get_property;
 
   GIMP_CONFIG_INSTALL_PROP_ENUM (object_class, PROP_FLIP_TYPE,
-                                 "flip-type", NULL,
+                                 "flip-type",
+                                 N_("Direction of flipping"),
                                  GIMP_TYPE_ORIENTATION_TYPE,
                                  GIMP_ORIENTATION_HORIZONTAL,
                                  GIMP_PARAM_STATIC_STRINGS);
@@ -114,15 +115,18 @@ gimp_flip_options_get_property (GObject    *object,
 static GtkWidget *
 gimp_flip_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
-  GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_tool_options_gui_full (tool_options, horizontal);
-  GtkWidget *hbox;
-  GtkWidget *box;
-  GtkWidget *label;
-  GtkWidget *frame;
-  gchar     *str;
+  GObject         *config = G_OBJECT (tool_options);
+  GtkWidget       *vbox   = gimp_tool_options_gui_full (tool_options, horizontal);
+  GtkWidget       *hbox;
+  GtkWidget       *box;
+  GtkWidget       *label;
+  GtkWidget       *frame;
+  gchar           *str;
+  GdkModifierType  toggle_mask;
 
-  hbox = gtk_hbox_new (FALSE, 2);
+  toggle_mask = gimp_get_toggle_behavior_mask ();
+
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -136,7 +140,7 @@ gimp_flip_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 
   /*  tool toggle  */
   str = g_strdup_printf (_("Flip Type  (%s)"),
-                         gimp_get_mod_string (GDK_CONTROL_MASK));
+                         gimp_get_mod_string (toggle_mask));
 
   frame = gimp_prop_enum_radio_frame_new_with_orientation (config, "flip-type",
                                                            str,

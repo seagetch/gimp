@@ -36,6 +36,7 @@
 
 #define PLUG_IN_PROC   "plug-in-dog"
 #define PLUG_IN_BINARY "edge-dog"
+#define PLUG_IN_ROLE   "gimp-edge-dog"
 
 
 typedef struct
@@ -298,7 +299,7 @@ dog_dialog (gint32        image_ID,
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("DoG Edge Detect"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("DoG Edge Detect"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -314,10 +315,10 @@ dog_dialog (gint32        image_ID,
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_drawable_preview_new (drawable, NULL);

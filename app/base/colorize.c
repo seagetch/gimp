@@ -17,6 +17,7 @@
 
 #include "config.h"
 
+#include <cairo.h>
 #include <glib-object.h>
 
 #include "libgimpcolor/gimpcolor.h"
@@ -91,7 +92,7 @@ colorize (Colorize    *colorize,
   h     = srcPR->h;
   src   = srcPR->data;
   dest  = destPR->data;
-  alpha = (srcPR->bytes == 4) ? TRUE : FALSE;
+  alpha = pixel_region_has_alpha (srcPR);
 
   while (h--)
     {

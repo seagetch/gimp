@@ -52,6 +52,7 @@
 
 #define PLUG_IN_PROC    "plug-in-pagecurl"
 #define PLUG_IN_BINARY  "pagecurl"
+#define PLUG_IN_ROLE    "gimp-pagecurl"
 #define PLUG_IN_VERSION "July 2004, 1.0"
 #define NGRADSAMPLES    256
 
@@ -436,7 +437,7 @@ dialog (void)
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("Pagecurl Effect"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Pagecurl Effect"), PLUG_IN_ROLE,
                             NULL, 0,
 			    gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -452,7 +453,7 @@ dialog (void)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       vbox, TRUE, TRUE, 0);
@@ -523,7 +524,8 @@ dialog (void)
   frame = gimp_frame_new (_("Curl Orientation"));
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
 
-  hbox = gtk_hbox_new (TRUE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+  gtk_box_set_homogeneous (GTK_BOX (hbox), TRUE);
   gtk_container_add (GTK_CONTAINER (frame), hbox);
 
   {
@@ -716,7 +718,7 @@ do_curl_effect (gint32 drawable_id)
   gboolean      color_image;
   gint          x1, y1, k;
   guint         alpha_pos, progress, max_progress;
-  gdouble       intensity, alpha, beta;
+  gdouble       intensity, alpha;
   GimpVector2   v, dl, dr;
   gdouble       dl_mag, dr_mag, angle, factor;
   guchar       *pp, *dest, fore_grayval, back_grayval;
@@ -759,7 +761,6 @@ do_curl_effect (gint32 drawable_id)
 		    -(sel_height - right_tangent.y));
   dr_mag = gimp_vector2_length (&dr);
   alpha = acos (gimp_vector2_inner_product (&dl, &dr) / (dl_mag * dr_mag));
-  beta = alpha / 2;
 
   /* Init shade_curl */
 
@@ -907,6 +908,7 @@ do_curl_effect (gint32 drawable_id)
       gimp_progress_update ((double) progress / (double) max_progress);
     }
 
+  gimp_progress_update (1.0);
   gimp_drawable_flush (curl_layer);
   gimp_drawable_merge_shadow (curl_layer->drawable_id, FALSE);
   gimp_drawable_update (curl_layer->drawable_id,
@@ -1006,6 +1008,7 @@ clear_curled_region (gint32 drawable_id)
       gimp_progress_update ((double) progress / (double) max_progress);
     }
 
+  gimp_progress_update (1.0);
   gimp_drawable_flush (drawable);
   gimp_drawable_merge_shadow (drawable_id, TRUE);
   gimp_drawable_update (drawable_id,

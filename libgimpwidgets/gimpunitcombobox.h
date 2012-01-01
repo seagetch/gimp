@@ -19,8 +19,14 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#if !defined (__GIMP_WIDGETS_H_INSIDE__) && !defined (GIMP_WIDGETS_COMPILATION)
+#error "Only <libgimpwidgets/gimpwidgets.h> can be included directly."
+#endif
+
 #ifndef __GIMP_UNIT_COMBO_BOX_H__
 #define __GIMP_UNIT_COMBO_BOX_H__
+
+G_BEGIN_DECLS
 
 
 #define GIMP_TYPE_UNIT_COMBO_BOX            (gimp_unit_combo_box_get_type ())
@@ -33,24 +39,24 @@
 
 typedef struct _GimpUnitComboBoxClass  GimpUnitComboBoxClass;
 
-struct _GimpUnitComboBoxClass
-{
-  GtkComboBoxClass  parent_instance;
-
-  /* Padding for future expansion */
-  void (*_gtk_reserved1) (void);
-  void (*_gtk_reserved2) (void);
-  void (*_gtk_reserved3) (void);
-  void (*_gtk_reserved4) (void);
-};
-
 struct _GimpUnitComboBox
 {
   GtkComboBox       parent_instance;
 };
 
+struct _GimpUnitComboBoxClass
+{
+  GtkComboBoxClass  parent_class;
 
-GType       gimp_unit_combo_box_get_type (void) G_GNUC_CONST;
+  /* Padding for future expansion */
+  void (*_gimp_reserved1) (void);
+  void (*_gimp_reserved2) (void);
+  void (*_gimp_reserved3) (void);
+  void (*_gimp_reserved4) (void);
+};
+
+
+GType       gimp_unit_combo_box_get_type       (void) G_GNUC_CONST;
 
 GtkWidget * gimp_unit_combo_box_new            (void);
 GtkWidget * gimp_unit_combo_box_new_with_model (GimpUnitStore    *model);
@@ -59,5 +65,7 @@ GimpUnit    gimp_unit_combo_box_get_active     (GimpUnitComboBox *combo);
 void        gimp_unit_combo_box_set_active     (GimpUnitComboBox *combo,
                                                 GimpUnit          unit);
 
+
+G_END_DECLS
 
 #endif  /* __GIMP_UNIT_COMBO_BOX_H__ */

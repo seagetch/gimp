@@ -31,8 +31,6 @@
 
 #include "text-types.h"
 
-#include "core/gimpimage.h"
-
 #include "gimptext.h"
 #include "gimptextlayout.h"
 
@@ -57,13 +55,6 @@ static void           gimp_text_layout_set_markup (GimpTextLayout *layout);
 static PangoContext * gimp_text_get_pango_context (GimpText       *text,
                                                    gdouble         xres,
                                                    gdouble         yres);
-
-static gint           gimp_text_layout_pixel_size (gdouble         value,
-                                                   GimpUnit        unit,
-                                                   gdouble         res);
-static gint           gimp_text_layout_point_size (gdouble         value,
-                                                   GimpUnit        unit,
-                                                   gdouble         res);
 
 
 G_DEFINE_TYPE (GimpTextLayout, gimp_text_layout, G_TYPE_OBJECT)
@@ -108,26 +99,23 @@ gimp_text_layout_finalize (GObject *object)
 
 GimpTextLayout *
 gimp_text_layout_new (GimpText  *text,
-                      GimpImage *image)
+                      gdouble    xres,
+                      gdouble    yres)
 {
   GimpTextLayout       *layout;
   PangoContext         *context;
   PangoFontDescription *font_desc;
   PangoAlignment        alignment = PANGO_ALIGN_LEFT;
-  gdouble               xres, yres;
   gint                  size;
 
   g_return_val_if_fail (GIMP_IS_TEXT (text), NULL);
-  g_return_val_if_fail (GIMP_IS_IMAGE (image), NULL);
 
   font_desc = pango_font_description_from_string (text->font);
   g_return_val_if_fail (font_desc != NULL, NULL);
 
-  gimp_image_get_resolution (image, &xres, &yres);
-
-  size = gimp_text_layout_point_size (text->font_size,
-                                      text->unit,
-                                      yres);
+  size = pango_units_from_double (gimp_units_to_points (text->font_size,
+                                                        text->unit,
+                                                        yres));
 
   pango_font_description_set_size (font_desc, MAX (1, size));
 
@@ -174,20 +162,23 @@ gimp_text_layout_new (GimpText  *text,
       break;
     case GIMP_TEXT_BOX_FIXED:
       pango_layout_set_width (layout->layout,
-                              gimp_text_layout_pixel_size (text->box_width,
-                                                           text->box_unit,
-                                                           xres));
+                              pango_units_from_double
+                              (gimp_units_to_pixels (text->box_width,
+                                                     text->box_unit,
+                                                     xres)));
       break;
     }
 
   pango_layout_set_indent (layout->layout,
-                           gimp_text_layout_pixel_size (text->indent,
-                                                        text->unit,
-                                                        xres));
+                           pango_units_from_double
+                           (gimp_units_to_pixels (text->indent,
+                                                  text->unit,
+                                                  xres)));
   pango_layout_set_spacing (layout->layout,
-                            gimp_text_layout_pixel_size (text->line_spacing,
-                                                         text->unit,
-                                                         yres));
+                            pango_units_from_double
+                            (gimp_units_to_pixels (text->line_spacing,
+                                                   text->unit,
+                                                   yres)));
 
   gimp_text_layout_position (layout);
 
@@ -196,14 +187,12 @@ gimp_text_layout_new (GimpText  *text,
     case GIMP_TEXT_BOX_DYNAMIC:
       break;
     case GIMP_TEXT_BOX_FIXED:
-      layout->extents.width =
-        PANGO_PIXELS (gimp_text_layout_pixel_size (text->box_width,
-                                                   text->box_unit,
-                                                   xres));
-      layout->extents.height =
-        PANGO_PIXELS (gimp_text_layout_pixel_size (text->box_height,
-                                                   text->box_unit,
-                                                   yres));
+      layout->extents.width  = ceil (gimp_units_to_pixels (text->box_width,
+                                                           text->box_unit,
+                                                           xres));
+      layout->extents.height = ceil (gimp_units_to_pixels (text->box_height,
+                                                           text->box_unit,
+                                                           yres));
 
 /* #define VERBOSE */
 
@@ -713,50 +702,4 @@ gimp_text_get_pango_context (GimpText *text,
     }
 
   return context;
-}
-
-static gint
-gimp_text_layout_pixel_size (gdouble  value,
-                             GimpUnit unit,
-                             gdouble  res)
-{
-  gdouble factor;
-
-  switch (unit)
-    {
-    case GIMP_UNIT_PIXEL:
-      return PANGO_SCALE * value;
-
-    default:
-      factor = gimp_unit_get_factor (unit);
-      g_return_val_if_fail (factor > 0.0, 0);
-
-      return PANGO_SCALE * value * res / factor;
-    }
-}
-
-static gint
-gimp_text_layout_point_size (gdouble  value,
-                             GimpUnit unit,
-                             gdouble  res)
-{
-  gdouble factor;
-
-  switch (unit)
-    {
-    case GIMP_UNIT_POINT:
-      return PANGO_SCALE * value;
-
-    case GIMP_UNIT_PIXEL:
-      g_return_val_if_fail (res > 0.0, 0);
-      return (PANGO_SCALE * value *
-              gimp_unit_get_factor (GIMP_UNIT_POINT) / res);
-
-    default:
-      factor = gimp_unit_get_factor (unit);
-      g_return_val_if_fail (factor > 0.0, 0);
-
-      return (PANGO_SCALE * value *
-              gimp_unit_get_factor (GIMP_UNIT_POINT) / factor);
-    }
 }

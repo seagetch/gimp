@@ -31,6 +31,7 @@
 
 #define PLUG_IN_PROC    "plug-in-cubism"
 #define PLUG_IN_BINARY  "cubism"
+#define PLUG_IN_ROLE    "gimp-cubism"
 
 #define SCALE_WIDTH     125
 #define BLACK             0
@@ -264,7 +265,7 @@ cubism_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("Cubism"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Cubism"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -280,10 +281,10 @@ cubism_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_drawable_preview_new (drawable, &cvals.preview);
@@ -381,14 +382,16 @@ cubism (GimpDrawable *drawable,
     {
       gimp_preview_get_position (preview, &x1, &y1);
       gimp_preview_get_size (preview, &sel_width, &sel_height);
-      x2 = x1 + sel_width;
-      y2 = y1 + sel_height;
       dest = g_new (guchar, sel_height * sel_width * bytes);
     }
-  else
+  else if (! gimp_drawable_mask_intersect (drawable->drawable_id,
+                                           &x1, &y1, &sel_width, &sel_height))
     {
-      gimp_drawable_mask_bounds (drawable->drawable_id, &x1, &y1, &x2, &y2);
+      return;
     }
+
+  x2 = x1 + sel_width;
+  y2 = y1 + sel_height;
 
   /*  determine the background color  */
   if (cvals.bg_color == BLACK)

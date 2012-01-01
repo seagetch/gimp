@@ -38,6 +38,7 @@
 
 #define PLUG_IN_PROC    "plug-in-colors-channel-mixer"
 #define PLUG_IN_BINARY  "channel-mixer"
+#define PLUG_IN_ROLE    "gimp-channel-mixer"
 #define CM_LINE_SIZE    1024
 
 typedef enum
@@ -488,7 +489,7 @@ cm_dialog (CmParamsType *mix,
         }
     }
 
-  dialog = gimp_dialog_new (_("Channel Mixer"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Channel Mixer"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -504,10 +505,10 @@ cm_dialog (CmParamsType *mix,
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_zoom_preview_new (drawable);
@@ -522,7 +523,7 @@ cm_dialog (CmParamsType *mix,
   gtk_box_pack_start (GTK_BOX (main_vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_frame_set_label_widget (GTK_FRAME (frame), hbox);
   gtk_widget_show (hbox);
 
@@ -627,7 +628,7 @@ cm_dialog (CmParamsType *mix,
                     G_CALLBACK (cm_blue_scale_callback),
                     mix);
 
-  vbox = gtk_vbox_new (6, FALSE);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_box_pack_start (GTK_BOX (main_vbox), vbox, FALSE, FALSE, 0);
   gtk_widget_show (vbox);
 
@@ -660,12 +661,12 @@ cm_dialog (CmParamsType *mix,
 
   /*........................................................... */
   /*  Horizontal box for file i/o  */
-  hbox = gtk_hbox_new (FALSE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
   gtk_box_pack_end (GTK_BOX (main_vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
   button = gtk_button_new_from_stock (GTK_STOCK_OPEN);
-  gtk_container_add (GTK_CONTAINER (hbox), button);
+  gtk_box_pack_start (GTK_BOX (hbox), button, TRUE, TRUE, 0);
   gtk_widget_show (button);
 
   g_signal_connect (button, "clicked",
@@ -673,7 +674,7 @@ cm_dialog (CmParamsType *mix,
                     mix);
 
   button = gtk_button_new_from_stock (GTK_STOCK_SAVE);
-  gtk_container_add (GTK_CONTAINER (hbox), button);
+  gtk_box_pack_start (GTK_BOX (hbox), button, TRUE, TRUE, 0);
   gtk_widget_show (button);
 
   g_signal_connect (button, "clicked",
@@ -681,7 +682,7 @@ cm_dialog (CmParamsType *mix,
                     mix);
 
   button = gtk_button_new_from_stock (GIMP_STOCK_RESET);
-  gtk_container_add (GTK_CONTAINER (hbox), button);
+  gtk_box_pack_start (GTK_BOX (hbox), button, TRUE, TRUE, 0);
   gtk_widget_show (button);
 
   g_signal_connect (button, "clicked",
@@ -787,14 +788,11 @@ cm_preview (CmParamsType *mix,
   gint          x, y;
   gdouble       red_norm, green_norm, blue_norm, black_norm;
   gint          width, height, bpp;
-  GimpDrawable *drawable;
 
   red_norm   = cm_calculate_norm (mix, &mix->red);
   green_norm = cm_calculate_norm (mix, &mix->green);
   blue_norm  = cm_calculate_norm (mix, &mix->blue);
   black_norm = cm_calculate_norm (mix, &mix->black);
-
-  drawable = gimp_zoom_preview_get_drawable (GIMP_ZOOM_PREVIEW (preview));
 
   src = s = gimp_zoom_preview_get_source (GIMP_ZOOM_PREVIEW (preview),
                                           &width, &height, &bpp);

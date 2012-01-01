@@ -52,9 +52,11 @@
 #include "gimpdnd.h"
 #include "gimphelp-ids.h"
 #include "gimplayertreeview.h"
-#include "gimpviewrenderer.h"
+#include "gimpspinscale.h"
 #include "gimpuimanager.h"
+#include "gimpviewrenderer.h"
 #include "gimpwidgets-constructors.h"
+#include "gimpwidgets-utils.h"
 
 #include "gimp-intl.h"
 
@@ -82,10 +84,10 @@ struct _GimpLayerTreeViewPriv
 
 
 static void       gimp_layer_tree_view_view_iface_init            (GimpContainerViewInterface *iface);
-static GObject *  gimp_layer_tree_view_constructor                (GType                       type,
-                                                                   guint                       n_params,
-                                                                   GObjectConstructParam      *params);
+
+static void       gimp_layer_tree_view_constructed                (GObject                    *object);
 static void       gimp_layer_tree_view_finalize                   (GObject                    *object);
+
 static void       gimp_layer_tree_view_set_container              (GimpContainerView          *view,
                                                                    GimpContainer              *container);
 static void       gimp_layer_tree_view_set_context                (GimpContainerView          *view,
@@ -186,7 +188,7 @@ gimp_layer_tree_view_class_init (GimpLayerTreeViewClass *klass)
   tree_view_class = GIMP_CONTAINER_TREE_VIEW_CLASS (klass);
   item_view_class = GIMP_ITEM_TREE_VIEW_CLASS (klass);
 
-  object_class->constructor = gimp_layer_tree_view_constructor;
+  object_class->constructed = gimp_layer_tree_view_constructed;
   object_class->finalize    = gimp_layer_tree_view_finalize;
 
   tree_view_class->drop_possible   = gimp_layer_tree_view_drop_possible;
@@ -239,7 +241,7 @@ static void
 gimp_layer_tree_view_init (GimpLayerTreeView *view)
 {
   GimpContainerTreeView *tree_view = GIMP_CONTAINER_TREE_VIEW (view);
-  GtkWidget             *table;
+  GtkWidget             *scale;
   GtkWidget             *hbox;
   GtkWidget             *image;
   GtkIconSize            icon_size;
@@ -276,18 +278,14 @@ gimp_layer_tree_view_init (GimpLayerTreeView *view)
 
   /*  Opacity scale  */
 
-  table = gtk_table_new (2, 1, FALSE);
-
   view->priv->opacity_adjustment =
-    GTK_ADJUSTMENT (gimp_scale_entry_new (GTK_TABLE (table), 0, 0,
-                                          NULL, -1, -1,
-                                          100.0, 0.0, 100.0, 1.0, 10.0, 1,
-                                          TRUE, 0.0, 0.0,
-                                          NULL,
-                                          GIMP_HELP_LAYER_DIALOG_OPACITY_SCALE));
+    GTK_ADJUSTMENT (gtk_adjustment_new (100.0, 0.0, 100.0,
+                                        1.0, 10.0, 0.0));
+  scale = gimp_spin_scale_new (view->priv->opacity_adjustment, _("Opacity"), 1);
+  gimp_help_set_help_data (scale, NULL,
+                           GIMP_HELP_LAYER_DIALOG_OPACITY_SCALE);
   gimp_item_tree_view_add_options (GIMP_ITEM_TREE_VIEW (view),
-                                   _("Opacity:"),
-                                   table);
+                                   NULL, scale);
 
   g_signal_connect (view->priv->opacity_adjustment, "value-changed",
                     G_CALLBACK (gimp_layer_tree_view_opacity_scale_changed),
@@ -330,20 +328,15 @@ gimp_layer_tree_view_init (GimpLayerTreeView *view)
   pango_attr_list_insert (view->priv->bold_attrs, attr);
 }
 
-static GObject *
-gimp_layer_tree_view_constructor (GType                  type,
-                                  guint                  n_params,
-                                  GObjectConstructParam *params)
+static void
+gimp_layer_tree_view_constructed (GObject *object)
 {
-  GimpContainerTreeView *tree_view;
-  GimpLayerTreeView     *layer_view;
+  GimpContainerTreeView *tree_view  = GIMP_CONTAINER_TREE_VIEW (object);
+  GimpLayerTreeView     *layer_view = GIMP_LAYER_TREE_VIEW (object);
   GtkWidget             *button;
-  GObject               *object;
 
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
-
-  tree_view  = GIMP_CONTAINER_TREE_VIEW (object);
-  layer_view = GIMP_LAYER_TREE_VIEW (object);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   layer_view->priv->mask_cell = gimp_cell_renderer_viewable_new ();
   gtk_tree_view_column_pack_start (tree_view->main_column,
@@ -383,7 +376,7 @@ gimp_layer_tree_view_constructor (GType                  type,
 
   button = gimp_editor_add_action_button (GIMP_EDITOR (layer_view), "layers",
                                           "layers-new-group", NULL);
-  gtk_box_reorder_child (GTK_BOX (GIMP_EDITOR (layer_view)->button_box),
+  gtk_box_reorder_child (gimp_editor_get_button_box (GIMP_EDITOR (layer_view)),
                          button, 2);
 
   button = gimp_editor_add_action_button (GIMP_EDITOR (layer_view), "layers",
@@ -391,10 +384,8 @@ gimp_layer_tree_view_constructor (GType                  type,
   gimp_container_view_enable_dnd (GIMP_CONTAINER_VIEW (layer_view),
                                   GTK_BUTTON (button),
                                   GIMP_TYPE_LAYER);
-  gtk_box_reorder_child (GTK_BOX (GIMP_EDITOR (layer_view)->button_box),
+  gtk_box_reorder_child (gimp_editor_get_button_box (GIMP_EDITOR (layer_view)),
                          button, 6);
-
-  return object;
 }
 
 static void
@@ -1118,7 +1109,7 @@ static void
 gimp_layer_tree_view_update_menu (GimpLayerTreeView *layer_view,
                                   GimpLayer         *layer)
 {
-  GimpUIManager   *ui_manager = GIMP_EDITOR (layer_view)->ui_manager;
+  GimpUIManager   *ui_manager = gimp_editor_get_ui_manager (GIMP_EDITOR (layer_view));
   GimpActionGroup *group;
   GimpLayerMask   *mask;
 
@@ -1311,7 +1302,7 @@ gimp_layer_tree_view_layer_clicked (GimpCellRendererViewable *cell,
 
   if (gtk_tree_model_get_iter (tree_view->model, &iter, path))
     {
-      GimpUIManager    *ui_manager = GIMP_EDITOR (tree_view)->ui_manager;
+      GimpUIManager    *ui_manager = gimp_editor_get_ui_manager (GIMP_EDITOR (tree_view));
       GimpActionGroup  *group;
       GimpViewRenderer *renderer;
 
@@ -1354,7 +1345,7 @@ gimp_layer_tree_view_mask_clicked (GimpCellRendererViewable *cell,
       GimpUIManager    *ui_manager;
       GimpActionGroup  *group;
 
-      ui_manager = GIMP_EDITOR (tree_view)->ui_manager;
+      ui_manager = gimp_editor_get_ui_manager (GIMP_EDITOR (tree_view));
       group      = gimp_ui_manager_get_action_group (ui_manager, "layers");
 
       gtk_tree_model_get (tree_view->model, &iter,
@@ -1368,7 +1359,7 @@ gimp_layer_tree_view_mask_clicked (GimpCellRendererViewable *cell,
           if (state & GDK_MOD1_MASK)
             gimp_action_group_set_action_active (group, "layers-mask-show",
                                                  ! gimp_layer_mask_get_show (mask));
-          else if (state & GDK_CONTROL_MASK)
+          else if (state & gimp_get_toggle_behavior_mask ())
             gimp_action_group_set_action_active (group, "layers-mask-disable",
                                                  gimp_layer_mask_get_apply (mask));
           else if (! gimp_layer_mask_get_edit (mask))

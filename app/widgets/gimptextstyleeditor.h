@@ -39,6 +39,7 @@ struct _GimpTextStyleEditor
   Gimp           *gimp;
   GimpContext    *context;
 
+  GimpText       *text; /* read-only for default values */
   GimpTextBuffer *buffer;
 
   GimpContainer  *fonts;
@@ -49,13 +50,11 @@ struct _GimpTextStyleEditor
   GtkWidget      *lower_hbox;
 
   GtkWidget      *font_entry;
+  GtkWidget      *size_entry;
 
   GtkWidget      *color_button;
 
   GtkWidget      *clear_button;
-
-  GtkWidget      *size_spinbutton;
-  GtkAdjustment  *size_adjustment;
 
   GtkWidget      *baseline_spinbutton;
   GtkAdjustment  *baseline_adjustment;
@@ -77,6 +76,7 @@ struct _GimpTextStyleEditorClass
 GType       gimp_text_style_editor_get_type  (void) G_GNUC_CONST;
 
 GtkWidget * gimp_text_style_editor_new       (Gimp                 *gimp,
+                                              GimpText             *text,
                                               GimpTextBuffer       *buffer,
                                               GimpContainer        *fonts,
                                               gdouble               resolution_x,

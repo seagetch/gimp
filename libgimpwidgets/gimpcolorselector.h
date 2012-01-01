@@ -23,6 +23,10 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#if !defined (__GIMP_WIDGETS_H_INSIDE__) && !defined (GIMP_WIDGETS_COMPILATION)
+#error "Only <libgimpwidgets/gimpwidgets.h> can be included directly."
+#endif
+
 #ifndef __GIMP_COLOR_SELECTOR_H__
 #define __GIMP_COLOR_SELECTOR_H__
 
@@ -60,7 +64,7 @@ typedef struct _GimpColorSelectorClass GimpColorSelectorClass;
 
 struct _GimpColorSelector
 {
-  GtkVBox                   parent_instance;
+  GtkBox                    parent_instance;
 
   gboolean                  toggles_visible;
   gboolean                  toggles_sensitive;
@@ -74,11 +78,11 @@ struct _GimpColorSelector
 
 struct _GimpColorSelectorClass
 {
-  GtkVBoxClass  parent_class;
+  GtkBoxClass  parent_class;
 
-  const gchar  *name;
-  const gchar  *help_id;
-  const gchar  *stock_id;
+  const gchar *name;
+  const gchar *help_id;
+  const gchar *stock_id;
 
   /*  virtual functions  */
   void (* set_toggles_visible)   (GimpColorSelector        *selector,

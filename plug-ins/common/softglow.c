@@ -37,6 +37,7 @@
 
 #define PLUG_IN_PROC    "plug-in-softglow"
 #define PLUG_IN_BINARY  "softglow"
+#define PLUG_IN_ROLE    "gimp-softglow"
 #define TILE_CACHE_SIZE 48
 #define SIGMOIDAL_BASE   2
 #define SIGMOIDAL_RANGE 20
@@ -475,6 +476,7 @@ softglow (GimpDrawable *drawable,
 
   if (! preview)
     {
+      gimp_progress_update (1.0);
       /*  merge the shadow, update the drawable  */
       gimp_drawable_flush (drawable);
       gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);
@@ -628,7 +630,7 @@ softglow_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, FALSE);
 
-  dialog = gimp_dialog_new (_("Softglow"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Softglow"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -644,10 +646,10 @@ softglow_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_drawable_preview_new (drawable, NULL);

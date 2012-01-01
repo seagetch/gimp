@@ -42,6 +42,7 @@
 
 #define PLUG_IN_PROC   "plug-in-blinds"
 #define PLUG_IN_BINARY "blinds"
+#define PLUG_IN_ROLE   "gimp-blinds"
 
 #define SCALE_WIDTH    150
 
@@ -219,7 +220,7 @@ blinds_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Blinds"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Blinds"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -235,10 +236,10 @@ blinds_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_aspect_preview_new (drawable, NULL);
@@ -249,7 +250,7 @@ blinds_dialog (GimpDrawable *drawable)
                             G_CALLBACK (dialog_update_preview),
                             drawable);
 
-  hbox = gtk_hbox_new (FALSE, 12);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_box_pack_start (GTK_BOX (main_vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
@@ -558,7 +559,7 @@ apply_blinds (GimpDrawable *drawable)
   gint          x, y;
   GimpRGB       background;
   guchar        bg[4];
-  gint          sel_x1, sel_y1, sel_x2, sel_y2;
+  gint          sel_x1, sel_y1;
   gint          sel_width, sel_height;
 
   gimp_context_get_background (&background);
@@ -572,9 +573,6 @@ apply_blinds (GimpDrawable *drawable)
                                       &sel_x1, &sel_y1,
                                       &sel_width, &sel_height))
     return;
-
-  sel_x2 = sel_x1 + sel_width;
-  sel_y2 = sel_y1 + sel_height;
 
   gimp_pixel_rgn_init (&src_rgn, drawable,
                        sel_x1, sel_y1, sel_width, sel_height, FALSE, FALSE);
@@ -712,6 +710,7 @@ apply_blinds (GimpDrawable *drawable)
   g_free (src_rows);
   g_free (des_rows);
 
+  gimp_progress_update (1.0);
   gimp_drawable_flush (drawable);
   gimp_drawable_merge_shadow (drawable->drawable_id, TRUE);
   gimp_drawable_update (drawable->drawable_id,

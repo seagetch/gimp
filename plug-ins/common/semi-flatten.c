@@ -91,11 +91,7 @@ run (const gchar      *name,
 {
   static GimpParam   values[1];
   GimpDrawable      *drawable;
-  gint32             image_ID;
   GimpPDBStatusType  status = GIMP_PDB_SUCCESS;
-  GimpRunMode        run_mode;
-
-  run_mode = param[0].data.d_int32;
 
   *nreturn_vals = 1;
   *return_vals = values;
@@ -107,7 +103,6 @@ run (const gchar      *name,
 
   /*  Get the specified drawable  */
   drawable = gimp_drawable_get (param[2].data.d_drawable);
-  image_ID = param[1].data.d_image;
 
   if (status == GIMP_PDB_SUCCESS)
     {

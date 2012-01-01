@@ -75,12 +75,15 @@ gimp_magnify_options_class_init (GimpMagnifyOptionsClass *klass)
   options_class->reset       = gimp_magnify_options_reset;
 
   GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_AUTO_RESIZE,
-                                    "auto-resize", NULL,
+                                    "auto-resize",
+                                    N_("Resize image window to accommodate "
+                                       "new zoom level"),
                                     FALSE,
                                     GIMP_PARAM_STATIC_STRINGS);
 
   GIMP_CONFIG_INSTALL_PROP_ENUM (object_class, PROP_ZOOM_TYPE,
-                                 "zoom-type", NULL,
+                                 "zoom-type",
+                                 N_("Direction of magnification"),
                                  GIMP_TYPE_ZOOM_TYPE,
                                  GIMP_ZOOM_IN,
                                  GIMP_PARAM_STATIC_STRINGS);
@@ -155,11 +158,14 @@ gimp_magnify_options_reset (GimpToolOptions *tool_options)
 static GtkWidget *
 gimp_magnify_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
-  GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_tool_options_gui_full (tool_options, horizontal);
-  GtkWidget *frame;
-  GtkWidget *button;
-  gchar     *str;
+  GObject         *config = G_OBJECT (tool_options);
+  GtkWidget       *vbox   = gimp_tool_options_gui_full (tool_options, horizontal);
+  GtkWidget       *frame;
+  GtkWidget       *button;
+  gchar           *str;
+  GdkModifierType  toggle_mask;
+
+  toggle_mask = gimp_get_toggle_behavior_mask ();
 
   /*  the auto_resize toggle button  */
   button = gimp_prop_check_button_new (config, "auto-resize",
@@ -168,8 +174,8 @@ gimp_magnify_options_gui_full (GimpToolOptions *tool_options, gboolean horizonta
   gtk_widget_show (button);
 
   /*  tool toggle  */
-  str = g_strdup_printf (_("Tool Toggle  (%s)"),
-                         gimp_get_mod_string (GDK_CONTROL_MASK));
+  str = g_strdup_printf (_("Direction  (%s)"),
+                         gimp_get_mod_string (toggle_mask));
 
   frame = gimp_prop_enum_radio_frame_new_with_orientation (config, "zoom-type",
                                                            str, 0, 0,

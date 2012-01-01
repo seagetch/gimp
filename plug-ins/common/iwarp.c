@@ -52,6 +52,7 @@
 
 #define PLUG_IN_PROC           "plug-in-iwarp"
 #define PLUG_IN_BINARY         "iwarp"
+#define PLUG_IN_ROLE           "gimp-iwarp"
 #define RESPONSE_RESET         1
 
 #define MAX_DEFORM_AREA_RADIUS 250
@@ -603,14 +604,12 @@ iwarp_supersample (gint    sxl,
                    gint   *progress,
                    gint    max_progress)
 {
-  gint         i, wx, wy, col, row, cc;
+  gint         i, col, row, cc;
   GimpVector2 *srow, *srow_old, *vh;
   gdouble      xv, yv;
   gint         color[4];
   guchar      *dest;
 
-  wx = sxr - sxl + 1;
-  wy = syr - syl + 1;
   srow     = g_new (GimpVector2, sxr - sxl + 1);
   srow_old = g_new (GimpVector2, sxr - sxl + 1);
 
@@ -751,6 +750,7 @@ iwarp_frame (void)
                              &progress, max_progress);
         }
     }
+  gimp_progress_update (1.0);
 
   gimp_drawable_flush (destdrawable);
   gimp_drawable_merge_shadow (destdrawable->drawable_id, TRUE);
@@ -830,6 +830,7 @@ iwarp (void)
 
               gimp_image_insert_layer (imageID, layerID, -1, 0);
             }
+          gimp_progress_update (1.0);
         }
       g_free (animlayers);
     }
@@ -1019,7 +1020,7 @@ iwarp_animate_dialog (GtkWidget *dialog,
   GtkWidget *button;
   GtkObject *scale_data;
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
 
   frame = gimp_frame_new (NULL);
@@ -1041,8 +1042,9 @@ iwarp_animate_dialog (GtkWidget *dialog,
   gtk_container_add (GTK_CONTAINER (frame), table);
   gtk_widget_show (table);
 
-  g_object_set_data (G_OBJECT (button), "set_sensitive", table);
-  gtk_widget_set_sensitive (table, do_animate);
+  g_object_bind_property (button, "active",
+                          table,  "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   scale_data = gimp_scale_entry_new (GTK_TABLE (table), 0, 0,
                                      _("Number of _frames:"), SCALE_WIDTH, 0,
@@ -1094,14 +1096,15 @@ iwarp_settings_dialog (GtkWidget *dialog,
   GtkWidget *widget[3];
   gint       i;
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 12);
 
   frame = gimp_frame_new (_("Deform Mode"));
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  hbox = gtk_hbox_new (TRUE, 6);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+  gtk_box_set_homogeneous (GTK_BOX (hbox), TRUE);
   gtk_container_add (GTK_CONTAINER (frame), hbox);
   gtk_widget_show (hbox);
 
@@ -1119,11 +1122,11 @@ iwarp_settings_dialog (GtkWidget *dialog,
 
                                     NULL);
 
-  gtk_container_add (GTK_CONTAINER (hbox), vbox2);
+  gtk_box_pack_start (GTK_BOX (hbox), vbox2, TRUE, TRUE, 0);
   gtk_widget_show (vbox2);
 
-  vbox3 = gtk_vbox_new (FALSE, 2);
-  gtk_container_add (GTK_CONTAINER (hbox), vbox3);
+  vbox3 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
+  gtk_box_pack_start (GTK_BOX (hbox), vbox3, TRUE, TRUE, 0);
   gtk_widget_show (vbox3);
 
   for (i = 0; i < 3; i++)
@@ -1193,8 +1196,9 @@ iwarp_settings_dialog (GtkWidget *dialog,
   gtk_container_add (GTK_CONTAINER (frame), table);
   gtk_widget_show (table);
 
-  g_object_set_data (G_OBJECT (button), "set_sensitive", table);
-  gtk_widget_set_sensitive (table, iwarp_vals.do_supersample);
+  g_object_bind_property (button, "active",
+                          table,  "sensitive",
+                          G_BINDING_SYNC_CREATE);
 
   scale_data = gimp_scale_entry_new (GTK_TABLE (table), 0, 0,
                                      _("Ma_x depth:"), SCALE_WIDTH, 5,
@@ -1279,7 +1283,7 @@ iwarp_dialog (void)
   if (! iwarp_init ())
     return FALSE;
 
-  dialog = gimp_dialog_new (_("IWarp"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("IWarp"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -1306,13 +1310,13 @@ iwarp_dialog (void)
                     G_CALLBACK (gtk_main_quit),
                     NULL);
 
-  main_hbox = gtk_hbox_new (FALSE, 12);
+  main_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_hbox), 12);
   gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
                       main_hbox, TRUE, TRUE, 0);
   gtk_widget_show (main_hbox);
 
-  vbox = gtk_vbox_new (FALSE, 12);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_box_pack_start (GTK_BOX (main_hbox), vbox, TRUE, TRUE, 0);
   gtk_widget_show (vbox);
 

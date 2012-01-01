@@ -44,6 +44,7 @@
 
 #define PLUG_IN_PROC   "plug-in-jigsaw"
 #define PLUG_IN_BINARY "jigsaw"
+#define PLUG_IN_ROLE   "gimp-jigsaw"
 
 
 typedef enum
@@ -601,6 +602,7 @@ draw_jigsaw (guchar   *buffer,
       printf("draw_jigsaw: bad style\n");
       gimp_quit ();
     }
+  gimp_progress_update (1.0);
 
   g_free (globals.gridx);
   g_free (globals.gridy);
@@ -628,19 +630,10 @@ draw_vertical_border (guchar  *buffer,
   gdouble delta;
   gdouble sigma = blend_amount / blend_lines;
   gint right;
-  bump_t style_index;
 
   for (i = 0; i < ytiles; i++)
     {
       right = g_random_int_range (0, 2);
-      if (right)
-        {
-          style_index = RIGHT;
-        }
-      else
-        {
-          style_index = LEFT;
-        }
 
       /* first straight line from top downwards */
       px[0] = px[1] = x_offset;
@@ -752,6 +745,7 @@ draw_horizontal_border (guchar   *buffer,
   for (i = 0; i < xtiles; i++)
     {
       up = g_random_int_range (0, 2);
+
       /* first horizontal line across */
       px[0] = x_offset; px[1] = x_offset + curve_start_offset - 1;
       py[0] = py[1] = y_offset;
@@ -2109,7 +2103,6 @@ draw_bezier_vertical_border (guchar   *buffer,
   gdouble delta;
   gdouble sigma = blend_amount / blend_lines;
   gint right;
-  bump_t style_index;
   gint *cachex, *cachey;
 
   cachex = g_new (gint, steps);
@@ -2118,14 +2111,7 @@ draw_bezier_vertical_border (guchar   *buffer,
   for (i = 0; i < ytiles; i++)
     {
       right = g_random_int_range (0, 2);
-      if (right)
-        {
-          style_index = RIGHT;
-        }
-      else
-        {
-          style_index = LEFT;
-        }
+
       px[0] = px[3] = x_offset;
       px[1] = x_offset + WALL_XFACTOR2 * tile_width * FUDGE;
       px[2] = x_offset + WALL_XFACTOR3 * tile_width * FUDGE;
@@ -2245,7 +2231,6 @@ draw_bezier_horizontal_border (guchar   *buffer,
   gdouble delta;
   gdouble sigma = blend_amount / blend_lines;
   gint up;
-  style_t style_index;
   gint *cachex, *cachey;
 
   cachex = g_new (gint, steps);
@@ -2254,14 +2239,7 @@ draw_bezier_horizontal_border (guchar   *buffer,
   for (i = 0; i < xtiles; i++)
     {
       up = g_random_int_range (0, 2);
-      if (up)
-        {
-          style_index = UP;
-        }
-      else
-        {
-          style_index = DOWN;
-        }
+
       px[0] = x_offset;
       px[1] = x_offset + WALL_XCONS2 * tile_width;
       px[2] = x_offset + WALL_XCONS3 * tile_width;
@@ -2412,7 +2390,7 @@ jigsaw_dialog (GimpDrawable *drawable)
 
   gimp_ui_init (PLUG_IN_BINARY, TRUE);
 
-  dialog = gimp_dialog_new (_("Jigsaw"), PLUG_IN_BINARY,
+  dialog = gimp_dialog_new (_("Jigsaw"), PLUG_IN_ROLE,
                             NULL, 0,
                             gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -2428,10 +2406,10 @@ jigsaw_dialog (GimpDrawable *drawable)
 
   gimp_window_set_transient (GTK_WINDOW (dialog));
 
-  main_vbox = gtk_vbox_new (FALSE, 12);
+  main_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
-                     main_vbox);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),
+                      main_vbox, TRUE, TRUE, 0);
   gtk_widget_show (main_vbox);
 
   preview = gimp_aspect_preview_new (drawable, NULL);

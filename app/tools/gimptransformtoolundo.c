@@ -35,23 +35,21 @@ enum
 };
 
 
-static GObject * gimp_transform_tool_undo_constructor  (GType                  type,
-                                                        guint                  n_params,
-                                                        GObjectConstructParam *params);
-static void      gimp_transform_tool_undo_set_property (GObject               *object,
-                                                        guint                  property_id,
-                                                        const GValue          *value,
-                                                        GParamSpec            *pspec);
-static void      gimp_transform_tool_undo_get_property (GObject               *object,
-                                                        guint                  property_id,
-                                                        GValue                *value,
-                                                        GParamSpec            *pspec);
+static void   gimp_transform_tool_undo_constructed  (GObject             *object);
+static void   gimp_transform_tool_undo_set_property (GObject             *object,
+                                                     guint                property_id,
+                                                     const GValue        *value,
+                                                     GParamSpec          *pspec);
+static void   gimp_transform_tool_undo_get_property (GObject             *object,
+                                                     guint                property_id,
+                                                     GValue              *value,
+                                                     GParamSpec          *pspec);
 
-static void      gimp_transform_tool_undo_pop          (GimpUndo              *undo,
-                                                        GimpUndoMode           undo_mode,
-                                                        GimpUndoAccumulator   *accum);
-static void      gimp_transform_tool_undo_free         (GimpUndo              *undo,
-                                                        GimpUndoMode           undo_mode);
+static void   gimp_transform_tool_undo_pop          (GimpUndo            *undo,
+                                                     GimpUndoMode         undo_mode,
+                                                     GimpUndoAccumulator *accum);
+static void   gimp_transform_tool_undo_free         (GimpUndo            *undo,
+                                                     GimpUndoMode         undo_mode);
 
 
 G_DEFINE_TYPE (GimpTransformToolUndo, gimp_transform_tool_undo, GIMP_TYPE_UNDO)
@@ -65,7 +63,7 @@ gimp_transform_tool_undo_class_init (GimpTransformToolUndoClass *klass)
   GObjectClass  *object_class = G_OBJECT_CLASS (klass);
   GimpUndoClass *undo_class   = GIMP_UNDO_CLASS (klass);
 
-  object_class->constructor  = gimp_transform_tool_undo_constructor;
+  object_class->constructed  = gimp_transform_tool_undo_constructed;
   object_class->set_property = gimp_transform_tool_undo_set_property;
   object_class->get_property = gimp_transform_tool_undo_get_property;
 
@@ -85,23 +83,19 @@ gimp_transform_tool_undo_init (GimpTransformToolUndo *undo)
 {
 }
 
-static GObject *
-gimp_transform_tool_undo_constructor (GType                  type,
-                                      guint                  n_params,
-                                      GObjectConstructParam *params)
+static void
+gimp_transform_tool_undo_constructed (GObject *object)
 {
-  GObject               *object;
-  GimpTransformToolUndo *transform_tool_undo;
+  GimpTransformToolUndo *transform_tool_undo = GIMP_TRANSFORM_TOOL_UNDO (object);
   GimpTransformTool     *transform_tool;
   gint                   i;
 
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
-
-  transform_tool_undo = GIMP_TRANSFORM_TOOL_UNDO (object);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   g_assert (GIMP_IS_TRANSFORM_TOOL (transform_tool_undo->transform_tool));
 
-  transform_tool = GIMP_TRANSFORM_TOOL (transform_tool_undo->transform_tool);
+  transform_tool = transform_tool_undo->transform_tool;
 
   for (i = 0; i < TRANS_INFO_SIZE; i++)
     transform_tool_undo->trans_info[i] = transform_tool->old_trans_info[i];
@@ -113,8 +107,6 @@ gimp_transform_tool_undo_constructor (GType                  type,
 
   g_object_add_weak_pointer (G_OBJECT (transform_tool_undo->transform_tool),
                              (gpointer) &transform_tool_undo->transform_tool);
-
-  return object;
 }
 
 static void
@@ -169,7 +161,9 @@ gimp_transform_tool_undo_pop (GimpUndo              *undo,
   if (transform_tool_undo->transform_tool)
     {
       GimpTransformTool *transform_tool;
+#if 0
       TileManager       *temp;
+#endif
       gdouble            d;
       gint               i;
 
@@ -183,12 +177,15 @@ gimp_transform_tool_undo_pop (GimpUndo              *undo,
           transform_tool->trans_info[i] = d;
         }
 
+#if 0
       /*  swap the original buffer--the source buffer for repeated transforms
        */
       temp                          = transform_tool_undo->original;
       transform_tool_undo->original = transform_tool->original;
       transform_tool->original      = temp;
+#endif
 
+#if 0
       /*  If we're re-implementing the first transform, reactivate tool  */
       if (undo_mode == GIMP_UNDO_MODE_REDO && transform_tool->original)
         {
@@ -196,6 +193,7 @@ gimp_transform_tool_undo_pop (GimpUndo              *undo,
 
           gimp_draw_tool_resume (GIMP_DRAW_TOOL (transform_tool));
         }
+#endif
     }
  }
 
@@ -212,11 +210,13 @@ gimp_transform_tool_undo_free (GimpUndo     *undo,
       transform_tool_undo->transform_tool = NULL;
     }
 
+#if 0
   if (transform_tool_undo->original)
     {
       tile_manager_unref (transform_tool_undo->original);
       transform_tool_undo->original = NULL;
     }
+#endif
 
   GIMP_UNDO_CLASS (parent_class)->free (undo, undo_mode);
 }

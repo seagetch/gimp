@@ -50,19 +50,17 @@ enum
 };
 
 
-static GObject * gimp_action_group_constructor   (GType                  type,
-                                                  guint                  n_params,
-                                                  GObjectConstructParam *params);
-static void      gimp_action_group_dispose       (GObject               *object);
-static void      gimp_action_group_finalize      (GObject               *object);
-static void      gimp_action_group_set_property  (GObject               *object,
-                                                  guint                  prop_id,
-                                                  const GValue          *value,
-                                                  GParamSpec            *pspec);
-static void      gimp_action_group_get_property  (GObject               *object,
-                                                  guint                  prop_id,
-                                                  GValue                *value,
-                                                  GParamSpec            *pspec);
+static void   gimp_action_group_constructed   (GObject      *object);
+static void   gimp_action_group_dispose       (GObject      *object);
+static void   gimp_action_group_finalize      (GObject      *object);
+static void   gimp_action_group_set_property  (GObject      *object,
+                                               guint         prop_id,
+                                               const GValue *value,
+                                               GParamSpec   *pspec);
+static void   gimp_action_group_get_property  (GObject      *object,
+                                               guint         prop_id,
+                                               GValue       *value,
+                                               GParamSpec   *pspec);
 
 
 G_DEFINE_TYPE (GimpActionGroup, gimp_action_group, GTK_TYPE_ACTION_GROUP)
@@ -75,7 +73,7 @@ gimp_action_group_class_init (GimpActionGroupClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
-  object_class->constructor  = gimp_action_group_constructor;
+  object_class->constructed  = gimp_action_group_constructed;
   object_class->dispose      = gimp_action_group_dispose;
   object_class->finalize     = gimp_action_group_finalize;
   object_class->set_property = gimp_action_group_set_property;
@@ -110,18 +108,14 @@ gimp_action_group_init (GimpActionGroup *group)
 {
 }
 
-static GObject *
-gimp_action_group_constructor (GType                  type,
-                               guint                  n_params,
-                               GObjectConstructParam *params)
+static void
+gimp_action_group_constructed (GObject *object)
 {
-  GObject         *object;
-  GimpActionGroup *group;
+  GimpActionGroup *group = GIMP_ACTION_GROUP (object);
   const gchar     *name;
 
-  object = G_OBJECT_CLASS (parent_class)->constructor (type, n_params, params);
-
-  group = GIMP_ACTION_GROUP (object);
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
 
   g_assert (GIMP_IS_GIMP (group->gimp));
 
@@ -141,16 +135,12 @@ gimp_action_group_constructor (GType                  type,
       g_hash_table_replace (group_class->groups,
                             g_strdup (name), list);
     }
-
-  return object;
 }
 
 static void
 gimp_action_group_dispose (GObject *object)
 {
-  const gchar *name;
-
-  name = gtk_action_group_get_name (GTK_ACTION_GROUP (object));
+  const gchar *name = gtk_action_group_get_name (GTK_ACTION_GROUP (object));
 
   if (name)
     {
@@ -934,4 +924,27 @@ gimp_action_group_set_action_hide_empty (GimpActionGroup *group,
     }
 
   g_object_set (action, "hide-if-empty", hide_empty ? TRUE : FALSE, NULL);
+}
+
+void
+gimp_action_group_set_action_always_show_image (GimpActionGroup *group,
+                                                const gchar     *action_name,
+                                                gboolean         always_show_image)
+{
+  GtkAction *action;
+
+  g_return_if_fail (GIMP_IS_ACTION_GROUP (group));
+  g_return_if_fail (action_name != NULL);
+
+  action = gtk_action_group_get_action (GTK_ACTION_GROUP (group), action_name);
+
+  if (! action)
+    {
+      g_warning ("%s: Unable to set \"always-show-image\" of action "
+                 "which doesn't exist: %s",
+                 G_STRFUNC, action_name);
+      return;
+    }
+
+  gtk_action_set_always_show_image (action, always_show_image);
 }

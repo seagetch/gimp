@@ -53,7 +53,10 @@ typedef enum
 static struct
 {
   RGBMode rgb_format;
-  gint    encoded;
+  gint    use_run_length_encoding;
+
+  /* Weather or not to write BITMAPV5HEADER color space data */
+  gint    dont_write_color_space_data;
 } BMPSaveData;
 
 static gint    cur_progress = 0;
@@ -64,7 +67,7 @@ static  void      write_image     (FILE   *f,
                                    guchar *src,
                                    gint    width,
                                    gint    height,
-                                   gint    encoded,
+                                   gint    use_run_length_encoding,
                                    gint    channels,
                                    gint    bpp,
                                    gint    spzeile,
@@ -154,9 +157,10 @@ WriteBMP (const gchar  *filename,
   GimpPixelRgn   pixel_rgn;
   GimpDrawable  *drawable;
   GimpImageType  drawable_type;
-  guchar         puffer[50];
+  guchar         puffer[128];
   gint           i;
   gint           mask_info_size;
+  gint           color_space_size;
   guint32        Mask[4];
 
   drawable = gimp_drawable_get (drawable_ID);
@@ -195,8 +199,12 @@ WriteBMP (const gchar  *filename,
       colors       = 256;
       BitsPerPixel = 8;
       MapSize      = 1024;
-      if (drawable_type == GIMP_GRAY_IMAGE) channels = 1;
-      else channels = 2;
+
+      if (drawable_type == GIMP_GRAYA_IMAGE)
+        channels = 2;
+      else
+        channels = 1;
+
       for (i = 0; i < colors; i++)
         {
           Red[i]   = i;
@@ -216,8 +224,11 @@ WriteBMP (const gchar  *filename,
     case GIMP_INDEXED_IMAGE:
       cmap     = gimp_image_get_colormap (image, &colors);
       MapSize  = 4 * colors;
-      if (drawable_type == GIMP_INDEXED_IMAGE) channels = 1;
-      else channels = 2;
+
+      if (drawable_type == GIMP_INDEXEDA_IMAGE)
+        channels = 2;
+      else
+        channels = 1;
 
       if (colors > 16)
         BitsPerPixel = 8;
@@ -238,11 +249,11 @@ WriteBMP (const gchar  *filename,
       g_assert_not_reached ();
     }
 
-  /* Perhaps someone wants RLE encoded Bitmaps */
-  BMPSaveData.encoded = 0;
+  BMPSaveData.use_run_length_encoding = 0;
+  BMPSaveData.dont_write_color_space_data = 0;
   mask_info_size = 0;
 
-  if (!interactive && lastvals)
+  if (interactive || lastvals)
     {
       gimp_get_data (SAVE_PROC, &BMPSaveData);
     }
@@ -324,21 +335,29 @@ WriteBMP (const gchar  *filename,
   else
     SpZeile = ((gint) (((Spcols * BitsPerPixel) / 8) / 4) + 1) * 4;
 
-  Bitmap_File_Head.bfSize    = 0x36 + MapSize + (rows * SpZeile) + mask_info_size;
-  Bitmap_File_Head.zzHotX    = 0;
-  Bitmap_File_Head.zzHotY    = 0;
-  Bitmap_File_Head.bfOffs    = 0x36 + MapSize + mask_info_size;
-  Bitmap_File_Head.biSize    = 40 + (mask_info_size > 12 ? mask_info_size : 0);
+  color_space_size = 0;
+  if (! BMPSaveData.dont_write_color_space_data)
+    color_space_size = 68;
+
+  Bitmap_File_Head.bfSize    = (0x36 + MapSize + (rows * SpZeile) +
+                                mask_info_size + color_space_size);
+  Bitmap_File_Head.zzHotX    =  0;
+  Bitmap_File_Head.zzHotY    =  0;
+  Bitmap_File_Head.bfOffs    = (0x36 + MapSize +
+                                mask_info_size + color_space_size);
+  Bitmap_File_Head.biSize    =  40 + mask_info_size + color_space_size;
 
   Bitmap_Head.biWidth  = cols;
   Bitmap_Head.biHeight = rows;
   Bitmap_Head.biPlanes = 1;
   Bitmap_Head.biBitCnt = BitsPerPixel;
 
-  if (BMPSaveData.encoded == 0)
+  if (BMPSaveData.use_run_length_encoding == 0)
   {
-    if (!mask_info_size) Bitmap_Head.biCompr = 0;
-    else Bitmap_Head.biCompr = 3;
+    if (mask_info_size > 0)
+      Bitmap_Head.biCompr = 3; /* BI_BITFIELDS */
+    else
+      Bitmap_Head.biCompr = 0; /* BI_RGB */
   }
   else if (BitsPerPixel == 8)
     Bitmap_Head.biCompr = 1;
@@ -412,7 +431,7 @@ WriteBMP (const gchar  *filename,
   Write (outfile, puffer, 36);
   write_color_map (outfile, Red, Green, Blue, MapSize);
 
-  if (mask_info_size)
+  if (mask_info_size > 0)
     {
       switch (BMPSaveData.rgb_format)
         {
@@ -461,12 +480,48 @@ WriteBMP (const gchar  *filename,
       Write (outfile, puffer, mask_info_size);
     }
 
+  if (! BMPSaveData.dont_write_color_space_data)
+    {
+      /* Write V5 color space fields */
+
+      /* bV5CSType = LCS_sRGB */
+      FromL (0x73524742, &puffer[0x00]);
+
+      /* bV5Endpoints is set to 0 (ignored) */
+      for (i = 0; i < 0x24; i++)
+        puffer[0x04 + i] = 0x00;
+
+      /* bV5GammaRed is set to 0 (ignored) */
+      FromL (0x0, &puffer[0x28]);
+
+      /* bV5GammaGreen is set to 0 (ignored) */
+      FromL (0x0, &puffer[0x2c]);
+
+      /* bV5GammaBlue is set to 0 (ignored) */
+      FromL (0x0, &puffer[0x30]);
+
+      /* bV5Intent = LCS_GM_GRAPHICS */
+      FromL (0x00000002, &puffer[0x34]);
+
+      /* bV5ProfileData is set to 0 (ignored) */
+      FromL (0x0, &puffer[0x38]);
+
+      /* bV5ProfileSize is set to 0 (ignored) */
+      FromL (0x0, &puffer[0x3c]);
+
+      /* bV5Reserved = 0 */
+      FromL (0x0, &puffer[0x40]);
+
+      Write (outfile, puffer, color_space_size);
+    }
+
   /* After that is done, we write the image ... */
 
   write_image (outfile,
                pixels, cols, rows,
-               BMPSaveData.encoded, channels, BitsPerPixel, SpZeile, MapSize,
-               BMPSaveData.rgb_format);
+               BMPSaveData.use_run_length_encoding,
+               channels, BitsPerPixel, SpZeile,
+               MapSize, BMPSaveData.rgb_format);
 
   /* ... and exit normally */
 
@@ -503,7 +558,7 @@ write_image (FILE   *f,
              guchar *src,
              gint    width,
              gint    height,
-             gint    encoded,
+             gint    use_run_length_encoding,
              gint    channels,
              gint    bpp,
              gint    spzeile,
@@ -604,7 +659,7 @@ write_image (FILE   *f,
     }
   else
     {
-      switch (encoded)  /* now it gets more difficult */
+      switch (use_run_length_encoding)  /* now it gets more difficult */
         {               /* uncompressed 1,4 and 8 bit */
         case 0:
           {
@@ -766,7 +821,7 @@ write_image (FILE   *f,
         }
     }
 
-  gimp_progress_update (1);
+  gimp_progress_update (1.0);
 }
 
 static void
@@ -790,28 +845,59 @@ save_dialog (gint channels)
   GSList    *group;
   gboolean   run;
 
-  dialog = gimp_export_dialog_new (_("BMP"), PLUG_IN_BINARY, SAVE_PROC);
+  /* Dialog init */
+  dialog = gimp_export_dialog_new ("BMP", PLUG_IN_BINARY, SAVE_PROC);
 
   gtk_window_set_resizable (GTK_WINDOW (dialog), FALSE);
 
-  vbox_main = gtk_vbox_new (FALSE, 12);
+  vbox_main = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox_main), 12);
-  gtk_container_add (GTK_CONTAINER (gimp_export_dialog_get_content_area (dialog)),
-                     vbox_main);
+  gtk_box_pack_start (GTK_BOX (gimp_export_dialog_get_content_area (dialog)),
+                      vbox_main, TRUE, TRUE, 0);
   gtk_widget_show (vbox_main);
 
+  /* Run-Length Encoded */
   toggle = gtk_check_button_new_with_mnemonic (_("_Run-Length Encoded"));
   gtk_box_pack_start (GTK_BOX (vbox_main), toggle, FALSE, FALSE, 0);
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (toggle),
-                                BMPSaveData.encoded);
+                                BMPSaveData.use_run_length_encoding);
   gtk_widget_show (toggle);
   if (channels > 1)
     gtk_widget_set_sensitive (toggle, FALSE);
 
   g_signal_connect (toggle, "toggled",
                     G_CALLBACK (gimp_toggle_button_update),
-                    &BMPSaveData.encoded);
+                    &BMPSaveData.use_run_length_encoding);
 
+  /* Compatibility Options */
+  expander = gtk_expander_new_with_mnemonic (_("Co_mpatibility Options"));
+
+  gtk_box_pack_start (GTK_BOX (vbox_main), expander, TRUE, TRUE, 0);
+  gtk_widget_show (expander);
+
+  vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
+  gtk_container_set_border_width (GTK_CONTAINER (vbox2), 12);
+  gtk_container_add (GTK_CONTAINER (expander), vbox2);
+  gtk_widget_show (vbox2);
+
+  toggle = gtk_check_button_new_with_mnemonic (_("_Do not write color space information"));
+  gimp_help_set_help_data (toggle,
+                           _("Some applications can not read BMP images that "
+                             "include color space information. GIMP writes "
+                             "color space information by default. Enabling "
+                             "this option will cause GIMP to not write color "
+                             "space information to the file."),
+                           NULL);
+  gtk_box_pack_start (GTK_BOX (vbox2), toggle, FALSE, FALSE, 0);
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (toggle),
+                                BMPSaveData.dont_write_color_space_data);
+  gtk_widget_show (toggle);
+
+  g_signal_connect (toggle, "toggled",
+                    G_CALLBACK (gimp_toggle_button_update),
+                    &BMPSaveData.dont_write_color_space_data);
+
+  /* Advanced Options */
   expander = gtk_expander_new_with_mnemonic (_("_Advanced Options"));
 
   gtk_box_pack_start (GTK_BOX (vbox_main), expander, TRUE, TRUE, 0);
@@ -820,7 +906,7 @@ save_dialog (gint channels)
   if (channels < 3)
     gtk_widget_set_sensitive (expander, FALSE);
 
-  vbox2 = gtk_vbox_new (FALSE, 12);
+  vbox2 = gtk_box_new (GTK_ORIENTATION_VERTICAL, 12);
   gtk_container_set_border_width (GTK_CONTAINER (vbox2), 12);
   gtk_container_add (GTK_CONTAINER (expander), vbox2);
   gtk_widget_show (vbox2);
@@ -831,7 +917,7 @@ save_dialog (gint channels)
   gtk_box_pack_start (GTK_BOX (vbox2), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
@@ -884,13 +970,13 @@ save_dialog (gint channels)
   gtk_box_pack_start (GTK_BOX (vbox2), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  vbox = gtk_vbox_new (FALSE, 6);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), vbox);
   gtk_widget_show (vbox);
 
   toggle = gtk_radio_button_new_with_label (group, "A8 R8 G8 B8");
   group = gtk_radio_button_get_group (GTK_RADIO_BUTTON (toggle));
-  gtk_container_add (GTK_CONTAINER (vbox), toggle);
+  gtk_box_pack_start (GTK_BOX (vbox), toggle, FALSE, FALSE, 0);
   gtk_widget_show (toggle);
   g_signal_connect (toggle, "toggled",
                     G_CALLBACK (format_callback),
@@ -909,12 +995,13 @@ save_dialog (gint channels)
 
   toggle = gtk_radio_button_new_with_label (group, "X8 R8 G8 B8");
   group = gtk_radio_button_get_group (GTK_RADIO_BUTTON (toggle));
-  gtk_container_add (GTK_CONTAINER (vbox), toggle);
+  gtk_box_pack_start (GTK_BOX (vbox), toggle, FALSE, FALSE, 0);
   gtk_widget_show (toggle);
   g_signal_connect (toggle, "toggled",
                     G_CALLBACK (format_callback),
                     GINT_TO_POINTER (RGBX_8888));
 
+  /* Dialog show */
   gtk_widget_show (dialog);
 
   run = (gimp_dialog_run (GIMP_DIALOG (dialog)) == GTK_RESPONSE_OK);

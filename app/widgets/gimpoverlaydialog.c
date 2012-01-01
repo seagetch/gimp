@@ -111,13 +111,13 @@ gimp_overlay_dialog_class_init (GimpOverlayDialogClass *klass)
                   G_TYPE_NONE, 0);
 
   gtk_binding_entry_add_signal (gtk_binding_set_by_class (klass),
-                                GDK_Escape, 0, "close", 0);
+                                GDK_KEY_Escape, 0, "close", 0);
 }
 
 static void
 gimp_overlay_dialog_init (GimpOverlayDialog *dialog)
 {
-  dialog->action_area = gtk_hbutton_box_new ();
+  dialog->action_area = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
   gtk_button_box_set_layout (GTK_BUTTON_BOX (dialog->action_area),
                              GTK_BUTTONBOX_END);
   gtk_widget_set_parent (dialog->action_area, GTK_WIDGET (dialog));
@@ -181,7 +181,7 @@ gimp_overlay_dialog_size_allocate (GtkWidget     *widget,
   GimpOverlayDialog *dialog    = GIMP_OVERLAY_DIALOG (widget);
   GtkWidget         *child     = gtk_bin_get_child (GTK_BIN (widget));
   GtkRequisition     action_requisition;
-  GtkAllocation      child_allocation;
+  GtkAllocation      child_allocation = { 0, };
   GtkAllocation      action_allocation;
   gint               border_width;
 
@@ -266,12 +266,12 @@ gimp_overlay_dialog_new (GimpToolInfo *tool_info,
                          ...)
 {
   GtkWidget   *dialog;
-  const gchar *stock_id;
+  /* const gchar *stock_id; */
   va_list      args;
 
   g_return_val_if_fail (GIMP_IS_TOOL_INFO (tool_info), NULL);
 
-  stock_id = gimp_viewable_get_stock_id (GIMP_VIEWABLE (tool_info));
+  /* stock_id = gimp_viewable_get_stock_id (GIMP_VIEWABLE (tool_info)); */
 
   dialog = g_object_new (GIMP_TYPE_OVERLAY_DIALOG, NULL);
 

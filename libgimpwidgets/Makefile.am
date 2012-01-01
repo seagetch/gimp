@@ -49,7 +49,8 @@ endif
 libgimpwidgetsincludedir = $(includedir)/gimp-$(GIMP_API_VERSION)/libgimpwidgets
 
 AM_CPPFLAGS = \
-	-DG_LOG_DOMAIN=\"LibGimpWidgets\"
+	-DG_LOG_DOMAIN=\"LibGimpWidgets\"	\
+	-DGIMP_WIDGETS_COMPILATION
 
 INCLUDES = \
 	-I$(top_srcdir)	\
@@ -175,7 +176,9 @@ libgimpwidgets_2_0_la_sources = \
 	gimpwidgetsenums.h		\
 	gimpwidgetstypes.h		\
 	gimpzoommodel.c			\
-	gimpzoommodel.h
+	gimpzoommodel.h			\
+	gimp3migration.c		\
+	gimp3migration.h
 
 libgimpwidgets_2_0_la_built_sources = \
 	gimp-wilber-pixbufs.h	\
@@ -246,7 +249,8 @@ libgimpwidgetsinclude_HEADERS = \
 	gimpwidgets.h			\
 	gimpwidgetsenums.h		\
 	gimpwidgetstypes.h		\
-	gimpzoommodel.h
+	gimpzoommodel.h			\
+	gimp3migration.h
 
 libgimpwidgets_2_0_la_LDFLAGS = \
 	-version-info $(LT_VERSION_INFO)\
@@ -279,7 +283,6 @@ WILBER_VARIABLES = \
 
 
 EXTRA_DIST = \
-	makefile.msc				\
 	gimpwidgets.def				\
 	$(libgimpwidgets_2_0_la_extra_sources)	\
 	$(WILBER_IMAGES)

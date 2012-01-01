@@ -197,7 +197,16 @@ image_convert_set_dither_matrix_invoker (GimpProcedure      *procedure,
 
   if (success)
     {
-      gimp_image_convert_set_dither_matrix (matrix, width, height);
+      if (width == 0 || height == 0 || matrix_length == width * height)
+        {
+          gimp_image_convert_set_dither_matrix (matrix, width, height);
+        }
+      else
+        {
+          g_set_error_literal (error, GIMP_PDB_ERROR, GIMP_PDB_INVALID_ARGUMENT,
+                               "Dither matrix length must be width * height");
+          success = FALSE;
+        }
     }
 
   return gimp_procedure_get_return_values (procedure, success,

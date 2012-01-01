@@ -18,10 +18,12 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#if !defined (__GIMP_UI_H_INSIDE__) && !defined (GIMP_COMPILATION)
+#error "Only <libgimp/gimpui.h> can be included directly."
+#endif
+
 #ifndef __GIMP_ASPECT_PREVIEW_H__
 #define __GIMP_ASPECT_PREVIEW_H__
-
-#include <libgimpwidgets/gimppreview.h>
 
 G_BEGIN_DECLS
 

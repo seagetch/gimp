@@ -148,17 +148,17 @@ static void
 gimp_tag_cache_finalize (GObject *object)
 {
   GimpTagCache *cache = GIMP_TAG_CACHE (object);
-  gint          i;
 
   if (cache->priv->records)
     {
+      gint i;
+
       for (i = 0; i < cache->priv->records->len; i++)
         {
           GimpTagCacheRecord *rec = &g_array_index (cache->priv->records,
                                                     GimpTagCacheRecord, i);
 
-          g_list_foreach (rec->tags, (GFunc) g_object_unref, NULL);
-          g_list_free (rec->tags);
+          g_list_free_full (rec->tags, (GDestroyNotify) g_object_unref);
         }
 
       g_array_free (cache->priv->records, TRUE);
@@ -238,6 +238,10 @@ gimp_tag_cache_add_object (GimpTagCache *cache,
 {
   gchar  *identifier;
   GQuark  identifier_quark = 0;
+  gchar  *checksum;
+  GQuark  checksum_quark = 0;
+  GList  *list;
+  gint    i;
 
   identifier = gimp_tagged_get_identifier (tagged);
 
@@ -247,69 +251,62 @@ gimp_tag_cache_add_object (GimpTagCache *cache,
       g_free (identifier);
     }
 
-  if (! gimp_tagged_get_tags (tagged))
+  if (identifier_quark)
     {
-      gchar  *checksum;
-      GQuark  checksum_quark = 0;
-      GList  *list;
-      gint    i;
-
-      if (identifier_quark)
+      for (i = 0; i < cache->priv->records->len; i++)
         {
-          for (i = 0; i < cache->priv->records->len; i++)
+          GimpTagCacheRecord *rec = &g_array_index (cache->priv->records,
+                                                    GimpTagCacheRecord, i);
+
+          if (rec->identifier == identifier_quark)
             {
-              GimpTagCacheRecord *rec = &g_array_index (cache->priv->records,
-                                                        GimpTagCacheRecord, i);
-
-              if (rec->identifier == identifier_quark)
+              for (list = rec->tags; list; list = g_list_next (list))
                 {
-                  for (list = rec->tags; list; list = g_list_next (list))
-                    {
-                      gimp_tagged_add_tag (tagged, GIMP_TAG (list->data));
-                    }
-
-                  rec->referenced = TRUE;
-                  return;
+                  gimp_tagged_add_tag (tagged, GIMP_TAG (list->data));
                 }
-            }
-        }
 
-      checksum = gimp_tagged_get_checksum (tagged);
-
-      if (checksum)
-        {
-          checksum_quark = g_quark_try_string (checksum);
-          g_free (checksum);
-        }
-
-      if (checksum_quark)
-        {
-          for (i = 0; i < cache->priv->records->len; i++)
-            {
-              GimpTagCacheRecord *rec = &g_array_index (cache->priv->records,
-                                                        GimpTagCacheRecord, i);
-
-              if (rec->checksum == checksum_quark)
-                {
-#if DEBUG_GIMP_TAG_CACHE
-                  g_printerr ("remapping identifier: %s ==> %s\n",
-                              rec->identifier ? g_quark_to_string (rec->identifier) : "(NULL)",
-                              identifier_quark ? g_quark_to_string (identifier_quark) : "(NULL)");
-#endif
-
-                  rec->identifier = identifier_quark;
-
-                  for (list = rec->tags; list; list = g_list_next (list))
-                    {
-                      gimp_tagged_add_tag (tagged, GIMP_TAG (list->data));
-                    }
-
-                  rec->referenced = TRUE;
-                  return;
-                }
+              rec->referenced = TRUE;
+              return;
             }
         }
     }
+
+  checksum = gimp_tagged_get_checksum (tagged);
+
+  if (checksum)
+    {
+      checksum_quark = g_quark_try_string (checksum);
+      g_free (checksum);
+    }
+
+  if (checksum_quark)
+    {
+      for (i = 0; i < cache->priv->records->len; i++)
+        {
+          GimpTagCacheRecord *rec = &g_array_index (cache->priv->records,
+                                                    GimpTagCacheRecord, i);
+
+          if (rec->checksum == checksum_quark)
+            {
+#if DEBUG_GIMP_TAG_CACHE
+              g_printerr ("remapping identifier: %s ==> %s\n",
+                          rec->identifier ? g_quark_to_string (rec->identifier) : "(NULL)",
+                          identifier_quark ? g_quark_to_string (identifier_quark) : "(NULL)");
+#endif
+
+              rec->identifier = identifier_quark;
+
+              for (list = rec->tags; list; list = g_list_next (list))
+                {
+                  gimp_tagged_add_tag (tagged, GIMP_TAG (list->data));
+                }
+
+              rec->referenced = TRUE;
+              return;
+            }
+        }
+    }
+
 }
 
 static void
@@ -338,7 +335,7 @@ gimp_tag_cache_tagged_to_cache_record_foreach (GimpTagged  *tagged,
 
       g_free (checksum);
 
-      *cache_records = g_list_append (*cache_records, cache_rec);
+      *cache_records = g_list_prepend (*cache_records, cache_rec);
     }
 
   g_free (identifier);
@@ -379,7 +376,7 @@ gimp_tag_cache_save (GimpTagCache *cache)
           record_copy->checksum   = current_record->checksum;
           record_copy->tags       = g_list_copy (current_record->tags);
 
-          saved_records = g_list_append (saved_records, record_copy);
+          saved_records = g_list_prepend (saved_records, record_copy);
         }
     }
 
@@ -391,6 +388,8 @@ gimp_tag_cache_save (GimpTagCache *cache)
                               (GFunc) gimp_tag_cache_tagged_to_cache_record_foreach,
                               &saved_records);
     }
+
+  saved_records = g_list_reverse (saved_records);
 
   buf = g_string_new ("");
   g_string_append (buf, "<?xml version='1.0' encoding='UTF-8'?>\n");
@@ -413,9 +412,14 @@ gimp_tag_cache_save (GimpTagCache *cache)
            tag_iterator;
            tag_iterator = g_list_next (tag_iterator))
         {
-          tag_string = g_markup_escape_text (gimp_tag_get_name (GIMP_TAG (tag_iterator->data)), -1);
-          g_string_append_printf (buf, "    <tag>%s</tag>\n", tag_string);
-          g_free (tag_string);
+          GimpTag *tag = GIMP_TAG (tag_iterator->data);
+
+          if (! gimp_tag_get_internal (tag))
+            {
+              tag_string = g_markup_escape_text (gimp_tag_get_name (tag), -1);
+              g_string_append_printf (buf, "    <tag>%s</tag>\n", tag_string);
+              g_free (tag_string);
+            }
         }
 
       g_string_append (buf, "  </resource>\n");

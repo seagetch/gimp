@@ -39,15 +39,12 @@
 #include "core/gimpimage.h"
 #include "core/gimppickable.h"
 #include "core/gimp-transform-region.h"
+#include "core/gimp-utils.h"
 
 #include "gimpperspectiveclone.h"
 #include "gimpperspectivecloneoptions.h"
 
 #include "gimp-intl.h"
-
-
-#define MIN4(a,b,c,d) MIN(MIN(a,b),MIN(c,d))
-#define MAX4(a,b,c,d) MAX(MAX(a,b),MAX(c,d))
 
 
 static void     gimp_perspective_clone_finalize   (GObject          *object);
@@ -380,8 +377,6 @@ gimp_perspective_clone_get_source (GimpSourceCore   *source_core,
 
   orig_tiles = tile_manager_new (xmax - xmin, ymax - ymin, bytes);
 
-  tile_manager_set_offsets (orig_tiles, xmin, ymin);
-
   pixel_region_init (&destPR, orig_tiles,
                      0, 0, xmax - xmin, ymax - ymin,
                      TRUE);
@@ -405,6 +400,7 @@ gimp_perspective_clone_get_source (GimpSourceCore   *source_core,
   gimp_transform_region (src_pickable,
                          GIMP_CONTEXT (paint_options),
                          orig_tiles,
+                         xmin, ymin,
                          &destPR,
                          x1d, y1d, x2d, y2d,
                          &matrix,

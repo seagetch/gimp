@@ -34,7 +34,6 @@ typedef struct _GimpOperationPointFilter      GimpOperationPointFilter;
 typedef struct _GimpOperationColorBalance     GimpOperationColorBalance;
 typedef struct _GimpOperationColorize         GimpOperationColorize;
 typedef struct _GimpOperationCageCoefCalc     GimpOperationCageCoefCalc;
-typedef struct _GimpOperationCagePreview      GimpOperationCagePreview;
 typedef struct _GimpOperationCageTransform    GimpOperationCageTransform;
 typedef struct _GimpOperationCurves           GimpOperationCurves;
 typedef struct _GimpOperationDesaturate       GimpOperationDesaturate;
@@ -83,6 +82,16 @@ typedef struct _GimpHueSaturationConfig       GimpHueSaturationConfig;
 typedef struct _GimpLevelsConfig              GimpLevelsConfig;
 typedef struct _GimpPosterizeConfig           GimpPosterizeConfig;
 typedef struct _GimpThresholdConfig           GimpThresholdConfig;
+
+
+/*  temporary stuff  */
+
+typedef struct _GimpTileBackendTileManager      GimpTileBackendTileManager;
+
+
+/*  non-object types  */
+
+typedef struct _GimpCagePoint                 GimpCagePoint;
 
 
 #endif /* __GIMP_GEGL_TYPES_H__ */

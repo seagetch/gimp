@@ -184,6 +184,8 @@ libapptools_a_sources = \
 	gimpthresholdtool.h		\
 	gimptool.c			\
 	gimptool.h			\
+	gimptool-progress.c		\
+	gimptool-progress.h		\
 	gimptoolcontrol.c		\
 	gimptoolcontrol.h		\
 	gimptooloptions-gui.c		\
@@ -202,8 +204,6 @@ libapptools_a_sources = \
 libapptools_a_built_sources = tools-enums.c
 
 libapptools_a_SOURCES = $(libapptools_a_built_sources) $(libapptools_a_sources)
-
-EXTRA_DIST = makefile.msc
 
 #
 # rules to generate built sources

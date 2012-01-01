@@ -229,7 +229,7 @@ drw_parasite_find(PyGimpDrawable *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s:parasite_find", &name))
 	return NULL;
 
-    return pygimp_parasite_new(gimp_item_parasite_find(self->ID, name));
+    return pygimp_parasite_new(gimp_item_get_parasite(self->ID, name));
 }
 
 static PyObject *
@@ -241,7 +241,7 @@ drw_parasite_attach(PyGimpDrawable *self, PyObject *args)
 			  &parasite))
 	return NULL;
 
-    if (!gimp_item_parasite_attach(self->ID, parasite->para)) {
+    if (!gimp_item_attach_parasite(self->ID, parasite->para)) {
 	PyErr_Format(pygimp_error,
 		     "could not attach parasite '%s' on drawable (ID %d)",
 		     gimp_parasite_name(parasite->para), self->ID);
@@ -270,7 +270,7 @@ drw_attach_new_parasite(PyGimpDrawable *self, PyObject *args, PyObject *kwargs)
 
     parasite = gimp_parasite_new (name,
                                   flags, size + 1, data);
-    success = gimp_image_parasite_attach (self->ID, parasite);
+    success = gimp_item_attach_parasite (self->ID, parasite);
     gimp_parasite_free (parasite);
 
     if (!success) {
@@ -291,7 +291,7 @@ drw_parasite_detach(PyGimpDrawable *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s:detach_parasite", &name))
 	return NULL;
 
-    if (!gimp_item_parasite_detach(self->ID, name)) {
+    if (!gimp_item_detach_parasite(self->ID, name)) {
 	PyErr_Format(pygimp_error,
 		     "could not detach parasite '%s' from drawable (ID %d)",
 		     name, self->ID);
@@ -308,7 +308,8 @@ drw_parasite_list(PyGimpDrawable *self)
     gint num_parasites;
     gchar **parasites;
 
-    if (gimp_item_parasite_list(self->ID, &num_parasites, &parasites)) {
+    parasites = gimp_item_get_parasite_list(self->ID, &num_parasites);
+    if (parasites) {
 	PyObject *ret;
 	gint i;
 
@@ -1300,7 +1301,7 @@ PyTypeObject PyGimpDrawable_Type = {
     drw_methods,			/* tp_methods */
     0,					/* tp_members */
     drw_getsets,			/* tp_getset */
-    (PyTypeObject *)0,			/* tp_base */
+    &PyGimpItem_Type,			/* tp_base */
     (PyObject *)0,			/* tp_dict */
     0,					/* tp_descr_get */
     0,					/* tp_descr_set */

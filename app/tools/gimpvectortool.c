@@ -35,7 +35,6 @@
 #include "core/gimpimage-undo.h"
 #include "core/gimpimage-undo-push.h"
 #include "core/gimplist.h"
-#include "core/gimpprogress.h"
 #include "core/gimptoolinfo.h"
 #include "core/gimpundostack.h"
 
@@ -64,7 +63,7 @@
 
 #define TOGGLE_MASK  GDK_SHIFT_MASK
 #define MOVE_MASK    GDK_MOD1_MASK
-#define INSDEL_MASK  GDK_CONTROL_MASK
+#define INSDEL_MASK  gimp_get_toggle_behavior_mask ()
 
 
 /*  local function prototypes  */
@@ -156,6 +155,7 @@ gimp_vector_tool_register (GimpToolRegisterCallback callback,
                 gimp_vector_options_gui,
                 gimp_vector_options_gui_horizontal,
                 GIMP_PAINT_OPTIONS_CONTEXT_MASK |
+                GIMP_CONTEXT_PATTERN_MASK |
                 GIMP_CONTEXT_GRADIENT_MASK, /* for stroking */
                 "gimp-vector-tool",
                 _("Paths"),
@@ -189,13 +189,11 @@ gimp_vector_tool_init (GimpVectorTool *vector_tool)
 {
   GimpTool *tool = GIMP_TOOL (vector_tool);
 
-  gimp_tool_control_set_scroll_lock        (tool->control, FALSE);
   gimp_tool_control_set_handle_empty_image (tool->control, TRUE);
   gimp_tool_control_set_motion_mode        (tool->control,
                                             GIMP_MOTION_MODE_COMPRESS);
   gimp_tool_control_set_precision          (tool->control,
                                             GIMP_CURSOR_PRECISION_SUBPIXEL);
-  gimp_tool_control_set_cursor             (tool->control, GIMP_CURSOR_MOUSE);
   gimp_tool_control_set_tool_cursor        (tool->control,
                                             GIMP_TOOL_CURSOR_PATHS);
 
@@ -815,26 +813,26 @@ gimp_vector_tool_key_press (GimpTool     *tool,
   if (kevent->state & GDK_SHIFT_MASK)
     pixels = 10.0;
 
-  if (kevent->state & GDK_CONTROL_MASK)
+  if (kevent->state & gimp_get_toggle_behavior_mask ())
     pixels = 50.0;
 
   switch (kevent->keyval)
     {
-    case GDK_Return:
-    case GDK_KP_Enter:
-    case GDK_ISO_Enter:
+    case GDK_KEY_Return:
+    case GDK_KEY_KP_Enter:
+    case GDK_KEY_ISO_Enter:
       gimp_vector_tool_to_selection_extended (vector_tool, kevent->state);
       break;
 
-    case GDK_BackSpace:
-    case GDK_Delete:
+    case GDK_KEY_BackSpace:
+    case GDK_KEY_Delete:
       gimp_vector_tool_delete_selected_anchors (vector_tool);
       break;
 
-    case GDK_Left:
-    case GDK_Right:
-    case GDK_Up:
-    case GDK_Down:
+    case GDK_KEY_Left:
+    case GDK_KEY_Right:
+    case GDK_KEY_Up:
+    case GDK_KEY_Down:
       xdist = FUNSCALEX (shell, pixels);
       ydist = FUNSCALEY (shell, pixels);
 
@@ -844,19 +842,19 @@ gimp_vector_tool_key_press (GimpTool     *tool,
 
       switch (kevent->keyval)
         {
-        case GDK_Left:
+        case GDK_KEY_Left:
           gimp_vector_tool_move_selected_anchors (vector_tool, -xdist, 0);
           break;
 
-        case GDK_Right:
+        case GDK_KEY_Right:
           gimp_vector_tool_move_selected_anchors (vector_tool, xdist, 0);
           break;
 
-        case GDK_Up:
+        case GDK_KEY_Up:
           gimp_vector_tool_move_selected_anchors (vector_tool, 0, -ydist);
           break;
 
-        case GDK_Down:
+        case GDK_KEY_Down:
           gimp_vector_tool_move_selected_anchors (vector_tool, 0, ydist);
           break;
 
@@ -868,7 +866,7 @@ gimp_vector_tool_key_press (GimpTool     *tool,
       vector_tool->have_undo = FALSE;
       break;
 
-    case GDK_Escape:
+    case GDK_KEY_Escape:
       if (options->edit_mode != GIMP_VECTOR_MODE_DESIGN)
         g_object_set (options, "vectors-edit-mode",
                       GIMP_VECTOR_MODE_DESIGN, NULL);
@@ -1223,9 +1221,11 @@ gimp_vector_tool_status_update (GimpTool        *tool,
         case VECTORS_MOVE_ANCHOR:
           if (options->edit_mode != GIMP_VECTOR_MODE_EDIT)
             {
+              GdkModifierType toggle_mask = gimp_get_toggle_behavior_mask ();
+
               status = gimp_suggest_modifiers (_("Click-Drag to move the "
                                                  "anchor around"),
-                                               GDK_CONTROL_MASK & ~state,
+                                               toggle_mask & ~state,
                                                NULL, NULL, NULL);
               free_status = TRUE;
             }
@@ -1411,12 +1411,12 @@ gimp_vector_tool_draw (GimpDrawTool *draw_tool)
 
   vectors = vector_tool->vectors;
 
-  if (!vectors)
+  if (! vectors || ! gimp_vectors_get_bezier (vectors))
     return;
 
   /* the stroke itself */
   if (! gimp_item_get_visible (GIMP_ITEM (vectors)))
-    gimp_draw_tool_add_path (draw_tool, gimp_vectors_get_bezier (vectors));
+    gimp_draw_tool_add_path (draw_tool, gimp_vectors_get_bezier (vectors), 0, 0);
 
   for (cur_stroke = gimp_vectors_stroke_get_next (vectors, NULL);
        cur_stroke;
@@ -1928,28 +1928,15 @@ static void
 gimp_vector_tool_to_selection_extended (GimpVectorTool *vector_tool,
                                         gint            state)
 {
-  GimpImage    *image;
-  GimpChannelOps operation = GIMP_CHANNEL_OP_REPLACE;
+  GimpImage *image;
 
   if (! vector_tool->vectors)
     return;
 
   image = gimp_item_get_image (GIMP_ITEM (vector_tool->vectors));
 
-  if (state & GDK_SHIFT_MASK)
-    {
-      if (state & GDK_CONTROL_MASK)
-        operation = GIMP_CHANNEL_OP_INTERSECT;
-      else
-        operation = GIMP_CHANNEL_OP_ADD;
-    }
-  else if (state & GDK_CONTROL_MASK)
-    {
-      operation = GIMP_CHANNEL_OP_SUBTRACT;
-    }
-
   gimp_item_to_selection (GIMP_ITEM (vector_tool->vectors),
-                          operation,
+                          gimp_modifiers_to_channel_op (state),
                           TRUE, FALSE, 0, 0);
   gimp_image_flush (image);
 }

@@ -21,6 +21,8 @@
 
 #include <gtk/gtk.h>
 
+#include "libgimpwidgets/gimpwidgets.h"
+
 #include "widgets-types.h"
 
 #include "display/display-types.h"
@@ -54,9 +56,11 @@ static gboolean
 gimp_window_key_press_event (GtkWidget   *widget,
                              GdkEventKey *event)
 {
-  GtkWindow *window  = GTK_WINDOW (widget);
-  GtkWidget *focus   = gtk_window_get_focus (window);
-  gboolean   handled = FALSE;
+  GtkWindow       *window = GTK_WINDOW (widget);
+  GtkWidget       *focus  = gtk_window_get_focus (window);
+  GdkModifierType  accel_mods;
+  gboolean         enable_mnemonics;
+  gboolean         handled = FALSE;
 
   /* we're overriding the GtkWindow implementation here to give
    * the focus widget precedence over unmodified accelerators
@@ -75,8 +79,19 @@ gimp_window_key_press_event (GtkWidget   *widget,
                   "handled by gtk_window_propagate_key_event(text_widget)");
     }
 
-  /* invoke control/alt accelerators */
-  if (! handled && event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK))
+  accel_mods =
+    gtk_widget_get_modifier_mask (widget,
+                                  GDK_MODIFIER_INTENT_PRIMARY_ACCELERATOR);
+
+  g_object_get (gtk_widget_get_settings (widget),
+		"gtk-enable-mnemonics", &enable_mnemonics,
+		NULL);
+
+  if (enable_mnemonics)
+    accel_mods |= gtk_window_get_mnemonic_modifier (window);
+
+  /* invoke modified accelerators */
+  if (! handled && event->state & accel_mods)
     {
       handled = gtk_window_activate_key (window, event);
 
@@ -95,8 +110,8 @@ gimp_window_key_press_event (GtkWidget   *widget,
                   "handled by gtk_window_propagate_key_event(other_widget)");
     }
 
-  /* invoke non-(control/alt) accelerators */
-  if (! handled && ! (event->state & (GDK_CONTROL_MASK | GDK_MOD1_MASK)))
+  /* invoke non-modified accelerators */
+  if (! handled && ! (event->state & accel_mods))
     {
       handled = gtk_window_activate_key (window, event);
 

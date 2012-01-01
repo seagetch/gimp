@@ -429,7 +429,14 @@ gimp_display_shell_drop_buffer (GtkWidget    *widget,
     return;
 
   if (! image)
-    return;
+    {
+      image = gimp_image_new_from_buffer (shell->display->gimp, NULL,
+                                          GIMP_BUFFER (viewable));
+      gimp_create_display (image->gimp, image, GIMP_UNIT_PIXEL, 1.0);
+      g_object_unref (image);
+
+      return;
+    }
 
   drawable = gimp_image_get_active_drawable (image);
 
@@ -472,10 +479,20 @@ gimp_display_shell_drop_uri_list (GtkWidget *widget,
                                   gpointer   data)
 {
   GimpDisplayShell *shell   = GIMP_DISPLAY_SHELL (data);
-  GimpImage        *image   = gimp_display_get_image (shell->display);
-  GimpContext      *context = gimp_get_user_context (shell->display->gimp);
+  GimpImage        *image;
+  GimpContext      *context;
   GList            *list;
   gboolean          open_as_layers;
+
+  /* If the app is already being torn down, shell->display might be NULL here.
+   * Play it safe. */
+  if (! shell->display)
+    {
+      return;
+    }
+
+  image = gimp_display_get_image (shell->display);
+  context = gimp_get_user_context (shell->display->gimp);
 
   GIMP_LOG (DND, NULL);
 
@@ -487,6 +504,12 @@ gimp_display_shell_drop_uri_list (GtkWidget *widget,
       GimpPDBStatusType  status;
       GError            *error = NULL;
       gboolean           warn  = FALSE;
+
+      if (! shell->display)
+        {
+          /* It seems as if GIMP is being torn down for quitting. Bail out. */
+          return;
+        }
 
       if (open_as_layers)
         {
@@ -543,7 +566,10 @@ gimp_display_shell_drop_uri_list (GtkWidget *widget,
             warn = TRUE;
         }
 
-      if (warn)
+      /* Something above might have run a few rounds of the main loop. Check
+       * that shell->display is still there, otherwise ignore this as the app
+       * is being torn down for quitting. */
+      if (warn && shell->display)
         {
           gchar *filename = file_utils_uri_display_name (uri);
 
@@ -581,7 +607,14 @@ gimp_display_shell_drop_component (GtkWidget       *widget,
     return;
 
   if (! dest_image)
-    return;
+    {
+      dest_image = gimp_image_new_from_component (image->gimp,
+                                                  image, component);
+      gimp_create_display (dest_image->gimp, dest_image, GIMP_UNIT_PIXEL, 1.0);
+      g_object_unref (dest_image);
+
+      return;
+    }
 
   channel = gimp_channel_new_from_component (image, component, NULL, NULL);
 
@@ -619,8 +652,8 @@ gimp_display_shell_drop_pixbuf (GtkWidget *widget,
                                 GdkPixbuf *pixbuf,
                                 gpointer   data)
 {
-  GimpDisplayShell *shell     = GIMP_DISPLAY_SHELL (data);
-  GimpImage        *image     = gimp_display_get_image (shell->display);
+  GimpDisplayShell *shell = GIMP_DISPLAY_SHELL (data);
+  GimpImage        *image = gimp_display_get_image (shell->display);
   GimpLayer        *new_layer;
   GimpImageType     image_type;
 
@@ -639,17 +672,12 @@ gimp_display_shell_drop_pixbuf (GtkWidget *widget,
       return;
     }
 
-  switch (gdk_pixbuf_get_n_channels (pixbuf))
-    {
-    case 1: image_type = GIMP_GRAY_IMAGE;  break;
-    case 2: image_type = GIMP_GRAYA_IMAGE; break;
-    case 3: image_type = GIMP_RGB_IMAGE;   break;
-    case 4: image_type = GIMP_RGBA_IMAGE;  break;
-      break;
+  image_type = GIMP_IMAGE_TYPE_FROM_BASE_TYPE (gimp_image_base_type (image));
 
-    default:
-      g_return_if_reached ();
-      break;
+  if (gdk_pixbuf_get_n_channels (pixbuf) == 2 ||
+      gdk_pixbuf_get_n_channels (pixbuf) == 4)
+    {
+      image_type = GIMP_IMAGE_TYPE_WITH_ALPHA (image_type);
     }
 
   new_layer =

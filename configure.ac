@@ -8,7 +8,7 @@ AC_PREREQ(2.54)
 
 m4_define([gimp_major_version], [2])
 m4_define([gimp_minor_version], [7])
-m4_define([gimp_micro_version], [2])
+m4_define([gimp_micro_version], [5])
 m4_define([gimp_real_version],
           [gimp_major_version.gimp_minor_version.gimp_micro_version])
 m4_define([gimp_version], [gimp_real_version])
@@ -40,25 +40,25 @@ m4_define([gimp_stable],
 m4_define([gimp_full_name], [GNU Image Manipulation Program])
 
 # required versions of other packages
-m4_define([babl_required_version], [0.1.2])
-m4_define([gegl_required_version], [0.1.2])
-m4_define([glib_required_version], [2.24.0])
-m4_define([gtk_required_version], [2.20.0])
-m4_define([gdk_pixbuf_required_version], [gtk_required_version])
-m4_define([cairo_required_version], [1.8.0])
-m4_define([cairo_pdf_required_version], [1.8.0])
-m4_define([pangocairo_required_version], [1.22.0])
+m4_define([babl_required_version], [0.1.6])
+m4_define([gegl_required_version], [0.1.8])
+m4_define([glib_required_version], [2.30.2])
+m4_define([gtk_required_version], [2.24.7])
+m4_define([gdk_pixbuf_required_version], [2.24.0])
+m4_define([cairo_required_version], [1.10.2])
+m4_define([cairo_pdf_required_version], [1.10.2])
+m4_define([pangocairo_required_version], [1.29.4])
 m4_define([fontconfig_required_version], [2.2.0])
 m4_define([gtkdoc_required_version], [1.0])
-m4_define([webkit_required_version], [1.1.0])
+m4_define([webkit_required_version], [1.6.1])
 m4_define([alsa_required_version], [1.0.0])
-m4_define([rsvg_required_version], [2.14.0])
+m4_define([rsvg_required_version], [2.34.2])
 m4_define([wmf_required_version], [0.2.8])
 m4_define([pygtk_required_version], [2.10.4])
-m4_define([poppler_required_version], [0.6.0])
+m4_define([poppler_required_version], [0.12.4])
 m4_define([libcurl_required_version], [7.15.1])
 m4_define([dbus_glib_required_version], [0.70])
-m4_define([libhal_required_version], [0.5.7])
+m4_define([libgudev_required_version], [167])
 m4_define([exif_required_version], [0.6.15])
 m4_define([lcms_required_version], [1.16])
 m4_define([libpng_required_version], [1.2.37])
@@ -68,11 +68,11 @@ AC_INIT([GIMP], [gimp_version],
         [http://bugzilla.gnome.org/enter_bug.cgi?product=GIMP],
         [gimp])
 
+AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_SRCDIR([app/core/gimp.c])
 AC_CONFIG_MACRO_DIR([m4macros])
 
-AM_INIT_AUTOMAKE(no-define dist-bzip2 no-dist-gzip)
-AM_CONFIG_HEADER(config.h)
+AM_INIT_AUTOMAKE(no-define dist-bzip2 no-dist-gzip -Wno-portability)
 
 # Enable silent build rules by default, requires at least
 # Automake-1.11. Disable by either passing --disable-silent-rules to
@@ -117,9 +117,13 @@ AC_SUBST(GIMP_FULL_NAME)
 
 # These are used in the .pc files
 GLIB_REQUIRED_VERSION=glib_required_version
+GDK_PIXBUF_REQUIRED_VERSION=gdk_pixbuf_required_version
 GTK_REQUIRED_VERSION=gtk_required_version
+CAIRO_REQUIRED_VERSION=cairo_required_version
 AC_SUBST(GLIB_REQUIRED_VERSION)
+AC_SUBST(GDK_PIXBUF_REQUIRED_VERSION)
 AC_SUBST(GTK_REQUIRED_VERSION)
+AC_SUBST(CAIRO_REQUIRED_VERSION)
 
 # The symbol GIMP_UNSTABLE is defined above for substitution in
 # Makefiles and conditionally defined here as a preprocessor symbol
@@ -152,18 +156,13 @@ AC_PROG_CC
 AM_PROG_CC_C_O
 
 # Initialize libtool
-AM_DISABLE_STATIC
-AC_LIBTOOL_WIN32_DLL
-AM_PROG_LIBTOOL
+LT_PREREQ([2.2])
+LT_INIT([disable-static win32-dll])
 
 AM_PROG_AS
 
 # Initialize maintainer mode
-AM_MAINTAINER_MODE
-
-# Honor aclocal flags
-ACLOCAL="$ACLOCAL $ACLOCAL_FLAGS"
-
+AM_MAINTAINER_MODE([enable])
 
 # Check for pkg-config
 PKG_PROG_PKG_CONFIG(0.16)
@@ -264,7 +263,6 @@ AC_SUBST(WINDRES)
 ###############
 
 # Checks for programs.
-AC_ISC_POSIX
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
@@ -332,6 +330,12 @@ CFLAGS="$CFLAGS $extra_warnings"
 GIMP_DETECT_CFLAGS(extra_warnings, '-Wmissing-prototypes')
 CFLAGS="$CFLAGS $extra_warnings"
 
+# We really don't want anyone using code with missing prototypes, which
+# can cause random behavior. If compile breaks due to the following,
+# come to us and we will point you to a newer version which works.
+GIMP_DETECT_CFLAGS(extra_warnings, '-Werror=missing-prototypes')
+CFLAGS="$CFLAGS $extra_warnings"
+
 GIMP_DETECT_CFLAGS(extra_warnings, '-Wstrict-prototypes')
 CFLAGS="$CFLAGS $extra_warnings"
 
@@ -354,6 +358,20 @@ GIMP_DETECT_CFLAGS(extra_warnings, '-Wformat-security')
 CFLAGS="$CFLAGS $extra_warnings"
 
 GIMP_DETECT_CFLAGS(extra_warnings, '-Wformat-non-literal')
+CFLAGS="$CFLAGS $extra_warnings"
+
+GIMP_DETECT_CFLAGS(extra_warnings, '-fno-common')
+CFLAGS="$CFLAGS $extra_warnings"
+
+GIMP_DETECT_CFLAGS(extra_warnings, '-fdiagnostics-show-option')
+CFLAGS="$CFLAGS $extra_warnings"
+
+
+# Extra optimization flags for super performance
+GIMP_DETECT_CFLAGS(extra_warnings, '--omg-optimized')
+CFLAGS="$CFLAGS $extra_warnings"
+
+GIMP_DETECT_CFLAGS(extra_warnings, '--disable-instructions')
 CFLAGS="$CFLAGS $extra_warnings"
 
 
@@ -400,7 +418,6 @@ AC_HEADER_TIME
 AC_CHECK_HEADERS(sys/param.h sys/time.h sys/times.h sys/wait.h unistd.h)
 
 AC_TYPE_PID_T
-AC_TYPE_SIGNAL
 AC_FUNC_VPRINTF
 
 AC_FUNC_ALLOCA
@@ -415,9 +432,12 @@ AM_BINRELOC
 
 # _NL_MEASUREMENT_MEASUREMENT is an enum and not a define
 AC_MSG_CHECKING([for _NL_MEASUREMENT_MEASUREMENT])
-AC_TRY_LINK([#include <langinfo.h>], [
-char c = *((unsigned char *)  nl_langinfo(_NL_MEASUREMENT_MEASUREMENT));
-], nl_ok=yes, nl_ok=no)
+AC_LINK_IFELSE(
+  [AC_LANG_PROGRAM(
+    [[#include <langinfo.h>]],
+    [[char c = *((unsigned char *)  nl_langinfo(_NL_MEASUREMENT_MEASUREMENT));]])],
+  [nl_ok=yes],
+  [nl_ok=no])
 AC_MSG_RESULT($nl_ok)
 if test "$nl_ok" = "yes"; then
   AC_DEFINE(HAVE__NL_MEASUREMENT_MEASUREMENT, 1,
@@ -467,13 +487,13 @@ PKG_CHECK_MODULES(GMODULE_NO_EXPORT, gmodule-no-export-2.0)
 
 PKG_CHECK_MODULES(GIO, gio-2.0)
 
-AC_MSG_CHECKING([if GLib is version 2.26.0 or newer])
-if $PKG_CONFIG --atleast-version=2.26.0 glib-2.0; then
-  have_glib_2_26=yes
+AC_MSG_CHECKING([if GLib is version 2.31.0 or newer])
+if $PKG_CONFIG --atleast-version=2.31.0 glib-2.0; then
+  have_glib_2_31=yes
 else
-  have_glib_2_26=no
+  have_glib_2_31=no
 fi
-AC_MSG_RESULT($have_glib_2_26)
+AC_MSG_RESULT($have_glib_2_31)
 
 
 # Check for bind_textdomain_codeset, including -lintl if GLib brings it in.
@@ -492,13 +512,15 @@ AM_PATH_GTK_2_0(gtk_required_version, :,
   AC_MSG_ERROR(Test for GTK+ failed. See the file 'INSTALL' for help.),
   gthread)
 
-AC_MSG_CHECKING([if GTK+ is version 2.24.0 or newer])
-if $PKG_CONFIG --atleast-version=2.24.0 gtk+-2.0; then
-  have_gtk_2_24=yes
+# GTK+ 2.26.0 will never be released, we keep the check around anyway
+# because we will need it again after the switch to GTK+ 3.x
+AC_MSG_CHECKING([if GTK+ is version 2.26.0 or newer (bogus placeholder check)])
+if $PKG_CONFIG --atleast-version=2.26.0 gtk+-2.0; then
+  have_gtk_2_26=yes
 else
-  have_gtk_2_24=no
+  have_gtk_2_26=no
 fi
-AC_MSG_RESULT($have_gtk_2_24)
+AC_MSG_RESULT($have_gtk_2_26)
 
 PKG_CHECK_MODULES(GDK_PIXBUF, gdk-pixbuf-2.0 >= gdk_pixbuf_required_version)
 
@@ -506,6 +528,14 @@ AC_PATH_PROG(GDK_PIXBUF_CSOURCE, gdk-pixbuf-csource, no)
 if test "x$GDK_PIXBUF_CSOURCE" = xno; then
   AC_MSG_ERROR(Could not find gdk-pixbuf-csource in your PATH)
 fi
+
+AC_MSG_CHECKING([if GdkPixbuf is version 2.26.0 or newer])
+if $PKG_CONFIG --atleast-version=2.26.0 gdk-pixbuf-2.0; then
+  have_gdk_pixbuf_2_26=yes
+else
+  have_gdk_pixbuf_2_26=no
+fi
+AC_MSG_RESULT($have_gdk_pixbuf_2_26)
 
 PKG_CHECK_MODULES(CAIRO, cairo >= cairo_required_version)
 
@@ -520,20 +550,23 @@ CFLAGS="$PANGOCAIRO_CFLAGS $CFLAGS"
 
 PKG_CHECK_MODULES(FONTCONFIG, fontconfig >= fontconfig_required_version)
 
-AC_MSG_CHECKING([if Pango is version 1.30.0 or newer])
-if $PKG_CONFIG --atleast-version=1.30.0 pango; then
-  have_pango_1_30=yes
+AC_MSG_CHECKING([if Pango is version 1.32.0 or newer])
+if $PKG_CONFIG --atleast-version=1.32.0 pango; then
+  have_pango_1_32=yes
 else
-  have_pango_1_30=no
+  have_pango_1_32=no
 fi
-AC_MSG_RESULT($have_pango_1_30)
+AC_MSG_RESULT($have_pango_1_32)
 
 CFLAGS="$PANGOCAIRO_CFLAGS $CFLAGS"
 
 AC_MSG_CHECKING([if Pango is built with a recent fontconfig])
-AC_TRY_COMPILE([#include <fontconfig/fontconfig.h>],
-  [FcObjectSet *os; os = FcObjectSetBuild (FC_FAMILY, FC_WIDTH);],
-  fontconfig_ok=yes, fontconfig_ok=no)
+AC_COMPILE_IFELSE(
+  [AC_LANG_PROGRAM(
+    [[#include <fontconfig/fontconfig.h>]],
+    [[FcObjectSet *os; os = FcObjectSetBuild (FC_FAMILY, FC_WIDTH);]])],
+  [fontconfig_ok=yes],
+  [fontconfig_ok=no])
 AC_MSG_RESULT($fontconfig_ok)
 
 CFLAGS=$gimp_save_CFLAGS
@@ -572,49 +605,47 @@ AC_CHECK_HEADERS(math.h ieeefp.h)
 AC_MSG_CHECKING([for extra flags to get ANSI library prototypes])
 gimp_save_LIBS=$LIBS
 LIBS="$LIBS -lm"
-AC_TRY_RUN([#include <math.h>
-             int main (void) { return (log(1) != log(1.)); }],
-  AC_MSG_RESULT(none needed),
-  gimp_save_CFLAGS=$CFLAGS
-  CFLAGS="$CFLAGS -std1"
-  AC_TRY_RUN([#include <math.h>
-               int main (void) { return (log(1) != log(1.)); }],
-    AC_MSG_RESULT(-std1),
-    AC_MSG_RESULT()
-    CFLAGS=$gimp_save_CFLAGS
-    AC_MSG_WARN([No ANSI prototypes found in library. (-std1 didn't work.)]),
-    AC_MSG_RESULT),
-  AC_MSG_RESULT())
+AC_RUN_IFELSE(
+  [AC_LANG_SOURCE([[
+    #include <math.h>
+    int main (void) { return (log(1) != log(1.)); }]])],
+  [AC_MSG_RESULT(none needed)],
+  [gimp_save_CFLAGS=$CFLAGS
+   CFLAGS="$CFLAGS -std1"
+   AC_RUN_IFELSE(
+     [AC_LANG_SOURCE([[
+       #include <math.h>
+       int main (void) { return (log(1) != log(1.)); }]])],
+     [AC_MSG_RESULT(-std1)],
+     [AC_MSG_RESULT()
+      CFLAGS=$gimp_save_CFLAGS
+      AC_MSG_WARN([No ANSI prototypes found in library. (-std1 didn't work.)])],
+     [AC_MSG_RESULT])],
+  [AC_MSG_RESULT()])
 
 # Check for finite or isfinite
 AC_CHECK_FUNCS(finite, , [
   AC_MSG_CHECKING(for finite in <math.h>)
-  AC_TRY_LINK([#include <math.h>], [double f = 0.0; finite (f)], [
-    AC_DEFINE(HAVE_FINITE, 1)
-    AC_MSG_RESULT(yes)], [
-    AC_MSG_RESULT(no)
-    AC_MSG_CHECKING(for isfinite in <math.h>)
-    AC_TRY_LINK([#include <math.h>], [float f = 0.0; isfinite(f)], [
-      AC_DEFINE(HAVE_ISFINITE, 1,
-                [Define to 1 if you have the isfinite function.])
-      AC_MSG_RESULT(yes)], AC_MSG_RESULT(no))])])
+  AC_LINK_IFELSE(
+    [AC_LANG_PROGRAM(
+      [[#include <math.h>]],
+      [[double f = 0.0; finite (f)]])],
+    [AC_DEFINE(HAVE_FINITE, 1)
+     AC_MSG_RESULT(yes)],
+    [AC_MSG_RESULT(no)
+     AC_MSG_CHECKING(for isfinite in <math.h>)
+     AC_LINK_IFELSE(
+       [AC_LANG_PROGRAM(
+         [[#include <math.h>]],
+         [[float f = 0.0; isfinite(f)]])],
+       [AC_DEFINE([HAVE_ISFINITE],[1],[Define to 1 if you have the isfinite function.])
+        AC_MSG_RESULT(yes)],
+       [AC_MSG_RESULT(no)])])])
 AC_SUBST(HAVE_FINITE)
 AC_SUBST(HAVE_ISFINITE)
 
 LIBS=$gimp_save_LIBS
 
-
-# NeXTStep cc seems to need this
-AC_MSG_CHECKING([for extra flags for POSIX compliance])
-AC_TRY_COMPILE([#include <dirent.h>], [DIR *dir;],
-  AC_MSG_RESULT(none needed),
-  gimp_save_CFLAGS=$CFLAGS
-  CFLAGS="$CFLAGS -posix"
-  AC_TRY_COMPILE([#include <dirent.h>], [DIR *dir;],
-    AC_MSG_RESULT(-posix),
-    AC_MSG_RESULT()
-    CFLAGS=$gimp_save_CFLAGS
-    AC_MSG_WARN([Could not determine POSIX flag. (-posix didn't work.)])))
 
 # check for rint
 AC_CHECK_FUNC(rint, AC_DEFINE(HAVE_RINT, 1,
@@ -793,7 +824,8 @@ elif test "x$shmtype" = "xsysv"; then
 
   if test "$ac_cv_header_sys_shm_h" = "yes"; then
     AC_MSG_CHECKING(whether shmctl IPC_RMID allowes subsequent attaches)
-    AC_TRY_RUN([
+    AC_RUN_IFELSE(
+      [AC_LANG_SOURCE([[
 	#include <sys/types.h>
 	#include <sys/ipc.h>
 	#include <sys/shm.h>
@@ -815,12 +847,12 @@ elif test "x$shmtype" = "xsysv"; then
 	  shmdt (shmaddr);
 	  exit (0);
 	}
-      ],
-      AC_DEFINE(IPC_RMID_DEFERRED_RELEASE, 1,
-	        [Define to 1 if shared memory segments are released deferred.])
-        AC_MSG_RESULT(yes),
-      AC_MSG_RESULT(no),
-      AC_MSG_RESULT(assuming no))
+      ]])],
+      [AC_DEFINE([IPC_RMID_DEFERRED_RELEASE],[1],
+                 [Define to 1 if shared memory segments are released deferred.])
+       AC_MSG_RESULT(yes)],
+      [AC_MSG_RESULT(no)],
+      [AC_MSG_RESULT(assuming no)])
 
     AC_DEFINE(USE_SYSV_SHM, 1, [Define to 1 to use SYSV shared memory])
   else
@@ -890,8 +922,12 @@ AC_SUBST(SYMPREFIX)
 
 if test "x$os_win32" != xyes; then
   AC_MSG_CHECKING([fd_set and sys/select])
-  AC_TRY_COMPILE([#include <sys/types.h>],
-	  [fd_set readMask, writeMask;], gimp_ok=yes, gimp_ok=no)
+  AC_COMPILE_IFELSE(
+    [AC_LANG_PROGRAM(
+      [[#include <sys/types.h>]],
+      [[fd_set readMask, writeMask;]])],
+    [gimp_ok=yes],
+    [gimp_ok=no])
   if test "x$gimp_ok" = xno; then
       AC_EGREP_HEADER(fd_mask, sys/select.h, gimp_ok=yes)
       if test "x$gimp_ok" = xyes; then
@@ -917,16 +953,6 @@ if test "x$enable_mp" != "xno"; then
   AC_DEFINE(ENABLE_MP, 1,
 	    [Define to 1 to enable support for multiple processors.])
 fi
-
-
-###################################################
-# gimp-remote is obsolete, but can still be enabled
-###################################################
-
-AC_ARG_ENABLE(gimp-remote,
-	      [  --enable-gimp-remote    build gimp-remote utility (default=no)],
-	      enable_gimp_remote=yes,
-	      enable_gimp_remote="no (not enabled)")
 
 
 ################################
@@ -985,20 +1011,8 @@ AC_SUBST(SCREENSHOT_LIBS)
 AC_SUBST(DOC_SHOOTER)
 
 
-if test x"$enable_gimp_remote" = xyes; then
-  enable_gimp_remote="$have_libxmu"
-fi
+GIMP_COMMAND='gimp-gimp_app_version'
 
-if test x"$enable_gimp_remote" = xyes; then
-  GIMP_REMOTE='gimp-remote-gimp_app_version$(EXEEXT)'
-  GIMP_REMOTE_MANPAGE='gimp-remote-gimp_app_version.1'
-  GIMP_COMMAND='gimp-remote-gimp_app_version'
-else
-  GIMP_COMMAND='gimp-gimp_app_version'
-fi
-
-AC_SUBST(GIMP_REMOTE)
-AC_SUBST(GIMP_REMOTE_MANPAGE)
 AC_SUBST(GIMP_COMMAND)
 
 
@@ -1064,15 +1078,16 @@ if test "x$with_libjpeg" != xno && test -z "$JPEG_LIBS"; then
     AC_MSG_WARN(*** XJT plug-in will not be built (JPEG library not found) ***)])
   if test "$jpeg_ok" = yes; then
     AC_MSG_CHECKING([for jpeglib.h])
-    AC_TRY_CPP([
+    AC_PREPROC_IFELSE(
+      [AC_LANG_SOURCE([[
 #include <stdio.h>
 #undef HAVE_STDDEF_H
 #undef HAVE_STDLIB_H
 #undef PACKAGE
 #undef VERSION
-#include <jpeglib.h>],
-      jpeg_ok=yes,
-      jpeg_ok="no (Can't include jpeglib.h)")
+#include <jpeglib.h>]])],
+      [jpeg_ok=yes],
+      [jpeg_ok="no (Can't include jpeglib.h)"])
     AC_MSG_RESULT($jpeg_ok)
     if test "$jpeg_ok" = yes; then
       AC_CHECK_LIB(jpeg, jpeg_save_markers,
@@ -1150,6 +1165,7 @@ fi
 
 if test "x$have_libpng" = xyes; then
   MIME_TYPES="$MIME_TYPES;image/png;image/x-icon"
+  PNG_CFLAGS="$PNG_CFLAGS -DPNG_PEDANTIC_WARNINGS"
 fi
 
 AC_SUBST(FILE_PNG)
@@ -1171,7 +1187,7 @@ if test "x$with_libmng" != xno && test -z "$MNG_LIBS" &&
     [have_libmng="no (MNG library not found)"], -lz -lm)
   if test "$mng_ok" = yes; then
     have_libmng=yes
-    FILE_MNG='file-mng$(EXEEXT)'; MNG_LIBS="-lmng $JPEG_LIBS $PNG_LIBS"
+    FILE_MNG='file-mng$(EXEEXT)'; MNG_LIBS="-lmng $JPEG_LIBS $PNG_LIBS"; MNG_CFLAGS="$PNG_CFLAGS"
   else
     have_libmng="no (MNG header file not found)"
   fi
@@ -1179,6 +1195,7 @@ fi
 
 AC_SUBST(FILE_MNG)
 AC_SUBST(MNG_LIBS)
+AC_SUBST(MNG_CFLAGS)
 
 
 ############################################################
@@ -1193,14 +1210,14 @@ have_libexif=no
 if test "x$with_libexif" != xno && test -z "$EXIF_LIBS" && test -n "$JPEG_LIBS"; then
   have_libexif=yes
   PKG_CHECK_MODULES(EXIF, libexif >= exif_required_version,
-    AC_DEFINE(HAVE_EXIF, 1, [Define to 1 if libexif is available]),
+    AC_DEFINE(HAVE_LIBEXIF, 1, [Define to 1 if libexif is available]),
     have_libexif="no (libexif not found or too old)")
 fi
 
 AC_SUBST(EXIF_CFLAGS)
 AC_SUBST(EXIF_LIBS)
 
-AM_CONDITIONAL(BUILD_METADATA, test "x$have_libexif" = xyes)
+AM_CONDITIONAL(HAVE_LIBEXIF, test "x$have_libexif" = xyes)
 
 
 #################
@@ -1265,12 +1282,14 @@ AC_ARG_WITH(webkit, [  --without-webkit        don't build the help-browser plug
 have_webkit=no
 if test "x$with_webkit" != xno; then
   PKG_CHECK_MODULES(WEBKIT, webkit-1.0 >= webkit_required_version,
+    WEB_PAGE='web-page$(EXEEXT)'
     have_webkit=yes,
     have_webkit="no (WebKit not found)")
 else
   have_webkit="no (WebKit support disabled)"
 fi
 
+AC_SUBST(WEB_PAGE)
 AM_CONDITIONAL(HAVE_WEBKIT, test "x$have_webkit" = xyes)
 
 
@@ -1591,27 +1610,27 @@ if test "x$have_dbus_glib" = xyes; then
 fi
 
 
-###############################################
-# Check for libhal (Hardware Abstraction Layer)
-###############################################
+####################
+# Check for libgudev
+####################
 
-AC_ARG_WITH(hal,   [  --without-hal           build without HAL support])
+AC_ARG_WITH(gudev, [  --without-gudev        build without GUdev support])
 
-have_libhal=no
+have_libgudev=no
 
-if test "x$with_hal" = xno; then
-  have_libhal="no (disabled)"
+if test "x$with_gudev" = xno; then
+  have_libgudev="no (disabled)"
 fi
 
 if test "x$have_linux_input" = xyes && test "x$have_dbus_glib" = xyes &&
-   test "x$with_hal" != xno; then
-  PKG_CHECK_MODULES(HAL, hal >= libhal_required_version,
-    have_libhal=yes,
-    have_libhal="no (libhal not found)")
+   test "x$with_gudev" != xno; then
+  PKG_CHECK_MODULES(GUDEV, gudev-1.0 >= libgudev_required_version,
+    have_libgudev=yes,
+    have_libgudev="no (libgudev not found)")
 fi
 
-if test "x$have_libhal" = xyes; then
-  AC_DEFINE(HAVE_LIBHAL, 1, [Define to 1 if libhal is available])
+if test "x$have_libgudev" = xyes; then
+  AC_DEFINE(HAVE_LIBGUDEV, 1, [Define to 1 if libgudev is available])
 fi
 
 
@@ -1663,7 +1682,7 @@ AC_PATH_PROGS(PERL,perl5 perl perl5.005 perl5.004,perl)
 
 AC_ARG_WITH(pdbgen,
             [  --with-pdbgen           use 'pdbgen' code generation tool],,
-  with_pdbgen=$enable_maintainer_mode)
+  with_pdbgen=$USE_MAINTAINER_MODE)
 
 AM_CONDITIONAL(WITH_PDBGEN, test "x$with_pdbgen" = xyes)
 
@@ -1674,7 +1693,7 @@ AM_CONDITIONAL(WITH_PDBGEN, test "x$with_pdbgen" = xyes)
 
 # Pygimp configure stuff ...
 AC_ARG_ENABLE(python,
-  AC_HELP_STRING([--disable-python],
+  AS_HELP_STRING([--disable-python],
                  [do not build the python extension]))
 
 m4_define([pycheck_error], [
@@ -1734,7 +1753,7 @@ AM_CONDITIONAL(BUILD_PYTHON, test "x$enable_python" != xno)
 
 have_script_fu=yes
 AC_ARG_WITH(script-fu,
-  AC_HELP_STRING([--without-script-fu],
+  AS_HELP_STRING([--without-script-fu],
                  [do not build the script-fu extension]))
 
 if test "x$with_script_fu" = "xno"; then
@@ -1781,10 +1800,14 @@ AC_ARG_WITH(mac-twain,  [  --without-mac-twain     don't build the Mac TWAIN plu
 mac_twain_ok=no
 if test "x$with_mac_twain" != xno; then
   AC_MSG_CHECKING([for Mac OS X TWAIN support])
-  AC_TRY_CPP([
+  AC_PREPROC_IFELSE(
+    [AC_LANG_SOURCE([[
 #include <Carbon/Carbon.h>
 #include <TWAIN/TWAIN.h>
-  ], mac_twain_ok=yes)
+#ifdef __x86_64__
+#error Please somebody port this to non-deprecated and non-removed APIs
+#endif]])],
+    [mac_twain_ok=yes])
   AC_MSG_RESULT($mac_twain_ok)
 fi
 
@@ -1822,8 +1845,18 @@ AM_CONDITIONAL(HAVE_XSLTPROC, test "x$XSLTPROC" != "xno")
 # Check for xvfb-run
 ####################
 
-AC_PATH_PROG(XVFB_RUN, xvfb-run, no)
-AM_CONDITIONAL(HAVE_XVFB_RUN, test "x$XVFB_RUN" != "xno")
+AC_ARG_WITH(xvfb-run,  [  --without-xvfb-run      Do not use xvfb-run for UI-dependent automatic tests])
+
+have_xvfb_run="no (disabled)"
+if test "x$with_xvfb_run" != "xno"; then
+  AC_PATH_PROG(XVFB_RUN, xvfb-run, no)
+  if test "x$XVFB_RUN" != "xno"; then
+    have_xvfb_run="yes"
+  else
+    have_xvfb_run="no (not found)"
+  fi
+fi
+AM_CONDITIONAL(HAVE_XVFB_RUN, test "x$have_xvfb_run" == "xyes")
 
 
 ######################################
@@ -1916,19 +1949,23 @@ AC_SUBST(MIME_TYPES)
 
 CPPFLAGS="${CPPFLAGS} -DGIMP_DISABLE_DEPRECATED -DBABL_DISABLE_DEPRECATED -DGSEAL_ENABLE"
 
-# Make sure not to disable deprecated APIs for unreleased version, we
-# must build without problems with future releases of libraries and
-# disabling deprecated API risks breaking the build
+# Make sure not to disable deprecated APIs for unreleased versions.
+# We must build without problems with future releases of libraries
+# and disabling deprecated API risks breaking the build
 
-if test "x$have_glib_2_26" != "xyes"; then
+if test "x$have_glib_2_31" != "xyes"; then
   CPPFLAGS="${CPPFLAGS} -DG_DISABLE_DEPRECATED"
 fi
 
-if test "x$have_gtk_2_24" != "xyes"; then
-  CPPFLAGS="${CPPFLAGS} -DGDK_PIXBUF_DISABLE_DEPRECATED -DGDK_DISABLE_DEPRECATED -DGTK_DISABLE_DEPRECATED"
+if test "x$have_gtk_2_26" != "xyes"; then
+  CPPFLAGS="${CPPFLAGS} -DGDK_DISABLE_DEPRECATED -DGTK_DISABLE_DEPRECATED"
 fi
 
-if test "x$have_pango_1_30" != "xyes"; then
+if test "x$have_gdk_pixbuf_2_26" != "xyes"; then
+  CPPFLAGS="${CPPFLAGS} -DGDK_PIXBUF_DISABLE_DEPRECATED"
+fi
+
+if test "x$have_pango_1_32" != "xyes"; then
   CPPFLAGS="${CPPFLAGS} -DPANGO_DISABLE_DEPRECATED"
 fi
 
@@ -1957,6 +1994,10 @@ AC_CONFIG_COMMANDS([libgimpbase/gimpversion.h], [
  *
  * This is a generated file.  Please modify 'configure.ac'
  */
+
+#if !defined (__GIMP_BASE_H_INSIDE__) && !defined (GIMP_BASE_COMPILATION)
+#error "Only <libgimpbase/gimpbase.h> can be included directly."
+#endif
 
 #ifndef __GIMP_VERSION_H__
 #define __GIMP_VERSION_H__
@@ -2195,7 +2236,6 @@ AC_CONFIG_FILES(
 docs/gimp-gimp_app_version.1:docs/gimp.1.in
 docs/gimprc-gimp_app_version.5:docs/gimprc.5.in
 docs/gimptool-gimp_tool_version.1:docs/gimptool.1.in
-docs/gimp-remote-gimp_app_version.1:docs/gimp-remote.1.in
 gimp-gimp_pkgconfig_version.pc:gimp.pc.in
 gimpthumb-gimp_pkgconfig_version.pc:gimpthumb.pc.in
 gimpui-gimp_pkgconfig_version.pc:gimpui.pc.in
@@ -2217,7 +2257,6 @@ Desktop files install into $DESKTOP_DATADIR
 
 Extra Binaries:
   gimp-console:        $enable_gimp_console
-  gimp-remote:         $enable_gimp_remote
 
 Optional Features:
   D-Bus service:       $have_dbus_glib
@@ -2242,7 +2281,8 @@ Optional Plug-Ins:
   TWAIN (MacOS X):     $mac_twain_ok
   TWAIN (Win32):       $os_win32
   URI:                 $uri_plugin
-  Windows ICO          $have_libpng
+  Webpage:             $have_webkit
+  Windows ICO:         $have_libpng
   WMF:                 $have_libwmf
   XJT:                 $have_xjt
   X11 Mouse Cursor:    $have_xmc
@@ -2253,8 +2293,11 @@ Plug-In Features:
 
 Optional Modules:
   ALSA (MIDI Input):   $have_alsa
-  Linux Input:         $have_linux_input (HAL support: $have_libhal)
+  Linux Input:         $have_linux_input (GUdev support: $have_libgudev)
   DirectInput (Win32): $have_dx_dinput
   Color Correction:    $have_lcms
   Soft Proof:          $have_lcms
+
+Tests:
+  Use xvfb-run         $have_xvfb_run
 ]);

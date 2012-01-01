@@ -15,10 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef __JPEG_H__
+#define __JPEG_H__
+
 #define LOAD_PROC       "file-jpeg-load"
 #define LOAD_THUMB_PROC "file-jpeg-load-thumb"
 #define SAVE_PROC       "file-jpeg-save"
 #define PLUG_IN_BINARY  "file-jpeg"
+#define PLUG_IN_ROLE    "gimp-file-jpeg"
 
 /* headers used in some APPn markers */
 #define JPEG_APP_HEADER_EXIF "Exif\0\0"
@@ -41,10 +45,10 @@ typedef struct my_error_mgr
 
 typedef enum
 {
-  JPEG_SUPSAMPLING_2x2_1x1_1x1 = 0,  /* smallest file */
-  JPEG_SUPSAMPLING_2x1_1x1_1x1 = 1,  /* 4:2:2         */
-  JPEG_SUPSAMPLING_1x1_1x1_1x1 = 2,
-  JPEG_SUPSAMPLING_1x2_1x1_1x1 = 3
+  JPEG_SUBSAMPLING_2x2_1x1_1x1 = 0,  /* smallest file */
+  JPEG_SUBSAMPLING_2x1_1x1_1x1 = 1,  /* 4:2:2         */
+  JPEG_SUBSAMPLING_1x1_1x1_1x1 = 2,
+  JPEG_SUBSAMPLING_1x2_1x1_1x1 = 3
 } JpegSubsampling;
 
 extern gint32 volatile  preview_image_ID;
@@ -67,22 +71,5 @@ void      my_emit_message               (j_common_ptr   cinfo,
                                          int            msg_level);
 void      my_output_message             (j_common_ptr   cinfo);
 
-#ifdef HAVE_EXIF
 
-extern ExifData *exif_data;
-
-ExifData * jpeg_exif_data_new_from_file (const gchar   *filename,
-                                         GError       **error);
-
-gint      jpeg_exif_get_orientation     (ExifData      *exif_data);
-
-void      jpeg_setup_exif_for_save      (ExifData      *exif_data,
-                                         const gint32   image_ID);
-
-void      jpeg_exif_rotate              (gint32         image_ID,
-                                         gint           orientation);
-void      jpeg_exif_rotate_query        (gint32         image_ID,
-                                         gint           orientation);
-
-#endif /* HAVE_EXIF */
-
+#endif /* __JPEG_H__ */

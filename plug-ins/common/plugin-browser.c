@@ -35,6 +35,7 @@
 
 #define PLUG_IN_PROC    "plug-in-plug-in-details"
 #define PLUG_IN_BINARY  "plugin-browser"
+#define PLUG_IN_ROLE    "gimp-plugin-browser"
 #define DBL_LIST_WIDTH  250
 #define DBL_WIDTH       (DBL_LIST_WIDTH + 400)
 #define DBL_HEIGHT      250
@@ -159,9 +160,6 @@ run (const gchar      *name,
      GimpParam       **return_vals)
 {
   static GimpParam  values[2];
-  GimpRunMode       run_mode;
-
-  run_mode = param[0].data.d_int32;
 
   *nreturn_vals = 1;
   *return_vals  = values;
@@ -257,7 +255,6 @@ get_parent (PluginBrowser *browser,
   GtkTreeIter   last_parent;
   gchar        *tmp_ptr;
   gchar        *str_ptr;
-  const gchar  *leaf_ptr;
   GtkTreeStore *tree_store;
 
   if (! mpath)
@@ -280,7 +277,6 @@ get_parent (PluginBrowser *browser,
 
   if (str_ptr == NULL)
     {
-      leaf_ptr = mpath;
       gtk_tree_store_append (tree_store, parent, NULL);
       gtk_tree_store_set (tree_store, parent,
                           TREE_COLUMN_MPATH,     mpath,
@@ -289,8 +285,9 @@ get_parent (PluginBrowser *browser,
     }
   else
     {
-      leaf_ptr = g_strdup (str_ptr + 1);
+      gchar  *leaf_ptr;
 
+      leaf_ptr = g_strdup (str_ptr + 1);
       *str_ptr = '\0';
 
       get_parent (browser, tmp_ptr, &last_parent);
@@ -299,6 +296,8 @@ get_parent (PluginBrowser *browser,
                           TREE_COLUMN_MPATH,     mpath,
                           TREE_COLUMN_PATH_NAME, leaf_ptr,
                           -1);
+
+      g_free (leaf_ptr);
     }
 }
 
@@ -311,10 +310,8 @@ insert_into_tree_view (PluginBrowser *browser,
                        const gchar   *types_str,
                        PInfo         *pinfo)
 {
-  gchar        *labels[3];
   gchar        *str_ptr;
   gchar        *tmp_ptr;
-  gchar        *leaf_ptr;
   GtkTreeIter   parent, iter;
   GtkTreeStore *tree_store;
 
@@ -331,19 +328,11 @@ insert_into_tree_view (PluginBrowser *browser,
     return; /* No node */
   }
 
-  leaf_ptr = g_strdup (str_ptr + 1);
-
   *str_ptr = '\0';
 
   /*   printf("inserting %s...\n",menu_str); */
 
   get_parent (browser, tmp_ptr, &parent);
-
-  /* Last was a leaf */
-  /*   printf("found leaf %s parent = %p\n",leaf_ptr,parent); */
-  labels[0] = g_strdup (name);
-  labels[1] = g_strdup (xtimestr);
-  labels[2] = g_strdup (types_str);
 
   tree_store = GTK_TREE_STORE (gtk_tree_view_get_model (browser->tree_view));
   gtk_tree_store_append (tree_store, &iter, &parent);
@@ -355,8 +344,6 @@ insert_into_tree_view (PluginBrowser *browser,
                       TREE_COLUMN_DATE_STRING, xtimestr,
                       TREE_COLUMN_PINFO,       pinfo,
                       -1);
-
-  g_free (leaf_ptr);
 }
 
 static void
@@ -556,7 +543,7 @@ browser_dialog_new (void)
 
   browser = g_new0 (PluginBrowser, 1);
 
-  browser->dialog = gimp_dialog_new (_("Plug-In Browser"), PLUG_IN_BINARY,
+  browser->dialog = gimp_dialog_new (_("Plug-In Browser"), PLUG_IN_ROLE,
                                      NULL, 0,
                                      gimp_standard_help_func, PLUG_IN_PROC,
 
@@ -570,8 +557,8 @@ browser_dialog_new (void)
 
   browser->browser = gimp_browser_new ();
   gtk_container_set_border_width (GTK_CONTAINER (browser->browser), 12);
-  gtk_container_add (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (browser->dialog))),
-                     browser->browser);
+  gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (browser->dialog))),
+                      browser->browser, TRUE, TRUE, 0);
   gtk_widget_show (browser->browser);
 
   g_signal_connect (browser->browser, "search",

@@ -76,7 +76,7 @@ gimp_image_comment_editor_init (GimpImageCommentEditor *editor)
   editor->recoursing = FALSE;
 
   /* Vbox */
-  vbox = gtk_vbox_new (FALSE, 0);
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_box_pack_start (GTK_BOX (editor), vbox, TRUE, TRUE, 0);
   gtk_widget_show (vbox);
 
@@ -229,8 +229,17 @@ static void
 gimp_image_comment_editor_use_default_comment (GtkWidget              *button,
                                                GimpImageCommentEditor *editor)
 {
-  GimpImage   *image   = gimp_image_parasite_view_get_image (GIMP_IMAGE_PARASITE_VIEW (editor));
-  const gchar *comment = image ? image->gimp->config->default_image->comment : NULL;
+  GimpImage   *image;
+  const gchar *comment = NULL;
+
+  image = gimp_image_parasite_view_get_image (GIMP_IMAGE_PARASITE_VIEW (editor));
+
+  if (image)
+    {
+      GimpTemplate *template = image->gimp->config->default_image;
+
+      comment = gimp_template_get_comment (template);
+    }
 
   if (comment)
     gtk_text_buffer_set_text (editor->buffer, comment, -1);

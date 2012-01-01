@@ -31,6 +31,7 @@
 #define GRADMAP_PROC    "plug-in-gradmap"
 #define PALETTEMAP_PROC "plug-in-palettemap"
 #define PLUG_IN_BINARY  "gradient-map"
+#define PLUG_IN_ROLE    "gimp-gradient-map"
 #define NSAMPLES        256
 #define LUMINOSITY(X)   (GIMP_RGB_LUMINANCE (X[0], X[1], X[2]) + 0.5)
 
@@ -267,6 +268,8 @@ get_samples_gradient (GimpDrawable *drawable)
   /* FIXME: "reverse" hardcoded to FALSE. */
   gimp_gradient_get_uniform_samples (gradient_name, NSAMPLES, FALSE,
                                      &n_f_samples, &f_samples);
+
+  g_free (gradient_name);
 
   bpp       = gimp_drawable_bpp (drawable->drawable_id);
   color     = gimp_drawable_is_rgb (drawable->drawable_id);

@@ -19,6 +19,10 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#if !defined (__GIMP_WIDGETS_H_INSIDE__) && !defined (GIMP_WIDGETS_COMPILATION)
+#error "Only <libgimpwidgets/gimpwidgets.h> can be included directly."
+#endif
+
 #ifndef __GIMP_STOCK_H__
 #define __GIMP_STOCK_H__
 
@@ -279,6 +283,7 @@ G_BEGIN_DECLS
 #define GIMP_STOCK_GRADIENT                 GIMP_STOCK_TOOL_BLEND
 #define GIMP_STOCK_PALETTE                  GTK_STOCK_SELECT_COLOR
 #define GIMP_STOCK_PATTERN                  GIMP_STOCK_TOOL_BUCKET_FILL
+#define GIMP_STOCK_CONTROLLER_MOUSE         GIMP_STOCK_CURSOR
 
 
 void   gimp_stock_init (void);

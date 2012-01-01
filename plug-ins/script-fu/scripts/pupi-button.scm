@@ -82,11 +82,11 @@
                         height
                         ratio)
     (let* ((diameter (* ratio height)))
-      (gimp-ellipse-select img x y diameter height CHANNEL-OP-ADD FALSE 0 0)
-      (gimp-ellipse-select img (+ x (- width diameter)) y
-                           diameter height CHANNEL-OP-ADD FALSE 0 0)
-      (gimp-rect-select img (+ x (/ diameter 2)) y
-                        (- width diameter) height CHANNEL-OP-ADD FALSE 0)))
+      (gimp-image-select-ellipse img CHANNEL-OP-ADD x y diameter height)
+      (gimp-image-select-ellipse img CHANNEL-OP-ADD (+ x (- width diameter)) y
+                           diameter height)
+      (gimp-image-select-rectangle img CHANNEL-OP-ADD (+ x (/ diameter 2)) y
+                        (- width diameter) height)))
 
   (let* (
         (text-extents (gimp-text-get-extents-fontname text
@@ -114,12 +114,13 @@
         )
 
     (gimp-context-push)
-
+    (gimp-context-set-antialias FALSE)
+    (gimp-context-set-feather FALSE)
     (gimp-image-undo-disable img)
 
     ; Create bumpmap layer
 
-    (gimp-image-add-layer img bumpmap -1)
+    (gimp-image-insert-layer img bumpmap 0 -1)
     (gimp-selection-none img)
     (gimp-context-set-background '(0 0 0))
     (gimp-edit-fill bumpmap BACKGROUND-FILL)
@@ -134,7 +135,7 @@
 
     ; Create gradient layer
 
-    (gimp-image-add-layer img gradient -1)
+    (gimp-image-insert-layer img gradient 0 -1)
     (gimp-edit-clear gradient)
     (round-select img 0 0 width height ratio)
     (gimp-context-set-foreground ul-color)

@@ -49,6 +49,7 @@ struct _GimpDrawTool
   gint            paused_count; /*  count to keep track of multiple pauses  */
   guint           draw_timeout; /*  draw delay timeout ID                   */
 
+  GimpCanvasItem *preview;
   GimpCanvasItem *item;
   GList          *group_stack;
 };
@@ -87,6 +88,11 @@ gdouble          gimp_draw_tool_calc_distance_square (GimpDrawTool     *draw_too
                                                       gdouble           x2,
                                                       gdouble           y2);
 
+void             gimp_draw_tool_add_preview          (GimpDrawTool     *draw_tool,
+                                                      GimpCanvasItem   *item);
+void             gimp_draw_tool_remove_preview       (GimpDrawTool     *draw_tool,
+                                                      GimpCanvasItem   *item);
+
 void             gimp_draw_tool_add_item             (GimpDrawTool     *draw_tool,
                                                       GimpCanvasItem   *item);
 void             gimp_draw_tool_remove_item          (GimpDrawTool     *draw_tool,
@@ -121,6 +127,12 @@ GimpCanvasItem * gimp_draw_tool_add_rectangle        (GimpDrawTool     *draw_too
                                                       gdouble           y,
                                                       gdouble           width,
                                                       gdouble           height);
+GimpCanvasItem * gimp_draw_tool_add_rectangle_guides (GimpDrawTool     *draw_tool,
+                                                      GimpGuidesType    type,
+                                                      gdouble           x,
+                                                      gdouble           y,
+                                                      gdouble           width,
+                                                      gdouble           height);
 GimpCanvasItem * gimp_draw_tool_add_arc              (GimpDrawTool     *draw_tool,
                                                       gboolean          filled,
                                                       gdouble           x,
@@ -129,6 +141,23 @@ GimpCanvasItem * gimp_draw_tool_add_arc              (GimpDrawTool     *draw_too
                                                       gdouble           height,
                                                       gdouble           start_angle,
                                                       gdouble           slice_angle);
+GimpCanvasItem * gimp_draw_tool_add_transform_guides (GimpDrawTool     *draw_tool,
+                                                      const GimpMatrix3 *transform,
+                                                      GimpGuidesType    type,
+                                                      gint              n_guides,
+                                                      gdouble           x1,
+                                                      gdouble           y1,
+                                                      gdouble           x2,
+                                                      gdouble           y2);
+GimpCanvasItem * gimp_draw_tool_add_transform_preview(GimpDrawTool     *draw_tool,
+                                                      GimpDrawable     *drawable,
+                                                      const GimpMatrix3 *transform,
+                                                      gdouble           x1,
+                                                      gdouble           y1,
+                                                      gdouble           x2,
+                                                      gdouble           y2,
+                                                      gboolean          perspective,
+                                                      gdouble            opacity);
 
 GimpCanvasItem * gimp_draw_tool_add_handle           (GimpDrawTool     *draw_tool,
                                                       GimpHandleType    type,
@@ -158,7 +187,9 @@ GimpCanvasItem * gimp_draw_tool_add_strokes          (GimpDrawTool     *draw_too
                                                       gint              n_points,
                                                       gboolean          filled);
 GimpCanvasItem * gimp_draw_tool_add_path             (GimpDrawTool     *draw_tool,
-                                                      const GimpBezierDesc *desc);
+                                                      const GimpBezierDesc *desc,
+                                                      gdouble           x,
+                                                      gdouble           y);
 
 GimpCanvasItem * gimp_draw_tool_add_pen              (GimpDrawTool     *draw_tool,
                                                       const GimpVector2 *points,
