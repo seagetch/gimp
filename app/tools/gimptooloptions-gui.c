@@ -56,8 +56,9 @@ gimp_tool_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
     }
   else
     {
-      vbox = gtk_vbox_new (GTK_ORIENTATION_VERTICAL, 4);
+      vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 4);
     }
+  g_object_set (vbox, "homogeneous", FALSE, NULL);
 
   return vbox;
 }

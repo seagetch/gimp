@@ -184,9 +184,9 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
                                             _("Brush"), 2,
                                             "brush-view-type", "brush-view-size",
                                             "gimp-brush-editor");
-          gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
-          gtk_widget_show (button);
         }
+      gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
+      gtk_widget_show (button);
 
       /* brush size */
       if (horizontal)
@@ -313,6 +313,7 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
       gtk_widget_show (frame);
     }
 
+#if 0
   /* the "smoothing" toggle */
   if (g_type_is_a (tool_type, GIMP_TYPE_BRUSH_TOOL) ||
       tool_type == GIMP_TYPE_INK_TOOL ||
@@ -323,6 +324,7 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
       gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
       gtk_widget_show (frame);
     }
+#endif
 
   /* gimp-painter-2.7: the "texture" toggle */
   if (g_type_is_a (tool_type, GIMP_TYPE_BRUSH_TOOL) ||
