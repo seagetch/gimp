@@ -115,6 +115,9 @@ void                gimp_dock_temp_add                (GimpDock       *dock,
                                                        GtkWidget      *widget);
 void                gimp_dock_temp_remove             (GimpDock       *dock,
                                                        GtkWidget      *widget);
+gboolean            gimp_dock_is_shaded               (GimpDock       *dock); /* gimp-painter-2.7 */
+void                gimp_dock_set_shaded              (GimpDock       *dock,
+                                                       gboolean        shaded); /* gimp-painter-2.7 */
 
 
 #endif /* __GIMP_DOCK_H__ */

@@ -100,6 +100,10 @@ void              gimp_widget_flush_expose         (GtkWidget            *widget
 const gchar     * gimp_print_event                 (const GdkEvent       *event);
 void              gimp_session_write_position      (GimpConfigWriter     *writer,
                                                     gint                  position);
+void              gimp_session_write_boolean       (GimpConfigWriter     *writer,
+                                                    gchar                *name,
+                                                    gboolean              value);
+
 
 
 #endif /* __GIMP_WIDGETS_UTILS_H__ */

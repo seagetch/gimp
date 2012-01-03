@@ -46,7 +46,8 @@ enum
 {
   SESSION_INFO_SIDE,
   SESSION_INFO_POSITION,
-  SESSION_INFO_BOOK
+  SESSION_INFO_BOOK,
+  SESSION_INFO_SHADED,
 };
 
 
@@ -132,6 +133,8 @@ gimp_session_info_dock_serialize (GimpConfigWriter    *writer,
   for (list = dock_info->books; list; list = g_list_next (list))
     gimp_session_info_book_serialize (writer, list->data);
 
+  gimp_session_write_boolean (writer, "shaded", dock_info->shaded);
+
   gimp_config_writer_close (writer);
 }
 
@@ -152,6 +155,8 @@ gimp_session_info_dock_deserialize (GScanner             *scanner,
                               GINT_TO_POINTER (SESSION_INFO_POSITION));
   g_scanner_scope_add_symbol (scanner, scope, "book",
                               GINT_TO_POINTER (SESSION_INFO_BOOK));
+  g_scanner_scope_add_symbol (scanner, scope, "shaded",
+                              GINT_TO_POINTER (SESSION_INFO_SHADED));
 
   *dock_info = gimp_session_info_dock_new (dock_type);
 
@@ -206,6 +211,12 @@ gimp_session_info_dock_deserialize (GScanner             *scanner,
 
               break;
 
+            case SESSION_INFO_SHADED:
+              token = G_TOKEN_IDENTIFIER;
+              if (! gimp_scanner_parse_boolean (scanner, &((*dock_info)->shaded)))
+                (*dock_info)->shaded = FALSE;
+              break;
+
             default:
               return token;
             }
@@ -224,6 +235,7 @@ gimp_session_info_dock_deserialize (GScanner             *scanner,
   g_scanner_scope_remove_symbol (scanner, scope, "book");
   g_scanner_scope_remove_symbol (scanner, scope, "position");
   g_scanner_scope_remove_symbol (scanner, scope, "side");
+  g_scanner_scope_remove_symbol (scanner, scope, "shaded");
 
   return token;
 }
@@ -252,6 +264,7 @@ gimp_session_info_dock_from_widget (GimpDock *dock)
 
   dock_info->books = g_list_reverse (dock_info->books);
   dock_info->side  = gimp_session_info_dock_get_side (dock);
+  dock_info->shaded = gimp_dock_is_shaded (dock);
 
   parent = gtk_widget_get_parent (GTK_WIDGET (dock));
 
@@ -360,6 +373,8 @@ gimp_session_info_dock_restore (GimpSessionInfoDock *dock_info,
     {
       return NULL;
     }
+
+  gimp_dock_set_shaded (GIMP_DOCK (dock), dock_info->shaded);
 
   gtk_widget_show (dock);
 

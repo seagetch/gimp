@@ -44,6 +44,9 @@ struct _GimpSessionInfoDock
 
   /*  list of GimpSessionInfoBook  */
   GList             *books;
+
+  /* dock is shaded or not */
+  gboolean           shaded;
 };
 
 GimpSessionInfoDock * gimp_session_info_dock_new         (const gchar          *dock_type);

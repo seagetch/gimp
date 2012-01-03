@@ -112,6 +112,7 @@ static void              gimp_dock_titlebar_init          (GimpDockTitlebar *tit
 #if 0
 static GimpDockColumns * gimp_dock_get_dock_columns       (GimpDock     *dock);
 #endif
+static void              gimp_dock_titlebar_set_shaded (GimpDock *dock, gboolean shaded);
 static void              gimp_dock_titlebar_button_clicked (GtkWidget   *source, GimpDock *data);
 static void              gimp_dock_titlebar_update_description (GimpDockTitlebar* titlebar, GimpDock *dock);
 
@@ -890,19 +891,20 @@ gimp_dock_temp_remove (GimpDock  *dock,
   gtk_container_remove (GTK_CONTAINER (dock->p->temp_vbox), child);
 }
 
-/**
- * gimp_dock_minimize_button_clicked:
- */
 static void
-gimp_dock_titlebar_button_clicked (GtkWidget   *source, 
-                                   GimpDock *dock)
+gimp_dock_titlebar_set_shaded (GimpDock *dock, gboolean shaded)
 {
+  g_return_if_fail (GIMP_IS_DOCK (dock));
   gint w, h;
   GtkWidget *parent_paned = NULL;
   GtkWidget *paned_child  = NULL;
   gboolean   resize;
-  g_return_if_fail (GIMP_IS_DOCK (dock));
+   
+  if (dock->p->shaded == shaded)
+    return;
   
+  dock->p->shaded = shaded;
+
   parent_paned = gtk_widget_get_parent (GTK_WIDGET (dock));
   paned_child  = GTK_WIDGET (dock);
   while (parent_paned && !GTK_IS_PANED (parent_paned))
@@ -911,9 +913,8 @@ gimp_dock_titlebar_button_clicked (GtkWidget   *source,
       parent_paned = gtk_widget_get_parent (parent_paned);
     }
  
-  if (dock->p->shaded)
+  if (!dock->p->shaded)
     {
-      dock->p->shaded = FALSE;
       if (parent_paned)
         {
           gtk_container_child_get (GTK_CONTAINER (parent_paned),
@@ -931,7 +932,6 @@ gimp_dock_titlebar_button_clicked (GtkWidget   *source,
     }
   else
     {
-      dock->p->shaded = TRUE;
       if (parent_paned)
         {
           gtk_container_child_get (GTK_CONTAINER (parent_paned),
@@ -978,10 +978,38 @@ gimp_dock_titlebar_button_clicked (GtkWidget   *source,
     }
 }
 
+/**
+ * gimp_dock_minimize_button_clicked:
+ */
+static void
+gimp_dock_titlebar_button_clicked (GtkWidget   *source, 
+                                   GimpDock *dock)
+{
+  g_return_if_fail (GIMP_IS_DOCK (dock));
+
+  gimp_dock_titlebar_set_shaded (dock, !dock->p->shaded);
+}
+
 static void
 gimp_dock_titlebar_update_description (GimpDockTitlebar* titlebar, GimpDock *dock)
 {
   gchar *desc = gimp_dock_get_description (dock, TRUE);
   gtk_label_set_label (GTK_LABEL (titlebar->label), desc);
   g_free (desc);
+}
+
+gboolean
+gimp_dock_is_shaded (GimpDock *dock)
+{
+  if (!GIMP_IS_DOCK (dock))
+    return FALSE;
+  return dock->p->shaded;
+}
+
+void
+gimp_dock_set_shaded (GimpDock *dock, gboolean shaded)
+{
+  g_return_if_fail (GIMP_IS_DOCK (dock));
+
+  gimp_dock_titlebar_set_shaded (dock, shaded);
 }
