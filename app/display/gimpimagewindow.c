@@ -543,10 +543,21 @@ gimp_image_window_delete_event (GtkWidget   *widget,
 {
   GimpImageWindow  *window = GIMP_IMAGE_WINDOW (widget);
   GimpDisplayShell *shell  = gimp_image_window_get_active_shell (window);
+  GimpImageWindowPrivate *private = GIMP_IMAGE_WINDOW_GET_PRIVATE (window);
+  GimpGuiConfig          *config;
 
-  /* FIXME multiple shells */
-  if (shell)
-    gimp_display_shell_close (shell, FALSE);
+  config = GIMP_GUI_CONFIG (private->gimp->config);
+
+  if (config->single_window_mode)
+    {
+      gimp_exit (private->gimp, FALSE);
+    }
+  else
+    {
+      /* FIXME multiple shells */
+      if (shell)
+        gimp_display_shell_close (shell, FALSE);
+    }
 
   return TRUE;
 }
