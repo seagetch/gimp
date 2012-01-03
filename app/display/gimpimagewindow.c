@@ -105,7 +105,7 @@ struct _GimpImageWindowPrivate
   GtkWidget         *right_hpane;
   GtkWidget         *notebook;
   GtkWidget         *right_docks;
-  GtkWidget         *toolbar;
+  GtkWidget         *toolbar; /* gimp-painter-2.7 */
 
   GdkWindowState     window_state;
 
@@ -1495,6 +1495,7 @@ gimp_image_window_config_notify (GimpImageWindow *window,
       gimp_image_window_keep_canvas_pos (window);
       gtk_widget_set_visible (private->left_docks, show_docks);
       gtk_widget_set_visible (private->right_docks, show_docks);
+      gtk_widget_set_visible (private->toolbar, show_docks);
     }
 
   /* Session management */
