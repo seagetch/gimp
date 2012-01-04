@@ -370,7 +370,7 @@ gimp_image_window_constructed (GObject *object)
                                                    gimp_dialog_factory_get_menu_factory (private->dialog_factory));
   gtk_box_pack_start (GTK_BOX (private->main_vbox), private->toolbar,
                       FALSE, TRUE, 0);
-  gtk_widget_show (private->toolbar);  
+  gtk_widget_set_visible (private->toolbar, config->single_window_mode);  
 
   /* Create the hbox that contains docks and images */
   private->hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
