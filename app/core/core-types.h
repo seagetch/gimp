@@ -113,6 +113,7 @@ typedef struct _GimpPattern          GimpPattern;
 typedef struct _GimpPatternClipboard GimpPatternClipboard;
 typedef struct _GimpToolPreset       GimpToolPreset;
 typedef struct _GimpTagCache         GimpTagCache;
+typedef struct _GimpMypaintBrush     GimpMypaintBrush;
 
 
 /*  drawable objects  */

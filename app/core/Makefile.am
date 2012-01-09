@@ -72,6 +72,15 @@ libappcore_a_sources = \
 	gimpbrushgenerated-load.h		\
 	gimpbrushgenerated-save.c		\
 	gimpbrushgenerated-save.h		\
+  gimpmypaintbrush.h                      \
+	gimpmypaintbrush.cpp			\
+  gimpmypaintbrush-load.h			\
+	gimpmypaintbrush-load.cpp			\
+	mypaintbrush-enum-settings.h \
+	mypaintbrush-brushsettings.h \
+	mypaintbrush-brushsettings.c \
+	mypaintbrush-mapping.hpp \
+	mypaintbrush-private.hpp \
 	gimpbrushpipe.c				\
 	gimpbrushpipe.h				\
 	gimpbrushpipe-load.c			\

@@ -77,6 +77,9 @@ N_("When enabled, this will ensure that each pixel of an image gets " \
 #define DEFAULT_FONT_BLURB \
 "Specify a default font."
 
+#define DEFAULT_MYPAINT_BRUSH_BLURB \
+"Specify a default mypaint-compatible brush."
+
 #define DEFAULT_GRADIENT_BLURB \
 "Specify a default gradient."
 
@@ -162,6 +165,9 @@ N_("When enabled, the selected dynamics will be used for all tools.")
 #define GLOBAL_FONT_BLURB \
 "When enabled, the selected font will be used for all tools."
 
+#define GLOBAL_MYPAINT_BRUSH_BLURB \
+"When enabled, the selected mypaint-compatible brush will be used for all tools."
+
 #define GLOBAL_GRADIENT_BLURB \
 N_("When enabled, the selected gradient will be used for all tools.")
 
@@ -178,6 +184,11 @@ N_("When enabled, the selected pattern will be used for all tools.")
 
 #define FONT_PATH_BLURB \
 "Where to look for fonts in addition to the system-wide installed fonts."
+
+#define MYPAINT_BRUSH_PATH_BLURB \
+"Where to look for mypaint-compatible-brush in addition to the system-wide installed fonts."
+
+#define MYPAINT_BRUSH_PATH_WRITABLE_BLURB ""
 
 #define HELP_BROWSER_BLURB \
 N_("Sets the browser used by the help system.")

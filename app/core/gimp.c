@@ -54,6 +54,8 @@
 #include "gimpbrushclipboard.h"
 #include "gimpbrushgenerated-load.h"
 #include "gimpbrushpipe-load.h"
+#include "gimpmypaintbrush.h"
+#include "gimpmypaintbrush-load.h"
 #include "gimpbuffer.h"
 #include "gimpcontext.h"
 #include "gimpdatafactory.h"
@@ -585,6 +587,11 @@ gimp_real_initialize (Gimp               *gimp,
   {
     { gimp_tool_preset_load,     GIMP_TOOL_PRESET_FILE_EXTENSION,     TRUE  }
   };
+  
+  static const GimpDataFactoryLoaderEntry mypaint_brush_loader_entries[] =
+  {
+    {gimp_mypaint_brush_load,    GIMP_MYPAINT_BRUSH_FILE_EXTENSION,   TRUE },
+  };
 
   GimpData *clipboard_brush;
   GimpData *clipboard_pattern;
@@ -662,6 +669,17 @@ gimp_real_initialize (Gimp               *gimp,
   gimp_object_set_static_name (GIMP_OBJECT (gimp->tool_preset_factory),
                                "tool preset factory");
 
+  gimp->mypaint_brush_factory =
+    gimp_data_factory_new (gimp,
+                           GIMP_TYPE_MYPAINT_BRUSH,
+                           "mypaint-brush-path", "mypaint-brush-path-writable",
+                           mypaint_brush_loader_entries,
+                           G_N_ELEMENTS (mypaint_brush_loader_entries),
+                           gimp_mypaint_brush_new,
+                           NULL);
+  gimp_object_set_static_name (GIMP_OBJECT (gimp->mypaint_brush_factory),
+                               "mypaint_brush");
+
   gimp->tag_cache = gimp_tag_cache_new ();
 
   gimp_paint_init (gimp);
@@ -733,6 +751,7 @@ gimp_real_exit (Gimp     *gimp,
   gimp_data_factory_data_save (gimp->gradient_factory);
   gimp_data_factory_data_save (gimp->palette_factory);
   gimp_data_factory_data_save (gimp->tool_preset_factory);
+  gimp_data_factory_data_save (gimp->mypaint_brush_factory);
 
   gimp_fonts_reset (gimp);
 
@@ -950,6 +969,11 @@ gimp_restore (Gimp               *gimp,
   /*  initialize the list of gimp brushes    */
   status_callback (NULL, _("Brushes"), 0.1);
   gimp_data_factory_data_init (gimp->brush_factory, gimp->user_context,
+                               gimp->no_data);
+
+  /*  initialize the list of fonts  */
+  status_callback (NULL, _("Mypaint Brushes"), 0.15);
+  gimp_data_factory_data_init (gimp->mypaint_brush_factory, gimp->user_context,
                                gimp->no_data);
 
   /*  initialize the list of gimp dynamics   */

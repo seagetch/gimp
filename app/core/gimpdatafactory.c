@@ -318,7 +318,7 @@ gimp_data_factory_data_load (GimpDataFactory *factory,
 {
   gchar *path;
   gchar *writable_path;
-
+  
   g_object_get (factory->priv->gimp->config,
                 factory->priv->path_property_name,     &path,
                 factory->priv->writable_property_name, &writable_path,

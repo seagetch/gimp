@@ -330,6 +330,8 @@ static const GimpDialogFactoryEntry entries[] =
             GIMP_HELP_DOCUMENT_DIALOG, GIMP_VIEW_SIZE_LARGE),
   LISTGRID (template, N_("Templates"), N_("Image Templates"), GIMP_STOCK_TEMPLATE,
             GIMP_HELP_TEMPLATE_DIALOG, GIMP_VIEW_SIZE_SMALL),
+  LISTGRID (mypaint_brush, N_("Mypaint Brushes"), NULL, GIMP_STOCK_BRUSH,
+            GIMP_HELP_MYPAINT_BRUSH_DIALOG, GIMP_VIEW_SIZE_MEDIUM),
 
   /* Some things do not have grids, so just list */
   LIST (dynamics, dynamics, N_("Paint Dynamics"), NULL, GIMP_STOCK_DYNAMICS,

@@ -35,6 +35,7 @@
 #include "core/gimp.h"
 #include "core/gimp-utils.h"
 #include "core/gimpbrush.h"
+#include "core/gimpmypaintbrush.h"
 #include "core/gimpcontainer.h"
 #include "core/gimpcontext.h"
 #include "core/gimpgradient.h"
@@ -49,6 +50,7 @@
 
 #include "widgets/gimpactiongroup.h"
 #include "widgets/gimpbrushselect.h"
+#include "widgets/gimpmypaintbrushselect.h"
 #include "widgets/gimpdialogfactory.h"
 #include "widgets/gimpdocked.h"
 #include "widgets/gimpfontselect.h"
@@ -466,6 +468,12 @@ gui_pdb_dialog_new (Gimp          *gimp,
       dialog_role = "gimp-pattern-selection";
       help_id     = GIMP_HELP_PATTERN_DIALOG;
     }
+  else if (gimp_container_get_children_type (container) == GIMP_TYPE_MYPAINT_BRUSH)
+    {
+      dialog_type = GIMP_TYPE_MYPAINT_BRUSH_SELECT;
+      dialog_role = "gimp-mypaint-brush-selection";
+      help_id     = GIMP_HELP_MYPAINT_BRUSH_DIALOG;
+    }
 
   if (dialog_type != G_TYPE_NONE)
     {
@@ -559,6 +567,9 @@ gui_pdb_dialog_set (Gimp          *gimp,
     klass = g_type_class_peek (GIMP_TYPE_PALETTE_SELECT);
   else if (gimp_container_get_children_type (container) == GIMP_TYPE_PATTERN)
     klass = g_type_class_peek (GIMP_TYPE_PATTERN_SELECT);
+  else if (gimp_container_get_children_type (container) == GIMP_TYPE_MYPAINT_BRUSH)
+    klass = g_type_class_peek (GIMP_TYPE_MYPAINT_BRUSH_SELECT);
+
 
   if (klass)
     {

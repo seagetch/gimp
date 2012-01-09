@@ -117,6 +117,7 @@ typedef struct _GimpDataFactoryView          GimpDataFactoryView;
 typedef struct _GimpDynamicsFactoryView      GimpDynamicsFactoryView;
 typedef struct _GimpPatternFactoryView       GimpPatternFactoryView;
 typedef struct _GimpToolPresetFactoryView    GimpToolPresetFactoryView;
+typedef struct _GimpMypaintBrushFactoryView  GimpMypaintBrushFactoryView;
 
 /*  menus  */
 
@@ -150,6 +151,7 @@ typedef struct _GimpGradientSelect           GimpGradientSelect;
 typedef struct _GimpPaletteSelect            GimpPaletteSelect;
 typedef struct _GimpPatternSelect            GimpPatternSelect;
 typedef struct _GimpPdbDialog                GimpPdbDialog;
+typedef struct _GimpMypaintBrushSelect       GimpMypaintBrushSelect;
 
 
 /*  misc widgets  */

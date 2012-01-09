@@ -74,5 +74,6 @@ void   register_transform_tools_procs    (GimpPDB *pdb);
 void   register_undo_procs               (GimpPDB *pdb);
 void   register_unit_procs               (GimpPDB *pdb);
 void   register_vectors_procs            (GimpPDB *pdb);
+void   register_mypaint_brush_select_procs(GimpPDB *pdb);
 
 #endif /* __INTERNAL_PROCS_H__ */

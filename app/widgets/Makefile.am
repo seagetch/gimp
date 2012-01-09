@@ -37,6 +37,10 @@ libappwidgets_a_sources = \
 	gimpbrushfactoryview.h		\
 	gimpbrushselect.c		\
 	gimpbrushselect.h		\
+	gimpmypaintbrushfactoryview.c	\
+	gimpmypaintbrushfactoryview.h	\
+	gimpmypaintbrushselect.c	\
+	gimpmypaintbrushselect.h	\
 	gimpbufferview.c		\
 	gimpbufferview.h		\
 	gimpcairo.c			\

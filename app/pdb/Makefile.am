@@ -38,6 +38,7 @@ libappinternal_procs_a_SOURCES = \
 	internal-procs.h		\
 	brush-cmds.c			\
 	brush-select-cmds.c		\
+	mypaint-brush-select-cmds.c	\
 	brushes-cmds.c			\
 	buffer-cmds.c			\
 	channel-cmds.c			\

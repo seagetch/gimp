@@ -34,6 +34,7 @@
 #include "gimp.h"
 #include "gimp-utils.h"
 #include "gimpbrush.h"
+#include "gimpmypaintbrush.h"
 #include "gimpbuffer.h"
 #include "gimpcontainer.h"
 #include "gimpcontext.h"
@@ -227,6 +228,17 @@ static void gimp_context_font_list_thaw      (GimpContainer    *container,
 static void gimp_context_real_set_font       (GimpContext      *context,
                                               GimpFont         *font);
 
+/*  mypaint compatible brush  */
+static void gimp_context_mypaint_brush_dirty(GimpMypaintBrush *brush,
+                                              GimpContext      *context);
+static void gimp_context_mypaint_brush_removed (GimpContainer    *brush_list,
+                                              GimpMypaintBrush *brush,
+                                              GimpContext      *context);
+static void gimp_context_mypaint_brush_list_thaw (GimpContainer    *container,
+                                              GimpContext      *context);
+static void gimp_context_real_set_mypaint_brush (GimpContext      *context,
+                                              GimpMypaintBrush *brush);
+
 /*  buffer  */
 static void gimp_context_buffer_dirty        (GimpBuffer       *buffer,
                                               GimpContext      *context);
@@ -297,6 +309,7 @@ enum
   PALETTE_CHANGED,
   TOOL_PRESET_CHANGED,
   FONT_CHANGED,
+  MYPAINT_BRUSH_CHANGED,
   BUFFER_CHANGED,
   IMAGEFILE_CHANGED,
   TEMPLATE_CHANGED,
@@ -322,6 +335,7 @@ static const gchar * const gimp_context_prop_names[] =
   "palette",
   "tool-preset",
   "font",
+  "mypaint-brush",
   "buffer",
   "imagefile",
   "template"
@@ -339,6 +353,7 @@ static GType gimp_context_prop_types[] =
   G_TYPE_NONE,
   G_TYPE_NONE,
   G_TYPE_NONE,
+  0,
   0,
   0,
   0,
@@ -522,6 +537,16 @@ gimp_context_class_init (GimpContextClass *klass)
                   G_TYPE_NONE, 1,
                   GIMP_TYPE_FONT);
 
+  gimp_context_signals[MYPAINT_BRUSH_CHANGED] =
+    g_signal_new ("mypaint-brush-changed",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_FIRST,
+                  G_STRUCT_OFFSET (GimpContextClass, mypaint_brush_changed),
+                  NULL, NULL,
+                  gimp_marshal_VOID__OBJECT,
+                  G_TYPE_NONE, 1,
+                  GIMP_TYPE_MYPAINT_BRUSH);
+
   gimp_context_signals[BUFFER_CHANGED] =
     g_signal_new ("buffer-changed",
                   G_TYPE_FROM_CLASS (klass),
@@ -575,6 +600,7 @@ gimp_context_class_init (GimpContextClass *klass)
   klass->palette_changed         = NULL;
   klass->tool_preset_changed     = NULL;
   klass->font_changed            = NULL;
+  klass->mypaint_brush_changed   = NULL;
   klass->buffer_changed          = NULL;
   klass->imagefile_changed       = NULL;
   klass->template_changed        = NULL;
@@ -589,6 +615,7 @@ gimp_context_class_init (GimpContextClass *klass)
   gimp_context_prop_types[GIMP_CONTEXT_PROP_PALETTE]     = GIMP_TYPE_PALETTE;
   gimp_context_prop_types[GIMP_CONTEXT_PROP_TOOL_PRESET] = GIMP_TYPE_TOOL_PRESET;
   gimp_context_prop_types[GIMP_CONTEXT_PROP_FONT]        = GIMP_TYPE_FONT;
+  gimp_context_prop_types[GIMP_CONTEXT_PROP_MYPAINT_BRUSH] = GIMP_TYPE_MYPAINT_BRUSH;
   gimp_context_prop_types[GIMP_CONTEXT_PROP_BUFFER]      = GIMP_TYPE_BUFFER;
   gimp_context_prop_types[GIMP_CONTEXT_PROP_IMAGEFILE]   = GIMP_TYPE_IMAGEFILE;
   gimp_context_prop_types[GIMP_CONTEXT_PROP_TEMPLATE]    = GIMP_TYPE_TEMPLATE;
@@ -691,6 +718,12 @@ gimp_context_class_init (GimpContextClass *klass)
                                    GIMP_TYPE_FONT,
                                    GIMP_PARAM_STATIC_STRINGS);
 
+  GIMP_CONFIG_INSTALL_PROP_OBJECT (object_class, GIMP_CONTEXT_PROP_MYPAINT_BRUSH,
+                                   gimp_context_prop_names[GIMP_CONTEXT_PROP_MYPAINT_BRUSH],
+                                   NULL,
+                                   GIMP_TYPE_MYPAINT_BRUSH,
+                                   GIMP_PARAM_STATIC_STRINGS);
+
   g_object_class_install_property (object_class, GIMP_CONTEXT_PROP_BUFFER,
                                    g_param_spec_object (gimp_context_prop_names[GIMP_CONTEXT_PROP_BUFFER],
                                                         NULL, NULL,
@@ -749,6 +782,9 @@ gimp_context_init (GimpContext *context)
 
   context->font            = NULL;
   context->font_name       = NULL;
+
+  context->mypaint_brush   = NULL;
+  context->mypaint_brush_name = NULL;
 
   context->buffer          = NULL;
   context->buffer_name     = NULL;
@@ -859,6 +895,14 @@ gimp_context_constructed (GObject *object)
                            G_CALLBACK (gimp_context_font_list_thaw),
                            object, 0);
 
+  container = gimp_data_factory_get_container (gimp->mypaint_brush_factory);
+  g_signal_connect_object (container, "remove",
+                           G_CALLBACK (gimp_context_mypaint_brush_removed),
+                           object, 0);
+  g_signal_connect_object (container, "thaw",
+                           G_CALLBACK (gimp_context_mypaint_brush_list_thaw),
+                           object, 0);
+
   g_signal_connect_object (gimp->named_buffers, "remove",
                            G_CALLBACK (gimp_context_buffer_removed),
                            object, 0);
@@ -947,6 +991,12 @@ gimp_context_dispose (GObject *object)
       context->font = NULL;
     }
 
+  if (context->mypaint_brush)
+    {
+      g_object_unref (context->mypaint_brush);
+      context->mypaint_brush = NULL;
+    }
+
   if (context->buffer)
     {
       g_object_unref (context->buffer);
@@ -1031,6 +1081,12 @@ gimp_context_finalize (GObject *object)
       context->font_name = NULL;
     }
 
+  if (context->mypaint_brush_name)
+    {
+      g_free (context->mypaint_brush_name);
+      context->mypaint_brush_name = NULL;
+    }
+
   if (context->buffer_name)
     {
       g_free (context->buffer_name);
@@ -1109,6 +1165,9 @@ gimp_context_set_property (GObject      *object,
       break;
     case GIMP_CONTEXT_PROP_FONT:
       gimp_context_set_font (context, g_value_get_object (value));
+      break;
+    case GIMP_CONTEXT_PROP_MYPAINT_BRUSH:
+      gimp_context_set_mypaint_brush (context, g_value_get_object (value));
       break;
     case GIMP_CONTEXT_PROP_BUFFER:
       gimp_context_set_buffer (context, g_value_get_object (value));
@@ -1193,6 +1252,9 @@ gimp_context_get_property (GObject    *object,
     case GIMP_CONTEXT_PROP_FONT:
       g_value_set_object (value, gimp_context_get_font (context));
       break;
+    case GIMP_CONTEXT_PROP_MYPAINT_BRUSH:
+      g_value_set_object (value, gimp_context_get_mypaint_brush (context));
+      break;
     case GIMP_CONTEXT_PROP_BUFFER:
       g_value_set_object (value, gimp_context_get_buffer (context));
       break;
@@ -1223,6 +1285,7 @@ gimp_context_get_memsize (GimpObject *object,
   memsize += gimp_string_get_memsize (context->palette_name);
   memsize += gimp_string_get_memsize (context->tool_preset_name);
   memsize += gimp_string_get_memsize (context->font_name);
+  memsize += gimp_string_get_memsize (context->mypaint_brush_name);
   memsize += gimp_string_get_memsize (context->buffer_name);
   memsize += gimp_string_get_memsize (context->imagefile_name);
   memsize += gimp_string_get_memsize (context->template_name);
@@ -1264,6 +1327,7 @@ gimp_context_serialize_property (GimpConfig       *config,
     case GIMP_CONTEXT_PROP_PALETTE:
     case GIMP_CONTEXT_PROP_TOOL_PRESET:
     case GIMP_CONTEXT_PROP_FONT:
+    case GIMP_CONTEXT_PROP_MYPAINT_BRUSH:
       serialize_obj = g_value_get_object (value);
       break;
 
@@ -1354,6 +1418,12 @@ gimp_context_deserialize_property (GimpConfig *object,
       container = context->gimp->fonts;
       current   = (GimpObject *) context->font;
       name_loc  = &context->font_name;
+      break;
+
+    case GIMP_CONTEXT_PROP_MYPAINT_BRUSH:
+      container = gimp_data_factory_get_container (context->gimp->mypaint_brush_factory);
+      current   = (GimpObject *) context->mypaint_brush;
+      name_loc  = &context->mypaint_brush_name;
       break;
 
     default:
@@ -1680,6 +1750,14 @@ gimp_context_copy_property (GimpContext         *src,
       standard_object = gimp_font_get_standard ();
       src_name        = src->font_name;
       dest_name_loc   = &dest->font_name;
+      break;
+
+    case GIMP_CONTEXT_PROP_MYPAINT_BRUSH:
+      gimp_context_real_set_mypaint_brush (dest, src->mypaint_brush);
+      object          = src->mypaint_brush;
+      standard_object = gimp_mypaint_brush_get_standard (src);
+      src_name        = src->mypaint_brush_name;
+      dest_name_loc   = &dest->mypaint_brush_name;
       break;
 
     case GIMP_CONTEXT_PROP_BUFFER:
@@ -3284,6 +3362,127 @@ gimp_context_real_set_font (GimpContext *context,
 
   g_object_notify (G_OBJECT (context), "font");
   gimp_context_font_changed (context);
+}
+
+
+/*****************************************************************************/
+/*  mypaint compatible brush  ************************************************/
+
+GimpMypaintBrush *
+gimp_context_get_mypaint_brush (GimpContext *context)
+{
+  g_return_val_if_fail (GIMP_IS_CONTEXT (context), NULL);
+
+  return context->mypaint_brush;
+}
+
+void
+gimp_context_set_mypaint_brush (GimpContext *context,
+                        GimpMypaintBrush   *mypaint_brush)
+{
+  g_return_if_fail (GIMP_IS_CONTEXT (context));
+  g_return_if_fail (! mypaint_brush || GIMP_IS_MYPAINT_BRUSH (mypaint_brush));
+  context_find_defined (context, GIMP_CONTEXT_PROP_MYPAINT_BRUSH);
+
+  gimp_context_real_set_mypaint_brush (context, mypaint_brush);
+}
+
+void
+gimp_context_mypaint_brush_changed (GimpContext *context)
+{
+  g_return_if_fail (GIMP_IS_CONTEXT (context));
+
+  g_signal_emit (context,
+                 gimp_context_signals[MYPAINT_BRUSH_CHANGED], 0,
+                 context->mypaint_brush);
+}
+
+/*  the active brush was modified  */
+static void
+gimp_context_mypaint_brush_dirty (GimpMypaintBrush   *mypaint_brush,
+                          GimpContext *context)
+{
+  g_free (context->mypaint_brush_name);
+  context->mypaint_brush_name = g_strdup (gimp_object_get_name (mypaint_brush));
+}
+
+/*  the global brush list is there again after refresh  */
+static void
+gimp_context_mypaint_brush_list_thaw (GimpContainer *container,
+                                      GimpContext   *context)
+{
+  GimpMypaintBrush *mypaint_brush;
+
+  if (! context->mypaint_brush_name)
+    context->mypaint_brush_name = g_strdup (context->gimp->config->default_mypaint_brush);
+
+  mypaint_brush = gimp_context_find_object (context, container,
+                                            context->mypaint_brush_name,
+                                            gimp_mypaint_brush_get_standard (context));
+
+  gimp_context_real_set_mypaint_brush (context, mypaint_brush);
+}
+
+/*  the active brush disappeared  */
+static void
+gimp_context_mypaint_brush_removed (GimpContainer *container,
+                                    GimpMypaintBrush     *mypaint_brush,
+                                    GimpContext   *context)
+{
+  if (mypaint_brush == context->mypaint_brush)
+    {
+      context->mypaint_brush = NULL;
+
+      g_signal_handlers_disconnect_by_func (mypaint_brush,
+                                            gimp_context_mypaint_brush_dirty,
+                                            context);
+      g_object_unref (mypaint_brush);
+
+      if (! gimp_container_frozen (container))
+        gimp_context_mypaint_brush_list_thaw (container, context);
+    }
+}
+
+static void
+gimp_context_real_set_mypaint_brush (GimpContext *context,
+                                     GimpMypaintBrush   *mypaint_brush)
+{
+  if (context->mypaint_brush == mypaint_brush)
+    return;
+
+  if (context->mypaint_brush_name &&
+      mypaint_brush != GIMP_MYPAINT_BRUSH (gimp_mypaint_brush_get_standard (context)))
+    {
+      g_free (context->mypaint_brush_name);
+      context->mypaint_brush_name = NULL;
+    }
+
+  /*  disconnect from the old brush's signals  */
+  if (context->mypaint_brush)
+    {
+      g_signal_handlers_disconnect_by_func (context->mypaint_brush,
+                                            gimp_context_mypaint_brush_dirty,
+                                            context);
+      g_object_unref (context->mypaint_brush);
+    }
+
+  context->mypaint_brush = mypaint_brush;
+
+  if (mypaint_brush)
+    {
+      g_object_ref (mypaint_brush);
+
+      g_signal_connect_object (mypaint_brush, "name-changed",
+                               G_CALLBACK (gimp_context_mypaint_brush_dirty),
+                               context,
+                               0);
+
+      if (mypaint_brush != GIMP_MYPAINT_BRUSH (gimp_mypaint_brush_get_standard (context)))
+        context->mypaint_brush_name = g_strdup (gimp_object_get_name (mypaint_brush));
+    }
+
+  g_object_notify (G_OBJECT (context), "mypaint-brush");
+  gimp_context_mypaint_brush_changed (context);
 }
 
 

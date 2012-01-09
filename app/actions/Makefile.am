@@ -23,6 +23,8 @@ libappactions_a_SOURCES = \
 	brush-editor-actions.h		\
 	brushes-actions.c		\
 	brushes-actions.h		\
+	mypaint-brushes-actions.c		\
+	mypaint-brushes-actions.h		\
 	buffers-actions.c		\
 	buffers-actions.h		\
 	buffers-commands.c		\

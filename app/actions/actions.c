@@ -93,6 +93,7 @@
 #include "vectors-actions.h"
 #include "view-actions.h"
 #include "windows-actions.h"
+#include "mypaint-brushes-actions.h"
 
 #include "gimp-intl.h"
 
@@ -234,7 +235,10 @@ static const GimpActionFactoryEntry action_groups[] =
     view_actions_update },
   { "windows", N_("Windows"), NULL,
     windows_actions_setup,
-    windows_actions_update }
+    windows_actions_update },
+  { "mypaint-brushes", N_("Mypaint Brushes"), GIMP_STOCK_BRUSH,
+    mypaint_brushes_actions_setup,
+    mypaint_brushes_actions_update },
 };
 
 

@@ -381,6 +381,18 @@
 #define GIMP_HELP_FONT_DIALOG                     "gimp-font-dialog"
 #define GIMP_HELP_FONT_REFRESH                    "gimp-font-refresh"
 
+#define GIMP_HELP_MYPAINT_BRUSH_DIALOG                    "gimp-mypaint-brush-dialog"
+#define GIMP_HELP_MYPAINT_BRUSH_EDIT                      "gimp-mypaint-brush-edit"
+#define GIMP_HELP_MYPAINT_BRUSH_OPEN_AS_IMAGE             "gimp-mypaint-brush-open-as-image"
+#define GIMP_HELP_MYPAINT_BRUSH_NEW                       "gimp-mypaint-brush-new"
+#define GIMP_HELP_MYPAINT_BRUSH_DUPLICATE                 "gimp-mypaint-brush-duplicate"
+#define GIMP_HELP_MYPAINT_BRUSH_COPY_LOCATION             "gimp-mypaint-brush-copy-location"
+#define GIMP_HELP_MYPAINT_BRUSH_DELETE                    "gimp-mypaint-brush-delete"
+#define GIMP_HELP_MYPAINT_BRUSH_REFRESH                   "gimp-mypaint-brush-refresh"
+
+#define GIMP_HELP_MYPAINT_BRUSH_EDITOR_DIALOG             "gimp-mypaint-brush-editor-dialog"
+#define GIMP_HELP_MYPAINT_BRUSH_EDITOR_EDIT_ACTIVE        "gimp-mypaint-brush-editor-edit-active"
+
 #define GIMP_HELP_BUFFER_DIALOG                   "gimp-buffer-dialog"
 #define GIMP_HELP_BUFFER_CUT                      "gimp-buffer-cut"
 #define GIMP_HELP_BUFFER_COPY                     "gimp-buffer-copy"

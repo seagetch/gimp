@@ -31,6 +31,7 @@
 
 #include "widgets/gimpbrusheditor.h"
 #include "widgets/gimpbrushfactoryview.h"
+#include "widgets/gimpmypaintbrushfactoryview.h"
 #include "widgets/gimpbufferview.h"
 #include "widgets/gimpchanneltreeview.h"
 #include "widgets/gimpcoloreditor.h"
@@ -419,6 +420,19 @@ dialogs_font_list_view_new (GimpDialogFactory *factory,
 }
 
 GtkWidget *
+dialogs_mypaint_brush_list_view_new (GimpDialogFactory *factory,
+                             GimpContext       *context,
+                             GimpUIManager     *ui_manager,
+                             gint               view_size)
+{
+  return gimp_mypaint_brush_factory_view_new (GIMP_VIEW_TYPE_LIST,
+                                      context->gimp->mypaint_brush_factory,
+                                      context,
+                                      view_size, 1,
+                                      gimp_dialog_factory_get_menu_factory (factory));
+}
+
+GtkWidget *
 dialogs_buffer_list_view_new (GimpDialogFactory *factory,
                               GimpContext       *context,
                               GimpUIManager     *ui_manager,
@@ -556,6 +570,19 @@ dialogs_font_grid_view_new (GimpDialogFactory *factory,
                              context,
                              view_size, 1,
                              gimp_dialog_factory_get_menu_factory (factory));
+}
+
+GtkWidget *
+dialogs_mypaint_brush_grid_view_new (GimpDialogFactory *factory,
+                             GimpContext       *context,
+                             GimpUIManager     *ui_manager,
+                             gint               view_size)
+{
+  return gimp_mypaint_brush_factory_view_new (GIMP_VIEW_TYPE_GRID,
+                                      context->gimp->mypaint_brush_factory,
+                                      context,
+                                      view_size, 1,
+                                      gimp_dialog_factory_get_menu_factory (factory));
 }
 
 GtkWidget *

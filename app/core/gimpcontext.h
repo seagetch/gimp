@@ -91,6 +91,9 @@ struct _GimpContext
   GimpFont             *font;
   gchar                *font_name;
 
+  GimpMypaintBrush     *mypaint_brush;
+  gchar                *mypaint_brush_name;
+
   GimpBuffer           *buffer;
   gchar                *buffer_name;
 
@@ -137,6 +140,8 @@ struct _GimpContextClass
                                GimpToolPreset       *tool_preset);
   void (* font_changed)       (GimpContext          *context,
                                GimpFont             *font);
+  void (* mypaint_brush_changed)(GimpContext          *context,
+                               GimpMypaintBrush     *brush);
   void (* buffer_changed)     (GimpContext          *context,
                                GimpBuffer           *buffer);
   void (* imagefile_changed)  (GimpContext          *context,
@@ -320,6 +325,13 @@ const gchar    * gimp_context_get_font_name       (GimpContext     *context);
 void             gimp_context_set_font_name       (GimpContext     *context,
                                                    const gchar     *name);
 void             gimp_context_font_changed        (GimpContext     *context);
+
+
+/*  mypaint compatible brush  */
+GimpMypaintBrush* gimp_context_get_mypaint_brush  (GimpContext     *context);
+void             gimp_context_set_mypaint_brush   (GimpContext     *context,
+                                                   GimpMypaintBrush*brush);
+void             gimp_context_mypaint_brush_changed (GimpContext     *context);
 
 
 /*  buffer  */

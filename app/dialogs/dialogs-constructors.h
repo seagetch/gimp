@@ -151,6 +151,10 @@ GtkWidget * dialogs_font_list_view_new     (GimpDialogFactory *factory,
                                             GimpContext       *context,
                                             GimpUIManager     *ui_manager,
                                             gint               view_size);
+GtkWidget * dialogs_mypaint_brush_list_view_new    (GimpDialogFactory *factory,
+                                            GimpContext       *context,
+                                            GimpUIManager     *ui_manager,
+                                            gint               view_size);
 GtkWidget * dialogs_buffer_list_view_new   (GimpDialogFactory *factory,
                                             GimpContext       *context,
                                             GimpUIManager     *ui_manager,
@@ -190,6 +194,10 @@ GtkWidget * dialogs_palette_grid_view_new  (GimpDialogFactory *factory,
                                             GimpUIManager     *ui_manager,
                                             gint               view_size);
 GtkWidget * dialogs_font_grid_view_new     (GimpDialogFactory *factory,
+                                            GimpContext       *context,
+                                            GimpUIManager     *ui_manager,
+                                            gint               view_size);
+GtkWidget * dialogs_mypaint_brush_grid_view_new    (GimpDialogFactory *factory,
                                             GimpContext       *context,
                                             GimpUIManager     *ui_manager,
                                             gint               view_size);

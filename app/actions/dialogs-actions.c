@@ -195,6 +195,12 @@ const GimpStringActionEntry dialogs_dockable_actions[] =
     "gimp-font-list|gimp-font-grid",
     GIMP_HELP_FONT_DIALOG },
 
+  { "dialogs-mypaint-brushes", GIMP_STOCK_BRUSH,
+    NC_("dialogs-action", "My_paint Brushes"), NULL,
+    NC_("dialogs-action", "Open the mypaint brushes dialog"),
+    "gimp-mypaint_brush-grid|gimp-mypaint_brush-list",
+    GIMP_HELP_MYPAINT_BRUSH_DIALOG },
+
   { "dialogs-buffers", GIMP_STOCK_BUFFER,
     NC_("dialogs-action", "B_uffers"), "",
     NC_("dialogs-action", "Open the named buffers dialog"),
@@ -223,7 +229,9 @@ const GimpStringActionEntry dialogs_dockable_actions[] =
     NC_("dialogs-action", "Error Co_nsole"), NULL,
     NC_("dialogs-action", "Open the error console"),
     "gimp-error-console",
-    GIMP_HELP_ERRORS_DIALOG }
+    GIMP_HELP_ERRORS_DIALOG },
+
+
 };
 
 gint n_dialogs_dockable_actions = G_N_ELEMENTS (dialogs_dockable_actions);
