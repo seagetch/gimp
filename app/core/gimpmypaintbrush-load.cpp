@@ -1,0 +1,419 @@
+/* GIMP - The GNU Image Manipulation Program
+ * Copyright (C) 1995 Spencer Kimball and Peter Mattis
+ *
+ * gimpbrush-load.c
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+extern "C" {
+
+#include "config.h"
+
+#include <errno.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
+#ifndef _O_BINARY
+#define _O_BINARY 0
+#endif
+
+#include <glib-object.h>
+#include <glib/gstdio.h>
+#include <cairo.h>
+
+#include "libgimpbase/gimpbase.h"
+
+#ifdef G_OS_WIN32
+#include "libgimpbase/gimpwin32-io.h"
+#endif
+
+#include <glib.h> /* GIOChannel */
+#include <glib/gprintf.h> /* strip / split */
+
+
+#include "core-types.h"
+
+#include "base/temp-buf.h"
+
+#include "gimpmypaintbrush.h"
+#include "gimpmypaintbrush-load.h"
+#include "gimpmypaintbrush-private.hpp"
+#include "mypaintbrush-brushsettings.h"
+
+#include "gimp-intl.h"
+
+}
+
+#define CURRENT_BRUSHFILE_VERSION 2
+
+/*  local function prototypes  */
+
+class MyPaintBrushReader {
+  private:
+  GimpMypaintBrush *result;
+  GHashTable       *raw_pair;
+  gint64            version;
+
+  GHashTable* read_file (const gchar *filename, GError **error);
+  void parse_raw       (gint64 version);
+  void parse_points_v1 (gchar *string, gint inputs_index, Mapping *mapping);
+  void parse_points_v2 (gchar *string, gint inputs_index, Mapping *mapping);
+  gchar *unquote        (gchar *string);
+  void load_icon       (gchar *filename);
+  
+  public:
+  MyPaintBrushReader();
+  ~MyPaintBrushReader();
+  GimpMypaintBrush *
+  load_brush (GimpContext  *context,
+              const gchar  *filename,
+              GError      **error);
+
+    
+};
+
+extern "C" {
+/*  public functions  */
+
+GList *
+gimp_mypaint_brush_load (GimpContext  *context,
+                 const gchar  *filename,
+                 GError      **error)
+{
+  GimpMypaintBrush *brush;
+
+  g_print ("Read mypaint brush %s\n", filename);
+
+  g_return_val_if_fail (filename != NULL, NULL);
+  g_return_val_if_fail (g_path_is_absolute (filename), NULL);
+  g_return_val_if_fail (error == NULL || *error == NULL, NULL);
+  
+
+  MyPaintBrushReader reader;
+  brush = reader.load_brush (context, filename, error);
+
+  if (! brush)
+    return NULL;
+
+  return g_list_prepend (NULL, brush);
+}
+
+}
+
+/*  private functions  */
+
+
+MyPaintBrushReader::MyPaintBrushReader() : result(NULL), raw_pair(NULL), version(0)
+{
+}
+
+MyPaintBrushReader::~MyPaintBrushReader()
+{
+  if (raw_pair)
+    g_hash_table_unref (raw_pair);
+  if (result)
+    g_object_unref (result);
+}
+
+GimpMypaintBrush*
+MyPaintBrushReader::load_brush (GimpContext  *context,
+                       const gchar  *filename,
+                       GError      **error)
+{
+  result = GIMP_MYPAINT_BRUSH (gimp_mypaint_brush_new (context, "Standard"));
+  g_object_ref (result);
+  raw_pair = read_file (filename, error);
+  parse_raw (version);
+  
+  ScopeGuard<gchar, void(gpointer)> filename_dup(g_strndup(filename, strlen(filename) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION)), g_free);
+  ScopeGuard<gchar, void(gpointer)> icon_filename(g_strconcat (filename_dup.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION), g_free);
+  g_print ("Read Icon: %s\n", icon_filename.ptr());
+  load_icon (icon_filename.ptr());
+  return result;
+}
+
+GHashTable*
+MyPaintBrushReader::read_file (const gchar *filename, GError **error)
+{
+  GIOChannel       *config_stream;
+  gchar            *line;
+  gsize             line_len;
+  gsize             line_term_pos;
+  gint64            version = 0;
+
+  g_return_val_if_fail ( GIMP_IS_MYPAINT_BRUSH (result), NULL);
+
+  config_stream = g_io_channel_new_file (filename, "r", error);
+  ScopeGuard<GIOChannel, void(GIOChannel*)> config_stream_holder(config_stream, g_io_channel_unref);
+    
+  if (! config_stream)
+    {
+      g_clear_error (error);
+      return NULL;
+    }
+    
+  raw_pair = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+  
+  while (g_io_channel_read_line (config_stream, &line, &line_len, &line_term_pos, error) != G_IO_STATUS_EOF)
+    {
+      ScopeGuard<gchar, void(gpointer)> line_holder(line, g_free);
+      if (!line)
+        break;
+      
+      line = g_strstrip (line);
+      if (line[0] != '#')
+        {
+          gchar **tokens = g_strsplit (line, " ", 2);
+          ScopeGuard<gchar*, void(gchar**)> token_holder(tokens, g_strfreev);
+          if (g_strcmp0(tokens[0], "version") == 0) {
+            version = g_ascii_strtoll (tokens[1], NULL, 0);
+            if (version >= CURRENT_BRUSHFILE_VERSION)
+              {
+                // TBD: 
+                break;
+              }
+          }
+          g_hash_table_insert (raw_pair, g_strdup(tokens[0]), g_strdup(tokens[1])); // Note: ownership of tokens is moved to GHashTable object.
+        }
+    }
+  return raw_pair;
+}
+
+gchar* 
+MyPaintBrushReader::unquote (gchar *string)
+{
+  return g_strdup (string);
+}
+
+/// Parses the points list format from versions prior to version 2.
+void
+MyPaintBrushReader::parse_points_v1 (gchar *string, gint inputs_index, Mapping *mapping)
+{
+  gchar **iter;
+  gint num_seq = 0;
+  gfloat prev_x;
+  gint i;
+
+  ScopeGuard<gchar*, void(gchar**)> seq(g_strsplit (string, " ", 0), g_strfreev); 
+  
+  for (iter = seq.ptr(); *iter; iter++)
+    num_seq ++;
+
+  mapping->set_n(inputs_index, num_seq / 2);
+
+  prev_x = 0;
+  i = 0;
+  for (iter = seq.ptr(); *iter; )
+    {
+      gdouble x_val, y_val;
+      
+      x_val = g_ascii_strtod (*(iter++), NULL);
+      if (!(x_val > prev_x));
+        {
+          g_print ("Invalid input points: x > previous x\n");
+          goto next;
+        }
+      prev_x = x_val;
+
+      y_val = g_ascii_strtod (*(iter++), NULL);
+      
+      mapping->set_point(inputs_index, i ++, (float)x_val, (float)y_val);
+    next:;;
+    }  
+}
+
+/// Parses the newer points list format of v2 and beyond.
+void
+MyPaintBrushReader::parse_points_v2 (gchar *string, gint inputs_index, Mapping *mapping)
+{
+  gchar **seq;
+  gchar **iter;
+  gint num_seq = 0;
+  gint i;
+
+  seq = g_strsplit (string, ", ", 0);  
+  
+  for (iter = seq; *iter; iter++)
+    num_seq ++;
+
+  mapping->set_n(inputs_index, num_seq);
+
+  i = 0;
+  for (iter = seq; *iter; )
+    {
+      gchar *str_pos = *iter;
+      gdouble x_val, y_val;
+      str_pos = g_strstrip (str_pos);
+      if (str_pos[0] != '(') 
+        {
+          // NG
+        }
+      str_pos = g_strstrip (str_pos++);
+      x_val = g_ascii_strtod (str_pos, &str_pos);
+      
+      str_pos = g_strstrip (str_pos);
+      y_val = g_ascii_strtod (str_pos, &str_pos);
+
+      str_pos = g_strstrip (str_pos);
+      if (str_pos[0] != ')') 
+        {
+          // NG
+        }
+      mapping->set_point(inputs_index, i ++, (float)x_val, (float)y_val);
+    }  
+}
+
+#if 0
+static void
+MyPaintBrushReader::transform_y (gchar *key)
+{
+        def transform_y(valuepair, func):
+            """Used during migration from earlier versions."""
+            basevalue, input_points = valuepair
+            basevalue = func(basevalue)
+            input_points_new = {}
+            for inputname, points in input_points.iteritems():
+                points_new = [(x, func(y)) for x, y in points]
+                input_points_new[inputname] = points_new
+            return [basevalue, input_points_new]
+}
+#endif
+
+void
+MyPaintBrushReader::parse_raw (
+                  gint64            version)
+{
+  ScopeGuard<GHashTable, void(GHashTable*)> settings_dict(mypaint_brush_get_brush_settings_dict (), g_hash_table_unref);
+  ScopeGuard<GHashTable, void(GHashTable*)> inputs_dict(mypaint_brush_get_input_settings_dict (), g_hash_table_unref);
+  GHashTableIter    raw_pair_iter;
+  gpointer          raw_key, raw_value;
+  GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
+
+  g_hash_table_iter_init (&raw_pair_iter, raw_pair);
+  
+  while (g_hash_table_iter_next (&raw_pair_iter, &raw_key, &raw_value))
+    {
+      gchar    *key          = (gchar*)raw_key;
+      gchar    *value        = (gchar*)raw_value;
+      
+      if (strcmp (key, "parent_brush_name") == 0)
+        {
+          gchar *uq_value = unquote (value);
+          priv->set_parent_brush_name(uq_value);
+          g_free (uq_value);
+          goto next_pair;
+        }
+      else if (strcmp (key, "group") == 0)
+        {
+          gchar *uq_value = unquote (value);
+          priv->set_group(value);
+          g_free (uq_value);
+          goto next_pair;
+        }
+      else if (version <= 1 && strcmp (key, "color") == 0) 
+        {
+#if 0
+                rgb = [int(c)/255.0 for c in rawvalue.split(" ")]
+                h, s, v = helpers.rgb_to_hsv(*rgb)
+                return [('color_h', [h, {}]), ('color_s', [s, {}]), ('color_v', [v, {}])]
+#endif
+          goto next_pair;
+        }
+      else if (version <= 1 && strcmp (key, "change_radius") == 0)
+        {
+#if 0
+                if rawvalue == '0.0':
+                    return []
+                raise Obsolete, 'change_radius is not supported any more'
+#endif
+          goto next_pair;
+        }
+      else if (version <= 2 && strcmp (key, "adapt_color_from_image") == 0)
+        {
+#if 0
+                if rawvalue == '0.0':
+                    return []
+                raise Obsolete, 'adapt_color_from_image is obsolete, ignored;' + \
+                                ' use smudge and smudge_length instead'
+#endif
+          goto next_pair;
+        }
+      else if (version <= 1 && strcmp (key, "painting_time") == 0)
+        {
+          goto next_pair;
+        }      
+      else if (version <= 1 && strcmp (key, "speed") == 0)
+        {
+          key = (gchar*)"speed1";
+        }
+      
+      MyPaintBrushSettings             *setting;
+      setting = (MyPaintBrushSettings*)g_hash_table_lookup (settings_dict.ptr(), key);
+      if (setting)
+        {
+          ScopeGuard<gchar*, void(gchar**)>   split_values(g_strsplit (value, "|", 0), g_strfreev);
+          gchar                          **values_pos;
+          values_pos = split_values.ptr();
+        
+          priv->set_base_value(setting->index, g_ascii_strtod (*values_pos, NULL));
+          values_pos ++;      
+          if (*values_pos)
+            {
+              priv->allocate_mapping(setting->index);
+            }
+          GimpMypaintBrushPrivate::Value* v = priv->get_setting(setting->index);
+          while (*values_pos)
+            {
+              //      inputname, rawpoints = part.strip().split(' ', 1)
+              gchar *str_pos = *values_pos;
+              str_pos = g_strstrip (str_pos);
+              ScopeGuard<gchar *, void(gchar**)> tokens(g_strsplit (str_pos, " ", 2), g_strfreev);
+              MyPaintBrushInputSettings *input_setting;
+              input_setting = (MyPaintBrushInputSettings*)g_hash_table_lookup (inputs_dict.ptr(), tokens.ptr()[0]);
+              if (tokens.ptr()[1] && input_setting)
+                {
+                  if (version <= 1)
+                    parse_points_v1 (tokens.ptr()[1], input_setting->index, v->mapping);
+                  else
+                    parse_points_v2 (tokens.ptr()[1], input_setting->index, v->mapping);
+                }
+              else
+                {
+                  g_print ("invalid parameter '%s'\n", *values_pos);
+                }
+              values_pos ++;
+            }
+        }
+      else
+        {
+          g_print ("invalid key '%s'\n", key);
+        }
+    next_pair:
+      ;;
+    }
+}
+
+void
+MyPaintBrushReader::load_icon (gchar *filename)
+{
+  result->icon = cairo_image_surface_create_from_png(filename);
+}
