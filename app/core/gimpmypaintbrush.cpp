@@ -280,9 +280,9 @@ gimp_mypaint_brush_get_new_preview (GimpViewable *viewable,
     {
       for (x = 0; x < width; x ++)
         {
-          dest_buf[x * 4    ] = source_buf[x * 4 + 0];
+          dest_buf[x * 4    ] = source_buf[x * 4 + 2];
           dest_buf[x * 4 + 1] = source_buf[x * 4 + 1];
-          dest_buf[x * 4 + 2] = source_buf[x * 4 + 2];
+          dest_buf[x * 4 + 2] = source_buf[x * 4 + 0];
           dest_buf[x * 4 + 3] = source_buf[x * 4 + 3];
         }
       source_buf += stride;
@@ -302,8 +302,14 @@ gimp_mypaint_brush_get_description (GimpViewable  *viewable,
 
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(mypaint_brush->p);  
   g_return_val_if_fail (priv != NULL, NULL);
-
-  return g_strdup (priv->get_parent_brush_name());
+  
+  gchar *desc1 = priv->get_parent_brush_name();
+  
+  if (desc1[0] != '\0')
+    return g_strdup (desc1);
+    
+  g_object_get (G_OBJECT (viewable), "name", &desc1, NULL);
+  return g_strdup (desc1);
 }
 
 static void
@@ -394,13 +400,7 @@ gimp_mypaint_brush_new (GimpContext *context,
                                             "name", name,
                                             "mime-type", "application/x-mypaint-brush",
                                             NULL));
-/*
-  brush = GIMP_MYPAINT_BRUSH (g_object_new (GIMP_TYPE_MYPAINT_BRUSH,
-                                            "name",         name,
-                                            "mime-type",    "application/x-mypaint-brush",
-                                            "spacing", 20, 
-                                            NULL));
-*/
+
   return GIMP_DATA (brush);
 }
 
@@ -536,6 +536,15 @@ GimpMypaintBrushPrivate::GimpMypaintBrushPrivate() {
 }
 
 GimpMypaintBrushPrivate::~GimpMypaintBrushPrivate() {
+  if (parent_brush_name) {
+    g_free (parent_brush_name);
+  }
+  for (int i = 0; i < BRUSH_SETTINGS_COUNT; i ++) {
+    if (settings[i].mapping) {
+      delete settings[i].mapping;
+      settings[i].mapping    = NULL;
+    }
+  }
 }
 
 void 

@@ -72,12 +72,14 @@ class MyPaintBrushReader {
   GimpMypaintBrush *result;
   GHashTable       *raw_pair;
   gint64            version;
+  
+  typedef gfloat (TransformY)(gfloat input);
 
   GHashTable* read_file (const gchar *filename, GError **error);
   void parse_raw       (gint64 version);
-  void parse_points_v1 (gchar *string, gint inputs_index, Mapping *mapping);
-  void parse_points_v2 (gchar *string, gint inputs_index, Mapping *mapping);
-  gchar *unquote        (gchar *string);
+  void parse_points_v1 (gchar *string, gint inputs_index, Mapping *mapping, TransformY trans = NULL);
+  void parse_points_v2 (gchar *string, gint inputs_index, Mapping *mapping, TransformY trans = NULL);
+  gchar *unquote        (const gchar *string);
   void load_icon       (gchar *filename);
   
   public:
@@ -139,7 +141,12 @@ MyPaintBrushReader::load_brush (GimpContext  *context,
                        const gchar  *filename,
                        GError      **error)
 {
-  result = GIMP_MYPAINT_BRUSH (gimp_mypaint_brush_new (context, "Standard"));
+//  ScopeGuard<gchar, void(gpointer)> unescaped_path(unquote (filename), g_free);
+  ScopeGuard<gchar, void(gpointer)> basename(g_path_get_basename (filename), g_free);
+  gchar *brushname = g_strndup(basename.ptr(), strlen(basename.ptr()) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION));
+  version = 0;  
+
+  result = GIMP_MYPAINT_BRUSH (gimp_mypaint_brush_new (context, brushname));
   g_object_ref (result);
   raw_pair = read_file (filename, error);
   parse_raw (version);
@@ -158,7 +165,6 @@ MyPaintBrushReader::read_file (const gchar *filename, GError **error)
   gchar            *line;
   gsize             line_len;
   gsize             line_term_pos;
-  gint64            version = 0;
 
   g_return_val_if_fail ( GIMP_IS_MYPAINT_BRUSH (result), NULL);
 
@@ -184,34 +190,44 @@ MyPaintBrushReader::read_file (const gchar *filename, GError **error)
         {
           gchar **tokens = g_strsplit (line, " ", 2);
           ScopeGuard<gchar*, void(gchar**)> token_holder(tokens, g_strfreev);
-          if (g_strcmp0(tokens[0], "version") == 0) {
-            version = g_ascii_strtoll (tokens[1], NULL, 0);
-            if (version >= CURRENT_BRUSHFILE_VERSION)
-              {
-                // TBD: 
-                break;
-              }
-          }
-          g_hash_table_insert (raw_pair, g_strdup(tokens[0]), g_strdup(tokens[1])); // Note: ownership of tokens is moved to GHashTable object.
+          if (g_strcmp0(tokens[0], "version") == 0) 
+            {
+              version = g_ascii_strtoll (tokens[1], NULL, 0);
+              if (version > CURRENT_BRUSHFILE_VERSION)
+                {
+                  // TBD: 
+                  break;
+                }
+            } 
+          else
+            {
+              g_hash_table_insert (raw_pair, g_strdup(tokens[0]), g_strdup(tokens[1])); // Note: ownership of tokens is moved to GHashTable object.
+            }
         }
     }
   return raw_pair;
 }
 
 gchar* 
-MyPaintBrushReader::unquote (gchar *string)
+MyPaintBrushReader::unquote (const gchar *string)
 {
-  return g_strdup (string);
+  return g_uri_unescape_string (string, NULL);
 }
 
 /// Parses the points list format from versions prior to version 2.
 void
-MyPaintBrushReader::parse_points_v1 (gchar *string, gint inputs_index, Mapping *mapping)
+MyPaintBrushReader::parse_points_v1 (
+    gchar *string, 
+    gint inputs_index, 
+    Mapping *mapping, 
+    MyPaintBrushReader::TransformY* trans)
 {
   gchar **iter;
   gint num_seq = 0;
   gfloat prev_x;
   gint i;
+  
+  g_print ("Parse v1 params : %s\n", string);
 
   ScopeGuard<gchar*, void(gchar**)> seq(g_strsplit (string, " ", 0), g_strfreev); 
   
@@ -219,6 +235,7 @@ MyPaintBrushReader::parse_points_v1 (gchar *string, gint inputs_index, Mapping *
     num_seq ++;
 
   mapping->set_n(inputs_index, num_seq / 2);
+  g_print ("set_n: %d\n", num_seq / 2);
 
   prev_x = 0;
   i = 0;
@@ -235,6 +252,10 @@ MyPaintBrushReader::parse_points_v1 (gchar *string, gint inputs_index, Mapping *
       prev_x = x_val;
 
       y_val = g_ascii_strtod (*(iter++), NULL);
+      if (trans)
+        y_val = (*trans)((gfloat)y_val);
+      
+      g_print ("X=%lf,Y=%lf\n", x_val, y_val);
       
       mapping->set_point(inputs_index, i ++, (float)x_val, (float)y_val);
     next:;;
@@ -243,7 +264,12 @@ MyPaintBrushReader::parse_points_v1 (gchar *string, gint inputs_index, Mapping *
 
 /// Parses the newer points list format of v2 and beyond.
 void
-MyPaintBrushReader::parse_points_v2 (gchar *string, gint inputs_index, Mapping *mapping)
+MyPaintBrushReader::parse_points_v2 (
+    gchar *string, 
+    gint inputs_index, 
+    Mapping *mapping,
+    MyPaintBrushReader::TransformY* trans)
+
 {
   gchar **seq;
   gchar **iter;
@@ -258,7 +284,7 @@ MyPaintBrushReader::parse_points_v2 (gchar *string, gint inputs_index, Mapping *
   mapping->set_n(inputs_index, num_seq);
 
   i = 0;
-  for (iter = seq; *iter; )
+  for (iter = seq; *iter; iter++)
     {
       gchar *str_pos = *iter;
       gdouble x_val, y_val;
@@ -266,17 +292,21 @@ MyPaintBrushReader::parse_points_v2 (gchar *string, gint inputs_index, Mapping *
       if (str_pos[0] != '(') 
         {
           // NG
+          g_print ("ERROR: must be start with '(', but %c appears.\n", str_pos[0]);
         }
-      str_pos = g_strstrip (str_pos++);
+      str_pos = g_strstrip (++str_pos);
       x_val = g_ascii_strtod (str_pos, &str_pos);
       
       str_pos = g_strstrip (str_pos);
       y_val = g_ascii_strtod (str_pos, &str_pos);
+      if (trans)
+        y_val = (*trans)((gfloat)y_val);
 
       str_pos = g_strstrip (str_pos);
       if (str_pos[0] != ')') 
         {
           // NG
+          g_print ("ERROR: must be end with ')', but %c appears.\n", str_pos[0]);
         }
       mapping->set_point(inputs_index, i ++, (float)x_val, (float)y_val);
     }  
@@ -304,6 +334,7 @@ MyPaintBrushReader::parse_raw (
 {
   ScopeGuard<GHashTable, void(GHashTable*)> settings_dict(mypaint_brush_get_brush_settings_dict (), g_hash_table_unref);
   ScopeGuard<GHashTable, void(GHashTable*)> inputs_dict(mypaint_brush_get_input_settings_dict (), g_hash_table_unref);
+  ScopeGuard<GHashTable, void(GHashTable*)> migrate_dict(mypaint_brush_get_setting_migrate_dict (), g_hash_table_unref);
   GHashTableIter    raw_pair_iter;
   gpointer          raw_key, raw_value;
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
@@ -319,7 +350,8 @@ MyPaintBrushReader::parse_raw (
         {
           gchar *uq_value = unquote (value);
           priv->set_parent_brush_name(uq_value);
-          g_free (uq_value);
+          g_object_set (G_OBJECT (result), "name", uq_value, NULL);
+//          g_free (uq_value);
           goto next_pair;
         }
       else if (strcmp (key, "group") == 0)
@@ -340,22 +372,24 @@ MyPaintBrushReader::parse_raw (
         }
       else if (version <= 1 && strcmp (key, "change_radius") == 0)
         {
-#if 0
-                if rawvalue == '0.0':
-                    return []
-                raise Obsolete, 'change_radius is not supported any more'
-#endif
-          goto next_pair;
+          if (strcmp (value, "0.0") == 0)
+            goto next_pair;
+          else
+            {
+              //FIXME! ERROR
+              //raise Obsolete, 'change_radius is not supported any more'
+            }
         }
       else if (version <= 2 && strcmp (key, "adapt_color_from_image") == 0)
         {
-#if 0
-                if rawvalue == '0.0':
-                    return []
-                raise Obsolete, 'adapt_color_from_image is obsolete, ignored;' + \
-                                ' use smudge and smudge_length instead'
-#endif
-          goto next_pair;
+          if (strcmp (value, "0.0") == 0)
+            goto next_pair;
+          else
+            {
+              //FIXME! ERROR
+              //raise Obsolete, 'adapt_color_from_image is obsolete, ignored;' + \
+              //                ' use smudge and smudge_length instead'
+            }
         }
       else if (version <= 1 && strcmp (key, "painting_time") == 0)
         {
@@ -365,6 +399,14 @@ MyPaintBrushReader::parse_raw (
         {
           key = (gchar*)"speed1";
         }
+      {
+      MyPaintBrushSettingMigrate *migrate = (MyPaintBrushSettingMigrate*)g_hash_table_lookup (migrate_dict.ptr(), key);
+      if (migrate)
+        {
+          if (migrate->new_name)
+            key = migrate->new_name;
+        }
+      
       
       MyPaintBrushSettings             *setting;
       setting = (MyPaintBrushSettings*)g_hash_table_lookup (settings_dict.ptr(), key);
@@ -373,8 +415,13 @@ MyPaintBrushReader::parse_raw (
           ScopeGuard<gchar*, void(gchar**)>   split_values(g_strsplit (value, "|", 0), g_strfreev);
           gchar                          **values_pos;
           values_pos = split_values.ptr();
+          
+          gdouble d_val = g_ascii_strtod (*values_pos, NULL);
+          if (migrate && migrate->transform)
+            d_val = (*migrate->transform)((gfloat)d_val);
+
         
-          priv->set_base_value(setting->index, g_ascii_strtod (*values_pos, NULL));
+          priv->set_base_value(setting->index, d_val);
           values_pos ++;      
           if (*values_pos)
             {
@@ -407,6 +454,7 @@ MyPaintBrushReader::parse_raw (
         {
           g_print ("invalid key '%s'\n", key);
         }
+      }
     next_pair:
       ;;
     }
