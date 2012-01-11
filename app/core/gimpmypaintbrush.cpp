@@ -539,6 +539,9 @@ GimpMypaintBrushPrivate::~GimpMypaintBrushPrivate() {
   if (parent_brush_name) {
     g_free (parent_brush_name);
   }
+  if (group) {
+    g_free (group);
+  }
   for (int i = 0; i < BRUSH_SETTINGS_COUNT; i ++) {
     if (settings[i].mapping) {
       delete settings[i].mapping;

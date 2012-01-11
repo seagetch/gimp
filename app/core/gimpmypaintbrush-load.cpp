@@ -41,6 +41,7 @@ extern "C" {
 #include <cairo.h>
 
 #include "libgimpbase/gimpbase.h"
+#include "libgimpcolor/gimpcolor.h"
 
 #ifdef G_OS_WIN32
 #include "libgimpbase/gimpwin32-io.h"
@@ -363,11 +364,29 @@ MyPaintBrushReader::parse_raw (
         }
       else if (version <= 1 && strcmp (key, "color") == 0) 
         {
-#if 0
-                rgb = [int(c)/255.0 for c in rawvalue.split(" ")]
-                h, s, v = helpers.rgb_to_hsv(*rgb)
-                return [('color_h', [h, {}]), ('color_s', [s, {}]), ('color_v', [v, {}])]
-#endif
+          ScopeGuard<gchar*, void(gchar**)>  tokens(g_strsplit(value, " ", 0), g_strfreev);
+          MyPaintBrushSettings               *setting;
+          gint64 r, g, b;
+          r = g_ascii_strtoll(tokens.ptr()[0], NULL, 10);
+          g = g_ascii_strtoll(tokens.ptr()[1], NULL, 10);
+          b = g_ascii_strtoll(tokens.ptr()[2], NULL, 10);
+          GimpRGB rgb;
+          rgb.r = r / 255.0; 
+          rgb.g = g / 255.0; 
+          rgb.b = b / 255.0; 
+          rgb.a = 1.0;
+          GimpHSV hsv;
+          gimp_rgb_to_hsv (&rgb, &hsv);
+
+          setting = (MyPaintBrushSettings*)g_hash_table_lookup (settings_dict.ptr(), "color_h");
+          priv->set_base_value (setting->index, hsv.h);
+
+          setting = (MyPaintBrushSettings*)g_hash_table_lookup (settings_dict.ptr(), "color_s");
+          priv->set_base_value (setting->index, hsv.s);
+
+          setting = (MyPaintBrushSettings*)g_hash_table_lookup (settings_dict.ptr(), "color_v");
+          priv->set_base_value (setting->index, hsv.v);
+
           goto next_pair;
         }
       else if (version <= 1 && strcmp (key, "change_radius") == 0)
