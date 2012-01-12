@@ -313,22 +313,6 @@ MyPaintBrushReader::parse_points_v2 (
     }  
 }
 
-#if 0
-static void
-MyPaintBrushReader::transform_y (gchar *key)
-{
-        def transform_y(valuepair, func):
-            """Used during migration from earlier versions."""
-            basevalue, input_points = valuepair
-            basevalue = func(basevalue)
-            input_points_new = {}
-            for inputname, points in input_points.iteritems():
-                points_new = [(x, func(y)) for x, y in points]
-                input_points_new[inputname] = points_new
-            return [basevalue, input_points_new]
-}
-#endif
-
 void
 MyPaintBrushReader::parse_raw (
                   gint64            version)
