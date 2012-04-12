@@ -536,6 +536,20 @@ typedef enum
   GIMP_VECTORS_STROKE_TYPE_BEZIER
 } GimpVectorsStrokeType;
 
+
+#define GIMP_TYPE_MYPAINT_BRUSH_MODE (gimp_mypaint_brush_mode_get_type ())
+
+GType gimp_mypaint_brush_mode_get_type (void) G_GNUC_CONST;
+
+typedef enum
+{
+  GIMP_MYPAINT_NORMAL,            /*< desc="Normal"    >*/
+  GIMP_MYPAINT_NORMAL_AND_ERASE,  /*< desc="Normal and Erase" >*/
+  GIMP_MYPAINT_LOCK_ALPHA,        /*< desc="Lock Alpha">*/
+  GIMP_MYPAINT_COLORIZE,	  /*< desc="Colorize">*/
+} GimpMypaintBrushMode;
+
+
 G_END_DECLS
 
 #endif  /* __GIMP_BASE_ENUMS_H__ */

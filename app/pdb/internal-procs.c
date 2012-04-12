@@ -37,6 +37,7 @@ internal_procs_init (GimpPDB *pdb)
 
   register_brush_procs (pdb);
   register_brush_select_procs (pdb);
+  register_mypaint_brush_select_procs (pdb);
   register_brushes_procs (pdb);
   register_buffer_procs (pdb);
   register_channel_procs (pdb);
@@ -85,5 +86,4 @@ internal_procs_init (GimpPDB *pdb)
   register_undo_procs (pdb);
   register_unit_procs (pdb);
   register_vectors_procs (pdb);
-  register_mypaint_brush_select_procs (pdb);
 }

@@ -317,6 +317,8 @@ libappcore_a_sources = \
 	gimpobject.h				\
 	gimppaintinfo.c				\
 	gimppaintinfo.h				\
+	gimpmypaintinfo.c			\
+	gimpmypaintinfo.h			\
 	gimppattern.c				\
 	gimppattern.h				\
 	gimppattern-header.h			\

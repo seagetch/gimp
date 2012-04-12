@@ -30,4 +30,5 @@ libapppaint_funcs_a_SOURCES = \
 	scale-region.c		\
 	scale-region.h		\
 	subsample-region.c	\
-	subsample-region.h
+	subsample-region.h	\
+	mypaint-brushmodes.hpp

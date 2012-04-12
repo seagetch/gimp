@@ -45,6 +45,7 @@ typedef struct _GimpSmudge           GimpSmudge;
 /*  paint options  */
 
 typedef struct _GimpPaintOptions            GimpPaintOptions;
+typedef struct _GimpMypaintOptions          GimpMypaintOptions;
 typedef struct _GimpSourceOptions           GimpSourceOptions;
 
 typedef struct _GimpDynamicsOptions         GimpDynamicsOptions;
@@ -63,6 +64,7 @@ typedef struct _GimpSmudgeOptions           GimpSmudgeOptions;
 /*  paint undos  */
 
 typedef struct _GimpPaintCoreUndo GimpPaintCoreUndo;
+typedef struct _GimpMypaintCoreUndo GimpMypaintCoreUndo;
 typedef struct _GimpInkUndo       GimpInkUndo;
 
 

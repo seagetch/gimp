@@ -21,11 +21,95 @@
 #include <string.h>
 #include <glib.h>
 #include <math.h>
+#include <stdlib.h>
 /* #include "Python.h" */
 
-#include "core/mypaintlib-brushsettings.hpp"
-#include "core/mypaintlib-enum-settings.hpp"
-#include "core/mypaintlb-mapping.hpp"
+#include "core/mypaintbrush-brushsettings.h"
+#include "core/mypaintbrush-enum-settings.h"
+#include "core/mypaintbrush-mapping.hpp"
+
+extern "C" {
+#include "libgimpcolor/gimpcolor.h"
+};
+
+///
+/// Helper functions
+///
+
+#define assert(x) g_assert(x)
+
+// Optimized version from one in GIMP (noisify.c), where it was
+// adapted from ppmforge.c, which is part of PBMPLUS. The algorithm
+// comes from: 'The Science Of Fractal Images'. Peitgen, H.-O., and
+// Saupe, D. eds.  Springer Verlag, New York, 1988.
+static float rand_gauss (GRand * rng)
+{
+  float sum = 0.0;
+  gint32 rand1 = g_rand_int(rng);
+  gint32 rand2 = g_rand_int(rng);
+  sum +=  rand1        & 0x7FFF;
+  sum += (rand1 >> 16) & 0x7FFF;
+  sum +=  rand2        & 0x7FFF;
+  sum += (rand2 >> 16) & 0x7FFF;
+  return sum * 5.28596089837e-5 - 3.46410161514;
+}
+
+void
+rgb_to_hsv_float (float *r_ /*h*/, float *g_ /*s*/, float *b_ /*v*/)
+{
+  GimpRGB rgb;
+  GimpHSV hsv;
+  rgb.r = *r_;
+  rgb.g = *g_;
+  rgb.b = *b_;
+  gimp_rgb_to_hsv(&rgb, &hsv);
+  *r_ = hsv.h;
+  *g_ = hsv.s;
+  *b_ = hsv.v;
+}
+
+void
+hsv_to_rgb_float (float *h_, float *s_, float *v_)
+{
+  GimpRGB rgb;
+  GimpHSV hsv;
+  hsv.h = *h_;
+  hsv.s = *s_;
+  hsv.v = *v_;
+  gimp_hsv_to_rgb(&hsv, &rgb);
+  *h_ = rgb.r;
+  *s_ = rgb.g;
+  *v_ = rgb.b;
+}
+
+void
+rgb_to_hsl_float (float *r_ /*h*/, float *g_ /*s*/, float *b_ /*v*/)
+{
+  GimpRGB rgb;
+  GimpHSL hsl;
+  rgb.r = *r_;
+  rgb.g = *g_;
+  rgb.b = *b_;
+  gimp_rgb_to_hsl(&rgb, &hsl);
+  *r_ = hsl.h;
+  *g_ = hsl.s;
+  *b_ = hsl.l;
+}
+
+void
+hsl_to_rgb_float (float *h_, float *s_, float *v_)
+{
+  GimpRGB rgb;
+  GimpHSL hsl;
+  hsl.h = *h_;
+  hsl.s = *s_;
+  hsl.l = *v_;
+  gimp_hsl_to_rgb(&hsl, &rgb);
+  *h_ = rgb.r;
+  *s_ = rgb.g;
+  *v_ = rgb.b;
+}
+
 
 #define ACTUAL_RADIUS_MIN 0.2
 #define ACTUAL_RADIUS_MAX 800 // safety guard against radius like 1e20 and against rendering overload with unexpected brush dynamics
@@ -122,6 +206,13 @@ public:
   void set_mapping_point (int id, int input, int index, float x, float y) {
     assert (id >= 0 && id < BRUSH_SETTINGS_COUNT);
     settings[id]->set_point (input, index, x, y);
+  }
+  
+  void copy_mapping (int id, const Mapping* src) {
+    assert (id >= 0 && id < BRUSH_SETTINGS_COUNT);
+    assert (src != NULL);
+    
+    *(settings[id]) = *src;
   }
 
   float get_state (int i)

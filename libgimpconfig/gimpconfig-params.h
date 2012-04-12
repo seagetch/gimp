@@ -75,74 +75,74 @@ G_BEGIN_DECLS
   g_object_class_install_property (class, id,\
                                    g_param_spec_boolean (name, NULL, blurb,\
                                    default,\
-                                   flags | GIMP_CONFIG_PARAM_FLAGS))
+                                   (GParamFlags)(flags | GIMP_CONFIG_PARAM_FLAGS)))
 
 #define GIMP_CONFIG_INSTALL_PROP_RGB(class, id, name, blurb, has_alpha, default, flags) \
   g_object_class_install_property (class, id,\
                                    gimp_param_spec_rgb (name, NULL, blurb,\
                                    has_alpha, default, \
-                                   flags | GIMP_CONFIG_PARAM_FLAGS))
+                                   (GParamFlags)(flags | GIMP_CONFIG_PARAM_FLAGS)))
 
 #define GIMP_CONFIG_INSTALL_PROP_DOUBLE(class, id, name, blurb, min, max, default, flags)\
   g_object_class_install_property (class, id,\
                                    g_param_spec_double (name, NULL, blurb,\
                                    min, max, default,\
-                                   flags | GIMP_CONFIG_PARAM_FLAGS))
+                                   (GParamFlags)(flags | GIMP_CONFIG_PARAM_FLAGS)))
 
 #define GIMP_CONFIG_INSTALL_PROP_RESOLUTION(class, id, name, blurb, default, flags)\
   g_object_class_install_property (class, id,\
                                    g_param_spec_double (name, NULL, blurb,\
                                    GIMP_MIN_RESOLUTION, GIMP_MAX_RESOLUTION, \
                                    default,\
-                                   flags | GIMP_CONFIG_PARAM_FLAGS))
+                                   (GParamFlags)(flags | GIMP_CONFIG_PARAM_FLAGS)))
 
 #define GIMP_CONFIG_INSTALL_PROP_ENUM(class, id, name, blurb, enum_type, default, flags)\
   g_object_class_install_property (class, id,\
                                    g_param_spec_enum (name, NULL, blurb,\
                                    enum_type, default,\
-                                   flags | GIMP_CONFIG_PARAM_FLAGS))
+                                   (GParamFlags)(flags | GIMP_CONFIG_PARAM_FLAGS)))
 
 #define GIMP_CONFIG_INSTALL_PROP_INT(class, id, name, blurb, min, max, default, flags)\
   g_object_class_install_property (class, id,\
                                    g_param_spec_int (name, NULL, blurb,\
                                    min, max, default,\
-                                   flags | GIMP_CONFIG_PARAM_FLAGS))
+                                   (GParamFlags)(flags | GIMP_CONFIG_PARAM_FLAGS)))
 
 #define GIMP_CONFIG_INSTALL_PROP_MATRIX2(class, id, name, blurb, default, flags)\
   g_object_class_install_property (class, id,\
                                    gimp_param_spec_matrix2 (name, NULL, blurb,\
                                    default,\
-                                   flags | GIMP_CONFIG_PARAM_FLAGS))
+                                   (GParamFlags)(flags | GIMP_CONFIG_PARAM_FLAGS)))
 
 #define GIMP_CONFIG_INSTALL_PROP_MEMSIZE(class, id, name, blurb, min, max, default, flags)\
   g_object_class_install_property (class, id,\
                                    gimp_param_spec_memsize (name, NULL, blurb,\
                                    min, max, default,\
-                                   flags | GIMP_CONFIG_PARAM_FLAGS))
+                                   (GParamFlags)(flags | GIMP_CONFIG_PARAM_FLAGS)))
 
 #define GIMP_CONFIG_INSTALL_PROP_PATH(class, id, name, blurb, path_type, default, flags)\
   g_object_class_install_property (class, id,\
                                    gimp_param_spec_config_path (name, NULL, blurb,\
                                    path_type, default,\
-                                   flags | GIMP_CONFIG_PARAM_FLAGS))
+                                   (GParamFlags)(flags | GIMP_CONFIG_PARAM_FLAGS)))
 
 #define GIMP_CONFIG_INSTALL_PROP_STRING(class, id, name, blurb, default, flags)\
   g_object_class_install_property (class, id,\
                                    g_param_spec_string (name, NULL, blurb,\
                                    default,\
-                                   flags | GIMP_CONFIG_PARAM_FLAGS))
+                                   (GParamFlags)(flags | GIMP_CONFIG_PARAM_FLAGS)))
 
 #define GIMP_CONFIG_INSTALL_PROP_UINT(class, id, name, blurb, min, max, default, flags)\
   g_object_class_install_property (class, id,\
                                    g_param_spec_uint (name, NULL, blurb,\
                                    min, max, default,\
-                                   flags | GIMP_CONFIG_PARAM_FLAGS))
+                                   (GParamFlags)(flags | GIMP_CONFIG_PARAM_FLAGS)))
 
 #define GIMP_CONFIG_INSTALL_PROP_UNIT(class, id, name, blurb, pixels, percent, default, flags)\
   g_object_class_install_property (class, id,\
                                    gimp_param_spec_unit (name, NULL, blurb,\
                                    pixels, percent, default,\
-                                   flags | GIMP_CONFIG_PARAM_FLAGS))
+                                   (GParamFlags)(flags | GIMP_CONFIG_PARAM_FLAGS)))
 
 
 /*  object, boxed and pointer properties are _not_ G_PARAM_CONSTRUCT  */
@@ -151,24 +151,24 @@ G_BEGIN_DECLS
   g_object_class_install_property (class, id,\
                                    g_param_spec_object (name, NULL, blurb,\
                                    object_type,\
-                                   flags |\
+                                   (GParamFlags)(flags |\
                                    G_PARAM_READWRITE |\
-                                   GIMP_CONFIG_PARAM_SERIALIZE))
+                                   GIMP_CONFIG_PARAM_SERIALIZE)))
 
 #define GIMP_CONFIG_INSTALL_PROP_BOXED(class, id, name, blurb, boxed_type, flags)\
   g_object_class_install_property (class, id,\
                                    g_param_spec_boxed (name, NULL, blurb,\
                                    boxed_type,\
-                                   flags |\
+                                   (GParamFlags)(flags |\
                                    G_PARAM_READWRITE |\
-                                   GIMP_CONFIG_PARAM_SERIALIZE))
+                                   GIMP_CONFIG_PARAM_SERIALIZE)))
 
 #define GIMP_CONFIG_INSTALL_PROP_POINTER(class, id, name, blurb, flags)\
   g_object_class_install_property (class, id,\
                                    g_param_spec_pointer (name, NULL, blurb,\
-                                   flags |\
+                                   (GParamFlags)(flags |\
                                    G_PARAM_READWRITE |\
-                                   GIMP_CONFIG_PARAM_SERIALIZE))
+                                   GIMP_CONFIG_PARAM_SERIALIZE)))
 
 
 G_END_DECLS

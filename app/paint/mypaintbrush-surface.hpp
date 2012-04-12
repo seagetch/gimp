@@ -13,6 +13,9 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+ 
+#ifndef __MYPAINTBRUSH_SURFACE_HPP__
+#define __MYPAINTBRUSH_SURFACE_HPP__
 
 // surface interface required by brush.hpp
 class Surface {
@@ -26,11 +29,18 @@ public:
                          float opaque, float hardness = 0.5,
                          float alpha_eraser = 1.0,
                          float aspect_ratio = 1.0, float angle = 0.0,
-                         float lock_alpha = 0.0
+                         float lock_alpha = 0.0, float colorize = 0.0
                          ) = 0;
 
   virtual void get_color (float x, float y, 
                           float radius, 
                           float * color_r, float * color_g, float * color_b, float * color_a
                           ) = 0;
+
+  virtual void begin_session() = 0;
+
+  virtual GimpUndo* end_session() = 0;
+
 };
+
+#endif

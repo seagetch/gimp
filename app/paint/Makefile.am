@@ -55,12 +55,24 @@ libapppaint_a_sources = \
 	gimpinkundo.h			\
 	gimppaintcore.c			\
 	gimppaintcore.h			\
+	gimpmypaintcore.cpp		\
+	gimpmypaintcore.hpp		\
+	gimpmypaintcoreundo.cpp		\
+	gimpmypaintcoreundo.h		\
+	gimpmypaintcore-surface.cpp		\
+	gimpmypaintcore-surface.hpp		\
 	gimppaintcore-stroke.c		\
 	gimppaintcore-stroke.h		\
 	gimppaintcoreundo.c		\
 	gimppaintcoreundo.h		\
 	gimppaintoptions.c		\
 	gimppaintoptions.h		\
+	gimpmypaintoptions.cpp		\
+	gimpmypaintoptions.h		\
+	mypaintbrush-brush.hpp		\
+	mypaintbrush-surface.hpp		\
+	mypaintbrush-stroke.hpp		\
+	mypaintbrush-stroke.cpp		\
 	gimppencil.c			\
 	gimppencil.h			\
 	gimppenciloptions.c		\

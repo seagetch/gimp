@@ -376,6 +376,7 @@ typedef enum /*< pdb-skip >*/
   GIMP_UNDO_GROUP_TEXT,               /*< desc="Text"                        >*/
   GIMP_UNDO_GROUP_TRANSFORM,          /*< desc="Transform"                   >*/
   GIMP_UNDO_GROUP_PAINT,              /*< desc="Paint"                       >*/
+  GIMP_UNDO_GROUP_MYPAINT,            /*< desc="Mypaint"                     >*/
   GIMP_UNDO_GROUP_PARASITE_ATTACH,    /*< desc="Attach parasite"             >*/
   GIMP_UNDO_GROUP_PARASITE_REMOVE,    /*< desc="Remove parasite"             >*/
   GIMP_UNDO_GROUP_VECTORS_IMPORT,     /*< desc="Import paths"                >*/
@@ -423,6 +424,7 @@ typedef enum /*< pdb-skip >*/
   GIMP_UNDO_FS_TO_LAYER,              /*< desc="Floating selection to layer" >*/
   GIMP_UNDO_TRANSFORM,                /*< desc="Transform"                   >*/
   GIMP_UNDO_PAINT,                    /*< desc="Paint"                       >*/
+  GIMP_UNDO_MYPAINT,                  /*< desc="Mypaint"                     >*/
   GIMP_UNDO_INK,                      /*< desc="Ink"                         >*/
   GIMP_UNDO_FOREGROUND_SELECT,        /*< desc="Select foreground"           >*/
   GIMP_UNDO_PARASITE_ATTACH,          /*< desc="Attach parasite"             >*/

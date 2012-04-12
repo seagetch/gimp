@@ -1,0 +1,162 @@
+/* GIMP - The GNU Image Manipulation Program
+ * Copyright (C) 1995 Spencer Kimball and Peter Mattis
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#ifndef __GIMP_MYPAINT_CORE_H__
+#define __GIMP_MYPAINT_CORE_H__
+
+
+#include "core/gimpobject.h"
+#include "gimpmypaintoptions.h" /* GimpCircularQueue */
+
+
+#define GIMP_TYPE_MYPAINT_CORE            (gimp_mypaint_core_get_type ())
+#define GIMP_MYPAINT_CORE(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), GIMP_TYPE_MYPAINT_CORE, GimpMypaintCore))
+#define GIMP_MYPAINT_CORE_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), GIMP_TYPE_MYPAINT_CORE, GimpMypaintCoreClass))
+#define GIMP_IS_MYPAINT_CORE(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GIMP_TYPE_MYPAINT_CORE))
+#define GIMP_IS_MYPAINT_CORE_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), GIMP_TYPE_MYPAINT_CORE))
+#define GIMP_MYPAINT_CORE_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), GIMP_TYPE_MYPAINT_CORE, GimpMypaintCoreClass))
+
+
+typedef struct _GimpMypaintCoreClass GimpMypaintCoreClass;
+
+struct _GimpMypaintCore
+{
+  GimpObject   parent_instance;
+
+  gint         ID;               /*  unique instance ID                  */
+
+  gchar       *undo_desc;        /*  undo description                    */
+
+  GimpCoords   start_coords;     /*  starting coords (for undo only)     */
+
+  GimpVector2  last_paint;       /*  last point that was painted         */
+
+  gdouble      distance;         /*  distance traveled by brush          */
+  gdouble      pixel_dist;       /*  distance in pixels                  */
+
+  gint         x1, y1;           /*  undo extents in image coords        */
+  gint         x2, y2;           /*  undo extents in image coords        */
+
+  TileManager *undo_tiles;       /*  tiles which have been modified      */
+
+  gpointer     p;
+};
+
+struct _GimpMypaintCoreClass
+{
+  GimpObjectClass  parent_class;
+
+  /*  virtual functions  */
+  TempBuf  * (* get_paint_area) (GimpMypaintCore    *core,
+                                 GimpDrawable     *drawable,
+                                 GimpMypaintOptions *mypaint_options,
+                                 const GimpCoords *coords);
+
+  GimpUndo * (* push_undo)      (GimpMypaintCore    *core,
+                                 GimpImage        *image,
+                                 const gchar      *undo_desc);
+};
+
+
+GType     gimp_mypaint_core_get_type                  (void) G_GNUC_CONST;
+
+void      gimp_mypaint_core_mypaint                     (GimpMypaintCore    *core,
+                                                     GimpDrawable     *drawable,
+                                                     GimpMypaintOptions *mypaint_options,
+                                                     GimpMypaintState    state,
+                                                     guint32           time);
+
+gboolean  gimp_mypaint_core_start                     (GimpMypaintCore    *core,
+                                                     GimpDrawable     *drawable,
+                                                     GimpMypaintOptions *mypaint_options,
+                                                     const GimpCoords *coords,
+                                                     GError          **error);
+void      gimp_mypaint_core_finish                    (GimpMypaintCore    *core,
+                                                     GimpDrawable     *drawable,
+                                                     gboolean          push_undo);
+void      gimp_mypaint_core_cancel                    (GimpMypaintCore    *core,
+                                                     GimpDrawable     *drawable);
+void      gimp_mypaint_core_cleanup                   (GimpMypaintCore    *core);
+
+void      gimp_mypaint_core_interpolate               (GimpMypaintCore    *core,
+                                                     GimpDrawable     *drawable,
+                                                     GimpMypaintOptions *mypaint_options,
+                                                     const GimpCoords *coords,
+                                                     guint32           time);
+
+void      gimp_mypaint_core_set_current_coords        (GimpMypaintCore    *core,
+                                                     const GimpCoords *coords);
+void      gimp_mypaint_core_get_current_coords        (GimpMypaintCore    *core,
+                                                     GimpCoords       *coords);
+
+void      gimp_mypaint_core_set_last_coords           (GimpMypaintCore    *core,
+                                                     const GimpCoords *coords);
+void      gimp_mypaint_core_get_last_coords           (GimpMypaintCore    *core,
+                                                     GimpCoords       *coords);
+
+void      gimp_mypaint_core_round_line                (GimpMypaintCore    *core,
+                                                     GimpMypaintOptions *options,
+                                                     gboolean          constrain_15_degrees);
+
+
+/*  protected functions  */
+
+TempBuf * gimp_mypaint_core_get_paint_area            (GimpMypaintCore    *core,
+                                                     GimpDrawable     *drawable,
+                                                     GimpMypaintOptions *options,
+                                                     const GimpCoords *coords);
+TempBuf * gimp_mypaint_core_get_orig_image            (GimpMypaintCore    *core,
+                                                     GimpDrawable     *drawable,
+                                                     gint              x,
+                                                     gint              y,
+                                                     gint              width,
+                                                     gint              height);
+TempBuf * gimp_mypaint_core_get_orig_proj             (GimpMypaintCore    *core,
+                                                     GimpPickable     *pickable,
+                                                     gint              x,
+                                                     gint              y,
+                                                     gint              width,
+                                                     gint              height);
+
+void      gimp_mypaint_core_paste             (GimpMypaintCore            *core,
+                                             PixelRegion              *mypaint_maskPR,
+                                             GimpDrawable             *drawable,
+                                             gdouble                   mypaint_opacity,
+                                             gdouble                   image_opacity,
+                                             GimpLayerModeEffects      mypaint_mode,
+                                             GimpMypaintApplicationMode  mode);
+void      gimp_mypaint_core_replace           (GimpMypaintCore            *core,
+                                             PixelRegion              *mypaint_maskPR,
+                                             GimpDrawable             *drawable,
+                                             gdouble                   mypaint_opacity,
+                                             gdouble                   image_opacity,
+                                             GimpMypaintApplicationMode  mode);
+
+void      gimp_mypaint_core_validate_undo_tiles       (GimpMypaintCore    *core,
+                                                     GimpDrawable     *drawable,
+                                                     gint              x,
+                                                     gint              y,
+                                                     gint              w,
+                                                     gint              h);
+void      gimp_mypaint_core_validate_canvas_tiles     (GimpMypaintCore    *core,
+                                                     gint              x,
+                                                     gint              y,
+                                                     gint              w,
+                                                     gint              h);
+
+
+#endif  /*  __GIMP_MYPAINT_CORE_H__  */

@@ -67,6 +67,7 @@ struct _Gimp
 
   GimpContainer          *paint_info_list;
   GimpPaintInfo          *standard_paint_info;
+  GimpMypaintInfo        *standard_mypaint_info;
 
   GimpModuleDB           *module_db;
   gboolean                write_modulerc;

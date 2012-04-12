@@ -47,6 +47,24 @@ public:
   ~Mapping() {
     delete pointsList;
   }
+  Mapping& operator = (const Mapping& rhs) {
+    if (pointsList) {
+      delete pointsList;
+      pointsList = NULL;
+    }
+    inputs = rhs.inputs;
+    pointsList = new ControlPoints[inputs];
+    for (int i = 0; i < inputs; i ++) {
+      pointsList[i].n = rhs.pointsList[i].n;
+      for (int j = 0; j < pointsList[i].n; j++) {
+        pointsList[i].xvalues[j] = rhs.pointsList[i].xvalues[j];
+        pointsList[i].yvalues[j] = rhs.pointsList[i].yvalues[j];
+      }
+    }
+    base_value = rhs.base_value;
+    inputs_used = rhs.inputs_used;
+    return *this;
+  }
 
   void set_n (int input, int n)
   {
