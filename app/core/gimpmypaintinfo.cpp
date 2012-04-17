@@ -14,7 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+#if 0
 extern "C" {
 #include "config.h"
 
@@ -22,6 +22,7 @@ extern "C" {
 
 #include "core-types.h"
 
+#include "tools/gimpmypainttool.h"
 #include "paint/gimpmypaintoptions.h"
 
 #include "gimp.h"
@@ -153,5 +154,13 @@ gimp_mypaint_info_get_standard (Gimp *gimp)
 
   return gimp->standard_mypaint_info;
 }
+/*
+GimpMypaintInfo* 
+gimp_mypaint_info_get_by_name (Gimp *gimp, const gchar* name)
+{
+  return gimp_mypaint_info_new(gimp, GIMP_TYPE_MYPAINT_TOOL, GIMP_TYPE_MYPAINT_OPTION, "gimp-mypaint", "Mypaint", "gimp-tool-mypaint");
+}
+*/
 };
+#endif
 

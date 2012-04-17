@@ -31,7 +31,7 @@ extern "C" {
 #include "core/gimpdynamics.h"
 #include "core/gimpdynamicsoutput.h"
 #include "core/gimpgradient.h"
-#include "core/gimpmypaintinfo.h"
+#include "core/gimptoolinfo.h"
 
 #include "gimpmypaintoptions.h"
 
@@ -88,12 +88,14 @@ gimp_mypaint_options_class_init (GimpMypaintOptionsClass *klass)
   object_class->set_property = gimp_mypaint_options_set_property;
   object_class->get_property = gimp_mypaint_options_get_property;
 
+#if 0
   g_object_class_install_property (object_class, PROP_MYPAINT_INFO,
                                    g_param_spec_object ("mypaint-info",
                                                         NULL, NULL,
                                                         GIMP_TYPE_MYPAINT_INFO,
                                                         GParamFlags(GIMP_PARAM_READWRITE |
                                                         G_PARAM_CONSTRUCT_ONLY)));
+#endif
 
   GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, PROP_BRUSH_SIZE,
                                    "brush-size", _("Brush Size"),
@@ -141,12 +143,13 @@ gimp_mypaint_options_dispose (GObject *object)
 {
   GimpMypaintOptions *options = GIMP_MYPAINT_OPTIONS (object);
 
+/*
   if (options->mypaint_info)
     {
       g_object_unref (options->mypaint_info);
       options->mypaint_info = NULL;
     }
-
+*/
   G_OBJECT_CLASS (parent_class)->dispose (object);
 }
 
@@ -167,9 +170,9 @@ gimp_mypaint_options_set_property (GObject      *object,
   GimpMypaintOptions* options = GIMP_MYPAINT_OPTIONS (object);
   switch (property_id)
     {
-    case PROP_MYPAINT_INFO:
-      options->mypaint_info = GIMP_MYPAINT_INFO (g_value_dup_object (value));
-      break;
+//    case PROP_MYPAINT_INFO:
+//      options->mypaint_info = GIMP_MYPAINT_INFO (g_value_dup_object (value));
+//      break;
 
     case PROP_BRUSH_SIZE:
       options->brush_size = g_value_get_double (value);
@@ -211,9 +214,9 @@ gimp_mypaint_options_get_property (GObject    *object,
 
   switch (property_id)
     {
-    case PROP_MYPAINT_INFO:
-      g_value_set_object (value, options->mypaint_info);
-      break;
+//    case PROP_MYPAINT_INFO:
+//      g_value_set_object (value, options->mypaint_info);
+//      break;
 
     case PROP_BRUSH_SIZE:
       g_value_set_double (value, options->brush_size);
@@ -247,16 +250,17 @@ gimp_mypaint_options_get_property (GObject    *object,
 
 
 GimpMypaintOptions *
-gimp_mypaint_options_new (GimpMypaintInfo *mypaint_info)
+gimp_mypaint_options_new (GimpToolInfo *tool_info/*GimpMypaintInfo *mypaint_info*/)
 {
   GimpMypaintOptions *options;
 
-  g_return_val_if_fail (GIMP_IS_MYPAINT_INFO (mypaint_info), NULL);
+//  g_return_val_if_fail (GIMP_IS_MYPAINT_INFO (mypaint_info), NULL);
 
-  options = GIMP_MYPAINT_OPTIONS (g_object_new (mypaint_info->mypaint_options_type,
-                          "gimp",       mypaint_info->gimp,
-                          "name",       gimp_object_get_name (mypaint_info),
-                          "mypaint-info", mypaint_info,
+  options = GIMP_MYPAINT_OPTIONS (g_object_new (GIMP_TYPE_MYPAINT_OPTIONS,
+                          "gimp",       tool_info->gimp,
+                          "name",       "Mypaint",
+//                          "name",       gimp_object_get_name (mypaint_info),
+//                          "mypaint-info", mypaint_info,
                           NULL));
 
   return options;

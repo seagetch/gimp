@@ -342,7 +342,8 @@ static const GtkStockItem gimp_stock_items[] =
   { GIMP_STOCK_TOOL_SMUDGE,              NULL,        0, 0, LIBGIMP_DOMAIN },
   { GIMP_STOCK_TOOL_TEXT,                NULL,        0, 0, LIBGIMP_DOMAIN },
   { GIMP_STOCK_TOOL_THRESHOLD,           NULL,        0, 0, LIBGIMP_DOMAIN },
-  { GIMP_STOCK_TOOL_ZOOM,                NULL,        0, 0, LIBGIMP_DOMAIN }
+  { GIMP_STOCK_TOOL_ZOOM,                NULL,        0, 0, LIBGIMP_DOMAIN },
+  { GIMP_STOCK_TOOL_MYPAINT,             NULL,        0, 0, LIBGIMP_DOMAIN }
 };
 
 static const struct
@@ -498,6 +499,7 @@ gimp_stock_button_pixbufs[] =
   { GIMP_STOCK_TOOL_TEXT,                stock_tool_text_22                },
   { GIMP_STOCK_TOOL_THRESHOLD,           stock_tool_threshold_22           },
   { GIMP_STOCK_TOOL_ZOOM,                stock_tool_zoom_22                },
+  { GIMP_STOCK_TOOL_MYPAINT,             stock_tool_mypaint_22             },
 
   { GIMP_STOCK_INFO,                     stock_info_24                     },
   { GIMP_STOCK_WARNING,                  stock_warning_24                  },

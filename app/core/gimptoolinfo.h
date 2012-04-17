@@ -54,6 +54,7 @@ struct _GimpToolInfo
   gboolean             visible;
   GimpToolOptions     *tool_options;
   GimpPaintInfo       *paint_info;
+//  GimpMypaintInfo     *mypaint_info;
 
   GimpContainer       *presets;
 };

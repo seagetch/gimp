@@ -20,6 +20,7 @@
 
 
 #include "gimpcolortool.h"
+#include "tools-types.h"
 
 
 #define GIMP_TYPE_MYPAINT_TOOL            (gimp_mypaint_tool_get_type ())
@@ -45,13 +46,14 @@ struct _GimpMypaintTool
   const gchar   *status_line;  /* status message when drawing a line */
   const gchar   *status_ctrl;  /* additional message for the ctrl modifier */
   
+  GimpCoords curr_coords;
   guint32 last_event_time;
   gdouble last_event_x;
   gdouble last_event_y;
   gdouble last_painting_x;
   gdouble last_painting_y;
 
-  gpointer *core;
+  gpointer core;
 };
 
 struct _GimpMypaintToolClass
@@ -64,6 +66,9 @@ GType   gimp_mypaint_tool_get_type            (void) G_GNUC_CONST;
 
 void    gimp_mypaint_tool_enable_color_picker (GimpMypaintTool     *tool,
                                              GimpColorPickMode  mode);
+
+void    gimp_mypaint_tool_register (GimpToolRegisterCallback  callback,
+                                     gpointer                  data);
 
 
 #endif  /*  __GIMP_MYPAINT_TOOL_H__  */

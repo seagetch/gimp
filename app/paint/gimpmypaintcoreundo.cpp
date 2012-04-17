@@ -15,6 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+extern "C" {
 #include "config.h"
 
 #include <glib-object.h>
@@ -24,9 +25,9 @@
 #include "libgimpmath/gimpmath.h"
 #include "gimpmypaintcore.hpp"
 #include "gimpmypaintcoreundo.h"
+};
 #include "mypaintbrush-surface.hpp"
 #include "mypaintbrush-stroke.hpp"
-
 
 enum
 {

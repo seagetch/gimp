@@ -26,7 +26,7 @@
                                         GIMP_CONTEXT_BACKGROUND_MASK | \
                                         GIMP_CONTEXT_OPACITY_MASK    | \
                                         GIMP_CONTEXT_MYPAINT_MODE_MASK | \
-                                        GIMP_CONTEXT_BRUSH_MASK      | \
+                                        GIMP_CONTEXT_MYPAINT_BRUSH_MASK      | \
                                         GIMP_CONTEXT_DYNAMICS_MASK
 
 #define GIMP_TYPE_MYPAINT_OPTIONS            (gimp_mypaint_options_get_type ())
@@ -42,9 +42,9 @@ typedef struct _GimpMypaintOptionsClass GimpMypaintOptionsClass;
 struct _GimpMypaintOptions
 {
   GimpToolOptions           parent_instance;
-
+/*
   GimpMypaintInfo            *mypaint_info;
-
+*/
   gdouble                   brush_size;
   gdouble                   brush_angle;
   gdouble                   brush_aspect_ratio;
@@ -64,7 +64,8 @@ struct _GimpMypaintOptionsClass
 
 GType              gimp_mypaint_options_get_type (void) G_GNUC_CONST;
 
-GimpMypaintOptions * gimp_mypaint_options_new      (GimpMypaintInfo    *mypaint_info);
+//GimpMypaintOptions * gimp_mypaint_options_new      (GimpMypaintInfo    *mypaint_info);
+GimpMypaintOptions * gimp_mypaint_options_new      (GimpToolInfo    *tool_info);
 
 GimpMypaintBrushMode
 gimp_mypaint_options_get_brush_mode (GimpMypaintOptions *mypaint_options);

@@ -83,6 +83,7 @@
 #include "gimptexttool.h"
 #include "gimpvectortool.h"
 #include "core/gimptoolpreset-load.h" /* gimp-painter-2.7 */
+#include "gimpmypainttool.h" /* gimp-painter-2.7 */
 
 #include "gimp-intl.h"
 
@@ -147,6 +148,7 @@ gimp_tools_init (Gimp *gimp)
     gimp_blend_tool_register,
     gimp_bucket_fill_tool_register,
     gimp_text_tool_register,
+    gimp_mypaint_tool_register,
 
     /*  transform tools  */
 

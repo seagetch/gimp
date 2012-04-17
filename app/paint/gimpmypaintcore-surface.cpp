@@ -48,7 +48,7 @@ extern "C" {
 #include "gimpairbrush.h"
 
 #include "gimp-intl.h"
-}
+};
 
 #include "base/pixel.hpp"
 #include "paint-funcs/mypaint-brushmodes.hpp"

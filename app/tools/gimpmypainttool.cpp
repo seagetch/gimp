@@ -31,7 +31,7 @@ extern "C" {
 #include "core/gimperror.h"
 #include "core/gimpimage.h"
 #include "core/gimpprojection.h"
-#include "core/gimpmypaintinfo.h"
+//#include "core/gimpmypaintinfo.h"
 #include "core/gimptoolinfo.h"
 
 #include "paint/gimpmypaintcore.hpp"
@@ -49,7 +49,8 @@ extern "C" {
 #include "gimptoolcontrol.h"
 
 #include "gimp-intl.h"
-
+#include "libgimpwidgets/gimpwidgets.h"
+#include "widgets/gimphelp-ids.h"
 
 static void   gimp_mypaint_tool_constructed    (GObject               *object);
 static void   gimp_mypaint_tool_finalize       (GObject               *object);
@@ -152,23 +153,23 @@ static void
 gimp_mypaint_tool_constructed (GObject *object)
 {
   GimpTool         *tool       = GIMP_TOOL (object);
-  GimpMypaintTool    *paint_tool = GIMP_MYMYPAINT_TOOL (object);
-  GimpMypaintOptions *options    = GIMP_MYMYPAINT_TOOL_GET_OPTIONS (tool);
-  GimpMypaintInfo    *paint_info;
+  GimpMypaintTool    *paint_tool = GIMP_MYPAINT_TOOL (object);
+  GimpMypaintOptions *options    = GIMP_MYPAINT_TOOL_GET_OPTIONS (tool);
+//  GimpMypaintInfo    *paint_info;
   GimpMypaintCore    *core;
 
   if (G_OBJECT_CLASS (parent_class)->constructed)
     G_OBJECT_CLASS (parent_class)->constructed (object);
 
   g_assert (GIMP_IS_TOOL_INFO (tool->tool_info));
-  g_assert (GIMP_IS_MYMYPAINT_INFO (tool->tool_info->paint_info));
+//  g_assert (GIMP_IS_MYPAINT_INFO (tool->tool_info->paint_info));
 
-  paint_info = tool->tool_info->paint_info;
+//  paint_info = tool->tool_info->paint_info;
 
-  g_assert (g_type_is_a (paint_info->paint_type, GIMP_TYPE_MYMYPAINT_CORE));
+//  g_assert (g_type_is_a (paint_info->mypaint_type, GIMP_TYPE_MYPAINT_CORE));
 
   paint_tool->core = core = new GimpMypaintCore();
-  core->set_undo_desc(paint_info->blurb);
+  core->set_undo_desc("Mypaint");
 /*
   g_signal_connect_object (options, "notify::hard",
                            G_CALLBACK (gimp_mypaint_tool_hard_notify),
@@ -180,7 +181,7 @@ gimp_mypaint_tool_constructed (GObject *object)
 static void
 gimp_mypaint_tool_finalize (GObject *object)
 {
-  GimpMypaintTool *paint_tool = GIMP_MYMYPAINT_TOOL (object);
+  GimpMypaintTool *paint_tool = GIMP_MYPAINT_TOOL (object);
 
   if (paint_tool->core) {
     GimpMypaintCore* core = reinterpret_cast<GimpMypaintCore*>(paint_tool->core);
@@ -205,7 +206,7 @@ void
 gimp_mypaint_tool_enable_color_picker (GimpMypaintTool     *tool,
                                      GimpColorPickMode  mode)
 {
-  g_return_if_fail (GIMP_IS_MYMYPAINT_TOOL (tool));
+  g_return_if_fail (GIMP_IS_MYPAINT_TOOL (tool));
 
   tool->pick_colors = TRUE;
 
@@ -217,7 +218,7 @@ gimp_mypaint_tool_control (GimpTool       *tool,
                          GimpToolAction  action,
                          GimpDisplay    *display)
 {
-  GimpMypaintTool *paint_tool = GIMP_MYMYPAINT_TOOL (tool);
+  GimpMypaintTool *paint_tool = GIMP_MYPAINT_TOOL (tool);
   GimpMypaintCore* core = NULL;
 
   switch (action) {
@@ -348,7 +349,7 @@ gimp_mypaint_tool_button_release (GimpTool              *tool,
                                 GimpButtonReleaseType  release_type,
                                 GimpDisplay           *display)
 {
-  GimpMypaintTool    *paint_tool    = GIMP_MYMYPAINT_TOOL (tool);
+  GimpMypaintTool    *paint_tool    = GIMP_MYPAINT_TOOL (tool);
   GimpDisplayShell *shell         = gimp_display_get_shell (display);
   GimpImage        *image         = gimp_display_get_image (display);
 
@@ -363,7 +364,7 @@ gimp_mypaint_tool_button_release (GimpTool              *tool,
   gimp_draw_tool_pause (GIMP_DRAW_TOOL (tool));
 
   /*  Let the specific painting function finish up  */
-  gimp_mypaint_core_motion_internal (core, coords, time, state, display, FALSE);
+  gimp_mypaint_tool_motion_internal (tool, coords, time, state, display, FALSE);
 
   /*  resume the current selection  */
   gimp_display_shell_selection_resume (shell);
@@ -526,10 +527,10 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
                         guint32           time,
                         GdkModifierType   state,
                         GimpDisplay      *display,
-                        gboolean          button_pressed)
+                        gboolean          button1_pressed)
 {
-  GimpMypaintTool    *paint_tool    = GIMP_MYMYPAINT_TOOL (tool);
-  GimpMypaintOptions *paint_options = GIMP_MYMYPAINT_TOOL_GET_OPTIONS (tool);
+  GimpMypaintTool    *paint_tool    = GIMP_MYPAINT_TOOL (tool);
+  GimpMypaintOptions *paint_options = GIMP_MYPAINT_TOOL_GET_OPTIONS (tool);
   GimpMypaintCore    *core = reinterpret_cast<GimpMypaintCore*>(paint_tool->core);
   GimpImage        *image         = gimp_display_get_image (display);
   GimpDrawable     *drawable      = gimp_image_get_active_drawable (image);
@@ -552,15 +553,15 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
 
 
   if (paint_tool->last_event_time > 0) {
-      dtime = (time - tool->last_event_time) / 1000.0;
+      dtime = (time - paint_tool->last_event_time) / 1000.0;
 //      dx = curr_coords.x - tool->last_event_x;
 //      dy = curr_coords.y - tool->last_event_y;
   } else
       dtime = 0;
 
-  tool->last_event_x = curr_coords.x;
-  tool->last_event_y = curr_corrds.y;
-  tool->last_event_time = time;
+  paint_tool->last_event_x = curr_coords.x;
+  paint_tool->last_event_y = curr_coords.y;
+  paint_tool->last_event_time = time;
   if (dtime == 0)
       return;
 
@@ -617,9 +618,9 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
             self.last_event_had_pressure_info = True
 */
 
-  if (pressure > 0.0) {
-    tool->last_painting_x = curr_coords.x;
-    tool->last_painting_y = curr_coords.y;
+  if (curr_coords.pressure > 0.0) {
+    paint_tool->last_painting_x = curr_coords.x;
+    paint_tool->last_painting_y = curr_coords.y;
   }
 
   // If the device has changed and the last pressure value from the previous device
@@ -628,9 +629,8 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
   // Reseting the brush when the device changes fixes this issue, but there may be a
   // much more elegant solution that only resets the brush on this edge-case.
   // FIXME: Can't get device information here!
-  if (!same_device)
-    core->reset_brush();
-  //self.doc.brush.reset()
+//  if (!same_device)
+//    core->reset_brush();
 
   //# On Windows, GTK timestamps have a resolution around
   //# 15ms, but tablet events arrive every 8ms.
@@ -660,11 +660,11 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
       self.doc.stroke_to(dtime, *data)
   */
   if (button1_pressed)
-    coords.pressure = 0.0;
+    curr_coords.pressure = 0.0;
 
   gimp_draw_tool_pause (GIMP_DRAW_TOOL (tool));
 
-  core->stroke_to(drawable, dtime, coords, options);
+  core->stroke_to(drawable, dtime, &curr_coords, paint_options);
 
   gimp_projection_flush_now (gimp_image_get_projection (image));
   gimp_display_flush_now (display);
@@ -689,7 +689,7 @@ gimp_mypaint_tool_modifier_key (GimpTool        *tool,
                               GdkModifierType  state,
                               GimpDisplay     *display)
 {
-  GimpMypaintTool *paint_tool = GIMP_MYMYPAINT_TOOL (tool);
+  GimpMypaintTool *paint_tool = GIMP_MYPAINT_TOOL (tool);
   GimpDrawTool  *draw_tool  = GIMP_DRAW_TOOL (tool);
 
   if (key != gimp_get_constrain_behavior_mask ())
@@ -787,10 +787,10 @@ gimp_mypaint_tool_oper_update (GimpTool         *tool,
                              gboolean          proximity,
                              GimpDisplay      *display)
 {
-  GimpMypaintTool    *paint_tool    = GIMP_MYMYPAINT_TOOL (tool);
+  GimpMypaintTool    *paint_tool    = GIMP_MYPAINT_TOOL (tool);
   GimpDrawTool     *draw_tool     = GIMP_DRAW_TOOL (tool);
-  GimpMypaintOptions *paint_options = GIMP_MYMYPAINT_TOOL_GET_OPTIONS (tool);
-  GimpMypaintCore    *core          = paint_tool->core;
+  GimpMypaintOptions *paint_options = GIMP_MYPAINT_TOOL_GET_OPTIONS (tool);
+  GimpMypaintCore    *core          = reinterpret_cast<GimpMypaintCore*>(paint_tool->core);
   GimpDisplayShell *shell         = gimp_display_get_shell (display);
   GimpImage        *image         = gimp_display_get_image (display);
   GimpDrawable     *drawable      = gimp_image_get_active_drawable (image);
@@ -837,21 +837,21 @@ gimp_mypaint_tool_oper_update (GimpTool         *tool,
           gdouble  dx, dy, dist;
           gint     off_x, off_y;
 
-          core->cur_coords = *coords;
+          paint_tool->curr_coords = *coords;
 
           gimp_item_get_offset (GIMP_ITEM (drawable), &off_x, &off_y);
 
-          core->cur_coords.x -= off_x;
-          core->cur_coords.y -= off_y;
+          paint_tool->curr_coords.x -= off_x;
+          paint_tool->curr_coords.y -= off_y;
 
-          gimp_mypaint_core_round_line (core, paint_options,
-                                      (state & constrain_mask) != 0);
+//          gimp_mypaint_core_round_line (core, paint_options,
+//                                      (state & constrain_mask) != 0);
 
-          dx = core->cur_coords.x - core->last_coords.x;
-          dy = core->cur_coords.y - core->last_coords.y;
+          dx = paint_tool->curr_coords.x - paint_tool->last_event_x;
+          dy = paint_tool->curr_coords.y - paint_tool->last_event_y;
 
           status_help = gimp_suggest_modifiers (paint_tool->status_line,
-                                                constrain_mask & ~state,
+                                                GdkModifierType(constrain_mask & ~state),
                                                 NULL,
                                                 _("%s for constrained angles"),
                                                 NULL);
@@ -891,7 +891,7 @@ gimp_mypaint_tool_oper_update (GimpTool         *tool,
       else
         {
           gchar           *status;
-          GdkModifierType  modifiers = 0;
+          GdkModifierType  modifiers = GdkModifierType(0);
 
           /* HACK: A paint tool may set status_ctrl to NULL to indicate that
            * it ignores the Ctrl modifier (temporarily or permanently), so
@@ -899,15 +899,15 @@ gimp_mypaint_tool_oper_update (GimpTool         *tool,
            * gimp_suggest_modifiers() would interpret this parameter.
            */
           if (paint_tool->status_ctrl != NULL)
-            modifiers |= constrain_mask;
+            modifiers = GdkModifierType(modifiers|constrain_mask);
 
           /* suggest drawing lines only after the first point is set
            */
           if (display == tool->display)
-            modifiers |= GDK_SHIFT_MASK;
+            modifiers = GdkModifierType(modifiers|GDK_SHIFT_MASK);
 
           status = gimp_suggest_modifiers (paint_tool->status,
-                                           modifiers & ~state,
+                                           GdkModifierType(modifiers & ~state),
                                            _("%s for a straight line"),
                                            paint_tool->status_ctrl,
                                            NULL);
@@ -936,12 +936,12 @@ gimp_mypaint_tool_draw (GimpDrawTool *draw_tool)
 {
   if (! gimp_color_tool_is_enabled (GIMP_COLOR_TOOL (draw_tool)))
     {
-      GimpMypaintTool *paint_tool = GIMP_MYMYPAINT_TOOL (draw_tool);
+      GimpMypaintTool *paint_tool = GIMP_MYPAINT_TOOL (draw_tool);
 
       if (paint_tool->draw_line &&
           ! gimp_tool_control_is_active (GIMP_TOOL (draw_tool)->control))
         {
-          GimpMypaintCore *core       = paint_tool->core;
+          GimpMypaintCore *core     = reinterpret_cast<GimpMypaintCore*>(paint_tool->core);
           GimpImage     *image      = gimp_display_get_image (draw_tool->display);
           GimpDrawable  *drawable   = gimp_image_get_active_drawable (image);
           gint           off_x, off_y;
@@ -950,16 +950,16 @@ gimp_mypaint_tool_draw (GimpDrawTool *draw_tool)
 
           /*  Draw the line between the start and end coords  */
           gimp_draw_tool_add_line (draw_tool,
-                                   core->last_coords.x + off_x,
-                                   core->last_coords.y + off_y,
-                                   core->cur_coords.x + off_x,
-                                   core->cur_coords.y + off_y);
+                                   paint_tool->last_event_x + off_x,
+                                   paint_tool->last_event_y + off_y,
+                                   paint_tool->curr_coords.x + off_x,
+                                   paint_tool->curr_coords.y + off_y);
 
           /*  Draw start target  */
           gimp_draw_tool_add_handle (draw_tool,
                                      GIMP_HANDLE_CROSS,
-                                     core->last_coords.x + off_x,
-                                     core->last_coords.y + off_y,
+                                     paint_tool->last_event_x + off_x,
+                                     paint_tool->last_event_y + off_y,
                                      GIMP_TOOL_HANDLE_SIZE_CROSS,
                                      GIMP_TOOL_HANDLE_SIZE_CROSS,
                                      GIMP_HANDLE_ANCHOR_CENTER);
@@ -967,8 +967,8 @@ gimp_mypaint_tool_draw (GimpDrawTool *draw_tool)
           /*  Draw end target  */
           gimp_draw_tool_add_handle (draw_tool,
                                      GIMP_HANDLE_CROSS,
-                                     core->cur_coords.x + off_x,
-                                     core->cur_coords.y + off_y,
+                                     paint_tool->curr_coords.x + off_x,
+                                     paint_tool->curr_coords.y + off_y,
                                      GIMP_TOOL_HANDLE_SIZE_CROSS,
                                      GIMP_TOOL_HANDLE_SIZE_CROSS,
                                      GIMP_HANDLE_ANCHOR_CENTER);
@@ -984,9 +984,27 @@ gimp_mypaint_tool_hard_notify (GimpMypaintOptions *options,
                              GimpTool         *tool)
 {
   gimp_tool_control_set_precision (tool->control,
-                                   options->hard ?
-                                   GIMP_CURSOR_PRECISION_PIXEL_CENTER :
                                    GIMP_CURSOR_PRECISION_SUBPIXEL);
 }
+
+
+void
+gimp_mypaint_tool_register (GimpToolRegisterCallback  callback,
+                            gpointer                  data)
+{
+  (* callback) (GIMP_TYPE_MYPAINT_TOOL,
+                GIMP_TYPE_MYPAINT_OPTIONS,
+                NULL,
+                NULL,
+                GimpContextPropMask(GIMP_MYPAINT_OPTIONS_CONTEXT_MASK),
+                "gimp-mypaint-tool",
+                _("Mypaint Brush"),
+                _("Mypaint Brush Tool: Paint smooth strokes using a mypaint brush"),
+                N_("_Mypaintbrush"), "P",
+                NULL, GIMP_HELP_TOOL_MYPAINT,
+                GIMP_STOCK_TOOL_MYPAINT,
+                data);
+}
+
 
 }

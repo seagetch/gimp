@@ -42,7 +42,7 @@ extern "C" {
 // adapted from ppmforge.c, which is part of PBMPLUS. The algorithm
 // comes from: 'The Science Of Fractal Images'. Peitgen, H.-O., and
 // Saupe, D. eds.  Springer Verlag, New York, 1988.
-static float rand_gauss (GRand * rng)
+inline float rand_gauss (GRand * rng)
 {
   float sum = 0.0;
   gint32 rand1 = g_rand_int(rng);
@@ -54,7 +54,7 @@ static float rand_gauss (GRand * rng)
   return sum * 5.28596089837e-5 - 3.46410161514;
 }
 
-void
+inline void
 rgb_to_hsv_float (float *r_ /*h*/, float *g_ /*s*/, float *b_ /*v*/)
 {
   GimpRGB rgb;
@@ -68,7 +68,7 @@ rgb_to_hsv_float (float *r_ /*h*/, float *g_ /*s*/, float *b_ /*v*/)
   *b_ = hsv.v;
 }
 
-void
+inline void
 hsv_to_rgb_float (float *h_, float *s_, float *v_)
 {
   GimpRGB rgb;
@@ -82,7 +82,7 @@ hsv_to_rgb_float (float *h_, float *s_, float *v_)
   *v_ = rgb.b;
 }
 
-void
+inline void
 rgb_to_hsl_float (float *r_ /*h*/, float *g_ /*s*/, float *b_ /*v*/)
 {
   GimpRGB rgb;
@@ -96,7 +96,7 @@ rgb_to_hsl_float (float *r_ /*h*/, float *g_ /*s*/, float *b_ /*v*/)
   *b_ = hsl.l;
 }
 
-void
+inline void
 hsl_to_rgb_float (float *h_, float *s_, float *v_)
 {
   GimpRGB rgb;

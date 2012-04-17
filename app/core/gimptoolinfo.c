@@ -35,6 +35,7 @@
 #include "gimptoolinfo.h"
 #include "gimptooloptions.h"
 #include "gimptoolpreset.h"
+#include "gimpmypaintinfo.h" /* gimp-painter-2.7 */
 
 
 enum
@@ -102,6 +103,7 @@ gimp_tool_info_init (GimpToolInfo *tool_info)
   tool_info->visible           = TRUE;
   tool_info->tool_options      = NULL;
   tool_info->paint_info        = NULL;
+//  tool_info->mypaint_info        = NULL;
 }
 
 static void
@@ -239,6 +241,7 @@ gimp_tool_info_new (Gimp                *gimp,
                     const gchar         *stock_id)
 {
   GimpPaintInfo *paint_info;
+//  GimpMypaintInfo* mypaint_info = NULL;
   GimpToolInfo  *tool_info;
 
   g_return_val_if_fail (GIMP_IS_GIMP (gimp), NULL);
@@ -253,7 +256,8 @@ gimp_tool_info_new (Gimp                *gimp,
   paint_info = (GimpPaintInfo *)
     gimp_container_get_child_by_name (gimp->paint_info_list, paint_core_name);
 
-  g_return_val_if_fail (GIMP_IS_PAINT_INFO (paint_info), NULL);
+
+  g_return_val_if_fail (GIMP_IS_PAINT_INFO(paint_info), NULL);
 
   tool_info = g_object_new (GIMP_TYPE_TOOL_INFO,
                             "name",     identifier,
@@ -275,8 +279,9 @@ gimp_tool_info_new (Gimp                *gimp,
   tool_info->help_id           = g_strdup (help_id);
 
   tool_info->paint_info        = paint_info;
+//  tool_info->mypaint_info      = mypaint_info;
 
-  if (tool_info->tool_options_type == paint_info->paint_options_type)
+  if (paint_info && tool_info->tool_options_type == paint_info->paint_options_type)
     {
       tool_info->tool_options = g_object_ref (paint_info->paint_options);
     }

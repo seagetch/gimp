@@ -348,8 +348,10 @@ STOCK_TOOL_IMAGES = \
 	tools/stock-tool-threshold-16.png		\
 	tools/stock-tool-threshold-22.png		\
 	tools/stock-tool-zoom-16.png			\
-	tools/stock-tool-zoom-22.png
-
+	tools/stock-tool-zoom-22.png			\
+	tools/stock-tool-mypaint-16.png			\
+	tools/stock-tool-mypaint-22.png		
+	
 STOCK_IMAGES = \
 	$(STOCK_MENU_IMAGES) 	\
 	$(STOCK_BUTTON_IMAGES)	\

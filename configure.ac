@@ -151,12 +151,13 @@ AC_SUBST(GETTEXT_PACKAGE)
 AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE, "$GETTEXT_PACKAGE",
                    [The prefix for our gettext translation domains.])
 
+# Determine a CXX compiler to use
+AC_PROG_CXX
+AC_PROG_CXX_C_O
+
 # Determine a C compiler to use
 AC_PROG_CC
 AM_PROG_CC_C_O
-
-# Determine a CXX compiler to use
-AC_PROG_CXX
 
 # Initialize libtool
 LT_PREREQ([2.2])

@@ -65,5 +65,6 @@ void            gimp_mypaint_info_set_standard (Gimp          *gimp,
                                               GimpMypaintInfo *mypaint_info);
 GimpMypaintInfo * gimp_mypaint_info_get_standard (Gimp          *gimp);
 
+GimpMypaintInfo* gimp_mypaint_info_get_by_name (Gimp *gimp, const gchar* name);
 
 #endif  /*  __GIMP_MYPAINT_INFO_H__  */
