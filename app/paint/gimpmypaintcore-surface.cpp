@@ -75,13 +75,16 @@ GimpMypaintSurface::~GimpMypaintSurface()
 }
 
 void 
-GimpMypaintSurface::render_dab_mask_in_tile (Pixel::data_t * mask,
+GimpMypaintSurface::render_dab_mask_in_tile (Pixel::data_t *mask,
+                                             gint          *offsets,
                                              float x, float y,
                                              float radius,
                                              float hardness,
                                              float aspect_ratio, float angle,
-                                             int   w, int h, gint stride
+                                             int   w, int h, gint bytes, gint stride
                                             ) {
+  stride /= bytes;
+//  g_print("dab_in_tile(x=%f,y=%f,r=%f,hd=%f,ar=%f,ang=%f,w=%d,h=%d,B=%d,s=%d)\n",x,y,radius,hardness,aspect_ratio,angle,w,h,bytes,stride);
   hardness = CLAMP(hardness, 0.0, 1.0);
   if (aspect_ratio<1.0) aspect_ratio=1.0;
     assert(hardness != 0.0); // assured by caller
@@ -132,6 +135,7 @@ GimpMypaintSurface::render_dab_mask_in_tile (Pixel::data_t * mask,
   if (x1 > w-1) x1 = w-1;
   if (y1 > h-1) y1 = h-1;
   
+//  g_print("dab area: (%d,%d)-(%d,%d)\n",x0,y0,x1,y1);
   
   // we do run length encoding: if opacity is zero, the next
   // value in the mask is the number of pixels that can be skipped.
@@ -176,7 +180,7 @@ GimpMypaintSurface::render_dab_mask_in_tile (Pixel::data_t * mask,
       } else {
         if (skip) {
           *mask_p++ = 0;
-          *mask_p++ = skip*4;
+          *offsets++ = skip;
           skip = 0;
         }
         *mask_p++ = opa_;
@@ -185,7 +189,7 @@ GimpMypaintSurface::render_dab_mask_in_tile (Pixel::data_t * mask,
     skip += stride-xp;
   }
   *mask_p++ = 0;
-  *mask_p++ = 0;
+  *offsets  = 0;
 }
 
 bool 
@@ -203,6 +207,8 @@ GimpMypaintSurface::draw_dab (float x, float y,
   GimpChannel     *mask  = gimp_image_get_mask (image);
   gint             offset_x, offset_y;
   PixelRegion      src1PR, my_destPR;
+  
+//  g_print("Entering GimpMypaintSurface::draw_dab(x=%f,y=%f,r=%f,R=%f,G=%f,B=%f,o=%f,h=%f,a=%f,%f,%f,%f,%f)\n",x,y,radius,color_r,color_g,color_b,opaque,hardness,color_a,aspect_ratio,angle,lock_alpha,colorize);
 
   /*  get the layer offsets  */
   gimp_item_get_offset (item, &offset_x, &offset_y);
@@ -258,6 +264,11 @@ GimpMypaintSurface::draw_dab (float x, float y,
   }
   /* configure the pixel regions */
 
+  if (rx1 < 0) rx1 = 0;
+  if (ry1 < 0) ry1 = 0;
+  if (rx2 < 0) rx2 = 0;
+  if (ry2 < 0) ry2 = 0;
+
   pixel_region_init (&src1PR, gimp_drawable_get_tiles (drawable),
                      rx1, ry1, width, height,
                      FALSE);
@@ -284,21 +295,43 @@ GimpMypaintSurface::draw_dab (float x, float y,
 
   // first, we calculate the mask (opacity for each pixel)
   static Pixel::data_t dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
+  static gint dab_offsets[(TILE_HEIGHT + 2)*2];
   for (;
        pr != NULL;
        pr = pixel_regions_process ((PixelRegionIterator*)pr)) {
     guchar  *s1 = src1PR.data;
+//    g_print("render dab mask @ %d,%d-(%d,%d)\n", src1PR.x, src1PR.y, src1PR.w, src1PR.h);
 
     render_dab_mask_in_tile(dab_mask,
-                    src1PR.x,
-                    src1PR.y,
+                    dab_offsets,
+                    x - src1PR.x,
+                    y - src1PR.y,
                     radius,
                     hardness,
                     aspect_ratio, angle,
-                    src1PR.w, src1PR.h,src1PR.rowstride
+                    src1PR.w, src1PR.h,src1PR.bytes, 
+                    src1PR.rowstride
                     );
 
     // second, we use the mask to stamp a dab for each activated blend mode
+    /*
+    guchar *data = src1PR.data;
+    for (int h=0; h < src1PR.h; h++) {
+      for (int w=0; w < src1PR.w; w++) {
+        if (src1PR.bytes >= 3) {
+          data[0] = 0;
+          data[1] = 0;
+          data[2] = 0;
+          data[3] = 0xff;
+        }
+        data += src1PR.bytes;
+      }
+      data += src1PR.rowstride - src1PR.bytes*src1PR.w;
+    }
+    */
+    draw_dab_pixels_BlendMode_Normal(dab_mask, dab_offsets, s1, color_r_, color_g_, color_b_, Pixel::from_f(normal*opaque), src1PR.bytes);
+
+#if 0
     if (normal) {
       if (color_a == 1.0) {
         draw_dab_pixels_BlendMode_Normal(dab_mask, s1,
@@ -314,6 +347,7 @@ GimpMypaintSurface::draw_dab (float x, float y,
       draw_dab_pixels_BlendMode_LockAlpha(dab_mask, s1,
                                           color_r_, color_g_, color_b_, Pixel::from_f(lock_alpha*opaque));
     }
+#endif
 #if 0
     if (colorize) {
       draw_dab_pixels_BlendMode_Color(mask, rgba_p,

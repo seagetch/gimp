@@ -659,7 +659,7 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
           self.motions = []
       self.doc.stroke_to(dtime, *data)
   */
-  if (button1_pressed)
+  if (!button1_pressed)
     curr_coords.pressure = 0.0;
 
   gimp_draw_tool_pause (GIMP_DRAW_TOOL (tool));

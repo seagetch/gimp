@@ -86,11 +86,12 @@ class GimpMypaintSurface : public Surface
                                        gint         h);
 
   void render_dab_mask_in_tile (Pixel::data_t * mask,
+                                gint          *offsets,
                                 float x, float y,
                                 float radius,
                                 float hardness,
                                 float aspect_ratio, float angle,
-                                int w, int h, gint stride
+                                int w, int h, gint bytes, gint stride
                                 );
 public:
   GimpMypaintSurface(GimpDrawable* drawable);

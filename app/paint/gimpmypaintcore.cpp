@@ -64,13 +64,15 @@ GimpMypaintCore::GimpMypaintCore()
   surface = NULL;
   brush   = new Brush();
   stroke  = NULL;
+  undo_desc = NULL;
 }
 
 
 GimpMypaintCore::~GimpMypaintCore ()
 {
   cleanup ();
-  g_free (undo_desc);
+  if (undo_desc)
+    g_free (undo_desc);
   undo_desc = NULL;
 }
 
@@ -95,31 +97,43 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
                                  const GimpCoords* coords,
                                  GimpMypaintOptions* options)
 {
+  g_print("entering GimpMypaintCore::stroke_to...\n");
   bool split = false;
   // Prepare Brush.
+  g_print("updating resource...\n");
   update_resource(options);
   
   /// from Document#stroke_to
 
   // Prepare Stroke object
   if (!stroke) {
+    g_print("create new stroke...\n");
     stroke = new Stroke();
+    g_print("Stroke::start...\n");
     stroke->start(brush);
-    surface->begin_session();
     // Prepare Surface object for drawable
-    if (!surface)
+    g_print("testing surface...\n");
+    if (!surface) {
+      g_print("create new surface...\n");
       surface = new GimpMypaintSurface(drawable);
-    else if (!surface->is_surface_for(drawable)) {
+    } else if (!surface->is_surface_for(drawable)) {
+      g_print("Stroke::end_session...\n");
       surface->end_session();
+      g_print("delete surface...\n");
       delete surface;
+      g_print("recreate new surface...\n");
       surface = new GimpMypaintSurface(drawable);
     }
+    g_print("Stroke::begin_session...\n");
+    surface->begin_session();
   }
   
+  g_print("Stroke::record...\n");
   stroke->record(dtime, coords);
 
   /// from Layer#stroke_to
   {
+    g_print("calling Brush::stroke_to(surf,%lf,%lf,%lf,%lf,%lf,%lf)...\n", coords->x, coords->y, coords->pressure, coords->xtilt, coords->ytilt, dtime);
     //surface->begin_atomic();
     split = brush->stroke_to(surface, coords->x, coords->y, 
                              coords->pressure, 
@@ -127,8 +141,11 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
     //surface->end_atomic();
   }
   
-  if (split)
+  if (split) {
+    g_print("splitting stroke...\n");
     split_stroke();
+  }
+  g_print("leaving GimpMypaintCore::stroke_to...\n");
 }
 
 void GimpMypaintCore::split_stroke()

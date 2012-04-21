@@ -52,6 +52,7 @@ Stroke::start(Brush* brush)
   
   brush->new_stroke();
   coords.clear();
+  this->brush = brush;
   
 }
 
