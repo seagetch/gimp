@@ -65,6 +65,9 @@ struct Pixel {
     return v;
   };
   typedef expressions<Pixel::value_t> pixel_t;
+  static data_t clamp(const internal_t value, const internal_t min, const internal_t max) {
+    return (data_t)((value < min)? min: (value > max)? max: value);
+  }
 };
 
 // x -> P(x)
@@ -181,42 +184,58 @@ template<typename T>
 inline
 Pixel::data_t eval(const Pixel::expressions<T>& t) {
   const int deg = T::DEGREE;
+  Pixel::internal_t value = 0;
   switch (deg) {
   case 3:
-    return raw(t) / raw(f2p(1.0)*f2p(1.0));
+    value = raw(t) / raw(f2p(1.0)*f2p(1.0));
+    break;
   case 2:
-    return raw(t) / raw(f2p(1.0));
+    value = raw(t) / raw(f2p(1.0));
+    break;
   case 1:
-    return raw(t);
+    value = raw(t);
+    break;
   case 0:
-    return raw(t) * raw(f2p(1.0));
+    value = raw(t) * raw(f2p(1.0));
+    break;
   case -1:
-    return raw(t) * raw(f2p(1.0) * f2p(1.0));
+    value = raw(t) * raw(f2p(1.0) * f2p(1.0));
+    break;
   case -2:
-    return raw(t) * raw(f2p(1.0) * f2p(1.0) * f2p(1.0));
+    value = raw(t) * raw(f2p(1.0) * f2p(1.0) * f2p(1.0));
+    break;
   default:
     throw "unsupported type";
   }
+  return Pixel::clamp(value, Pixel::from_f(0.0), Pixel::from_f(1.0));
 }
 template<typename T1, typename T2>
 inline
 Pixel::data_t eval(const Pixel::expressions<Pixel::div_t<T1, T2> >& t) {
   const int deg = Pixel::div_t<T1, T2>::DEGREE;
+  Pixel::internal_t value = 0;
   switch (deg) {
   case 3:
-    return raw(t) / raw(f2p(1.0)*f2p(1.0));
+    value = raw(t) / raw(f2p(1.0)*f2p(1.0));
+    break;
   case 2:
-    return raw(t) / raw(f2p(1.0));
+    value = raw(t) / raw(f2p(1.0));
+    break;
   case 1:
-    return raw(t);
+    value = raw(t);
+    break;
   case 0:
-    return raw(t.e.numer) * raw(f2p(1.0)) / raw(t.e.denom);
+    value = raw(t.e.numer) * raw(f2p(1.0)) / raw(t.e.denom);
+    break;
   case -1:
-    return raw(t.e.numer) * raw(f2p(1.0) * f2p(1.0)) / raw(t.e.denom);
+    value = raw(t.e.numer) * raw(f2p(1.0) * f2p(1.0)) / raw(t.e.denom);
+    break;
   case -2:
-    return raw(t.e.numer) * raw(f2p(1.0) * f2p(1.0) * f2p(1.0)) / raw(t.e.denom);
+    value = raw(t.e.numer) * raw(f2p(1.0) * f2p(1.0) * f2p(1.0)) / raw(t.e.denom);
+    break;
   default:
     throw "unsupported type";
   }
+  return Pixel::clamp(value, Pixel::from_f(0.0), Pixel::from_f(1.0));
 }
 #endif
