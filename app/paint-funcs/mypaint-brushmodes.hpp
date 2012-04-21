@@ -39,24 +39,6 @@ void draw_dab_pixels_BlendMode_Normal (Pixel::data_t * mask,
                                        Pixel::data_t  color_b,
                                        Pixel::data_t  opacity,
                                        gint           bytes) {
-/*
-  while (1) {
-    for (; mask[0]; mask++, rgba+=4) {
-      Pixel::pixel_t opa_a = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
-      Pixel::pixel_t opa_b = pix( eval (f2p(1.0) - opa_a ) ); // bottomAlpha
-      Pixel::pixel_t alpha = pix(rgba[3]);
-      rgba[0] = eval( opa_a*pix(color_r) + alpha*opa_b*pix(rgba[0]) );
-      rgba[1] = eval( opa_a*pix(color_g) + alpha*opa_b*pix(rgba[1]) );
-      rgba[2] = eval( opa_a*pix(color_b) + alpha*opa_b*pix(rgba[2]) );
-      rgba[3] = eval( opa_a + opa_b * pix(rgba[3]));
-
-    }
-    if (!mask[1]) break;
-    rgba += mask[1];
-    mask += 2;
-  }
-*/
-//  g_print("skip_y=%d\n", offsets[0]*bytes);
   switch (bytes) {
   case 3:
     while (1) {
@@ -76,13 +58,22 @@ void draw_dab_pixels_BlendMode_Normal (Pixel::data_t * mask,
   case 4:
     while (1) {
       for (; mask[0]; mask++, rgba+=4) {
-        Pixel::pixel_t opa_a = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
-        Pixel::pixel_t opa_b = pix( eval (f2p(1.0) - opa_a ) ); // bottomAlpha
-        Pixel::pixel_t alpha = pix(rgba[3]);
-        rgba[0] = eval( opa_a*pix(color_r) + alpha*opa_b*pix(rgba[0]) );
-        rgba[1] = eval( opa_a*pix(color_g) + alpha*opa_b*pix(rgba[1]) );
-        rgba[2] = eval( opa_a*pix(color_b) + alpha*opa_b*pix(rgba[2]) );
-        rgba[3] = eval( opa_a + opa_b * pix(rgba[3]));
+        Pixel::pixel_t brush_a = pix( eval( pix(mask[0]) * pix(opacity) ) );
+        Pixel::pixel_t base_a  = pix(rgba[3]);
+        rgba[3] = eval( (f2p(1.0) - (f2p(1.0) - brush_a)*(f2p(1.0) - base_a)) );
+        if (rgba[3]) {
+//          Pixel::pixel_t dest_a = pix(rgba[3]);
+          rgba[0] = eval( (((f2p(1.0) - (f2p(1.0) - pix(mask[0]) * pix(opacity))*(f2p(1.0) - base_a)) - pix(mask[0]) * pix(opacity))*pix(rgba[0]) + 
+                            brush_a*pix(color_r)) / (f2p(1.0) - (f2p(1.0) - brush_a)*(f2p(1.0) - base_a)) );
+          rgba[1] = eval( (((f2p(1.0) - (f2p(1.0) - pix(mask[0]) * pix(opacity))*(f2p(1.0) - base_a)) - pix(mask[0]) * pix(opacity))*pix(rgba[1]) + 
+                            brush_a*pix(color_g)) / (f2p(1.0) - (f2p(1.0) - brush_a)*(f2p(1.0) - base_a)) );
+          rgba[2] = eval( (((f2p(1.0) - (f2p(1.0) - pix(mask[0]) * pix(opacity))*(f2p(1.0) - base_a)) - pix(mask[0]) * pix(opacity))*pix(rgba[2]) +
+                            brush_a*pix(color_b)) / (f2p(1.0) - (f2p(1.0) - brush_a)*(f2p(1.0) - base_a)) );
+        } else {
+          rgba[0] = color_r;
+          rgba[1] = color_g;
+          rgba[2] = color_b;
+        }
       }
       if (!offsets[0]) break;
       rgba += offsets[0] * bytes;
@@ -233,27 +224,59 @@ draw_dab_pixels_BlendMode_Color (uint16_t *mask,
 // blending (color_a=1.0).
 //
 void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::data_t * mask,
+                                                  gint          *offsets,
                                                   Pixel::data_t * rgba,
                                                   Pixel::data_t color_r,
                                                   Pixel::data_t color_g,
                                                   Pixel::data_t color_b,
                                                   Pixel::data_t color_a,
-                                                  Pixel::data_t opacity) {
+                                                  Pixel::data_t opacity,
+                                                  gint          bytes) {
+  g_print("BlendMode_Normal_and_Eraser(color_a=%d)\n", color_a);
 
-  while (1) {
-    for (; mask[0]; mask++, rgba+=4) {
-      Pixel::pixel_t opa_a = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
-      Pixel::pixel_t opa_b = pix( eval (f2p(1.0) - opa_a ) ); // bottomAlpha
-//      opa_a = pix(eval(opa_a * color_a));
-      rgba[3] = eval( opa_a * pix(color_a) + opa_b * pix(rgba[3]) );
-      rgba[0] = eval(opa_a*pix(color_a)*pix(color_r) + opa_b*pix(rgba[0]));
-      rgba[1] = eval(opa_a*pix(color_a)*pix(color_g) + opa_b*pix(rgba[1]));
-      rgba[2] = eval(opa_a*pix(color_a)*pix(color_b) + opa_b*pix(rgba[2]));
-
+  switch (bytes) {
+  case 3:
+    while (1) {
+      for (; mask[0]; mask++, rgba+=3) {
+        Pixel::pixel_t opa_a = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
+        Pixel::pixel_t opa_b = pix( eval (f2p(1.0) - opa_a ) ); // bottomAlpha
+        rgba[0] = eval( opa_a*pix(color_a)*pix(color_r) + opa_b*pix(rgba[0]) );
+        rgba[1] = eval( opa_a*pix(color_a)*pix(color_g) + opa_b*pix(rgba[1]) );
+        rgba[2] = eval( opa_a*pix(color_a)*pix(color_b) + opa_b*pix(rgba[2]) );
+      }
+      if (!offsets[0]) break;
+      rgba += offsets[0] * bytes;
+      offsets ++;
+      mask ++;
     }
-    if (!mask[1]) break;
-    rgba += mask[1];
-    mask += 2;
+    break;
+  case 4:
+    while (1) {
+      for (; mask[0]; mask++, rgba+=4) {
+        Pixel::pixel_t brush_a = pix( eval( pix(mask[0]) * pix(opacity) ) );
+        Pixel::pixel_t base_a  = pix(rgba[3]);
+        Pixel::data_t  orig_dest = rgba[3];
+        rgba[3] = eval( brush_a * pix(color_a) + (f2p(1.0) - brush_a) * base_a );
+        
+        if (rgba[3]) {
+          Pixel::pixel_t dest_a = pix(rgba[3]);
+          rgba[0] = eval( ((f2p(1.0) - brush_a)*pix(orig_dest)*pix(rgba[0]) + brush_a*pix(color_a)*pix(color_r)) / dest_a );
+          rgba[1] = eval( ((f2p(1.0) - brush_a)*pix(orig_dest)*pix(rgba[1]) + brush_a*pix(color_a)*pix(color_g)) / dest_a );
+          rgba[2] = eval( ((f2p(1.0) - brush_a)*pix(orig_dest)*pix(rgba[2]) + brush_a*pix(color_a)*pix(color_b)) / dest_a );
+        } else {
+          rgba[0] = color_r;
+          rgba[1] = color_g;
+          rgba[2] = color_b;
+        }
+      }
+      if (!offsets[0]) break;
+      rgba += offsets[0] * bytes;
+      offsets ++;
+      mask ++;
+    }
+    break;
+  default:
+    g_print("Unsupported layer type.\n");
   }
 };
 
@@ -287,12 +310,14 @@ void draw_dab_pixels_BlendMode_LockAlpha (Pixel::data_t * mask,
 // Called by get_color().
 //
 void get_color_pixels_accumulate (Pixel::data_t * mask,
+                                  gint          *offsets,
                                   Pixel::data_t * rgba,
                                   float * sum_weight,
                                   float * sum_r,
                                   float * sum_g,
                                   float * sum_b,
-                                  float * sum_a
+                                  float * sum_a,
+                                  gint bytes
                                   ) {
 
 
@@ -307,19 +332,41 @@ void get_color_pixels_accumulate (Pixel::data_t * mask,
   Pixel::internal_t b = 0;
   Pixel::internal_t a = 0;
 
-  while (1) {
-    for (; mask[0]; mask++, rgba+=4) {
-      Pixel::pixel_t opa = pix (mask[0]);
-      weight += eval(opa);
-      r      += eval (opa * pix(rgba[0]));
-      g      += eval (opa * pix(rgba[1]));
-      b      += eval (opa * pix(rgba[2]));
-      a      += eval (opa * pix(rgba[3]));
-
+  switch (bytes) {
+  case 3:
+    while (1) {
+      for (; mask[0]; mask++, rgba+=3) {
+        Pixel::pixel_t opa = pix (mask[0]);
+        weight += eval(opa);
+        r      += eval (opa * pix(rgba[0]) * pix(rgba[3]));
+        g      += eval (opa * pix(rgba[1]) * pix(rgba[3]));
+        b      += eval (opa * pix(rgba[2]) * pix(rgba[3]));
+        a      += Pixel::from_f(1.0);
+      }
+      if (!offsets[0]) break;
+      rgba += offsets[0] * 3;
+      offsets ++;
+      mask ++;
     }
-    if (!mask[1]) break;
-    rgba += mask[1];
-    mask += 2;
+    break;
+  case 4:
+    while (1) {
+      for (; mask[0]; mask++, rgba+=4) {
+        Pixel::pixel_t opa = pix (mask[0]);
+        weight += eval(opa);
+        r      += eval (opa * pix(rgba[0]) * pix(rgba[3]));
+        g      += eval (opa * pix(rgba[1]) * pix(rgba[3]));
+        b      += eval (opa * pix(rgba[2]) * pix(rgba[3]));
+        a      += eval (opa * pix(rgba[3]));
+      }
+      if (!offsets[0]) break;
+      rgba += offsets[0] * 4;
+      offsets ++;
+      mask ++;
+    }
+    break;
+  default:
+    g_print("Unsupported layer type.\n");
   }
 
   // convert integer to float outside the performance critical loop

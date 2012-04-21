@@ -225,6 +225,7 @@ GimpMypaintSurface::draw_dab (float x, float y,
   Pixel::data_t color_r_ = Pixel::from_f(color_r);
   Pixel::data_t color_g_ = Pixel::from_f(color_g);
   Pixel::data_t color_b_ = Pixel::from_f(color_b);
+  Pixel::data_t color_a_ = Pixel::from_f(color_a);
 
   // blending mode preparation
   float normal = 1.0;
@@ -314,35 +315,29 @@ GimpMypaintSurface::draw_dab (float x, float y,
                     );
 
     // second, we use the mask to stamp a dab for each activated blend mode
-    /*
-    guchar *data = src1PR.data;
-    for (int h=0; h < src1PR.h; h++) {
-      for (int w=0; w < src1PR.w; w++) {
-        if (src1PR.bytes >= 3) {
-          data[0] = 0;
-          data[1] = 0;
-          data[2] = 0;
-          data[3] = 0xff;
-        }
-        data += src1PR.bytes;
-      }
-      data += src1PR.rowstride - src1PR.bytes*src1PR.w;
-    }
-    */
-    draw_dab_pixels_BlendMode_Normal(dab_mask, dab_offsets, s1, color_r_, color_g_, color_b_, Pixel::from_f(normal*opaque), src1PR.bytes);
-
-#if 0
     if (normal) {
       if (color_a == 1.0) {
-        draw_dab_pixels_BlendMode_Normal(dab_mask, s1,
-                                         color_r_, color_g_, color_b_, Pixel::from_f(normal*opaque));
+        draw_dab_pixels_BlendMode_Normal(dab_mask, dab_offsets, 
+                                         s1, color_r_, color_g_, color_b_, 
+                                         Pixel::from_f(normal*opaque), 
+                                         src1PR.bytes);
       } else {
         // normal case for brushes that use smudging (eg. watercolor)
-        draw_dab_pixels_BlendMode_Normal_and_Eraser(dab_mask, s1,
-                                                    color_r_, color_g_, color_b_, Pixel::from_f(color_a), Pixel::from_f(normal*opaque));
+#if 0
+        draw_dab_pixels_BlendMode_Normal(dab_mask, dab_offsets, 
+                                         s1, color_r_, color_g_, color_b_, 
+                                         Pixel::from_f(normal*opaque), 
+                                         src1PR.bytes);
+#else
+        draw_dab_pixels_BlendMode_Normal_and_Eraser(dab_mask, dab_offsets, s1, 
+                                                    color_r_, color_g_, color_b_, color_a_, 
+                                                    Pixel::from_f(normal*opaque), 
+                                                    src1PR.bytes);
+#endif
       }
     }
 
+#if 0
     if (lock_alpha) {
       draw_dab_pixels_BlendMode_LockAlpha(dab_mask, s1,
                                           color_r_, color_g_, color_b_, Pixel::from_f(lock_alpha*opaque));
@@ -362,20 +357,6 @@ GimpMypaintSurface::draw_dab (float x, float y,
   }
   
   
-#if 0
-  {
-    // expand the bounding box to include the region we just drawed
-    int bb_x, bb_y, bb_w, bb_h;
-    bb_x = floor (x - (radius+1));
-    bb_y = floor (y - (radius+1));
-    /* FIXME: think about it exactly */
-    bb_w = ceil (2*(radius+1));
-    bb_h = ceil (2*(radius+1));
-
-    ExpandRectToIncludePoint (&dirty_bbox, bb_x, bb_y);
-    ExpandRectToIncludePoint (&dirty_bbox, bb_x+bb_w-1, bb_y+bb_h-1);
-  }
-#endif
   /*  Update the drawable  */
   gimp_drawable_update (drawable, x1, y1, width, height);
 
@@ -388,6 +369,136 @@ GimpMypaintSurface::get_color (float x, float y,
                           float * color_r, float * color_g, float * color_b, float * color_a
                           )
 {
+  if (radius < 1.0) radius = 1.0;
+
+  float sum_weight, sum_r, sum_g, sum_b, sum_a;
+  sum_weight = sum_r = sum_g = sum_b = sum_a = 0.0;
+  const float hardness = 0.5;
+  const float aspect_ratio = 1.0;
+  const float angle = 0.0;
+
+  // in case we return with an error
+  *color_r = 0.0;
+  *color_g = 1.0;
+  *color_b = 0.0;
+
+  // WARNING: some code duplication with draw_dab
+
+  GimpItem        *item  = GIMP_ITEM (drawable);
+  GimpImage       *image = gimp_item_get_image (item);
+  GimpChannel     *mask  = gimp_image_get_mask (image);
+  gint             offset_x, offset_y;
+  PixelRegion      src1PR, my_destPR;
+  
+  /*  get the layer offsets  */
+  gimp_item_get_offset (item, &offset_x, &offset_y);
+
+  float r_fringe = radius + 1;
+  
+  int x1  = floor(x - r_fringe);
+  int y1  = floor(y - r_fringe);
+  int x2  = floor(x + r_fringe);
+  int y2  = floor(y + r_fringe);
+  int width   = (x2 - x1 + 1);
+  int height   = (y2 - y1 + 1);
+
+  int rx1 = x1;
+  int ry1 = y1;
+  int rx2 = x2;
+  int ry2 = y2;
+  if (mask) {
+    GimpItem *mask_item = GIMP_ITEM (mask);
+
+    /*  make sure coordinates are in mask bounds ...
+     *  we need to add the layer offset to transform coords
+     *  into the mask coordinate system
+     */
+    rx1 = CLAMP (x1, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
+    ry1 = CLAMP (y1, -offset_y, gimp_item_get_height (mask_item) - offset_y);
+    rx2 = CLAMP (x2, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
+    ry2 = CLAMP (y2, -offset_y, gimp_item_get_height (mask_item) - offset_y);
+  }
+  /* configure the pixel regions */
+
+  if (rx1 < 0) rx1 = 0;
+  if (ry1 < 0) ry1 = 0;
+  if (rx2 < 0) rx2 = 0;
+  if (ry2 < 0) ry2 = 0;
+
+  pixel_region_init (&src1PR, gimp_drawable_get_tiles (drawable),
+                     rx1, ry1, width, height,
+                     FALSE);
+#if 0
+  pixel_region_resize (src2PR,
+                       src2PR->x + (x1 - x), src2PR->y + (y1 - y),
+                       x2 - x1, y2 - y1);
+#endif
+
+  gpointer pr;
+  if (mask) {
+    PixelRegion maskPR;
+    pixel_region_init (&maskPR,
+                       gimp_drawable_get_tiles (GIMP_DRAWABLE (mask)),
+                       rx1 + offset_x,
+                       ry1 + offset_y,
+                       rx2 - rx1, ry2 - ry1,
+                       FALSE);
+
+    pr = pixel_regions_register (2, &src1PR, &maskPR);
+  } else {
+    pr = pixel_regions_register (1, &src1PR);
+  }
+
+  // first, we calculate the mask (opacity for each pixel)
+  static Pixel::data_t dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
+  static gint dab_offsets[(TILE_HEIGHT + 2)*2];
+  for (;
+       pr != NULL;
+       pr = pixel_regions_process ((PixelRegionIterator*)pr)) {
+    guchar  *s1 = src1PR.data;
+
+    render_dab_mask_in_tile(dab_mask,
+                    dab_offsets,
+                    x - src1PR.x,
+                    y - src1PR.y,
+                    radius,
+                    hardness,
+                    aspect_ratio, angle,
+                    src1PR.w, src1PR.h,src1PR.bytes, 
+                    src1PR.rowstride
+                    );
+
+
+    get_color_pixels_accumulate (dab_mask, dab_offsets, s1,
+                                 &sum_weight, &sum_r, &sum_g, &sum_b, &sum_a,
+                                 src1PR.bytes);
+  }
+
+  assert(sum_weight > 0.0);
+  sum_a /= sum_weight;
+  sum_r /= sum_weight;
+  sum_g /= sum_weight;
+  sum_b /= sum_weight;
+
+  *color_a = sum_a;
+  // now un-premultiply the alpha
+  if (sum_a > 0.0) {
+    *color_r = sum_r / sum_a;
+    *color_g = sum_g / sum_a;
+    *color_b = sum_b / sum_a;
+  } else {
+    // it is all transparent, so don't care about the colors
+    // (let's make them ugly so bugs will be visible)
+    *color_r = 0.0;
+    *color_g = 1.0;
+    *color_b = 0.0;
+  }
+
+  // fix rounding problems that do happen due to floating point math
+  *color_r = CLAMP(*color_r, 0.0, 1.0);
+  *color_g = CLAMP(*color_g, 0.0, 1.0);
+  *color_b = CLAMP(*color_b, 0.0, 1.0);
+  *color_a = CLAMP(*color_a, 0.0, 1.0);
 }
 
 void 
