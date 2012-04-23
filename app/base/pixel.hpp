@@ -5,6 +5,7 @@ struct Pixel {
   // Currently BPP=8 is assumed.
   typedef guchar  data_t;
   typedef guint32 internal_t;
+  typedef float  real;
   
   template<typename T> struct expressions {
     typedef T E_TYPE;
@@ -18,6 +19,12 @@ struct Pixel {
     data_t v;
     value_t(const data_t src) : v(src) {}
     expressions<value_t> wrap() const { return expressions<value_t>(*this); }
+  };
+  struct real_t {
+    static const int DEGREE = 1;
+    real v;
+    real_t(const real src) : v(src) {}
+    expressions<real_t> wrap() const { return expressions<real_t>(*this); }
   };
   template<typename T1, typename T2> struct prod_t {
     static const int DEGREE = T1::E_TYPE::DEGREE + T2::E_TYPE::DEGREE;
@@ -65,21 +72,16 @@ struct Pixel {
     return v;
   };
   typedef expressions<Pixel::value_t> pixel_t;
+  typedef expressions<Pixel::real_t>  rpixel_t;
   static data_t clamp(const internal_t value, const internal_t min, const internal_t max) {
+    return (data_t)((value < min)? min: (value > max)? max: value);
+  }
+  static real clamp(const real value, const real min, const real max) {
     return (data_t)((value < min)? min: (value > max)? max: value);
   }
 };
 
-// x -> P(x)
-inline
-Pixel::expressions<Pixel::value_t> pix(const Pixel::data_t v) { 
-  return Pixel::value_t(v).wrap();
-}
-// f -> P(_(f))
-inline
-Pixel::expressions<Pixel::value_t> f2p(const float f) { 
-  return Pixel::value_t(Pixel::from_f(f)).wrap();
-}
+
 
 template<typename T1, typename T2>
 inline
@@ -112,31 +114,60 @@ operator - (const Pixel::expressions<T1>& l, const Pixel::expressions<T2>& r) {
   return Pixel::sub_t<Pixel::expressions<T1>,Pixel::expressions<T2> >(l, r).wrap();
 }
 
+
+
+#ifndef REAL_CALC
+
+typedef Pixel::pixel_t pixel_t;
+typedef Pixel::internal_t internal_t;
+typedef Pixel::data_t result_t;
+
+// x -> P(x)
 inline
-Pixel::internal_t raw(const Pixel::expressions<Pixel::value_t>& c) {
+pixel_t pix(const Pixel::data_t v) { 
+  return Pixel::value_t(v).wrap();
+}
+
+inline
+pixel_t pix(const Pixel::real v) { 
+  return Pixel::value_t(Pixel::from_f(v)).wrap();
+}
+// f -> P(_(f))
+inline
+pixel_t f2p(const Pixel::real f) { 
+  return pix(f);
+}
+
+inline
+internal_t raw(const pixel_t& c) {
   return (Pixel::internal_t)c.e.v;
 }
 
 inline
-Pixel::data_t eval(const Pixel::expressions<Pixel::value_t>& c) {
-  return (Pixel::data_t)c.e.v;
+internal_t raw(const Pixel::expressions<Pixel::real_t>& c) {
+  return (Pixel::internal_t)(Pixel::from_f(c.e.v));
+}
+
+inline
+result_t eval(const pixel_t& c) {
+  return (result_t)c.e.v;
 }
 
 template<typename T1, typename T2>
 inline
-Pixel::internal_t raw(const Pixel::expressions<Pixel::prod_t<T1, T2> >& t) {
+internal_t raw(const Pixel::expressions<Pixel::prod_t<T1, T2> >& t) {
   return raw(t.e.left) * raw(t.e.right);
 }
 
 template<typename T1, typename T2>
 inline
-Pixel::internal_t raw(const Pixel::expressions<Pixel::div_t<T1, T2> >& t) {
+internal_t raw(const Pixel::expressions<Pixel::div_t<T1, T2> >& t) {
   return raw(t.e.numer) / raw(t.e.denom);
 }
 
 template<typename T1, typename T2>
 inline
-Pixel::internal_t raw(const Pixel::expressions<Pixel::add_t<T1, T2> >& t) {
+internal_t raw(const Pixel::expressions<Pixel::add_t<T1, T2> >& t) {
   switch (T1::E_TYPE::DEGREE - T2::E_TYPE::DEGREE) {
   case -3:
     return raw(t.e.left * f2p(1.0) * f2p(1.0) * f2p(1.0)) + raw(t.e.right);
@@ -159,7 +190,7 @@ Pixel::internal_t raw(const Pixel::expressions<Pixel::add_t<T1, T2> >& t) {
 
 template<typename T1, typename T2>
 inline
-Pixel::internal_t raw(const Pixel::expressions<Pixel::sub_t<T1, T2> >& t) {
+internal_t raw(const Pixel::expressions<Pixel::sub_t<T1, T2> >& t) {
   switch (T1::E_TYPE::DEGREE - T2::E_TYPE::DEGREE) {
   case -3:
     return raw(t.e.left * f2p(1.0) * f2p(1.0) * f2p(1.0)) - raw(t.e.right);
@@ -182,7 +213,7 @@ Pixel::internal_t raw(const Pixel::expressions<Pixel::sub_t<T1, T2> >& t) {
 
 template<typename T>
 inline
-Pixel::data_t eval(const Pixel::expressions<T>& t) {
+result_t eval(const Pixel::expressions<T>& t) {
   const int deg = T::DEGREE;
   Pixel::internal_t value = 0;
   switch (deg) {
@@ -211,7 +242,7 @@ Pixel::data_t eval(const Pixel::expressions<T>& t) {
 }
 template<typename T1, typename T2>
 inline
-Pixel::data_t eval(const Pixel::expressions<Pixel::div_t<T1, T2> >& t) {
+result_t eval(const Pixel::expressions<Pixel::div_t<T1, T2> >& t) {
   const int deg = Pixel::div_t<T1, T2>::DEGREE;
   Pixel::internal_t value = 0;
   switch (deg) {
@@ -238,4 +269,68 @@ Pixel::data_t eval(const Pixel::expressions<Pixel::div_t<T1, T2> >& t) {
   }
   return Pixel::clamp(value, Pixel::from_f(0.0), Pixel::from_f(1.0));
 }
+
+
+#else /* REAL_CALC */
+
+typedef Pixel::rpixel_t pixel_t;
+typedef Pixel::real internal_t;
+typedef Pixel::data_t result_t;
+
+// x -> P(x)
+inline
+pixel_t pix(const Pixel::data_t v) { 
+  return Pixel::real_t(Pixel::to_f(v)).wrap();
+}
+
+inline
+pixel_t pix(const Pixel::real v) { 
+  return Pixel::real_t(v).wrap();
+}
+// f -> P(_(f))
+inline
+pixel_t f2p(const Pixel::real f) { 
+  return pix(f);
+}
+
+inline
+internal_t raw(const pixel_t& c) {
+  return (Pixel::internal_t)c.e.v;
+}
+
+inline
+internal_t raw(const Pixel::expressions<Pixel::real_t>& c) {
+  return (Pixel::internal_t)(c.e.v);
+}
+
+template<typename T1, typename T2>
+inline
+internal_t raw(const Pixel::expressions<Pixel::prod_t<T1, T2> >& t) {
+  return raw(t.e.left) * raw(t.e.right);
+}
+
+template<typename T1, typename T2>
+inline
+internal_t raw(const Pixel::expressions<Pixel::div_t<T1, T2> >& t) {
+  return raw(t.e.numer) / raw(t.e.denom);
+}
+
+template<typename T1, typename T2>
+inline
+internal_t raw(const Pixel::expressions<Pixel::add_t<T1, T2> >& t) {
+  return raw(t.e.left) + raw(t.e.right);
+}
+
+template<typename T1, typename T2>
+inline
+internal_t raw(const Pixel::expressions<Pixel::sub_t<T1, T2> >& t) {
+  return raw(t.e.left) - raw(t.e.right);
+}
+
+template<typename T>
+inline result_t eval(const Pixel::expressions<T>& t) {
+  return (result_t)(Pixel::MAX_VALUE * Pixel::clamp(raw(t), 0.0, 1.0));
+}
+
+#endif
 #endif
