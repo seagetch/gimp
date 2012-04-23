@@ -553,16 +553,20 @@ GimpMypaintBrushPrivate::~GimpMypaintBrushPrivate() {
 void 
 GimpMypaintBrushPrivate::set_base_value (int index, float value) {
   g_assert (index >= 0 && index < BRUSH_SETTINGS_COUNT);
+  allocate_mapping(index);
+  settings[index].mapping->base_value = value;
+  /*
   settings[index].base_value = value;
   if (settings[index].mapping)
     settings[index].mapping->base_value = value;
+  */
 }
 
 void 
 GimpMypaintBrushPrivate::allocate_mapping (int index) {
   g_assert (index >= 0 && index < BRUSH_SETTINGS_COUNT);
   if (!settings[index].mapping) {
-    settings[index].mapping = new Mapping(BRUSH_SETTINGS_COUNT);
+    settings[index].mapping = new Mapping(INPUT_COUNT);
   }
 }
 

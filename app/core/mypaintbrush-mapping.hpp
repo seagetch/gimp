@@ -81,6 +81,13 @@ public:
     p->n = n;
   }
 
+  int get_n (int input)
+  {
+    assert (input >= 0 && input < inputs);
+    ControlPoints * p = pointsList + input;
+    return p->n;
+  }
+
   void set_point (int input, int index, float x, float y)
   {
     assert (input >= 0 && input < inputs);
@@ -94,6 +101,17 @@ public:
 
     p->xvalues[index] = x;
     p->yvalues[index] = y;
+  }
+
+  void get_point (int input, int index, float *x, float *y)
+  {
+    assert (input >= 0 && input < inputs);
+    assert (index >= 0 && index < 8);
+    ControlPoints * p = pointsList + input;
+    assert (index < p->n);
+    
+    *x = p->xvalues[index];
+    *y = p->yvalues[index];
   }
 
   bool is_constant()

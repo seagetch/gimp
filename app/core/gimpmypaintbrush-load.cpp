@@ -77,11 +77,13 @@ class MyPaintBrushReader {
   typedef gfloat (TransformY)(gfloat input);
 
   GHashTable* read_file (const gchar *filename, GError **error);
+  void load_defaults   ();
   void parse_raw       (gint64 version);
   void parse_points_v1 (gchar *string, gint inputs_index, Mapping *mapping, TransformY trans = NULL);
   void parse_points_v2 (gchar *string, gint inputs_index, Mapping *mapping, TransformY trans = NULL);
   gchar *unquote        (const gchar *string);
   void load_icon       (gchar *filename);
+  void dump();
   
   public:
   MyPaintBrushReader();
@@ -148,15 +150,68 @@ MyPaintBrushReader::load_brush (GimpContext  *context,
   version = 0;  
 
   result = GIMP_MYPAINT_BRUSH (gimp_mypaint_brush_new (context, brushname));
+  load_defaults();
   g_object_ref (result);
   raw_pair = read_file (filename, error);
   parse_raw (version);
+//  dump();
   
   ScopeGuard<gchar, void(gpointer)> filename_dup(g_strndup(filename, strlen(filename) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION)), g_free);
   ScopeGuard<gchar, void(gpointer)> icon_filename(g_strconcat (filename_dup.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION), g_free);
   g_print ("Read Icon: %s\n", icon_filename.ptr());
   load_icon (icon_filename.ptr());
   return result;
+}
+
+void
+MyPaintBrushReader::load_defaults ()
+{
+  ScopeGuard<GList, void(GList*)> settings(mypaint_brush_get_brush_settings (), g_list_free);
+  GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
+
+  for (GList* item = settings.ptr(); item; item = item->next) {
+    MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(item->data);
+    priv->set_base_value(setting->index, setting->default_value);
+//    priv->deallocate_mapping(setting->index);
+    if (g_strcmp0(setting->internal_name, "opaque_multiply") == 0) {
+      priv->allocate_mapping(setting->index);
+      GimpMypaintBrushPrivate::Value* v = priv->get_setting(setting->index);
+      v->mapping->set_n(INPUT_PRESSURE, 2);
+      v->mapping->set_point(INPUT_PRESSURE, 0, 0.0, 0.0);
+      v->mapping->set_point(INPUT_PRESSURE, 1, 1.0, 1.0);      
+    }
+  }
+}
+
+void
+MyPaintBrushReader::dump ()
+{
+  ScopeGuard<GList, void(GList*)> settings(mypaint_brush_get_brush_settings (), g_list_free);
+  ScopeGuard<GList, void(GList*)> inputs(mypaint_brush_get_input_settings (), g_list_free);
+  GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
+
+  for (GList* item = settings.ptr(); item; item = item->next) {
+    MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(item->data);
+    GimpMypaintBrushPrivate::Value* v = priv->get_setting(setting->index);
+    if (v->mapping) {
+      g_print("mapping: %s=%f\n", setting->internal_name, v->mapping->base_value);
+      for (GList* input_iter = inputs.ptr(); input_iter; input_iter = input_iter->next) {
+        MyPaintBrushInputSettings* input = reinterpret_cast<MyPaintBrushInputSettings*>(input_iter->data);
+        int n = v->mapping->get_n(input->index);
+        if (n == 0)
+          continue;
+        g_print ("  %s:", input->name);
+        for (int i = 0; i < n; i ++) {
+          float x, y;
+          v->mapping->get_point(input->index, i, &x, &y);
+          g_print ("(%f,%f) ", x, y);
+        }
+        g_print ("\n");
+      }
+    } else {
+      g_print("base only: %s=%f\n", setting->internal_name, v->base_value);
+    }
+  }
 }
 
 GHashTable*
@@ -442,9 +497,9 @@ MyPaintBrushReader::parse_raw (
               if (tokens.ptr()[1] && input_setting)
                 {
                   if (version <= 1)
-                    parse_points_v1 (tokens.ptr()[1], input_setting->index, v->mapping);
+                    parse_points_v1 (tokens.ptr()[1], input_setting->index, v->mapping, migrate? migrate->transform: NULL);
                   else
-                    parse_points_v2 (tokens.ptr()[1], input_setting->index, v->mapping);
+                    parse_points_v2 (tokens.ptr()[1], input_setting->index, v->mapping, migrate? migrate->transform: NULL);
                 }
               else
                 {
