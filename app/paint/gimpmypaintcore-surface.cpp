@@ -237,20 +237,17 @@ GimpMypaintSurface::draw_dab (float x, float y,
 
   float r_fringe = radius + 1;
   
+  /* configure the pixel regions */
   int x1  = floor(x - r_fringe);
   int y1  = floor(y - r_fringe);
   int x2  = floor(x + r_fringe);
   int y2  = floor(y + r_fringe);
-  int width   = (x2 - x1 + 1);
-  int height   = (y2 - y1 + 1);
-
-  /*  set undo blocks  */
-  validate_undo_tiles (x1, y1, width, height);
 
   int rx1 = x1;
   int ry1 = y1;
   int rx2 = x2;
   int ry2 = y2;
+
   if (mask) {
     GimpItem *mask_item = GIMP_ITEM (mask);
 
@@ -258,17 +255,25 @@ GimpMypaintSurface::draw_dab (float x, float y,
      *  we need to add the layer offset to transform coords
      *  into the mask coordinate system
      */
-    rx1 = CLAMP (x1, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
-    ry1 = CLAMP (y1, -offset_y, gimp_item_get_height (mask_item) - offset_y);
-    rx2 = CLAMP (x2, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
-    ry2 = CLAMP (y2, -offset_y, gimp_item_get_height (mask_item) - offset_y);
+    rx1 = CLAMP (rx1, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
+    ry1 = CLAMP (ry1, -offset_y, gimp_item_get_height (mask_item) - offset_y);
+    rx2 = CLAMP (rx2, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
+    ry2 = CLAMP (ry2, -offset_y, gimp_item_get_height (mask_item) - offset_y);
   }
-  /* configure the pixel regions */
+  rx1 = CLAMP (rx1, 0, gimp_item_get_width  (item) - 1);
+  ry1 = CLAMP (ry1, 0, gimp_item_get_height (item) - 1);
+  rx2 = CLAMP (rx2, 0, gimp_item_get_width  (item) - 1);
+  ry2 = CLAMP (ry2, 0, gimp_item_get_height (item) - 1);
 
-  if (rx1 < 0) rx1 = 0;
-  if (ry1 < 0) ry1 = 0;
-  if (rx2 < 0) rx2 = 0;
-  if (ry2 < 0) ry2 = 0;
+  int width   = (rx2 - rx1 + 1);
+  int height   = (ry2 - ry1 + 1);
+
+  if (rx1 > rx2 || ry1 > ry2)
+    return false;
+
+  /*  set undo blocks  */
+  start_undo_group();
+  validate_undo_tiles (rx1, ry1, width, height);
 
   pixel_region_init (&src1PR, gimp_drawable_get_tiles (drawable),
                      rx1, ry1, width, height,
@@ -316,25 +321,22 @@ GimpMypaintSurface::draw_dab (float x, float y,
 
     // second, we use the mask to stamp a dab for each activated blend mode
     if (normal) {
+/*
       if (color_a == 1.0) {
         draw_dab_pixels_BlendMode_Normal(dab_mask, dab_offsets, 
                                          s1, color_r_, color_g_, color_b_, 
                                          Pixel::from_f(normal*opaque), 
                                          src1PR.bytes);
       } else {
+*/
         // normal case for brushes that use smudging (eg. watercolor)
-#if 0
-        draw_dab_pixels_BlendMode_Normal(dab_mask, dab_offsets, 
-                                         s1, color_r_, color_g_, color_b_, 
-                                         Pixel::from_f(normal*opaque), 
-                                         src1PR.bytes);
-#else
         draw_dab_pixels_BlendMode_Normal_and_Eraser(dab_mask, dab_offsets, s1, 
                                                     color_r_, color_g_, color_b_, color_a_, 
                                                     Pixel::from_f(normal*opaque), 
                                                     src1PR.bytes);
-#endif
+/*
       }
+*/
     }
 
 #if 0
@@ -359,6 +361,14 @@ GimpMypaintSurface::draw_dab (float x, float y,
   
   /*  Update the drawable  */
   gimp_drawable_update (drawable, x1, y1, width, height);
+  if (x1 < this->x1)
+    this->x1 = x1;
+  if (y1 < this->y1)
+    this->y1 = y1;
+  if (x1 + width > this->x2)
+    this->x2 = x1 + width;
+  if (y1 + height > this->y2)
+    this->y2 = y1 + height;
 
   return true;
 }
@@ -395,17 +405,20 @@ GimpMypaintSurface::get_color (float x, float y,
 
   float r_fringe = radius + 1;
   
+  /* configure the pixel regions */
   int x1  = floor(x - r_fringe);
   int y1  = floor(y - r_fringe);
   int x2  = floor(x + r_fringe);
   int y2  = floor(y + r_fringe);
-  int width   = (x2 - x1 + 1);
-  int height   = (y2 - y1 + 1);
 
   int rx1 = x1;
   int ry1 = y1;
   int rx2 = x2;
   int ry2 = y2;
+
+  if (rx1 > rx2 || ry1 > ry2)
+    return;
+
   if (mask) {
     GimpItem *mask_item = GIMP_ITEM (mask);
 
@@ -413,17 +426,18 @@ GimpMypaintSurface::get_color (float x, float y,
      *  we need to add the layer offset to transform coords
      *  into the mask coordinate system
      */
-    rx1 = CLAMP (x1, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
-    ry1 = CLAMP (y1, -offset_y, gimp_item_get_height (mask_item) - offset_y);
-    rx2 = CLAMP (x2, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
-    ry2 = CLAMP (y2, -offset_y, gimp_item_get_height (mask_item) - offset_y);
+    rx1 = CLAMP (rx1, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
+    ry1 = CLAMP (ry1, -offset_y, gimp_item_get_height (mask_item) - offset_y);
+    rx2 = CLAMP (rx2, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
+    ry2 = CLAMP (ry2, -offset_y, gimp_item_get_height (mask_item) - offset_y);
   }
-  /* configure the pixel regions */
-
-  if (rx1 < 0) rx1 = 0;
-  if (ry1 < 0) ry1 = 0;
-  if (rx2 < 0) rx2 = 0;
-  if (ry2 < 0) ry2 = 0;
+  rx1 = CLAMP (rx1, 0, gimp_item_get_width  (item) - 1);
+  ry1 = CLAMP (ry1, 0, gimp_item_get_height (item) - 1);
+  rx2 = CLAMP (rx2, 0, gimp_item_get_width  (item) - 1);
+  ry2 = CLAMP (ry2, 0, gimp_item_get_height (item) - 1);
+  
+  int width   = (rx2 - rx1 + 1);
+  int height   = (ry2 - ry1 + 1);
 
   pixel_region_init (&src1PR, gimp_drawable_get_tiles (drawable),
                      rx1, ry1, width, height,
@@ -474,11 +488,13 @@ GimpMypaintSurface::get_color (float x, float y,
                                  src1PR.bytes);
   }
 
-  assert(sum_weight > 0.0);
-  sum_a /= sum_weight;
-  sum_r /= sum_weight;
-  sum_g /= sum_weight;
-  sum_b /= sum_weight;
+//  assert(sum_weight > 0.0);
+  if (sum_weight > 0.0) {
+    sum_a /= sum_weight;
+    sum_r /= sum_weight;
+    sum_g /= sum_weight;
+    sum_b /= sum_weight;
+  }
 
   *color_a = sum_a;
   // now un-premultiply the alpha
@@ -504,13 +520,31 @@ GimpMypaintSurface::get_color (float x, float y,
 void 
 GimpMypaintSurface::begin_session()
 {
+  session = 0;
+}
+
+void 
+GimpMypaintSurface::end_session()
+{
+  if (session <= 0)
+    return;
+    
+  stop_updo_group();
+  session = 0;
+}
+
+void 
+GimpMypaintSurface::start_undo_group()
+{
   GimpItem *item;
   
-  session ++;
-  if (session > 1)
+  if (session > 0)
     return;
+  g_print("Stroke::start_undo_group...\n");
+  session = 1;
 
   g_return_if_fail (gimp_item_is_attached (GIMP_ITEM (drawable)));
+  g_print("Stroke::begin_session:: do begining of session...\n");
 //  g_return_if_fail (coords != NULL);
 //  g_return_if_fail (error == NULL || *error == NULL);
 
@@ -521,8 +555,8 @@ GimpMypaintSurface::begin_session()
     tile_manager_unref (undo_tiles);
 
   undo_tiles = tile_manager_new (gimp_item_get_width  (item),
-                                       gimp_item_get_height (item),
-                                       gimp_drawable_bytes (drawable));
+                                 gimp_item_get_height (item),
+                                 gimp_drawable_bytes (drawable));
 
   /*  Get the initial undo extents  */
   x1 = gimp_item_get_width (item) + 1;
@@ -536,20 +570,13 @@ GimpMypaintSurface::begin_session()
   return;
 }
 
-GimpUndo* 
-GimpMypaintSurface::end_session()
+void 
+GimpMypaintSurface::stop_updo_group()
 {
-  if (session <= 0)
-    return NULL;
-
-  session --;
-  if (session != 0)
-    return NULL;
-
   GimpImage *image;
 
-  g_return_val_if_fail (GIMP_IS_DRAWABLE (drawable), NULL);
-  g_return_val_if_fail (gimp_item_is_attached (GIMP_ITEM (drawable)), NULL);
+  g_return_if_fail (GIMP_IS_DRAWABLE (drawable));
+  g_return_if_fail (gimp_item_is_attached (GIMP_ITEM (drawable)));
 
   image = gimp_item_get_image (GIMP_ITEM (drawable));
 
@@ -558,50 +585,39 @@ GimpMypaintSurface::end_session()
    */
   if (x2 < x1 || y2 < y1) {
     gimp_viewable_preview_thaw (GIMP_VIEWABLE (drawable));
-    return NULL;
+    return;
   }
 
-
-  gimp_image_undo_group_start (image, GIMP_UNDO_GROUP_MYPAINT,
-                               undo_desc);
-
-  GimpUndo* result = push_undo (image, NULL);
-
-  gimp_drawable_push_undo (drawable, NULL,
-                           x1, y1,
-                           x2 - x1, y2 - y1,
-                           undo_tiles,
-                           TRUE);
-
-  gimp_image_undo_group_end (image);
-
-
-  tile_manager_unref (undo_tiles);
-  undo_tiles = NULL;
+  g_print("Stroke::end_session::push_undo(%d,%d)-(%d,%d)\n",x1,y1,x2,y2);
+  push_undo (image, "Mypaint Brush");
 
   gimp_viewable_preview_thaw (GIMP_VIEWABLE (drawable));
   
-  return result;
+  return;
 }
-
-#if 0
-TempBuf *
-GimpMypaintSurface::get_paint_area (GimpDrawable     *drawable,
-                                      GimpMypaintOptions *mypaint_options,
-                                      const GimpCoords *coords)
-{
-  return NULL;
-}
-#endif
 
 GimpUndo *
 GimpMypaintSurface::push_undo (GimpImage     *image,
                                 const gchar   *undo_desc)
 {
-  return gimp_image_undo_push (image, GIMP_TYPE_MYPAINT_CORE_UNDO,
-                               GIMP_UNDO_MYPAINT, undo_desc,
+  gimp_image_undo_group_start (image, GIMP_UNDO_GROUP_MYPAINT,
+                               undo_desc);
+
+  gimp_image_undo_push (image, GIMP_TYPE_MYPAINT_CORE_UNDO,
+                               GIMP_UNDO_PAINT, NULL,
                                GimpDirtyMask(0),
                                NULL);
+  gimp_drawable_push_undo (drawable, NULL,
+                           x1, y1,
+                           x2 - x1, y2 - y1,
+                           undo_tiles,
+                           TRUE);
+  gimp_image_undo_group_end (image);
+
+  tile_manager_unref (undo_tiles);
+  undo_tiles = NULL;
+
+  return NULL;
 }
 
 #if 0
@@ -754,13 +770,21 @@ GimpMypaintSurface::validate_undo_tiles (
                                      gint           h)
 {
   gint i, j;
+  GimpItem* item = GIMP_ITEM (drawable);
 
   g_return_if_fail (GIMP_IS_DRAWABLE (drawable));
   g_return_if_fail (undo_tiles != NULL);
-
+  
+  if (x + w > gimp_item_get_width(item))
+    w = MAX(0, gimp_item_get_width(item) - x);
+  if (y + h > gimp_item_get_height(item))
+    h = MAX(0, gimp_item_get_height(item) - y);
+  
   for (i = y; i < (y + h); i += (TILE_HEIGHT - (i % TILE_HEIGHT))) {
     for (j = x; j < (x + w); j += (TILE_WIDTH - (j % TILE_WIDTH))) {
       Tile *dest_tile = tile_manager_get_tile (undo_tiles, j, i, FALSE, FALSE);
+      assert(j< gimp_item_get_width(item));
+      assert(i< gimp_item_get_height(item));
 
       if (! tile_is_valid (dest_tile)) {
         Tile *src_tile =
@@ -768,6 +792,8 @@ GimpMypaintSurface::validate_undo_tiles (
                                  j, i, TRUE, FALSE);
         tile_manager_map_tile (undo_tiles, j, i, src_tile);
         tile_release (src_tile, FALSE);
+//        g_print("validate_undo_tiles:backup xy=(%d,%d),bound=(%d,%d)\n",j,i,MIN(x+w-j, TILE_WIDTH), MIN(y+h-i,TILE_HEIGHT));
+
       }
     }
   }

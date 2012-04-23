@@ -31,6 +31,7 @@ extern "C++" {
 
 class GimpMypaintSurface : public Surface
 {
+private:
 #if 0
   virtual TempBuf* get_paint_area (GimpDrawable *drawable,
                                     GimpMypaintOptions *options,
@@ -46,26 +47,6 @@ class GimpMypaintSurface : public Surface
   gint         x1, y1;           /*  undo extents in image coords        */
   gint         x2, y2;           /*  undo extents in image coords        */
   gint         session;          /*  reference counter of atomic scope   */
-#if 0
-  TempBuf * get_orig_image            (gint              x,
-                                       gint              y,
-                                       gint              width,
-                                       gint              height);
-  TempBuf * get_orig_proj             (GimpPickable     *pickable,
-                                       gint              x,
-                                       gint              y,
-                                       gint              width,
-                                       gint              height);
-#endif
-  void      paste                     (PixelRegion              *mypaint_maskPR,
-                                       gdouble                   mypaint_opacity,
-                                       gdouble                   image_opacity,
-                                       GimpLayerModeEffects      mypaint_mode,
-                                       GimpMypaintBrushMode      mode);
-  void      replace                   (PixelRegion              *mypaint_maskPR,
-                                       gdouble                   mypaint_opacity,
-                                       gdouble                   image_opacity,
-                                       GimpMypaintBrushMode  mode);
 
   void      validate_undo_tiles       (gint              x,
                                        gint              y,
@@ -77,13 +58,13 @@ class GimpMypaintSurface : public Surface
                                        gint              y,
                                        gint              w,
                                        gint              h);
-#endif
   void      copy_valid_tiles          (TileManager *src_tiles,
                                        TileManager *dest_tiles,
                                        gint         x,
                                        gint         y,
                                        gint         w,
                                        gint         h);
+#endif
 
   void render_dab_mask_in_tile (Pixel::data_t * mask,
                                 gint          *offsets,
@@ -93,6 +74,8 @@ class GimpMypaintSurface : public Surface
                                 float aspect_ratio, float angle,
                                 int w, int h, gint bytes, gint stride
                                 );
+  void start_undo_group();
+  void stop_updo_group();
 public:
   GimpMypaintSurface(GimpDrawable* drawable);
   virtual ~GimpMypaintSurface();
@@ -112,7 +95,7 @@ public:
                           );
 
   virtual void begin_session();
-  virtual GimpUndo* end_session();
+  virtual void end_session();
   
   bool is_surface_for (GimpDrawable* drawable) { return drawable == this->drawable; }
 };

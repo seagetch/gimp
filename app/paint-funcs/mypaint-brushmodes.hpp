@@ -7,8 +7,9 @@
  * (at your option) any later version.
  */
 
+#define REAL_CALC
 #include "base/pixel.hpp"
-
+//using namespace Pixel::DataCalc;
 // parameters to those methods:
 //
 // rgba: A pointer to 16bit rgba data with premultiplied alpha.
@@ -43,14 +44,14 @@ void draw_dab_pixels_BlendMode_Normal (Pixel::data_t * mask,
   case 3:
     while (1) {
       for (; mask[0]; mask++, rgba+=3) {
-        Pixel::pixel_t opa_a = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
-        Pixel::pixel_t opa_b = pix( eval (f2p(1.0) - opa_a ) ); // bottomAlpha
+        pixel_t opa_a = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
+        pixel_t opa_b = pix( eval (f2p(1.0) - opa_a ) ); // bottomAlpha
         rgba[0] = eval( opa_a*pix(color_r) + opa_b*pix(rgba[0]) );
         rgba[1] = eval( opa_a*pix(color_g) + opa_b*pix(rgba[1]) );
         rgba[2] = eval( opa_a*pix(color_b) + opa_b*pix(rgba[2]) );
       }
       if (!offsets[0]) break;
-      rgba += offsets[0] * bytes;
+      rgba += offsets[0] * 3;
       offsets ++;
       mask ++;
     }
@@ -58,17 +59,14 @@ void draw_dab_pixels_BlendMode_Normal (Pixel::data_t * mask,
   case 4:
     while (1) {
       for (; mask[0]; mask++, rgba+=4) {
-        Pixel::pixel_t brush_a = pix( eval( pix(mask[0]) * pix(opacity) ) );
-        Pixel::pixel_t base_a  = pix(rgba[3]);
-        rgba[3] = eval( (f2p(1.0) - (f2p(1.0) - brush_a)*(f2p(1.0) - base_a)) );
+        pixel_t brush_a = pix( eval( pix(mask[0]) * pix(opacity) ) );
+        pixel_t base_a  = pix(rgba[3]);
+        rgba[3] = eval( brush_a + (f2p(1.0) - brush_a)*base_a );
         if (rgba[3]) {
-//          Pixel::pixel_t dest_a = pix(rgba[3]);
-          rgba[0] = eval( (((f2p(1.0) - (f2p(1.0) - pix(mask[0]) * pix(opacity))*(f2p(1.0) - base_a)) - pix(mask[0]) * pix(opacity))*pix(rgba[0]) + 
-                            brush_a*pix(color_r)) / (f2p(1.0) - (f2p(1.0) - brush_a)*(f2p(1.0) - base_a)) );
-          rgba[1] = eval( (((f2p(1.0) - (f2p(1.0) - pix(mask[0]) * pix(opacity))*(f2p(1.0) - base_a)) - pix(mask[0]) * pix(opacity))*pix(rgba[1]) + 
-                            brush_a*pix(color_g)) / (f2p(1.0) - (f2p(1.0) - brush_a)*(f2p(1.0) - base_a)) );
-          rgba[2] = eval( (((f2p(1.0) - (f2p(1.0) - pix(mask[0]) * pix(opacity))*(f2p(1.0) - base_a)) - pix(mask[0]) * pix(opacity))*pix(rgba[2]) +
-                            brush_a*pix(color_b)) / (f2p(1.0) - (f2p(1.0) - brush_a)*(f2p(1.0) - base_a)) );
+          pixel_t dest_a = pix(rgba[3]);
+          rgba[0] = eval( (brush_a * pix(color_r) + (f2p(1.0) - brush_a) * base_a * pix(rgba[0])) / dest_a );
+          rgba[1] = eval( (brush_a * pix(color_g) + (f2p(1.0) - brush_a) * base_a * pix(rgba[1])) / dest_a );
+          rgba[2] = eval( (brush_a * pix(color_b) + (f2p(1.0) - brush_a) * base_a * pix(rgba[2])) / dest_a );
         } else {
           rgba[0] = color_r;
           rgba[1] = color_g;
@@ -76,7 +74,7 @@ void draw_dab_pixels_BlendMode_Normal (Pixel::data_t * mask,
         }
       }
       if (!offsets[0]) break;
-      rgba += offsets[0] * bytes;
+      rgba += offsets[0] * 4;
       offsets ++;
       mask ++;
     }
@@ -86,6 +84,170 @@ void draw_dab_pixels_BlendMode_Normal (Pixel::data_t * mask,
   }
 };
 
+// This blend mode is used for smudging and erasing.  Smudging
+// allows to "drag" around transparency as if it was a color.  When
+// smuding over a region that is 60% opaque the result will stay 60%
+// opaque (color_a=0.6).  For normal erasing color_a is set to 0.0
+// and color_r/g/b will be ignored. This function can also do normal
+// blending (color_a=1.0).
+//
+void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::data_t * mask,
+                                                  gint          *offsets,
+                                                  Pixel::data_t * rgba,
+                                                  Pixel::data_t color_r,
+                                                  Pixel::data_t color_g,
+                                                  Pixel::data_t color_b,
+                                                  Pixel::data_t color_a,
+                                                  Pixel::data_t opacity,
+                                                  gint          bytes,
+                                                  Pixel::data_t background_r = Pixel::from_f(1.0),
+                                                  Pixel::data_t background_g = Pixel::from_f(1.0),
+                                                  Pixel::data_t background_b = Pixel::from_f(1.0)) {
+//  g_print("BlendMode_Normal_and_Eraser(color_a=%d)\n", color_a);
+
+  switch (bytes) {
+  case 3:
+    while (1) {
+      for (; mask[0]; mask++, rgba+=3) {
+        pixel_t brush_a     = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
+        pixel_t inv_brush_a = pix( eval (f2p(1.0) - brush_a ) ); // bottomAlpha
+        rgba[0] = eval( brush_a*((pix(1.0f) - pix(color_a))*pix(background_r) + pix(color_a)*pix(color_r)) + inv_brush_a*pix(rgba[0]) );
+        rgba[1] = eval( brush_a*((pix(1.0f) - pix(color_a))*pix(background_g) + pix(color_a)*pix(color_g)) + inv_brush_a*pix(rgba[1]) );
+        rgba[2] = eval( brush_a*((pix(1.0f) - pix(color_a))*pix(background_b) + pix(color_a)*pix(color_b)) + inv_brush_a*pix(rgba[2]) );
+      }
+      if (!offsets[0]) break;
+      rgba += offsets[0] * 3;
+      offsets ++;
+      mask ++;
+    }
+    break;
+  case 4:
+    while (1) {
+      for (; mask[0]; mask++, rgba+=4) {
+        pixel_t brush_a = pix( eval( pix(mask[0]) * pix(opacity) ) );
+        pixel_t base_a  = pix(rgba[3]);
+//        pixel_t orig_dest = pix(rgba[3]);
+        rgba[3] = eval( brush_a * pix(color_a) + (pix(1.0f) - brush_a) * base_a );
+        
+        if (rgba[3]) {
+          pixel_t inv_brush_a = pix( eval(pix(1.0f) - brush_a));
+          pixel_t dest_a = pix(rgba[3]);
+          rgba[0] = eval( (inv_brush_a*base_a*pix(rgba[0]) + brush_a*pix(color_a)*pix(color_r)) / dest_a );
+          rgba[1] = eval( (inv_brush_a*base_a*pix(rgba[1]) + brush_a*pix(color_a)*pix(color_g)) / dest_a );
+          rgba[2] = eval( (inv_brush_a*base_a*pix(rgba[2]) + brush_a*pix(color_a)*pix(color_b)) / dest_a );
+        } else {
+          rgba[0] = color_r;
+          rgba[1] = color_g;
+          rgba[2] = color_b;
+        }
+      }
+      if (!offsets[0]) break;
+      rgba += offsets[0] * 4;
+      offsets ++;
+      mask ++;
+    }
+    break;
+  default:
+    g_print("Unsupported layer type.\n");
+  }
+};
+
+// This is BlendMode_Normal with locked alpha channel.
+//
+void draw_dab_pixels_BlendMode_LockAlpha (Pixel::data_t * mask,
+                                          Pixel::data_t * rgba,
+                                          Pixel::data_t color_r,
+                                          Pixel::data_t color_g,
+                                          Pixel::data_t color_b,
+                                          Pixel::data_t opacity) {
+
+  while (1) {
+    for (; mask[0]; mask++, rgba+=4) {
+      pixel_t opa_a = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
+      pixel_t opa_b = pix( eval( f2p(1.0) - opa_a) ); // bottomAlpha
+      pixel_t alpha = pix( rgba[3] );
+          
+      rgba[0] = eval(opa_a*alpha*pix(color_r) + opa_b*pix(rgba[0]) );
+      rgba[1] = eval(opa_a*alpha*pix(color_g) + opa_b*pix(rgba[1]) );
+      rgba[2] = eval(opa_a*alpha*pix(color_b) + opa_b*pix(rgba[2]) );
+    }
+    if (!mask[1]) break;
+    rgba += mask[1];
+    mask += 2;
+  }
+};
+
+
+// Sum up the color/alpha components inside the masked region.
+// Called by get_color().
+//
+void get_color_pixels_accumulate (Pixel::data_t * mask,
+                                  gint          *offsets,
+                                  Pixel::data_t * rgba,
+                                  float * sum_weight,
+                                  float * sum_r,
+                                  float * sum_g,
+                                  float * sum_b,
+                                  float * sum_a,
+                                  gint bytes
+                                  ) {
+
+
+  // The sum of a 64x64 tile fits into a 32 bit integer, but the sum
+  // of an arbitrary number of tiles may not fit. We assume that we
+  // are processing a single tile at a time, so we can use integers.
+  // But for the result we need floats.
+
+  internal_t weight = 0;
+  internal_t r = 0;
+  internal_t g = 0;
+  internal_t b = 0;
+  internal_t a = 0;
+
+  switch (bytes) {
+  case 3:
+    while (1) {
+      for (; mask[0]; mask++, rgba+=3) {
+        pixel_t opa = pix (mask[0]);
+        weight += eval(opa);
+        r      += eval (opa * pix(rgba[0]));
+        g      += eval (opa * pix(rgba[1]));
+        b      += eval (opa * pix(rgba[2]));
+        a      += Pixel::from_f(1.0);
+      }
+      if (!offsets[0]) break;
+      rgba += offsets[0] * 3;
+      offsets ++;
+      mask ++;
+    }
+    break;
+  case 4:
+    while (1) {
+      for (; mask[0]; mask++, rgba+=4) {
+        pixel_t opa = pix (mask[0]);
+        weight += eval(opa);
+        r      += eval (opa * pix(rgba[0]) * pix(rgba[3]));
+        g      += eval (opa * pix(rgba[1]) * pix(rgba[3]));
+        b      += eval (opa * pix(rgba[2]) * pix(rgba[3]));
+        a      += eval (opa * pix(rgba[3]));
+      }
+      if (!offsets[0]) break;
+      rgba += offsets[0] * 4;
+      offsets ++;
+      mask ++;
+    }
+    break;
+  default:
+    g_print("Unsupported layer type.\n");
+  }
+
+  // convert integer to float outside the performance critical loop
+  *sum_weight += weight;
+  *sum_r += r;
+  *sum_g += g;
+  *sum_b += b;
+  *sum_a += a;
+};
 
 #if 0
 // Colorize: apply the source hue and saturation, retaining the target
@@ -216,163 +378,3 @@ draw_dab_pixels_BlendMode_Color (uint16_t *mask,
 };
 #endif
 
-// This blend mode is used for smudging and erasing.  Smudging
-// allows to "drag" around transparency as if it was a color.  When
-// smuding over a region that is 60% opaque the result will stay 60%
-// opaque (color_a=0.6).  For normal erasing color_a is set to 0.0
-// and color_r/g/b will be ignored. This function can also do normal
-// blending (color_a=1.0).
-//
-void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::data_t * mask,
-                                                  gint          *offsets,
-                                                  Pixel::data_t * rgba,
-                                                  Pixel::data_t color_r,
-                                                  Pixel::data_t color_g,
-                                                  Pixel::data_t color_b,
-                                                  Pixel::data_t color_a,
-                                                  Pixel::data_t opacity,
-                                                  gint          bytes) {
-  g_print("BlendMode_Normal_and_Eraser(color_a=%d)\n", color_a);
-
-  switch (bytes) {
-  case 3:
-    while (1) {
-      for (; mask[0]; mask++, rgba+=3) {
-        Pixel::pixel_t opa_a = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
-        Pixel::pixel_t opa_b = pix( eval (f2p(1.0) - opa_a ) ); // bottomAlpha
-        rgba[0] = eval( opa_a*pix(color_a)*pix(color_r) + opa_b*pix(rgba[0]) );
-        rgba[1] = eval( opa_a*pix(color_a)*pix(color_g) + opa_b*pix(rgba[1]) );
-        rgba[2] = eval( opa_a*pix(color_a)*pix(color_b) + opa_b*pix(rgba[2]) );
-      }
-      if (!offsets[0]) break;
-      rgba += offsets[0] * bytes;
-      offsets ++;
-      mask ++;
-    }
-    break;
-  case 4:
-    while (1) {
-      for (; mask[0]; mask++, rgba+=4) {
-        Pixel::pixel_t brush_a = pix( eval( pix(mask[0]) * pix(opacity) ) );
-        Pixel::pixel_t base_a  = pix(rgba[3]);
-        Pixel::data_t  orig_dest = rgba[3];
-        rgba[3] = eval( brush_a * pix(color_a) + (f2p(1.0) - brush_a) * base_a );
-        
-        if (rgba[3]) {
-          Pixel::pixel_t dest_a = pix(rgba[3]);
-          rgba[0] = eval( ((f2p(1.0) - brush_a)*pix(orig_dest)*pix(rgba[0]) + brush_a*pix(color_a)*pix(color_r)) / dest_a );
-          rgba[1] = eval( ((f2p(1.0) - brush_a)*pix(orig_dest)*pix(rgba[1]) + brush_a*pix(color_a)*pix(color_g)) / dest_a );
-          rgba[2] = eval( ((f2p(1.0) - brush_a)*pix(orig_dest)*pix(rgba[2]) + brush_a*pix(color_a)*pix(color_b)) / dest_a );
-        } else {
-          rgba[0] = color_r;
-          rgba[1] = color_g;
-          rgba[2] = color_b;
-        }
-      }
-      if (!offsets[0]) break;
-      rgba += offsets[0] * bytes;
-      offsets ++;
-      mask ++;
-    }
-    break;
-  default:
-    g_print("Unsupported layer type.\n");
-  }
-};
-
-// This is BlendMode_Normal with locked alpha channel.
-//
-void draw_dab_pixels_BlendMode_LockAlpha (Pixel::data_t * mask,
-                                          Pixel::data_t * rgba,
-                                          Pixel::data_t color_r,
-                                          Pixel::data_t color_g,
-                                          Pixel::data_t color_b,
-                                          Pixel::data_t opacity) {
-
-  while (1) {
-    for (; mask[0]; mask++, rgba+=4) {
-      Pixel::pixel_t opa_a = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
-      Pixel::pixel_t opa_b = pix( eval( f2p(1.0) - opa_a) ); // bottomAlpha
-      Pixel::pixel_t alpha = pix( rgba[3] );
-          
-      rgba[0] = eval(opa_a*alpha*pix(color_r) + opa_b*pix(rgba[0]) );
-      rgba[1] = eval(opa_a*alpha*pix(color_g) + opa_b*pix(rgba[1]) );
-      rgba[2] = eval(opa_a*alpha*pix(color_b) + opa_b*pix(rgba[2]) );
-    }
-    if (!mask[1]) break;
-    rgba += mask[1];
-    mask += 2;
-  }
-};
-
-
-// Sum up the color/alpha components inside the masked region.
-// Called by get_color().
-//
-void get_color_pixels_accumulate (Pixel::data_t * mask,
-                                  gint          *offsets,
-                                  Pixel::data_t * rgba,
-                                  float * sum_weight,
-                                  float * sum_r,
-                                  float * sum_g,
-                                  float * sum_b,
-                                  float * sum_a,
-                                  gint bytes
-                                  ) {
-
-
-  // The sum of a 64x64 tile fits into a 32 bit integer, but the sum
-  // of an arbitrary number of tiles may not fit. We assume that we
-  // are processing a single tile at a time, so we can use integers.
-  // But for the result we need floats.
-
-  Pixel::internal_t weight = 0;
-  Pixel::internal_t r = 0;
-  Pixel::internal_t g = 0;
-  Pixel::internal_t b = 0;
-  Pixel::internal_t a = 0;
-
-  switch (bytes) {
-  case 3:
-    while (1) {
-      for (; mask[0]; mask++, rgba+=3) {
-        Pixel::pixel_t opa = pix (mask[0]);
-        weight += eval(opa);
-        r      += eval (opa * pix(rgba[0]) * pix(rgba[3]));
-        g      += eval (opa * pix(rgba[1]) * pix(rgba[3]));
-        b      += eval (opa * pix(rgba[2]) * pix(rgba[3]));
-        a      += Pixel::from_f(1.0);
-      }
-      if (!offsets[0]) break;
-      rgba += offsets[0] * 3;
-      offsets ++;
-      mask ++;
-    }
-    break;
-  case 4:
-    while (1) {
-      for (; mask[0]; mask++, rgba+=4) {
-        Pixel::pixel_t opa = pix (mask[0]);
-        weight += eval(opa);
-        r      += eval (opa * pix(rgba[0]) * pix(rgba[3]));
-        g      += eval (opa * pix(rgba[1]) * pix(rgba[3]));
-        b      += eval (opa * pix(rgba[2]) * pix(rgba[3]));
-        a      += eval (opa * pix(rgba[3]));
-      }
-      if (!offsets[0]) break;
-      rgba += offsets[0] * 4;
-      offsets ++;
-      mask ++;
-    }
-    break;
-  default:
-    g_print("Unsupported layer type.\n");
-  }
-
-  // convert integer to float outside the performance critical loop
-  *sum_weight += weight;
-  *sum_r += r;
-  *sum_g += g;
-  *sum_b += b;
-  *sum_a += a;
-};

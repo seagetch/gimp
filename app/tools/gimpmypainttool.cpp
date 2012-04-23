@@ -19,6 +19,7 @@ extern "C" {
 
 #include <gegl.h>
 #include <gtk/gtk.h>
+#include <sys/time.h> // gimp-painter-2.7: for gettimeofday
 
 #include "libgimpbase/gimpbase.h"
 #include "libgimpmath/gimpmath.h"
@@ -311,7 +312,7 @@ gimp_mypaint_tool_button_press (GimpTool            *tool,
                                                 press_type, display);
 
   /*  pause the current selection  */
-//  gimp_display_shell_selection_pause (shell);
+  gimp_display_shell_selection_pause (shell);
 
   /*  Let the specific painting function initialize itself  */
   if (press_type == GIMP_BUTTON_PRESS_NORMAL) {  // ignore the extra double-click event
@@ -323,10 +324,8 @@ gimp_mypaint_tool_button_press (GimpTool            *tool,
     }
   }
 
-/*
   gimp_projection_flush_now (gimp_image_get_projection (image));
   gimp_display_flush_now (display);
-*/
   gimp_draw_tool_start (draw_tool, display);
 }
 
@@ -559,6 +558,7 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
   } else
       dtime = 0;
 
+//    g_print("dtime:%lf\n",dtime);
   paint_tool->last_event_x = curr_coords.x;
   paint_tool->last_event_y = curr_coords.y;
   paint_tool->last_event_time = time;
@@ -804,6 +804,12 @@ gimp_mypaint_tool_oper_update (GimpTool         *tool,
 
   gimp_draw_tool_pause (draw_tool);
 
+  timeval tv;
+  gettimeofday(&tv, NULL);
+  guint32 time = (guint32)(tv.tv_sec) * 1000 + (tv.tv_usec / 1000);
+  gimp_mypaint_tool_motion_internal (tool, coords, time, state, display, FALSE);
+
+#if 0
   if (gimp_draw_tool_is_active (draw_tool) &&
       draw_tool->display != display)
     gimp_draw_tool_stop (draw_tool);
@@ -924,7 +930,7 @@ gimp_mypaint_tool_oper_update (GimpTool         *tool,
     {
       gimp_draw_tool_stop (draw_tool);
     }
-
+#endif
   GIMP_TOOL_CLASS (parent_class)->oper_update (tool, coords, state, proximity,
                                                display);
 
