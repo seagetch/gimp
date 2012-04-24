@@ -210,10 +210,10 @@ void get_color_pixels_accumulate (Pixel::data_t * mask,
       for (; mask[0]; mask++, rgba+=3) {
         pixel_t opa = pix (mask[0]);
         weight += eval(opa);
-        r      += eval (opa * pix(rgba[0]));
-        g      += eval (opa * pix(rgba[1]));
-        b      += eval (opa * pix(rgba[2]));
-        a      += Pixel::from_f(1.0);
+        r      += eval (opa * pix(rgba[0]) * pix(1.0f));
+        g      += eval (opa * pix(rgba[1]) * pix(1.0f));
+        b      += eval (opa * pix(rgba[2]) * pix(1.0f));
+        a      += eval(opa);
       }
       if (!offsets[0]) break;
       rgba += offsets[0] * 3;

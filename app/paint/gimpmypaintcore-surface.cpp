@@ -322,22 +322,18 @@ GimpMypaintSurface::draw_dab (float x, float y,
 
     // second, we use the mask to stamp a dab for each activated blend mode
     if (normal) {
-/*
       if (color_a == 1.0) {
         draw_dab_pixels_BlendMode_Normal(dab_mask, dab_offsets, 
                                          s1, color_r_, color_g_, color_b_, 
                                          Pixel::from_f(normal*opaque), 
                                          src1PR.bytes);
       } else {
-*/
         // normal case for brushes that use smudging (eg. watercolor)
         draw_dab_pixels_BlendMode_Normal_and_Eraser(dab_mask, dab_offsets, s1, 
                                                     color_r_, color_g_, color_b_, color_a_, 
                                                     Pixel::from_f(normal*opaque), 
                                                     src1PR.bytes);
-/*
       }
-*/
     }
 
 #if 0
