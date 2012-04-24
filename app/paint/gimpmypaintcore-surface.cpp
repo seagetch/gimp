@@ -38,6 +38,7 @@ extern "C" {
 #include "core/gimpdrawable.h"
 #include "core/gimpimage.h"
 #include "core/gimpimage-undo.h"
+#include "core/gimpimage-undo-push.h"
 #include "core/gimppickable.h"
 #include "core/gimpprojection.h"
 
@@ -277,7 +278,7 @@ GimpMypaintSurface::draw_dab (float x, float y,
 
   pixel_region_init (&src1PR, gimp_drawable_get_tiles (drawable),
                      rx1, ry1, width, height,
-                     FALSE);
+                     TRUE);
 #if 0
   pixel_region_resize (src2PR,
                        src2PR->x + (x1 - x), src2PR->y + (y1 - y),
@@ -292,7 +293,7 @@ GimpMypaintSurface::draw_dab (float x, float y,
                        rx1 + offset_x,
                        ry1 + offset_y,
                        rx2 - rx1, ry2 - ry1,
-                       FALSE);
+                       TRUE);
 
     pr = pixel_regions_register (2, &src1PR, &maskPR);
   } else {
@@ -607,11 +608,11 @@ GimpMypaintSurface::push_undo (GimpImage     *image,
                                GIMP_UNDO_PAINT, NULL,
                                GimpDirtyMask(0),
                                NULL);
-  gimp_drawable_push_undo (drawable, NULL,
-                           x1, y1,
-                           x2 - x1, y2 - y1,
-                           undo_tiles,
-                           TRUE);
+  if (undo_tiles) {
+    gimp_image_undo_push_drawable (image, "Mypaint Brush",
+                                   drawable, undo_tiles,
+                                   TRUE, x1, y1, x2 - x1, y2 - y1);
+  }
   gimp_image_undo_group_end (image);
 
   tile_manager_unref (undo_tiles);
