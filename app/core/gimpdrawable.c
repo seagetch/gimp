@@ -936,7 +936,7 @@ gimp_drawable_real_swap_pixels (GimpDrawable *drawable,
 
               src_tile = tile_manager_get_tile (tiles, j, i, FALSE, FALSE);
 
-              if (tile_is_valid (src_tile))
+              if (src_tile && tile_is_valid (src_tile))
                 {
                   /* swap tiles, not pixels! */
 
