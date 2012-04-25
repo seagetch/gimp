@@ -39,6 +39,7 @@ extern "C" {
 #include "core/gimpimage.h"
 #include "core/gimpimage-undo.h"
 #include "core/gimpimage-undo-push.h"
+#include "core/gimpchannel.h"
 #include "core/gimppickable.h"
 #include "core/gimpprojection.h"
 
@@ -76,15 +77,16 @@ GimpMypaintSurface::~GimpMypaintSurface()
 }
 
 void 
-GimpMypaintSurface::render_dab_mask_in_tile (Pixel::data_t *mask,
+GimpMypaintSurface::render_dab_mask_in_tile (Pixel::data_t *dab_mask,
                                              gint          *offsets,
                                              float x, float y,
                                              float radius,
                                              float hardness,
                                              float aspect_ratio, float angle,
-                                             int   w, int h, gint bytes, gint stride
+                                             PixelRegion* srcPR,
+                                             PixelRegion* channelPR
                                             ) {
-  stride /= bytes;
+  gint stride = srcPR->rowstride / srcPR->bytes;
 //  g_print("dab_in_tile(x=%f,y=%f,r=%f,hd=%f,ar=%f,ang=%f,w=%d,h=%d,B=%d,s=%d)\n",x,y,radius,hardness,aspect_ratio,angle,w,h,bytes,stride);
   hardness = CLAMP(hardness, 0.0, 1.0);
   if (aspect_ratio<1.0) aspect_ratio=1.0;
@@ -94,6 +96,7 @@ GimpMypaintSurface::render_dab_mask_in_tile (Pixel::data_t *mask,
   int xp, yp;
   float xx, yy, rr;
   float one_over_radius2;
+  Pixel::data_t* channel_data = NULL;
 
   r_fringe = radius + 1;
   rr = radius*radius;
@@ -133,16 +136,20 @@ GimpMypaintSurface::render_dab_mask_in_tile (Pixel::data_t *mask,
   int y1 = ceil (y + r_fringe);
   if (x0 < 0) x0 = 0;
   if (y0 < 0) y0 = 0;
-  if (x1 > w-1) x1 = w-1;
-  if (y1 > h-1) y1 = h-1;
+  if (x1 > srcPR->w-1) x1 = srcPR->w-1;
+  if (y1 > srcPR->h-1) y1 = srcPR->h-1;
   
 //  g_print("dab area: (%d,%d)-(%d,%d)\n",x0,y0,x1,y1);
   
   // we do run length encoding: if opacity is zero, the next
   // value in the mask is the number of pixels that can be skipped.
-  Pixel::data_t * mask_p = mask;
+  Pixel::data_t * dab_mask_p = dab_mask;
   int skip=0;
   
+  if (channelPR) {
+    channel_data = channelPR->data;
+    channel_data += channelPR->rowstride * y0;
+  }
   skip += y0*stride;
   for (yp = y0; yp <= y1; yp++) {
     yy = (yp + 0.5 - y);
@@ -175,21 +182,27 @@ GimpMypaintSurface::render_dab_mask_in_tile (Pixel::data_t *mask,
         opa = 0.0;
       }
 
-      Pixel::data_t opa_ = Pixel::from_f(opa);
+      result_t opa_;
+      if (channel_data)
+        opa_ = eval( pix(opa) * pix(channel_data[xp]) );
+      else
+        opa_ = eval( pix(opa) );
       if (!opa_) {
         skip++;
       } else {
         if (skip) {
-          *mask_p++ = 0;
+          *dab_mask_p++ = 0;
           *offsets++ = skip;
           skip = 0;
         }
-        *mask_p++ = opa_;
+        *dab_mask_p++ = opa_;
       }
     }
     skip += stride-xp;
+    if (channelPR)
+      channel_data += channelPR->rowstride;
   }
-  *mask_p++ = 0;
+  *dab_mask_p++ = 0;
   *offsets  = 0;
 }
 
@@ -206,8 +219,9 @@ GimpMypaintSurface::draw_dab (float x, float y,
   GimpItem        *item  = GIMP_ITEM (drawable);
   GimpImage       *image = gimp_item_get_image (item);
   GimpChannel     *mask  = gimp_image_get_mask (image);
-  gint             offset_x, offset_y;
-  PixelRegion      src1PR, my_destPR;
+  gint            offset_x, offset_y;
+  PixelRegion     src1PR, my_destPR;
+  PixelRegion     maskPR;
   
 //  g_print("Entering GimpMypaintSurface::draw_dab(x=%f,y=%f,r=%f,R=%f,G=%f,B=%f,o=%f,h=%f,a=%f,%f,%f,%f,%f)\n",x,y,radius,color_r,color_g,color_b,opaque,hardness,color_a,aspect_ratio,angle,lock_alpha,colorize);
 
@@ -249,8 +263,9 @@ GimpMypaintSurface::draw_dab (float x, float y,
   int rx2 = x2;
   int ry2 = y2;
 
-  if (mask) {
-    GimpItem *mask_item = GIMP_ITEM (mask);
+  GimpItem *mask_item = NULL;
+  if (mask && !gimp_channel_is_empty(GIMP_CHANNEL(mask))) {
+    mask_item = GIMP_ITEM (mask);
 
     /*  make sure coordinates are in mask bounds ...
      *  we need to add the layer offset to transform coords
@@ -286,8 +301,7 @@ GimpMypaintSurface::draw_dab (float x, float y,
 #endif
 
   gpointer pr;
-  if (mask) {
-    PixelRegion maskPR;
+  if (mask_item) {
     pixel_region_init (&maskPR,
                        gimp_drawable_get_tiles (GIMP_DRAWABLE (mask)),
                        rx1 + offset_x,
@@ -316,8 +330,7 @@ GimpMypaintSurface::draw_dab (float x, float y,
                     radius,
                     hardness,
                     aspect_ratio, angle,
-                    src1PR.w, src1PR.h,src1PR.bytes, 
-                    src1PR.rowstride
+                    &src1PR, (mask_item)? &maskPR: NULL
                     );
 
     // second, we use the mask to stamp a dab for each activated blend mode
@@ -396,6 +409,7 @@ GimpMypaintSurface::get_color (float x, float y,
   GimpChannel     *mask  = gimp_image_get_mask (image);
   gint             offset_x, offset_y;
   PixelRegion      src1PR, my_destPR;
+  PixelRegion maskPR;
   
   /*  get the layer offsets  */
   gimp_item_get_offset (item, &offset_x, &offset_y);
@@ -416,8 +430,9 @@ GimpMypaintSurface::get_color (float x, float y,
   if (rx1 > rx2 || ry1 > ry2)
     return;
 
-  if (mask) {
-    GimpItem *mask_item = GIMP_ITEM (mask);
+  GimpItem *mask_item = NULL;
+  if (mask && !gimp_channel_is_empty(GIMP_CHANNEL(mask))) {
+    mask_item = GIMP_ITEM (mask);
 
     /*  make sure coordinates are in mask bounds ...
      *  we need to add the layer offset to transform coords
@@ -446,8 +461,7 @@ GimpMypaintSurface::get_color (float x, float y,
 #endif
 
   gpointer pr;
-  if (mask) {
-    PixelRegion maskPR;
+  if (mask_item) {
     pixel_region_init (&maskPR,
                        gimp_drawable_get_tiles (GIMP_DRAWABLE (mask)),
                        rx1 + offset_x,
@@ -475,8 +489,7 @@ GimpMypaintSurface::get_color (float x, float y,
                     radius,
                     hardness,
                     aspect_ratio, angle,
-                    src1PR.w, src1PR.h,src1PR.bytes, 
-                    src1PR.rowstride
+                    &src1PR, (mask_item)? &maskPR : NULL
                     );
 
 

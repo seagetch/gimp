@@ -66,13 +66,14 @@ private:
                                        gint         h);
 #endif
 
-  void render_dab_mask_in_tile (Pixel::data_t * mask,
+  void render_dab_mask_in_tile (Pixel::data_t * dab_mask,
                                 gint          *offsets,
                                 float x, float y,
                                 float radius,
                                 float hardness,
                                 float aspect_ratio, float angle,
-                                int w, int h, gint bytes, gint stride
+                                PixelRegion* srcPR,
+                                PixelRegion* channelPR
                                 );
   void start_undo_group();
   void stop_updo_group();
