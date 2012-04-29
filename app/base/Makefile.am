@@ -72,7 +72,9 @@ libappbase_a_SOURCES = \
 	tile-rowhints.h		\
 	tile-swap.c		\
 	tile-swap.h		\
-	pixel.hpp
+	pixel.hpp		\
+	delegators.hpp		\
+	scopeguards.hpp
 
 #
 # rules to generate built sources

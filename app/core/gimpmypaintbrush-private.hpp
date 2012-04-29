@@ -6,7 +6,7 @@
 #include "mypaintbrush-enum-settings.h"
 
 extern "C++" {
-
+#include "base/scopeguard.hpp"
 class GimpMypaintBrushPrivate {
   public:
   struct Value {
@@ -35,21 +35,6 @@ class GimpMypaintBrushPrivate {
 };
 
 void destroy_gimp_mypaint_brush_private(gpointer data);
-template<class T, class F>
-class ScopeGuard {
-  private:
-  T* obj;
-  F* func;
-  public:
-  ScopeGuard(T* ptr, F* f) : obj(ptr), func(f) {};
-  ~ScopeGuard() {
-    if (func && obj)
-      func(obj);
-  }
-  T& operator *() { return *obj; }
-  T& operator ->() { return *obj; }
-  T* ptr() { return obj; }
-};
 
 }
 #endif
