@@ -32,7 +32,6 @@ extern "C" {
 #include "core/gimperror.h"
 #include "core/gimpimage.h"
 #include "core/gimpprojection.h"
-//#include "core/gimpmypaintinfo.h"
 #include "core/gimptoolinfo.h"
 
 #include "paint/gimpmypaintcore.hpp"
@@ -52,7 +51,10 @@ extern "C" {
 #include "gimp-intl.h"
 #include "libgimpwidgets/gimpwidgets.h"
 #include "widgets/gimphelp-ids.h"
-
+#include "gimpmypaintoptions-gui.h"
+extern "C++" {
+#include "base/delegators.hpp"  // g_object_set_cxx_object
+};
 static void   gimp_mypaint_tool_constructed    (GObject               *object);
 static void   gimp_mypaint_tool_finalize       (GObject               *object);
 
@@ -170,6 +172,7 @@ gimp_mypaint_tool_constructed (GObject *object)
 //  g_assert (g_type_is_a (paint_info->mypaint_type, GIMP_TYPE_MYPAINT_CORE));
 
   paint_tool->core = core = new GimpMypaintCore();
+  g_object_set_cxx_object(object, "paint-core", core);
   core->set_undo_desc("Mypaint");
 /*
   g_signal_connect_object (options, "notify::hard",
@@ -183,13 +186,13 @@ static void
 gimp_mypaint_tool_finalize (GObject *object)
 {
   GimpMypaintTool *paint_tool = GIMP_MYPAINT_TOOL (object);
-
+/*
   if (paint_tool->core) {
     GimpMypaintCore* core = reinterpret_cast<GimpMypaintCore*>(paint_tool->core);
     delete core;
     paint_tool->core = NULL;
   }
-
+*/
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
 
@@ -236,24 +239,6 @@ gimp_mypaint_tool_control (GimpTool       *tool,
   GIMP_TOOL_CLASS (parent_class)->control (tool, action, display);
 }
 
-#if 0
-    def button_press_cb(self, win, event):
-        if event.type != gdk.BUTTON_PRESS:
-            # ignore the extra double-click event
-            return
-
-        if event.button == 1:
-            #currently following codes is not used for implementation of core functions...
-            for func in self._input_stroke_started_observers:
-                func(event)
-
-            # mouse button pressed (while painting without pressure information)
-            if not self.last_event_had_pressure_info:
-                # For the mouse we don't get a motion event for "pressure"
-                # changes, so we simulate it. (Note: we can't use the
-                # event's button state because it carries the old state.)
-                self.motion_notify_cb(win, event, button1_pressed=True)
-#endif
 static void
 gimp_mypaint_tool_button_press (GimpTool            *tool,
                               const GimpCoords    *coords,
@@ -378,137 +363,6 @@ gimp_mypaint_tool_button_release (GimpTool              *tool,
   gimp_draw_tool_resume (GIMP_DRAW_TOOL (tool));
 }
 
-#if 0
-    def motion_notify_cb(self, widget, event, button1_pressed=None):
-        if not self.is_sensitive:
-            return
-        
-        if self.last_event_time:
-            dtime = (event.time - self.last_event_time)/1000.0
-            dx = event.x - self.last_event_x
-            dy = event.y - self.last_event_y
-        else:
-            dtime = None
-        self.last_event_x = event.x
-        self.last_event_y = event.y
-        self.last_event_time = event.time
-        if dtime is None:
-            return
-        
-        same_device = self.device_used(event.device)
-
-        if self.drag_op is not None:
-            self.drag_op.on_update(dx, dy, event.x, event.y)
-            return
-
-        //# Refuse drawing if the layer is locked or hidden
-        if self.doc.layer.locked or not self.doc.layer.visible:
-            return
-            //# TODO: some feedback, maybe
-
-        cr = self.get_model_coordinates_cairo_context()
-        x, y = cr.device_to_user(event.x, event.y)
-        
-        pressure = event.get_axis(gdk.AXIS_PRESSURE)
-
-        if pressure is not None and (pressure > 1.0 or pressure < 0.0 or not isfinite(pressure)):
-            if event.device.name not in self.bad_devices:
-                print 'WARNING: device "%s" is reporting bad pressure %+f' % (event.device.name, pressure)
-                self.bad_devices.append(event.device.name)
-            if not isfinite(pressure):
-                //# infinity/nan: use button state (instead of clamping in brush.hpp)
-                //# https://gna.org/bugs/?14709
-                pressure = None
-
-        if pressure is None:
-            self.last_event_had_pressure_info = False
-            if button1_pressed is None:
-                button1_pressed = event.state & gdk.BUTTON1_MASK
-            if button1_pressed:
-                pressure = 0.5
-            else:
-                pressure = 0.0
-        else:
-            self.last_event_had_pressure_info = True
-
-        xtilt = event.get_axis(gdk.AXIS_XTILT)
-        ytilt = event.get_axis(gdk.AXIS_YTILT)
-        //# Check whether tilt is present.  For some tablets without
-        //# tilt support GTK reports a tilt axis with value nan, instead
-        //# of None.  https://gna.org/bugs/?17084
-        if xtilt is None or ytilt is None or not isfinite(xtilt+ytilt):
-            xtilt = 0.0
-            ytilt = 0.0
-        
-        if event.state & gdk.CONTROL_MASK or event.state & gdk.MOD1_MASK:
-            //# color picking, do not paint
-            //# Don't simply return; this is a workaround for unwanted lines in https://gna.org/bugs/?16169
-            pressure = 0.0
-            
-        //# CSS experimental - scroll when touching the edge of the screen in fullscreen mode
-        //#
-        //# Disabled for the following reasons:
-        //# - causes irritation when doing fast strokes near the edge
-        //# - scrolling speed depends on the number of events received (can be a huge difference between tablets/mouse)
-        //# - also, mouse button scrolling is usually enough
-        //#
-        //# if self.scroll_at_edges and pressure <= 0.0:
-        //#  screen_w = gdk.screen_width()
-        //#  screen_h = gdk.screen_height()
-        //#  trigger_area = 10
-        //#  if (event.x <= trigger_area):
-        //#    self.scroll(-10,0)
-        //#  if (event.x >= (screen_w-1)-trigger_area):
-        //#    self.scroll(10,0)
-        //#  if (event.y <= trigger_area):
-        //#    self.scroll(0,-10)
-        //#  if (event.y >= (screen_h-1)-trigger_area):
-        //#    self.scroll(0,10)
-
-        if self.pressure_mapping:
-            pressure = self.pressure_mapping(pressure)
-        if event.state & gdk.SHIFT_MASK:
-            pressure = 0.0
-
-        if pressure:
-            self.last_painting_pos = x, y
-
-        //# If the device has changed and the last pressure value from the previous device
-        //# is not equal to 0.0, this can leave a visible stroke on the layer even if the 'new'
-        //# device is not pressed on the tablet and has a pressure axis == 0.0.
-        //# Reseting the brush when the device changes fixes this issue, but there may be a
-        //# much more elegant solution that only resets the brush on this edge-case.
-        if not same_device:
-            self.doc.brush.reset()
-
-        //# On Windows, GTK timestamps have a resolution around
-        //# 15ms, but tablet events arrive every 8ms.
-        //# https://gna.org/bugs/index.php?16569
-        //# TODO: proper fix in the brush engine, using only smooth,
-        //#       filtered speed inputs, will make this unneccessary
-        if dtime < 0.0:
-            print 'Time is running backwards, dtime=%f' % dtime
-            dtime = 0.0
-        data = (x, y, pressure, xtilt, ytilt)
-        if dtime == 0.0:
-            self.motions.append(data)
-        elif dtime > 0.0:
-            if self.motions:
-                # replay previous events that had identical timestamp
-                if dtime > 0.1:
-                    # really old events, don't associate them with the new one
-                    step = 0.1
-                else:
-                    step = dtime
-                step /= len(self.motions)+1
-                for data_old in self.motions:
-                    self.doc.stroke_to(step, *data_old)
-                    dtime -= step
-                self.motions = []
-            self.doc.stroke_to(dtime, *data)
-
-#endif
-
 static void
 gimp_mypaint_tool_motion (GimpTool         *tool,
                         const GimpCoords *coords,
@@ -536,7 +390,6 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
   GimpCoords        curr_coords;
   gint              off_x, off_y;
   gdouble           dtime;
-//  gint              dx, dy;
 
   GIMP_TOOL_CLASS (parent_class)->motion (tool, coords, time, state, display);
 
@@ -553,25 +406,14 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
 
   if (paint_tool->last_event_time > 0) {
       dtime = (time - paint_tool->last_event_time) / 1000.0;
-//      dx = curr_coords.x - tool->last_event_x;
-//      dy = curr_coords.y - tool->last_event_y;
   } else
       dtime = 0;
 
-//    g_print("dtime:%lf\n",dtime);
   paint_tool->last_event_x = curr_coords.x;
   paint_tool->last_event_y = curr_coords.y;
   paint_tool->last_event_time = time;
   if (dtime == 0)
       return;
-
-#if 0
-        same_device = self.device_used(event.device)
-
-        if self.drag_op is not None:
-            self.drag_op.on_update(dx, dy, event.x, event.y)
-            return
-#endif
 
   // Refuse drawing if the layer is locked or hidden
   if (gimp_viewable_get_children (GIMP_VIEWABLE (drawable))) {
@@ -596,27 +438,6 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
 
   // FIXME: Gimp sets default pressure to 1.0 at gimpdeviceinfo-coords.c while MyPaint sets 0.5 or 0
   //         according to its button state.
-/*
-  if (pressure is not None and (pressure > 1.0 or pressure < 0.0 or not isfinite(pressure)):
-            if event.device.name not in self.bad_devices:
-                print 'WARNING: device "%s" is reporting bad pressure %+f' % (event.device.name, pressure)
-                self.bad_devices.append(event.device.name)
-            if not isfinite(pressure):
-                //# infinity/nan: use button state (instead of clamping in brush.hpp)
-                //# https://gna.org/bugs/?14709
-                pressure = None
-
-        if pressure is None:
-            self.last_event_had_pressure_info = False
-            if button1_pressed is None:
-                button1_pressed = event.state & gdk.BUTTON1_MASK
-            if button1_pressed:
-                pressure = 0.5
-            else:
-                pressure = 0.0
-        else:
-            self.last_event_had_pressure_info = True
-*/
 
   if (curr_coords.pressure > 0.0) {
     paint_tool->last_painting_x = curr_coords.x;
@@ -671,16 +492,6 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
 
   gimp_draw_tool_resume (GIMP_DRAW_TOOL (tool));
 }
-
-#if 0
-    def straight_line_from_last_pos(self, is_sequence=False):
-        if not self.last_painting_pos:
-            return
-        dst = self.get_cursor_in_model_coordinates()
-        self.doc.straight_line(self.last_painting_pos, dst)
-        if is_sequence:
-            self.last_painting_pos = dst
-#endif
 
 static void
 gimp_mypaint_tool_modifier_key (GimpTool        *tool,
@@ -1001,11 +812,11 @@ gimp_mypaint_tool_register (GimpToolRegisterCallback  callback,
   (* callback) (GIMP_TYPE_MYPAINT_TOOL,
                 GIMP_TYPE_MYPAINT_OPTIONS,
                 NULL,
-                NULL,
+                gimp_mypaint_options_gui_horizontal,
                 GimpContextPropMask(GIMP_MYPAINT_OPTIONS_CONTEXT_MASK),
                 "gimp-mypaint-tool",
                 _("Mypaint Brush"),
-                _("Mypaint Brush Tool: Paint smooth strokes using a mypaint brush"),
+                _("Mypaint Brush Tool: Paint using a mypaint brush"),
                 N_("_Mypaintbrush"), "P",
                 NULL, GIMP_HELP_TOOL_MYPAINT,
                 GIMP_STOCK_TOOL_MYPAINT,
