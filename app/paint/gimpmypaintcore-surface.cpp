@@ -55,21 +55,18 @@ extern "C" {
 #include "base/pixel.hpp"
 #include "paint-funcs/mypaint-brushmodes.hpp"
 #include "gimpmypaintcore-surface.hpp"
+#include "base/delegators.hpp"
 
-GimpMypaintSurface::GimpMypaintSurface(GimpDrawable* drawable) 
-  : undo_tiles(NULL), undo_desc(""), session(0)
+GimpMypaintSurface::GimpMypaintSurface(GimpDrawable* d) 
+  : undo_tiles(NULL), undo_desc(""), session(0), drawable(d)
 {
-  this->drawable = drawable;
-  g_object_ref(drawable);
+  g_object_add_weak_pointer(G_OBJECT(d), (gpointer*)&drawable);
 }
-
 
 GimpMypaintSurface::~GimpMypaintSurface()
 {
-  if (drawable) {
-    g_object_unref(G_OBJECT(drawable));
-    drawable = NULL;
-  }
+  if (drawable)
+    g_object_remove_weak_pointer(G_OBJECT(drawable), (gpointer*)&drawable);
   if (undo_tiles) {
     tile_manager_unref (undo_tiles);
     undo_tiles = NULL;

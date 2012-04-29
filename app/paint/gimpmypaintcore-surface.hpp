@@ -19,6 +19,7 @@
 #define __GIMP_MYPAINT_CORE_SURFACE_HPP__
 
 extern "C" {
+#include <glib-object.h>
 #include "core/gimpobject.h"
 #include "gimpmypaintoptions.h"
 #include "core/gimpmypaintbrush.h"
@@ -38,7 +39,6 @@ private:
                                     const GimpCoords *coords);
 #endif
   virtual GimpUndo* push_undo (GimpImage *imag, const gchar* undo_desc);
-  
   GimpDrawable* drawable;
   
   gchar       *undo_desc;        /*  undo description                    */
