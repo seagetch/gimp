@@ -74,7 +74,7 @@ libappbase_a_SOURCES = \
 	tile-swap.h		\
 	pixel.hpp		\
 	delegators.hpp		\
-	scopeguards.hpp
+	scopeguard.hpp
 
 #
 # rules to generate built sources
