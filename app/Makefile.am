@@ -86,7 +86,7 @@ $(srcdir)/version.c: git-version.h
 
 libapp_a_SOURCES = $(libapp_sources) $(libapp_generated_sources)
 
-gimp_2_7_SOURCES = $(libapp_sources) main.c
+gimp_2_7_SOURCES = $(libapp_sources) main.c dummy.cpp
 
 
 if OS_WIN32
@@ -199,7 +199,7 @@ gimp_2_7_LDADD = \
 
 if ENABLE_GIMP_CONSOLE
 
-gimp_console_2_7_SOURCES = $(libapp_sources) main.c
+gimp_console_2_7_SOURCES = $(libapp_sources) main.c dummy.cpp
 
 gimp_console_2_7_CPPFLAGS = \
 	$(AM_CPPFLAGS)			\
