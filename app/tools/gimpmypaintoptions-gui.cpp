@@ -66,7 +66,7 @@ public:
   GtkWidget* create();
 
   void destroy(GObject* o);
-  void create_basic_options(GObject* object, GtkWidget** result, GObject* config);
+  void create_basic_options(GObject* object, GtkWidget** result);
   void reset_size(GObject *o);
 };
 

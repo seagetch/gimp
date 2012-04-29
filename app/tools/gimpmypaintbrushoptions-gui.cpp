@@ -57,11 +57,6 @@ extern "C" {
 class MypaintPopupPrivate {
   static const int MYPAINT_BRUSH_VIEW_SIZE = 256;
 
-  GHashTable  *adj_hash;
-  GtkAdjustment *adj;
-  GtkWidget     *shape_group;
-  GtkWidget     *preview;
-  GtkWidget     *brush_frame;
   GimpContainer *container;
   GimpContext   *context;
   gint           spacing_changed_handler_id;
@@ -99,35 +94,6 @@ MypaintPopupPrivate::update_brush (GObject* object)
   g_return_if_fail (G_IS_OBJECT (context));
 
   brush = gimp_context_get_mypaint_brush (context);
-
-  prop_name = (gchar*)g_object_get_data (G_OBJECT (adjustment), "prop_name");
-  g_return_if_fail (prop_name != NULL);
-
-  adj = GTK_ADJUSTMENT (g_hash_table_lookup (adj_hash, prop_name));
-  g_return_if_fail (adj != NULL);
-  
-      g_object_get (G_OBJECT (brush), prop_name, &d_value_brush, NULL);
-      d_value_adj = gtk_adjustment_get_value (adj);
-      if (d_value_brush != d_value_adj)
-        {
-        /*
-          g_signal_handlers_block_by_func (brush, notify_brush, p);
-
-          gimp_data_freeze (GIMP_DATA (brush));
-          g_object_freeze_notify (G_OBJECT (brush));
-          g_object_set (G_OBJECT (brush), prop_name, d_value_adj, NULL);
-          g_object_thaw_notify (G_OBJECT (brush));
-          gimp_data_thaw (GIMP_DATA (brush));
-
-          g_signal_handlers_unblock_by_func (brush, notify_brush, p);
-        */
-        }
-        
-      if (strcmp (prop_name, "radius") == 0)
-        {
-//          gdouble value = MAX (brush->mask->width, brush->mask->height);
-//          g_object_set (context, "brush-size", value, NULL);
-        }
 
 }
 
@@ -207,9 +173,6 @@ MypaintPopupPrivate::brush_changed (GObject*  object,
                       G_CALLBACK (notify_brush),
                       p);
 */
-  if (preview)
-    gimp_view_set_viewable (GIMP_VIEW (preview), GIMP_VIEWABLE (brush_data));
-
 /*    
   if (brush_data && GIMP_IS_BRUSH_GENERATED (brush_data))
     {
@@ -260,9 +223,6 @@ MypaintPopupPrivate::destroy (GObject* object)
       pspacing_changed_handler_id = 0;
     }
 */  
-  shape_group = NULL;
-  adj         = NULL;
-  preview     = NULL;
 #if 0  
   if (container)
     {
@@ -283,7 +243,6 @@ MypaintPopupPrivate::destroy (GObject* object)
       context = NULL;
     }
 #endif
-  g_hash_table_remove_all (adj_hash);
 }
 
 void
@@ -308,7 +267,6 @@ MypaintPopupPrivate::create (GObject* object,
   
   container = gimp_data_factory_get_container (context->gimp->mypaint_brush_factory);
   brush     = gimp_context_get_mypaint_brush (context);
-  preview   = NULL;
   
   g_return_if_fail (GIMP_IS_CONTAINER (container));
   g_return_if_fail (GIMP_IS_CONTEXT (context));
