@@ -266,6 +266,7 @@ gimp_mypaint_brush_select_run_callback (GimpPdbDialog  *dialog,
   GimpMypaintBrush   *mypaint_brush = GIMP_MYPAINT_BRUSH (object);
   GimpArray   *array;
   GValueArray *return_vals;
+  g_print("gimp_mypaint_brush_select_run_callback\n");
 #if 0
   array = gimp_array_new (temp_buf_get_data (mypaint_brush->mask),
                           temp_buf_get_data_size (mypaint_brush->mask),

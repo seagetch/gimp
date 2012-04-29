@@ -678,7 +678,7 @@ gimp_real_initialize (Gimp               *gimp,
                            gimp_mypaint_brush_new,
                            NULL);
   gimp_object_set_static_name (GIMP_OBJECT (gimp->mypaint_brush_factory),
-                               "mypaint_brush");
+                               "mypaint-brush");
 
   gimp->tag_cache = gimp_tag_cache_new ();
 
