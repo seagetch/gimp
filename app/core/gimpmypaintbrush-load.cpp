@@ -157,7 +157,7 @@ MyPaintBrushReader::load_brush (GimpContext  *context,
 //  dump();
   
   ScopeGuard<gchar, void(gpointer)> filename_dup(g_strndup(filename, strlen(filename) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION)), g_free);
-  ScopeGuard<gchar, void(gpointer)> icon_filename(g_strconcat (filename_dup.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION), g_free);
+  ScopeGuard<gchar, void(gpointer)> icon_filename(g_strconcat (filename_dup.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION, NULL), g_free);
   g_print ("Read Icon: %s\n", icon_filename.ptr());
   load_icon (icon_filename.ptr());
   return result;
