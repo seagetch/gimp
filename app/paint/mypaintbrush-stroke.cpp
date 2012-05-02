@@ -17,7 +17,6 @@ extern "C" {
 #include "core/gimpdynamics.h"
 #include "core/gimpdynamicsoutput.h"
 #include "core/gimpgradient.h"
-#include "core/gimpmypaintinfo.h"
 
 #include "gimpmypaintoptions.h"
 

@@ -35,7 +35,6 @@
 #include "gimptoolinfo.h"
 #include "gimptooloptions.h"
 #include "gimptoolpreset.h"
-#include "gimpmypaintinfo.h" /* gimp-painter-2.7 */
 
 
 enum
