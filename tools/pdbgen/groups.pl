@@ -50,4 +50,5 @@
     undo
     unit
     vectors
+    mypaint_brush_select
 );

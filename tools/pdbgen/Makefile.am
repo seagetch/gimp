@@ -51,7 +51,8 @@ pdb_sources = \
 	pdb/transform_tools.pdb		\
 	pdb/undo.pdb			\
 	pdb/unit.pdb			\
-	pdb/vectors.pdb
+	pdb/vectors.pdb			\
+	pdb/mypaint_brush_select.pdb
 
 EXTRA_DIST = \
 	README			\

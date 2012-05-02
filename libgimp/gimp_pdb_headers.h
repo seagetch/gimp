@@ -58,6 +58,7 @@
 #include <libgimp/gimpitemtransform_pdb.h>
 #include <libgimp/gimplayer_pdb.h>
 #include <libgimp/gimpmessage_pdb.h>
+#include <libgimp/gimpmypaintbrushselect_pdb.h>
 #include <libgimp/gimppainttools_pdb.h>
 #include <libgimp/gimppalette_pdb.h>
 #include <libgimp/gimppalettes_pdb.h>
