@@ -224,7 +224,7 @@ gimp_cage_tool_control (GimpTool       *tool,
 
       if (ct->coef)
         {
-          gegl_buffer_destroy (ct->coef);
+          g_object_unref (ct->coef);
           ct->coef = NULL;
         }
 
@@ -282,7 +282,7 @@ gimp_cage_tool_start (GimpCageTool *ct,
 
   if (ct->coef)
     {
-      gegl_buffer_destroy (ct->coef);
+      g_object_unref (ct->coef);
       ct->dirty_coef = TRUE;
       ct->coef = NULL;
     }
@@ -1084,7 +1084,7 @@ gimp_cage_tool_compute_coef (GimpCageTool *ct)
 {
   GimpCageConfig *config = ct->config;
   GimpProgress   *progress;
-  Babl           *format;
+  const Babl     *format;
   GeglNode       *gegl;
   GeglNode       *input;
   GeglNode       *output;
@@ -1097,7 +1097,7 @@ gimp_cage_tool_compute_coef (GimpCageTool *ct)
 
   if (ct->coef)
     {
-      gegl_buffer_destroy (ct->coef);
+      g_object_unref (ct->coef);
       ct->coef = NULL;
     }
 
@@ -1132,7 +1132,7 @@ gimp_cage_tool_compute_coef (GimpCageTool *ct)
   if (progress)
     gimp_progress_end (progress);
 
-  gegl_processor_destroy (processor);
+  g_object_unref (processor);
 
   ct->coef = buffer;
   g_object_unref (gegl);
@@ -1258,7 +1258,7 @@ gimp_cage_tool_render_node_update (GimpCageTool *ct)
   /* This just unref buffer, since gegl_node_get add a refcount on it */
   if (buffer)
     {
-      gegl_buffer_destroy (buffer);
+      g_object_unref (buffer);
     }
 }
 

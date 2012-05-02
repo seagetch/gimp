@@ -348,6 +348,39 @@ gimp_dialog_factory_find_session_info (GimpDialogFactory *factory,
   return NULL;
 }
 
+GtkWidget *
+gimp_dialog_factory_find_widget (GimpDialogFactory *factory,
+                                 const gchar       *identifiers)
+{
+  GtkWidget  *widget = NULL;
+  gchar     **ids;
+  gint        i;
+
+  g_return_val_if_fail (GIMP_IS_DIALOG_FACTORY (factory), NULL);
+  g_return_val_if_fail (identifiers != NULL, NULL);
+
+  ids = g_strsplit (identifiers, "|", 0);
+
+  for (i = 0; ids[i]; i++)
+    {
+      GimpSessionInfo *info;
+
+      info = gimp_dialog_factory_find_session_info (factory, ids[i]);
+
+      if (info)
+        {
+          widget =  gimp_session_info_get_widget (info);
+
+          if (widget)
+            break;
+        }
+    }
+
+  g_strfreev (ids);
+
+  return widget;
+}
+
 /**
  * gimp_dialog_factory_dialog_sane:
  * @factory:
@@ -383,6 +416,27 @@ gimp_dialog_factory_dialog_sane (GimpDialogFactory      *factory,
   return TRUE;
 }
 
+/**
+ * gimp_dialog_factory_dialog_new_internal:
+ * @factory:
+ * @screen:
+ * @context:
+ * @ui_manager:
+ * @identifier:
+ * @view_size:
+ * @return_existing:   If %TRUE, (or if the dialog is a singleton),
+ *                     don't create a new dialog if it exists, instead
+ *                     return the existing one
+ * @present:           If %TRUE, the toplevel that contains the dialog (if any)
+ *                     will be gtk_window_present():ed
+ * @create_containers: If %TRUE, then containers for the
+ *                     dialog/dockable will be created as well. If you
+ *                     want to manage your own containers, pass %FALSE
+ *
+ * This is the lowest level dialog factory creation function.
+ *
+ * Returns: A created or existing #GtkWidget.
+ **/
 static GtkWidget *
 gimp_dialog_factory_dialog_new_internal (GimpDialogFactory *factory,
                                          GdkScreen         *screen,
@@ -391,7 +445,8 @@ gimp_dialog_factory_dialog_new_internal (GimpDialogFactory *factory,
                                          const gchar       *identifier,
                                          gint               view_size,
                                          gboolean           return_existing,
-                                         gboolean           present)
+                                         gboolean           present,
+                                         gboolean           create_containers)
 {
   GimpDialogFactoryEntry *entry    = NULL;
   GtkWidget              *dialog   = NULL;
@@ -419,12 +474,7 @@ gimp_dialog_factory_dialog_new_internal (GimpDialogFactory *factory,
   /*  a singleton dialog is always returned if it already exisits  */
   if (return_existing || entry->singleton)
     {
-      GimpSessionInfo *info;
-
-      info = gimp_dialog_factory_find_session_info (factory, identifier);
-
-      if (info)
-        dialog = gimp_session_info_get_widget (info);
+      dialog = gimp_dialog_factory_find_widget (factory, identifier);
     }
 
   /*  create the dialog if it was not found  */
@@ -432,14 +482,11 @@ gimp_dialog_factory_dialog_new_internal (GimpDialogFactory *factory,
     {
       GtkWidget *dock              = NULL;
       GtkWidget *dock_window       = NULL;
-      gboolean   called_from_raise = FALSE;
-
-      called_from_raise = (context == NULL);
 
       /* What follows is special-case code for some entires. At some
        * point we might want to abstract this block of code away.
        */
-      if (called_from_raise)
+      if (create_containers)
         {
           if (entry->dockable)
             {
@@ -649,8 +696,9 @@ gimp_dialog_factory_dialog_new (GimpDialogFactory *factory,
                                                   ui_manager,
                                                   identifier,
                                                   view_size,
-                                                  FALSE,
-                                                  present);
+                                                  FALSE /*return_existing*/,
+                                                  present,
+                                                  FALSE /*create_containers*/);
 }
 
 GimpContext *
@@ -722,6 +770,8 @@ gimp_dialog_factory_dialog_raise (GimpDialogFactory *factory,
                                   gint               view_size)
 {
   GtkWidget *dialog;
+  gchar    **ids;
+  gint       i;
 
   g_return_val_if_fail (GIMP_IS_DIALOG_FACTORY (factory), NULL);
   g_return_val_if_fail (GDK_IS_SCREEN (screen), NULL);
@@ -729,42 +779,27 @@ gimp_dialog_factory_dialog_raise (GimpDialogFactory *factory,
 
   /*  If the identifier is a list, try to find a matching dialog and
    *  raise it. If there's no match, use the first list item.
+   *
+   *  (we split the identifier list manually here because we must pass
+   *  a single identifier, not a list, to new_internal() below)
    */
-  if (strchr (identifiers, '|'))
+  ids = g_strsplit (identifiers, "|", 0);
+  for (i = 0; ids[i]; i++)
     {
-      gchar **ids = g_strsplit (identifiers, "|", 0);
-      gint    i;
-
-      for (i = 0; ids[i]; i++)
-        {
-          GimpSessionInfo *info;
-
-          info = gimp_dialog_factory_find_session_info (factory, ids[i]);
-          if (info && gimp_session_info_get_widget (info))
-            break;
-        }
-
-      dialog = gimp_dialog_factory_dialog_new_internal (factory,
-                                                        screen,
-                                                        NULL,
-                                                        NULL,
-                                                        ids[i] ? ids[i] : ids[0],
-                                                        view_size,
-                                                        TRUE,
-                                                        TRUE);
-      g_strfreev (ids);
+      if (gimp_dialog_factory_find_widget (factory, ids[i]))
+        break;
     }
-  else
-    {
-      dialog = gimp_dialog_factory_dialog_new_internal (factory,
-                                                        screen,
-                                                        NULL,
-                                                        NULL,
-                                                        identifiers,
-                                                        view_size,
-                                                        TRUE,
-                                                        TRUE);
-    }
+
+  dialog = gimp_dialog_factory_dialog_new_internal (factory,
+                                                    screen,
+                                                    NULL,
+                                                    NULL,
+                                                    ids[i] ? ids[i] : ids[0],
+                                                    view_size,
+                                                    TRUE /*return_existing*/,
+                                                    TRUE /*present*/,
+                                                    TRUE /*create_containers*/);
+  g_strfreev (ids);
 
   return dialog;
 }
@@ -803,8 +838,9 @@ gimp_dialog_factory_dockable_new (GimpDialogFactory *factory,
                                                   gimp_dock_get_ui_manager (dock),
                                                   identifier,
                                                   view_size,
-                                                  FALSE,
-                                                  FALSE);
+                                                  FALSE /*return_existing*/,
+                                                  FALSE /*present*/,
+                                                  FALSE /*create_containers*/);
 }
 
 void

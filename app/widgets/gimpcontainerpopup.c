@@ -27,6 +27,7 @@
 
 #include "widgets-types.h"
 
+#include "core/gimp.h"
 #include "core/gimpcontext.h"
 #include "core/gimpcontainer.h"
 #include "core/gimpmarshal.h"
@@ -39,6 +40,7 @@
 #include "gimpcontainerview.h"
 #include "gimpdialogfactory.h"
 #include "gimpviewrenderer.h"
+#include "gimpwindowstrategy.h"
 
 #include "gimp-intl.h"
 
@@ -497,8 +499,7 @@ gimp_container_popup_set_view_type (GimpContainerPopup *popup,
     {
       popup->view_type = view_type;
 
-      gtk_container_remove (GTK_CONTAINER (popup->frame),
-                            GTK_WIDGET (popup->editor));
+      gtk_widget_destroy (GTK_WIDGET (popup->editor));
       gimp_container_popup_create_view (popup);
     }
 }
@@ -653,8 +654,10 @@ static void
 gimp_container_popup_dialog_clicked (GtkWidget          *button,
                                      GimpContainerPopup *popup)
 {
-  gimp_dialog_factory_dialog_raise (popup->dialog_factory,
-                                    gtk_widget_get_screen (button),
-                                    popup->dialog_identifier, -1);
+  gimp_window_strategy_show_dockable_dialog (GIMP_WINDOW_STRATEGY (gimp_get_window_strategy (popup->context->gimp)),
+                                             popup->context->gimp,
+                                             popup->dialog_factory,
+                                             gtk_widget_get_screen (button),
+                                             popup->dialog_identifier);
   g_signal_emit (popup, popup_signals[CONFIRM], 0);
 }

@@ -141,7 +141,7 @@ gimp_transform_options_class_init (GimpTransformOptionsClass *klass)
                                 GIMP_PARAM_STATIC_STRINGS);
   GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_CONSTRAIN,
                                     "constrain",
-                                    N_("Limit rotation steps to 15 degrees"),
+                                    NULL,
                                     FALSE,
                                     GIMP_PARAM_STATIC_STRINGS);
 }
@@ -288,7 +288,10 @@ gimp_transform_options_gui_full (GimpToolOptions *tool_options, gboolean horizon
   GtkWidget   *combo;
   GtkWidget   *scale;
   GtkWidget   *grid_box;
-  const gchar *constrain = NULL;
+#if 0
+  const gchar *constrain_label = NULL;
+  const gchar *constrain_tip   = NULL;
+#endif
 
   hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
   gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
@@ -339,8 +342,8 @@ gimp_transform_options_create_view (GtkWidget *source, GtkWidget **result, GObje
   GtkWidget            *preview_box;
   GtkWidget            *label;
   GtkWidget            *grid_box;
-  const gchar          *constrain = NULL;
-  
+  const gchar          *constrain_label = NULL;
+  const gchar          *constrain_tip   = NULL;
 
   /*  the interpolation menu  */
   frame = gimp_frame_new (_("Interpolation:"));
@@ -423,14 +426,16 @@ gimp_transform_options_create_view (GtkWidget *source, GtkWidget **result, GObje
 
   if (tool_options->tool_info->tool_type == GIMP_TYPE_ROTATE_TOOL)
     {
-      constrain = (_("15 degrees  (%s)"));
+      constrain_label = _("15 degrees  (%s)");
+      constrain_tip   = _("Limit rotation steps to 15 degrees");
     }
   else if (tool_options->tool_info->tool_type == GIMP_TYPE_SCALE_TOOL)
     {
-      constrain = (_("Keep aspect  (%s)"));
+      constrain_label = _("Keep aspect  (%s)");
+      constrain_tip   = _("Keep the original aspect ratio");
     }
 
-  if (constrain)
+  if (constrain_label)
     {
       GtkWidget       *button;
       gchar           *label;
@@ -438,12 +443,14 @@ gimp_transform_options_create_view (GtkWidget *source, GtkWidget **result, GObje
 
       constrain_mask = gimp_get_constrain_behavior_mask ();
 
-      label = g_strdup_printf (constrain,
+      label = g_strdup_printf (constrain_label,
                                gimp_get_mod_string (constrain_mask));
 
       button = gimp_prop_check_button_new (config, "constrain", label);
       gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
       gtk_widget_show (button);
+
+      gimp_help_set_help_data (button, constrain_tip, NULL);
 
       g_free (label);
     }

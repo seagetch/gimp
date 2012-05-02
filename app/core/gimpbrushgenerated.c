@@ -366,7 +366,7 @@ gimp_brush_generated_transform_mask (GimpBrush *gbrush,
 
   return gimp_brush_generated_calc (brush,
                                     brush->shape,
-                                    brush->radius * scale ,
+                                    brush->radius * scale,
                                     brush->spikes,
                                     brush->hardness * hardness,
                                     ratio,

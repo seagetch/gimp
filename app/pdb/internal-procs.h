@@ -26,8 +26,8 @@ void   internal_procs_init               (GimpPDB *pdb);
 
 void   register_brush_procs              (GimpPDB *pdb);
 void   register_brush_select_procs       (GimpPDB *pdb);
-void   register_mypaint_brush_select_procs(GimpPDB *pdb);
 void   register_brushes_procs            (GimpPDB *pdb);
+void   register_mypaint_brush_select_procs (GimpPDB *pdb);
 void   register_buffer_procs             (GimpPDB *pdb);
 void   register_channel_procs            (GimpPDB *pdb);
 void   register_color_procs              (GimpPDB *pdb);

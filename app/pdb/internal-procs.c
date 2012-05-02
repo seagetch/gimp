@@ -28,7 +28,7 @@
 #include "internal-procs.h"
 
 
-/* 640 procedures registered total */
+/* 663 procedures registered total */
 
 void
 internal_procs_init (GimpPDB *pdb)
@@ -37,7 +37,6 @@ internal_procs_init (GimpPDB *pdb)
 
   register_brush_procs (pdb);
   register_brush_select_procs (pdb);
-  register_mypaint_brush_select_procs (pdb);
   register_brushes_procs (pdb);
   register_buffer_procs (pdb);
   register_channel_procs (pdb);

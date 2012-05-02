@@ -75,8 +75,6 @@ libappdisplay_a_sources = \
 	gimpdisplay-foreach.h			\
 	gimpdisplay-handlers.c			\
 	gimpdisplay-handlers.h			\
-	gimpdisplay-utils.c			\
-	gimpdisplay-utils.h			\
 	gimpdisplayshell.c			\
 	gimpdisplayshell.h			\
 	gimpdisplayshell-appearance.c		\
@@ -144,9 +142,7 @@ libappdisplay_a_sources = \
 	gimpstatusbar.c				\
 	gimpstatusbar.h				\
 	gimptooldialog.c			\
-	gimptooldialog.h			\
-	gimpwindowstrategy.c			\
-	gimpwindowstrategy.h
+	gimptooldialog.h
 
 libappdisplay_a_built_sources = display-enums.c
 

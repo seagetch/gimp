@@ -33,7 +33,8 @@ static gboolean gimp_operation_erase_mode_process (GeglOperation       *operatio
                                                    void                *aux_buf,
                                                    void                *out_buf,
                                                    glong                samples,
-                                                   const GeglRectangle *roi);
+                                                   const GeglRectangle *roi,
+                                                   gint                 level);
 
 
 G_DEFINE_TYPE (GimpOperationEraseMode, gimp_operation_erase_mode,
@@ -49,8 +50,10 @@ gimp_operation_erase_mode_class_init (GimpOperationEraseModeClass *klass)
   operation_class = GEGL_OPERATION_CLASS (klass);
   point_class     = GEGL_OPERATION_POINT_COMPOSER_CLASS (klass);
 
-  operation_class->name        = "gimp:erase-mode";
-  operation_class->description = "GIMP erase mode operation";
+  gegl_operation_class_set_keys (operation_class,
+           "name"       , "gimp:erase-mode",
+           "description", "GIMP erase mode operation",
+           NULL);
 
   point_class->process         = gimp_operation_erase_mode_process;
 }
@@ -66,7 +69,8 @@ gimp_operation_erase_mode_process (GeglOperation       *operation,
                                    void                *aux_buf,
                                    void                *out_buf,
                                    glong                samples,
-                                   const GeglRectangle *roi)
+                                   const GeglRectangle *roi,
+                                   gint                 level)
 {
   gfloat *in    = in_buf;
   gfloat *layer = aux_buf;

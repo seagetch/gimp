@@ -43,6 +43,9 @@ struct _GimpSmudge
   guchar        *accum_data;
   guchar        *blending_data;
   guint          max_radius;
+#if 0
+  gint           accum_size;
+#endif
 };
 
 struct _GimpSmudgeClass

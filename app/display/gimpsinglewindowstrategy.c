@@ -33,15 +33,14 @@
 #include "widgets/gimpdock.h"
 #include "widgets/gimpdockbook.h"
 #include "widgets/gimpdockcolumns.h"
+#include "widgets/gimpwindowstrategy.h"
 
-#include "display/gimpimagewindow.h"
-
+#include "gimpimagewindow.h"
 #include "gimpsinglewindowstrategy.h"
-#include "gimpwindowstrategy.h"
 
 
 static void        gimp_single_window_strategy_window_strategy_iface_init (GimpWindowStrategyInterface *iface);
-static GtkWidget * gimp_single_window_strategy_create_dockable_dialog     (GimpWindowStrategy          *strategy,
+static GtkWidget * gimp_single_window_strategy_show_dockable_dialog       (GimpWindowStrategy          *strategy,
                                                                            Gimp                        *gimp,
                                                                            GimpDialogFactory           *factory,
                                                                            GdkScreen                   *screen,
@@ -68,15 +67,15 @@ gimp_single_window_strategy_init (GimpSingleWindowStrategy *strategy)
 static void
 gimp_single_window_strategy_window_strategy_iface_init (GimpWindowStrategyInterface *iface)
 {
-  iface->create_dockable_dialog = gimp_single_window_strategy_create_dockable_dialog;
+  iface->show_dockable_dialog = gimp_single_window_strategy_show_dockable_dialog;
 }
 
 static GtkWidget *
-gimp_single_window_strategy_create_dockable_dialog (GimpWindowStrategy *strategy,
-                                                    Gimp               *gimp,
-                                                    GimpDialogFactory  *factory,
-                                                    GdkScreen          *screen,
-                                                    const gchar        *identifiers)
+gimp_single_window_strategy_show_dockable_dialog (GimpWindowStrategy *strategy,
+                                                  Gimp               *gimp,
+                                                  GimpDialogFactory  *factory,
+                                                  GdkScreen          *screen,
+                                                  const gchar        *identifiers)
 {
   GList           *windows = gimp_get_image_windows (gimp);
   GtkWidget       *widget  = NULL;
@@ -109,6 +108,11 @@ gimp_single_window_strategy_create_dockable_dialog (GimpWindowStrategy *strategy
                                       -1 /*index*/);
         }
     }
+  else if (gimp_dialog_factory_find_widget (factory, identifiers))
+    {
+      /* if the dialog is already open, simply raise it */
+      return gimp_dialog_factory_dialog_raise (factory, screen, identifiers, -1);
+   }
   else
     {
       GtkWidget *dockbook;

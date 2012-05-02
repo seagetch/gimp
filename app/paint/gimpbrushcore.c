@@ -397,7 +397,7 @@ gimp_brush_core_pre_paint (GimpPaintCore    *paint_core,
                                                              paint_options,
                                                              fade_point);
 
-              if (scale < 0.0001)
+              if (scale < 0.0000001)
                 return FALSE;
             }
         }
@@ -561,9 +561,38 @@ gimp_brush_core_interpolate (GimpPaintCore    *paint_core,
       gimp_paint_core_set_current_coords (paint_core, &current_coords);
     }
 
+#endif
+#if 1
   /*Zero sized brushes are unfit for interpolate,
    * so we just let paint core fail onits own
    **/
+  gimp_avoid_exact_integer (&last_coords.x);
+  gimp_avoid_exact_integer (&last_coords.y);
+  gimp_avoid_exact_integer (&current_coords.x);
+  gimp_avoid_exact_integer (&current_coords.y);
+
+  delta_vec.x    = current_coords.x        - last_coords.x;
+  delta_vec.y    = current_coords.y        - last_coords.y;
+  delta_pressure = current_coords.pressure - last_coords.pressure;
+  delta_xtilt    = current_coords.xtilt    - last_coords.xtilt;
+  delta_ytilt    = current_coords.ytilt    - last_coords.ytilt;
+  delta_wheel    = current_coords.wheel    - last_coords.wheel;
+  delta_velocity = current_coords.velocity - last_coords.velocity;
+  temp_direction = current_coords.direction;
+
+  /*  return if there has been no motion  */
+  if (! delta_vec.x    &&
+      ! delta_vec.y    &&
+      ! delta_pressure &&
+      ! delta_xtilt    &&
+      ! delta_ytilt    &&
+      ! delta_wheel    &&
+      ! delta_velocity)
+    return;
+
+  pixel_dist    = gimp_vector2_length (&delta_vec);
+  pixel_initial = paint_core->pixel_dist;
+
 #endif
   /*  Zero sized brushes are unfit for interpolate, so we just let
    *  paint core fail on its own
@@ -574,9 +603,13 @@ gimp_brush_core_interpolate (GimpPaintCore    *paint_core,
 
       gimp_paint_core_paint (paint_core, drawable, paint_options,
                              GIMP_PAINT_STATE_MOTION, time);
+
+      paint_core->pixel_dist = pixel_initial + pixel_dist; /* Dont forget to update pixel distance*/
+
       return;
     }
 
+  /* Handle dynamic spacing */
   spacing_output = gimp_dynamics_get_output (core->dynamics,
                                              GIMP_DYNAMICS_OUTPUT_SPACING);
 
@@ -605,30 +638,6 @@ gimp_brush_core_interpolate (GimpPaintCore    *paint_core,
       dyn_spacing = MAX (core->spacing, dyn_spacing);
     }
 
-  gimp_avoid_exact_integer (&last_coords.x);
-  gimp_avoid_exact_integer (&last_coords.y);
-  gimp_avoid_exact_integer (&current_coords.x);
-  gimp_avoid_exact_integer (&current_coords.y);
-
-  delta_vec.x    = current_coords.x        - last_coords.x;
-  delta_vec.y    = current_coords.y        - last_coords.y;
-  delta_pressure = current_coords.pressure - last_coords.pressure;
-  delta_xtilt    = current_coords.xtilt    - last_coords.xtilt;
-  delta_ytilt    = current_coords.ytilt    - last_coords.ytilt;
-  delta_wheel    = current_coords.wheel    - last_coords.wheel;
-  delta_velocity = current_coords.velocity - last_coords.velocity;
-  temp_direction = current_coords.direction;
-
-  /*  return if there has been no motion  */
-  if (! delta_vec.x    &&
-      ! delta_vec.y    &&
-      ! delta_pressure &&
-      ! delta_xtilt    &&
-      ! delta_ytilt    &&
-      ! delta_wheel    &&
-      ! delta_velocity)
-    return;
-
   /* calculate the distance traveled in the coordinate space of the brush */
   temp_vec = core->brush->x_axis;
   gimp_vector2_mul (&temp_vec, core->scale);
@@ -646,8 +655,6 @@ gimp_brush_core_interpolate (GimpPaintCore    *paint_core,
   total   = dist + paint_core->distance;
   initial = paint_core->distance;
 
-  pixel_dist    = gimp_vector2_length (&delta_vec);
-  pixel_initial = paint_core->pixel_dist;
 
   if (delta_vec.x * delta_vec.x > delta_vec.y * delta_vec.y)
     {

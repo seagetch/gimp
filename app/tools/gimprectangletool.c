@@ -1769,6 +1769,7 @@ gimp_rectangle_tool_draw (GimpDrawTool    *draw_tool,
 
     case GIMP_RECTANGLE_TOOL_DEAD:
     case GIMP_RECTANGLE_TOOL_CREATING:
+    case GIMP_RECTANGLE_TOOL_AUTO_SHRINK:
       gimp_draw_tool_push_group (draw_tool, stroke_group);
 
       gimp_draw_tool_add_corner (draw_tool, FALSE, private->narrow_mode,
@@ -2501,8 +2502,6 @@ gimp_rectangle_tool_auto_shrink (GimpRectangleTool *rect_tool)
   GimpRectangleToolPrivate *private = GIMP_RECTANGLE_TOOL_GET_PRIVATE (tool);
   GimpDisplay              *display = tool->display;
   GimpImage                *image;
-  gint                      width;
-  gint                      height;
   gint                      offset_x = 0;
   gint                      offset_y = 0;
   gint                      x1, y1;
@@ -2518,17 +2517,32 @@ gimp_rectangle_tool_auto_shrink (GimpRectangleTool *rect_tool)
 
   image = gimp_display_get_image (display);
 
-  width  = gimp_image_get_width  (image);
-  height = gimp_image_get_height (image);
-
   g_object_get (gimp_tool_get_options (tool),
                 "shrink-merged", &shrink_merged,
                 NULL);
 
-  x1 = private->x1 - offset_x  > 0      ? private->x1 - offset_x : 0;
-  x2 = private->x2 - offset_x  < width  ? private->x2 - offset_x : width;
-  y1 = private->y1 - offset_y  > 0      ? private->y1 - offset_y : 0;
-  y2 = private->y2 - offset_y  < height ? private->y2 - offset_y : height;
+  if (shrink_merged)
+    {
+      x1 = MAX (private->x1, 0);
+      y1 = MAX (private->y1, 0);
+      x2 = MIN (private->x2, gimp_image_get_width  (image));
+      y2 = MIN (private->y2, gimp_image_get_height (image));
+    }
+  else
+    {
+      GimpDrawable *drawable = gimp_image_get_active_drawable (image);
+      GimpItem     *item     = GIMP_ITEM (drawable);
+
+      if (! drawable)
+        return;
+
+      gimp_item_get_offset (item, &offset_x, &offset_y);
+
+      x1 = MAX (private->x1 - offset_x, 0);
+      y1 = MAX (private->y1 - offset_y, 0);
+      x2 = MIN (private->x2 - offset_x, gimp_item_get_width  (item));
+      y2 = MIN (private->y2 - offset_y, gimp_item_get_height (item));
+    }
 
   if (gimp_image_crop_auto_shrink (image,
                                    x1, y1, x2, y2,
@@ -2538,12 +2552,15 @@ gimp_rectangle_tool_auto_shrink (GimpRectangleTool *rect_tool)
                                    &shrunk_x2,
                                    &shrunk_y2))
     {
+      GimpRectangleFunction original_function = private->function;
+
       gimp_draw_tool_pause (GIMP_DRAW_TOOL (rect_tool));
+      private->function = GIMP_RECTANGLE_TOOL_AUTO_SHRINK;
 
       private->x1 = offset_x + shrunk_x1;
-      private->y1 = offset_x + shrunk_y1;
+      private->y1 = offset_y + shrunk_y1;
       private->x2 = offset_x + shrunk_x2;
-      private->y2 = offset_x + shrunk_y2;
+      private->y2 = offset_y + shrunk_y2;
 
       gimp_rectangle_tool_update_int_rect (rect_tool);
 
@@ -2552,6 +2569,7 @@ gimp_rectangle_tool_auto_shrink (GimpRectangleTool *rect_tool)
       gimp_rectangle_tool_update_handle_sizes (rect_tool);
       gimp_rectangle_tool_update_highlight (rect_tool);
 
+      private->function = original_function;
       gimp_draw_tool_resume (GIMP_DRAW_TOOL (rect_tool));
     }
 
@@ -2840,6 +2858,7 @@ gimp_rectangle_tool_rect_rubber_banding_func (GimpRectangleTool *rect_tool)
       case GIMP_RECTANGLE_TOOL_RESIZING_UPPER_RIGHT:
       case GIMP_RECTANGLE_TOOL_RESIZING_LOWER_LEFT:
       case GIMP_RECTANGLE_TOOL_RESIZING_LOWER_RIGHT:
+      case GIMP_RECTANGLE_TOOL_AUTO_SHRINK:
         rect_rubber_banding_func = TRUE;
         break;
 

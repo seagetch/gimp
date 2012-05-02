@@ -27,7 +27,6 @@
 #include <stdlib.h>
 
 #include <libgimp/gimp.h>
-#undef GDK_DISABLE_DEPRECATED
 #include <libgimp/gimpui.h>
 
 #include "gfig.h"
@@ -37,51 +36,43 @@
 #include "libgimp/stdplugins-intl.h"
 
 
-static void        d_draw_ellipse   (GfigObject *obj);
+static void        d_draw_ellipse   (GfigObject *obj,
+                                     cairo_t    *cr);
 static void        d_paint_ellipse  (GfigObject *obj);
 static GfigObject *d_copy_ellipse   (GfigObject *obj);
 
 static void        d_update_ellipse (GdkPoint   *pnt);
 
 static void
-d_draw_ellipse (GfigObject * obj)
+d_draw_ellipse (GfigObject *obj,
+                cairo_t    *cr)
 {
   DobjPoints *center_pnt;
   DobjPoints *edge_pnt;
   gint        bound_wx;
   gint        bound_wy;
-  gint        top_x;
-  gint        top_y;
 
   center_pnt = obj->points;
 
   if (!center_pnt)
     return; /* End-of-line */
 
+  draw_sqr (&center_pnt->pnt, obj == gfig_context->selected_obj, cr);
+
   edge_pnt = center_pnt->next;
 
   if (!edge_pnt)
-    {
-      g_warning ("Internal error - ellipse no edge pnt");
-    }
+    return;
 
-  draw_sqr (&center_pnt->pnt, obj == gfig_context->selected_obj);
-  draw_sqr (&edge_pnt->pnt, obj == gfig_context->selected_obj);
+  if (obj == obj_creating)
+    draw_circle (&edge_pnt->pnt, TRUE, cr);
+  else
+    draw_sqr (&edge_pnt->pnt, obj == gfig_context->selected_obj, cr);
 
   bound_wx = abs (center_pnt->pnt.x - edge_pnt->pnt.x);
   bound_wy = abs (center_pnt->pnt.y - edge_pnt->pnt.y);
 
-  if (edge_pnt->pnt.x > center_pnt->pnt.x)
-    top_x = 2 * center_pnt->pnt.x - edge_pnt->pnt.x;
-  else
-    top_x = edge_pnt->pnt.x;
-
-  if (edge_pnt->pnt.y > center_pnt->pnt.y)
-    top_y = 2 * center_pnt->pnt.y - edge_pnt->pnt.y;
-  else
-    top_y = edge_pnt->pnt.y;
-
-  gfig_draw_arc (center_pnt->pnt.x, center_pnt->pnt.y, bound_wx, bound_wy, 0, 360);
+  gfig_draw_arc (center_pnt->pnt.x, center_pnt->pnt.y, bound_wx, bound_wy, 0, 360, cr);
 }
 
 static void
@@ -94,11 +85,6 @@ d_paint_ellipse (GfigObject *obj)
   gint        top_x;
   gint        top_y;
   gdouble     dpnts[4];
-
-  /* Drawing ellipse is hard .
-   * 1) select ellipse
-   * 2) stroke it
-   */
 
   g_assert (obj != NULL);
 
@@ -138,20 +124,41 @@ d_paint_ellipse (GfigObject *obj)
   else
     scale_to_xy (&dpnts[0], 2);
 
-  gimp_context_push ();
-  gimp_context_set_antialias (selopt.antia);
-  gimp_context_set_feather (selopt.feather);
-  gimp_context_set_feather_radius (selopt.feather_radius, selopt.feather_radius);
-  gimp_image_select_ellipse (gfig_context->image_id,
-                             selopt.type,
-                             dpnts[0], dpnts[1],
-                             dpnts[2], dpnts[3]);
-  gimp_context_pop ();
+  if (gfig_context_get_current_style ()->fill_type != FILL_NONE)
+    {
+      gimp_context_push ();
+      gimp_context_set_antialias (selopt.antia);
+      gimp_context_set_feather (selopt.feather);
+      gimp_context_set_feather_radius (selopt.feather_radius, selopt.feather_radius);
+      gimp_image_select_ellipse (gfig_context->image_id,
+                                 selopt.type,
+                                 dpnts[0], dpnts[1],
+                                 dpnts[2], dpnts[3]);
+      gimp_context_pop ();
 
-  paint_layer_fill (top_x, top_y, top_x + bound_wx, top_y + bound_wy);
+      paint_layer_fill (top_x, top_y, top_x + bound_wx, top_y + bound_wy);
+      gimp_selection_none (gfig_context->image_id);
+    }
 
   if (obj->style.paint_type == PAINT_BRUSH_TYPE)
-    gimp_edit_stroke (gfig_context->drawable_id);
+    {
+      const gdouble rx = dpnts[2] / 2, ry = dpnts[3] / 2;
+      const gdouble cx = dpnts[0] + rx, cy = dpnts[1] + ry;
+      gdouble       line_pnts[362];
+      gdouble       angle = 0;
+      gint          i = 0;
+
+      while (i < 362)
+        {
+          static const gdouble step = 2 * G_PI / 180;
+
+          line_pnts[i++] = cx + rx * cos (angle);
+          line_pnts[i++] = cy + ry * sin (angle);
+          angle += step;
+        }
+
+      gfig_paint (selvals.brshtype, gfig_context->drawable_id, i, line_pnts);
+    }
 }
 
 static GfigObject *
@@ -184,12 +191,7 @@ static void
 d_update_ellipse (GdkPoint *pnt)
 {
   DobjPoints *center_pnt, *edge_pnt;
-  gint        bound_wx;
-  gint        bound_wy;
-  gint        top_x;
-  gint        top_y;
 
-  /* Undraw last one then draw new one */
   center_pnt = obj_creating->points;
 
   if (!center_pnt)
@@ -197,31 +199,6 @@ d_update_ellipse (GdkPoint *pnt)
 
   if ((edge_pnt = center_pnt->next))
     {
-      /* Undraw current */
-      bound_wx = abs (center_pnt->pnt.x - edge_pnt->pnt.x) * 2;
-      bound_wy = abs (center_pnt->pnt.y - edge_pnt->pnt.y) * 2;
-
-      if (edge_pnt->pnt.x > center_pnt->pnt.x)
-        top_x = 2 * center_pnt->pnt.x - edge_pnt->pnt.x;
-      else
-        top_x = edge_pnt->pnt.x;
-
-      if (edge_pnt->pnt.y > center_pnt->pnt.y)
-        top_y = 2 * center_pnt->pnt.y - edge_pnt->pnt.y;
-      else
-        top_y = edge_pnt->pnt.y;
-
-      draw_circle (&edge_pnt->pnt, TRUE);
-
-      gdk_draw_arc (gtk_widget_get_window (gfig_context->preview),
-                    gfig_gc,
-                    0,
-                    top_x,
-                    top_y,
-                    bound_wx,
-                    bound_wy,
-                    0,
-                    360 * 64);
       edge_pnt->pnt = *pnt;
     }
   else
@@ -229,31 +206,6 @@ d_update_ellipse (GdkPoint *pnt)
       edge_pnt = new_dobjpoint (pnt->x, pnt->y);
       center_pnt->next = edge_pnt;
     }
-
-  draw_circle (&edge_pnt->pnt, TRUE);
-
-  bound_wx = abs (center_pnt->pnt.x - edge_pnt->pnt.x) * 2;
-  bound_wy = abs (center_pnt->pnt.y - edge_pnt->pnt.y) * 2;
-
-  if (edge_pnt->pnt.x > center_pnt->pnt.x)
-    top_x = 2 * center_pnt->pnt.x - edge_pnt->pnt.x;
-  else
-    top_x = edge_pnt->pnt.x;
-
-  if (edge_pnt->pnt.y > center_pnt->pnt.y)
-    top_y = 2 * center_pnt->pnt.y - edge_pnt->pnt.y;
-  else
-    top_y = edge_pnt->pnt.y;
-
-  gdk_draw_arc (gtk_widget_get_window (gfig_context->preview),
-                gfig_gc,
-                0,
-                top_x,
-                top_y,
-                bound_wx,
-                bound_wy,
-                0,
-                360 * 64);
 }
 
 void
@@ -275,7 +227,6 @@ d_ellipse_end (GdkPoint *pnt,
     }
   else
     {
-      draw_circle (pnt, TRUE);
       add_to_all_obj (gfig_context->current_obj, obj_creating);
     }
 

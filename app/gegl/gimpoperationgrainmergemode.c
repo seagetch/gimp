@@ -33,7 +33,8 @@ static gboolean gimp_operation_grain_merge_mode_process (GeglOperation       *op
                                                          void                *aux_buf,
                                                          void                *out_buf,
                                                          glong                samples,
-                                                         const GeglRectangle *roi);
+                                                         const GeglRectangle *roi,
+                                                         gint                 level);
 
 
 G_DEFINE_TYPE (GimpOperationGrainMergeMode, gimp_operation_grain_merge_mode,
@@ -49,8 +50,10 @@ gimp_operation_grain_merge_mode_class_init (GimpOperationGrainMergeModeClass *kl
   operation_class = GEGL_OPERATION_CLASS (klass);
   point_class     = GEGL_OPERATION_POINT_COMPOSER_CLASS (klass);
 
-  operation_class->name        = "gimp:grain-merge-mode";
-  operation_class->description = "GIMP grain merge mode operation";
+  gegl_operation_class_set_keys (operation_class,
+           "name"       , "gimp:grain-merge-mode",
+           "description", "GIMP grain merge mode operation",
+           NULL);
 
   point_class->process         = gimp_operation_grain_merge_mode_process;
 }
@@ -66,7 +69,8 @@ gimp_operation_grain_merge_mode_process (GeglOperation       *operation,
                                          void                *aux_buf,
                                          void                *out_buf,
                                          glong                samples,
-                                         const GeglRectangle *roi)
+                                         const GeglRectangle *roi,
+                                         gint                 level)
 {
   gfloat *in    = in_buf;
   gfloat *layer = aux_buf;

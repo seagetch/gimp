@@ -36,7 +36,8 @@ static gboolean gimp_operation_posterize_process (GeglOperation       *operation
                                                   void                *in_buf,
                                                   void                *out_buf,
                                                   glong                samples,
-                                                  const GeglRectangle *roi);
+                                                  const GeglRectangle *roi,
+                                                  gint                 level);
 
 
 G_DEFINE_TYPE (GimpOperationPosterize, gimp_operation_posterize,
@@ -55,9 +56,11 @@ gimp_operation_posterize_class_init (GimpOperationPosterizeClass *klass)
   object_class->set_property   = gimp_operation_point_filter_set_property;
   object_class->get_property   = gimp_operation_point_filter_get_property;
 
-  operation_class->name        = "gimp:posterize";
-  operation_class->categories  = "color";
-  operation_class->description = "GIMP Posterize operation";
+  gegl_operation_class_set_keys (operation_class,
+           "name"       , "gimp:posterize",
+           "categories" , "color",
+           "description", "GIMP Posterize operation",
+           NULL);
 
   point_class->process         = gimp_operation_posterize_process;
 
@@ -81,7 +84,8 @@ gimp_operation_posterize_process (GeglOperation       *operation,
                                   void                *in_buf,
                                   void                *out_buf,
                                   glong                samples,
-                                  const GeglRectangle *roi)
+                                  const GeglRectangle *roi,
+                                  gint                 level)
 {
   GimpOperationPointFilter *point  = GIMP_OPERATION_POINT_FILTER (operation);
   GimpPosterizeConfig      *config = GIMP_POSTERIZE_CONFIG (point->config);

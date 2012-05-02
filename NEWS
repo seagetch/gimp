@@ -1,10 +1,35 @@
                    ------------------------------
                    GNU Image Manipulation Program
-                          Development Branch
+                          2.8 Stable Branch
                    ------------------------------
 
-This is the unstable development branch of GIMP.  Here we are working
-towards the next stable release, which will be GIMP 2.8.
+This is the stable branch of GIMP. No new features are being added
+here, just bug-fixes.
+
+
+Changes in GIMP 2.8.0
+=====================
+
+
+Core:
+
+ - Add our own GimpOperationBrightnessContrast because GEGL one is different
+
+
+Plug-ins:
+
+ - Fix some GFig rendering issues
+
+
+Source and build system:
+
+ - Depend on Babl 0.1.10, GEGL 0.2.0 and some other new library versions
+
+
+General:
+
+ - Bug fixes
+ - Translation updates
 
 
 Changes in GIMP 2.7.5
@@ -15,42 +40,57 @@ UI:
 
  - Minor application menu fixes on the Mac
  - Make the toolbox arbitrarily resizable again
+ - Add axis labels to the dynamics curves to make them more obvious
+ - Fix dockable showing to do the right thing in both MWM and SWM
+ - Fix some glitches in the tool preset UI, like proper sensitivity
 
 
 Core:
 
- - foo
-
-
-Libgimp:
-
- - foo
+ - Restore autoshrink functionality in the rectangle tools
+ - Allow smudge to work with dynamic brushes
+ - Make sure tool presets and tool options are consistent after loading
+ - Add automatic tags for the folders a file lives in
+ - Make the default Quick Mask color configurable
+ - Fix Color Balance so the "range" setting actually makes a difference
 
 
 Plug-ins:
 
- - foo
+ - Proper toplevel item sorting in the help browser
+ - Use libraries instead of launching programs in file-compressor
+ - Use the Ghostscript library instead of launching ghostscript
+ - Allow to switch off antialiasing when importing from PDF
+ - Embed the page setup in the main print dialog
+ - Port Gfig to cairo
 
 
-Script-Fu:
+Libgimp:
 
- - foo
+ - Add PDB API to modify a lot of paint and ink options
+
+
+Data:
+
+ - Add a new set of default brushes and tool presets from Ramon Miranda
 
 
 Developer documentation:
 
- - foo
+ - Update everything including app/ so all functions appear again
 
 
 Source and build system:
 
  - Remove the unmaintained makefile.msc build system
  - Explicitly link plug-ins to -lm when needed
+ - Also create .xz tarballs
 
 
 General:
 
- - foo
+ - Lots of bug fixes
+ - Tons and tons of translation updates
 
 
 Changes in GIMP 2.7.4

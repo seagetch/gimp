@@ -342,6 +342,7 @@ gimp_vector_tool_button_press (GimpTool            *tool,
 
       vector_tool->cur_stroke = gimp_bezier_stroke_new ();
       gimp_vectors_stroke_add (vector_tool->vectors, vector_tool->cur_stroke);
+      g_object_unref (vector_tool->cur_stroke);
 
       vector_tool->undo_motion = TRUE;
 
@@ -622,7 +623,10 @@ gimp_vector_tool_button_press (GimpTool            *tool,
       new_stroke = gimp_stroke_open (vector_tool->cur_stroke,
                                      vector_tool->cur_anchor);
       if (new_stroke)
-        gimp_vectors_stroke_add (vector_tool->vectors, new_stroke);
+        {
+          gimp_vectors_stroke_add (vector_tool->vectors, new_stroke);
+          g_object_unref (new_stroke);
+        }
 
       vector_tool->undo_motion = TRUE;
       vector_tool->cur_stroke = NULL;
@@ -1556,8 +1560,9 @@ static void
 gimp_vector_tool_vectors_thaw (GimpVectors    *vectors,
                                GimpVectorTool *vector_tool)
 {
-  /* Ok, the vector might have changed externally (e.g. Undo)
-   * we need to validate our internal state. */
+  /*  Ok, the vector might have changed externally (e.g. Undo) we need
+   *  to validate our internal state.
+   */
   gimp_vector_tool_verify_state (vector_tool);
 
   gimp_draw_tool_resume (GIMP_DRAW_TOOL (vector_tool));
@@ -1637,8 +1642,8 @@ gimp_vector_tool_set_vectors (GimpVectorTool *vector_tool,
         }
     }
 
-  vector_tool->vectors    = vectors;
-  vector_tool->function   = VECTORS_FINISHED;
+  vector_tool->vectors  = vectors;
+  vector_tool->function = VECTORS_FINISHED;
   gimp_vector_tool_verify_state (vector_tool);
 
   if (! vector_tool->vectors)
@@ -1827,15 +1832,9 @@ gimp_vector_tool_delete_selected_anchors (GimpVectorTool *vector_tool)
 static void
 gimp_vector_tool_verify_state (GimpVectorTool *vector_tool)
 {
-  GimpStroke *cur_stroke = NULL;
-  GimpAnchor *cur_anchor;
-  GList      *anchors;
-  GList      *list;
-  gboolean    cur_anchor_valid;
-  gboolean    cur_stroke_valid;
-
-  cur_anchor_valid = FALSE;
-  cur_stroke_valid = FALSE;
+  GimpStroke *cur_stroke       = NULL;
+  gboolean    cur_anchor_valid = FALSE;
+  gboolean    cur_stroke_valid = FALSE;
 
   vector_tool->sel_count  = 0;
   vector_tool->sel_anchor = NULL;
@@ -1852,6 +1851,9 @@ gimp_vector_tool_verify_state (GimpVectorTool *vector_tool)
   while ((cur_stroke = gimp_vectors_stroke_get_next (vector_tool->vectors,
                                                      cur_stroke)))
     {
+      GList *anchors;
+      GList *list;
+
       /* anchor handles */
       anchors = gimp_stroke_get_draw_anchors (cur_stroke);
 
@@ -1860,7 +1862,7 @@ gimp_vector_tool_verify_state (GimpVectorTool *vector_tool)
 
       for (list = anchors; list; list = g_list_next (list))
         {
-          cur_anchor = GIMP_ANCHOR (list->data);
+          GimpAnchor *cur_anchor = list->data;
 
           if (cur_anchor == vector_tool->cur_anchor)
             cur_anchor_valid = TRUE;
@@ -1882,15 +1884,19 @@ gimp_vector_tool_verify_state (GimpVectorTool *vector_tool)
             }
         }
 
+      g_list_free (anchors);
+
       anchors = gimp_stroke_get_draw_controls (cur_stroke);
 
       for (list = anchors; list; list = g_list_next (list))
         {
-          cur_anchor = GIMP_ANCHOR (list->data);
+          GimpAnchor *cur_anchor = list->data;
 
           if (cur_anchor == vector_tool->cur_anchor)
             cur_anchor_valid = TRUE;
         }
+
+      g_list_free (anchors);
     }
 
   if (! cur_stroke_valid)

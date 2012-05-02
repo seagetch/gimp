@@ -92,7 +92,6 @@ libexec_PROGRAMS = \
 	engrave \
 	$(FILE_AA) \
 	file-cel \
-	file-compressor \
 	file-csource \
 	file-desktop-link \
 	file-dicom \
@@ -112,7 +111,7 @@ libexec_PROGRAMS = \
 	file-pix \
 	$(FILE_PNG) \
 	file-pnm \
-	file-ps \
+	$(FILE_PS) \
 	$(FILE_PSP) \
 	file-raw \
 	file-sunras \
@@ -197,6 +196,7 @@ EXTRA_PROGRAMS = \
 	file-pdf-load \
 	file-pdf-save \
 	file-png \
+	file-ps \
 	file-psp \
 	file-svg \
 	file-tiff-load \
@@ -1039,21 +1039,6 @@ file_cel_LDADD = \
 	$(INTLLIBS)		\
 	$(file_cel_RC)
 
-file_compressor_SOURCES = \
-	file-compressor.c
-
-file_compressor_LDADD = \
-	$(libgimp)		\
-	$(libgimpmath)		\
-	$(libgimpconfig)	\
-	$(libgimpcolor)		\
-	$(libgimpbase)		\
-	$(CAIRO_LIBS)		\
-	$(GDK_PIXBUF_LIBS)	\
-	$(RT_LIBS)		\
-	$(INTLLIBS)		\
-	$(file_compressor_RC)
-
 file_csource_SOURCES = \
 	file-csource.c
 
@@ -1397,6 +1382,7 @@ file_ps_LDADD = \
 	$(libgimpcolor)		\
 	$(libgimpbase)		\
 	$(GTK_LIBS)		\
+	$(GS_LIBS)		\
 	$(RT_LIBS)		\
 	$(INTLLIBS)		\
 	$(file_ps_RC)

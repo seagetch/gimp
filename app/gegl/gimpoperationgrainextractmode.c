@@ -33,7 +33,8 @@ static gboolean gimp_operation_grain_extract_mode_process (GeglOperation       *
                                                            void                *aux_buf,
                                                            void                *out_buf,
                                                            glong                samples,
-                                                           const GeglRectangle *roi);
+                                                           const GeglRectangle *roi,
+                                                           gint                 level);
 
 
 G_DEFINE_TYPE (GimpOperationGrainExtractMode, gimp_operation_grain_extract_mode,
@@ -49,8 +50,10 @@ gimp_operation_grain_extract_mode_class_init (GimpOperationGrainExtractModeClass
   operation_class = GEGL_OPERATION_CLASS (klass);
   point_class     = GEGL_OPERATION_POINT_COMPOSER_CLASS (klass);
 
-  operation_class->name        = "gimp:grain-extract-mode";
-  operation_class->description = "GIMP grain extract mode operation";
+  gegl_operation_class_set_keys (operation_class,
+             "name"       , "gimp:grain-extract-mode",
+             "description", "GIMP grain extract mode operation",
+             NULL);
 
   point_class->process         = gimp_operation_grain_extract_mode_process;
 }
@@ -66,7 +69,8 @@ gimp_operation_grain_extract_mode_process (GeglOperation       *operation,
                                            void                *aux_buf,
                                            void                *out_buf,
                                            glong                samples,
-                                           const GeglRectangle *roi)
+                                           const GeglRectangle *roi,
+                                           gint                 level)
 {
   gfloat *in    = in_buf;
   gfloat *layer = aux_buf;

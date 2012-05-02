@@ -230,6 +230,8 @@ gimp_controller_list_init (GimpControllerList *list)
       g_type_class_unref (controller_class);
     }
 
+  g_free (controller_types);
+
   vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
   gtk_box_set_homogeneous (GTK_BOX (vbox), TRUE);
   gtk_box_pack_start (GTK_BOX (hbox), vbox, FALSE, FALSE, 0);

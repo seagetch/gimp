@@ -36,7 +36,8 @@ static gboolean gimp_operation_hue_saturation_process (GeglOperation       *oper
                                                        void                *in_buf,
                                                        void                *out_buf,
                                                        glong                samples,
-                                                       const GeglRectangle *roi);
+                                                       const GeglRectangle *roi,
+                                                       gint                 level);
 
 
 G_DEFINE_TYPE (GimpOperationHueSaturation, gimp_operation_hue_saturation,
@@ -55,9 +56,11 @@ gimp_operation_hue_saturation_class_init (GimpOperationHueSaturationClass *klass
   object_class->set_property   = gimp_operation_point_filter_set_property;
   object_class->get_property   = gimp_operation_point_filter_get_property;
 
-  operation_class->name        = "gimp:hue-saturation";
-  operation_class->categories  = "color";
-  operation_class->description = "GIMP Hue-Saturation operation";
+  gegl_operation_class_set_keys (operation_class,
+           "name"       , "gimp:hue-saturation",
+           "categories" , "color",
+           "description", "GIMP Hue-Saturation operation",
+           NULL);
 
   point_class->process         = gimp_operation_hue_saturation_process;
 
@@ -129,7 +132,8 @@ gimp_operation_hue_saturation_process (GeglOperation       *operation,
                                        void                *in_buf,
                                        void                *out_buf,
                                        glong                samples,
-                                       const GeglRectangle *roi)
+                                       const GeglRectangle *roi,
+                                       gint                 level)
 {
   GimpOperationPointFilter *point  = GIMP_OPERATION_POINT_FILTER (operation);
   GimpHueSaturationConfig  *config = GIMP_HUE_SATURATION_CONFIG (point->config);

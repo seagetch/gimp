@@ -35,7 +35,8 @@ static gboolean gimp_operation_colorize_process (GeglOperation       *operation,
                                                  void                *in_buf,
                                                  void                *out_buf,
                                                  glong                samples,
-                                                 const GeglRectangle *roi);
+                                                 const GeglRectangle *roi,
+                                                 gint                 level);
 
 
 G_DEFINE_TYPE (GimpOperationColorize, gimp_operation_colorize,
@@ -54,9 +55,11 @@ gimp_operation_colorize_class_init (GimpOperationColorizeClass *klass)
   object_class->set_property   = gimp_operation_point_filter_set_property;
   object_class->get_property   = gimp_operation_point_filter_get_property;
 
-  operation_class->name        = "gimp:colorize";
-  operation_class->categories  = "color";
-  operation_class->description = "GIMP Colorize operation";
+  gegl_operation_class_set_keys (operation_class,
+                  "name"       , "gimp:colorize",
+                  "categories" , "color",
+                  "description", "GIMP Colorize operation",
+                  NULL);
 
   point_class->process         = gimp_operation_colorize_process;
 
@@ -80,7 +83,8 @@ gimp_operation_colorize_process (GeglOperation       *operation,
                                  void                *in_buf,
                                  void                *out_buf,
                                  glong                samples,
-                                 const GeglRectangle *roi)
+                                 const GeglRectangle *roi,
+                                 gint                 level)
 {
   GimpOperationPointFilter *point  = GIMP_OPERATION_POINT_FILTER (operation);
   GimpColorizeConfig       *config = GIMP_COLORIZE_CONFIG (point->config);

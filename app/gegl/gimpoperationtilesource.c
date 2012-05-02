@@ -57,7 +57,8 @@ static GeglRectangle
             gimp_operation_tile_source_get_bounding_box (GeglOperation *operation);
 static gboolean gimp_operation_tile_source_process      (GeglOperation *operation,
                                                          GeglBuffer          *output,
-                                                         const GeglRectangle *result);
+                                                         const GeglRectangle *result,
+                                                         gint                 level);
 
 
 G_DEFINE_TYPE (GimpOperationTileSource, gimp_operation_tile_source,
@@ -77,9 +78,12 @@ gimp_operation_tile_source_class_init (GimpOperationTileSourceClass *klass)
   object_class->set_property          = gimp_operation_tile_source_set_property;
   object_class->get_property          = gimp_operation_tile_source_get_property;
 
-  operation_class->name               = "gimp:tilemanager-source";
-  operation_class->categories         = "input";
-  operation_class->description        = "GIMP TileManager source";
+  gegl_operation_class_set_keys (operation_class,
+                  "name",               "gimp:tilemanager-source",
+                  "categories",         "input",
+                  "description",        "GIMP TileManager source",
+                  NULL);
+
   operation_class->prepare            = gimp_operation_tile_source_prepare;
   operation_class->get_bounding_box   = gimp_operation_tile_source_get_bounding_box;
   operation_class->get_cached_region  = NULL; /* the default source is
@@ -209,7 +213,8 @@ gimp_operation_tile_source_get_bounding_box (GeglOperation *operation)
 static gboolean
 gimp_operation_tile_source_process (GeglOperation       *operation,
                                     GeglBuffer          *output,
-                                    const GeglRectangle *result)
+                                    const GeglRectangle *result,
+                                    gint                 level)
 {
   GimpOperationTileSource *self = GIMP_OPERATION_TILE_SOURCE (operation);
   const Babl              *format;
@@ -233,7 +238,7 @@ gimp_operation_tile_source_process (GeglOperation       *operation,
     {
       GeglRectangle rect = { srcPR.x, srcPR.y, srcPR.w, srcPR.h };
 
-      gegl_buffer_set (output, &rect, format, srcPR.data, srcPR.rowstride);
+      gegl_buffer_set (output, &rect, 0, format, srcPR.data, srcPR.rowstride);
     }
 
   return TRUE;

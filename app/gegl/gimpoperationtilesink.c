@@ -62,7 +62,8 @@ static void     gimp_operation_tile_sink_set_property (GObject       *object,
 
 static gboolean gimp_operation_tile_sink_process      (GeglOperation *operation,
                                                        GeglBuffer          *input,
-                                                       const GeglRectangle *result);
+                                                       const GeglRectangle *result,
+                                                       gint                 level);
 
 
 G_DEFINE_TYPE (GimpOperationTileSink, gimp_operation_tile_sink,
@@ -94,9 +95,11 @@ gimp_operation_tile_sink_class_init (GimpOperationTileSinkClass *klass)
   object_class->set_property   = gimp_operation_tile_sink_set_property;
   object_class->get_property   = gimp_operation_tile_sink_get_property;
 
-  operation_class->name        = "gimp:tilemanager-sink";
-  operation_class->categories  = "output";
-  operation_class->description = "GIMP TileManager sink";
+  gegl_operation_class_set_keys (operation_class,
+      "name", "gimp:tilemanager-sink",
+      "categories", "output",
+      "description", "GIMP TileManager sink",
+      NULL);
 
   sink_class->process          = gimp_operation_tile_sink_process;
   sink_class->needs_full       = FALSE;
@@ -192,7 +195,8 @@ gimp_operation_tile_sink_set_property (GObject      *object,
 static gboolean
 gimp_operation_tile_sink_process (GeglOperation       *operation,
                                   GeglBuffer          *input,
-                                  const GeglRectangle *result)
+                                  const GeglRectangle *result,
+                                  gint                 level)
 {
   GimpOperationTileSink *self = GIMP_OPERATION_TILE_SINK (operation);
   static GStaticMutex    mutex = G_STATIC_MUTEX_INIT;
@@ -217,8 +221,9 @@ gimp_operation_tile_sink_process (GeglOperation       *operation,
     {
       GeglRectangle rect = { destPR.x, destPR.y, destPR.w, destPR.h };
 
-      gegl_buffer_get (input,
-                       1.0, &rect, format, destPR.data, destPR.rowstride);
+      gegl_buffer_get (input, &rect, 1.0,
+                       format, destPR.data, destPR.rowstride,
+                       GEGL_ABYSS_NONE);
     }
 
   g_static_mutex_lock (&mutex); 

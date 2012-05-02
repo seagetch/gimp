@@ -40,13 +40,15 @@
 #include "widgets/gimpprogressdialog.h"
 #include "widgets/gimpsessioninfo.h"
 #include "widgets/gimpwidgets-utils.h"
+#include "widgets/gimpwindowstrategy.h"
 
 #include "gui-message.h"
 
 #include "gimp-intl.h"
 
 
-static gboolean  gui_message_error_console (GimpMessageSeverity  severity,
+static gboolean  gui_message_error_console (Gimp                *gimp,
+                                            GimpMessageSeverity  severity,
                                             const gchar         *domain,
                                             const gchar         *message);
 static gboolean  gui_message_error_dialog  (Gimp                *gimp,
@@ -69,7 +71,7 @@ gui_message (Gimp                *gimp,
   switch (gimp->message_handler)
     {
     case GIMP_ERROR_CONSOLE:
-      if (gui_message_error_console (severity, domain, message))
+      if (gui_message_error_console (gimp, severity, domain, message))
         return;
 
       gimp->message_handler = GIMP_MESSAGE_BOX;
@@ -89,7 +91,8 @@ gui_message (Gimp                *gimp,
 }
 
 static gboolean
-gui_message_error_console (GimpMessageSeverity  severity,
+gui_message_error_console (Gimp                *gimp,
+                           GimpMessageSeverity  severity,
                            const gchar         *domain,
                            const gchar         *message)
 {
@@ -98,19 +101,20 @@ gui_message_error_console (GimpMessageSeverity  severity,
   /* try to avoid raising the error console for not so severe messages */
   if (severity < GIMP_MESSAGE_ERROR)
     {
-      GimpSessionInfo *info;
-
-      info = gimp_dialog_factory_find_session_info (gimp_dialog_factory_get_singleton (),
-                                                    "gimp-error-console");
-
-      if (info && GIMP_IS_DOCKABLE (gimp_session_info_get_widget (info)))
-        dockable = gimp_session_info_get_widget (info);
+      GtkWidget *widget =
+        gimp_dialog_factory_find_widget (gimp_dialog_factory_get_singleton (),
+                                         "gimp-error-console");
+      if (GIMP_IS_DOCKABLE (widget))
+        dockable = widget;
     }
 
   if (! dockable)
-    dockable = gimp_dialog_factory_dialog_raise (gimp_dialog_factory_get_singleton (),
+    dockable =
+      gimp_window_strategy_show_dockable_dialog (GIMP_WINDOW_STRATEGY (gimp_get_window_strategy (gimp)),
+                                                 gimp,
+                                                 gimp_dialog_factory_get_singleton (),
                                                  gdk_screen_get_default (),
-                                                 "gimp-error-console", -1);
+                                                 "gimp-error-console");
 
   if (dockable)
     {

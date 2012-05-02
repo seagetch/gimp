@@ -265,6 +265,8 @@ gimp_ui_configurer_move_docks_to_columns (GimpUIConfigurer *ui_configurer,
           g_list_free (docks);
         }
     }
+
+  g_list_free (dialogs);
 }
 
 /**

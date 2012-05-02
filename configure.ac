@@ -7,8 +7,8 @@ AC_PREREQ(2.54)
 #   GIMP_INTERFACE_AGE += 1;
 
 m4_define([gimp_major_version], [2])
-m4_define([gimp_minor_version], [7])
-m4_define([gimp_micro_version], [5])
+m4_define([gimp_minor_version], [8])
+m4_define([gimp_micro_version], [0])
 m4_define([gimp_real_version],
           [gimp_major_version.gimp_minor_version.gimp_micro_version])
 m4_define([gimp_version], [gimp_real_version])
@@ -17,20 +17,20 @@ m4_define([gimp_binary_age],
           [m4_eval(100 * gimp_minor_version + gimp_micro_version)])
 
 # For overriding the version string. Comment out if not needed.
-# m4_define([gimp_version], [2.7.0])
+m4_define([gimp_version], [2.8.0-RC1])
 
 # This is the X.Y used in -lgimp-X.Y
 m4_define([gimp_api_version], [2.0])
 
 # Versions used for apps, plugins, tools, pkg-config files, and data,
 # as well as global and user prefs
-m4_define([gimp_app_version], [2.7])
+m4_define([gimp_app_version], [2.8])
 m4_define([gimp_plugin_version], [2.0])
 m4_define([gimp_tool_version], [2.0])
 m4_define([gimp_pkgconfig_version], [2.0])
 m4_define([gimp_data_version], [2.0])
 m4_define([gimp_sysconf_version], [2.0])
-m4_define([gimp_user_version], [2.7])
+m4_define([gimp_user_version], [2.8])
 
 m4_define([gimp_unstable],
           m4_if(m4_eval(gimp_minor_version % 2), [1], [yes], [no]))
@@ -40,11 +40,12 @@ m4_define([gimp_stable],
 m4_define([gimp_full_name], [GNU Image Manipulation Program])
 
 # required versions of other packages
-m4_define([babl_required_version], [0.1.6])
-m4_define([gegl_required_version], [0.1.8])
+m4_define([babl_required_version], [0.1.10])
+m4_define([gegl_required_version], [0.2.0])
 m4_define([glib_required_version], [2.30.2])
-m4_define([gtk_required_version], [2.24.7])
-m4_define([gdk_pixbuf_required_version], [2.24.0])
+m4_define([atk_required_version], [2.2.0])
+m4_define([gtk_required_version], [2.24.10])
+m4_define([gdk_pixbuf_required_version], [2.24.1])
 m4_define([cairo_required_version], [1.10.2])
 m4_define([cairo_pdf_required_version], [1.10.2])
 m4_define([pangocairo_required_version], [1.29.4])
@@ -52,7 +53,7 @@ m4_define([fontconfig_required_version], [2.2.0])
 m4_define([gtkdoc_required_version], [1.0])
 m4_define([webkit_required_version], [1.6.1])
 m4_define([alsa_required_version], [1.0.0])
-m4_define([rsvg_required_version], [2.34.2])
+m4_define([rsvg_required_version], [2.36.0])
 m4_define([wmf_required_version], [0.2.8])
 m4_define([pygtk_required_version], [2.10.4])
 m4_define([poppler_required_version], [0.12.4])
@@ -72,7 +73,7 @@ AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_SRCDIR([app/core/gimp.c])
 AC_CONFIG_MACRO_DIR([m4macros])
 
-AM_INIT_AUTOMAKE(no-define dist-bzip2 no-dist-gzip -Wno-portability)
+AM_INIT_AUTOMAKE(no-define dist-bzip2 dist-xz no-dist-gzip -Wno-portability)
 
 # Enable silent build rules by default, requires at least
 # Automake-1.11. Disable by either passing --disable-silent-rules to
@@ -481,7 +482,8 @@ AC_SUBST(ISO_CODES_LOCALEDIR)
 ###############################
 
 PKG_CHECK_MODULES(BABL, babl >= babl_required_version)
-PKG_CHECK_MODULES(GEGL, gegl >= gegl_required_version)
+PKG_CHECK_MODULES(GEGL, gegl-0.2 >= gegl_required_version)
+PKG_CHECK_MODULES(ATK, atk >= atk_required_version)
 
 AM_PATH_GLIB_2_0(glib_required_version, :,
   AC_MSG_ERROR(Test for GLIB failed. See the file 'INSTALL' for help.),
@@ -1147,7 +1149,65 @@ if test "x$have_zlib" = xyes; then
 fi
 
 AC_SUBST(FILE_PSP)
+
+AM_CONDITIONAL(HAVE_Z, test "x$have_zlib" = xyes)
 AC_SUBST(Z_LIBS)
+
+
+####################
+# Check for libbzip2
+####################
+
+AC_ARG_WITH(gs,  [  --without-bzip2         build without bzip2 support])
+
+have_libbzip2=no
+if test "x$with_bzip2" != xno; then
+  have_libbzip2=yes
+  AC_CHECK_LIB(bz2, BZ2_bzCompress,
+    [AC_CHECK_HEADER(bzlib.h,
+      BZIP2_LIBS='-lbz2',
+      [have_libbzip2="no (libbzip2 header files not found)"])],
+    [have_libbzip2="no (libbzip2 library not found)"])
+  if test "x$have_libbzip2" != xyes -a "x$with_bzip2" = xyes; then
+    AC_MSG_ERROR([
+*** Checks for bzip2 library failed. You can build without it by passing
+*** --without-bzip2 to configure but you won't be able to use compressed files then.])
+  fi
+fi
+
+AM_CONDITIONAL(HAVE_BZIP2, test "x$have_libbzip2" = xyes)
+AC_SUBST(BZIP2_LIBS)
+
+have_compressor=no
+if test "x$have_zlib" = xyes && test "x$have_libbzip2" = xyes; then
+   have_compressor=yes
+fi
+
+
+###############################
+# Check for Ghostscript library
+###############################
+
+AC_ARG_WITH(gs,  [  --without-gs            build without Ghostscript support])
+
+have_gs=no
+if test "x$with_gs" != xno; then
+  have_gs=yes
+  AC_CHECK_LIB(gs, gsapi_new_instance,
+    [AC_CHECK_HEADER(ghostscript/iapi.h,
+      FILE_PS='file-ps$(EXEEXT)'; GS_LIBS='-lgs',
+      [have_gs="no (Ghostscript header files not found)"])],
+    [have_gs="no (Ghostscript library not found)"])
+  if test "x$have_gs" != xyes -a "x$with_gs" = xyes; then
+    AC_MSG_ERROR([
+*** Checks for Ghostscript library failed. You can build without it by passing
+*** --without-gs to configure but you won't be able to use Postscript files then.])
+  fi
+fi
+
+AC_SUBST(FILE_PS)
+AM_CONDITIONAL(HAVE_GS, test "x$have_gs" = xyes)
+AC_SUBST(GS_LIBS)
 
 
 ##################
@@ -1359,7 +1419,7 @@ AC_SUBST(FILE_PDF_LOAD)
 # Check for cairo-pdf
 #####################
 
-AC_ARG_WITH(cairo_pdf,[  --without-cairo-pdf       build without cairo-pdf support])
+AC_ARG_WITH(cairo_pdf,[  --without-cairo-pdf     build without cairo-pdf support])
 have_cairo_pdf=no
 if test "x$with_cairo_pdf" != xno; then
   have_cairo_pdf=yes
@@ -1618,7 +1678,7 @@ fi
 # Check for libgudev
 ####################
 
-AC_ARG_WITH(gudev, [  --without-gudev        build without GUdev support])
+AC_ARG_WITH(gudev, [  --without-gudev         build without GUdev support])
 
 have_libgudev=no
 
@@ -1849,7 +1909,7 @@ AM_CONDITIONAL(HAVE_XSLTPROC, test "x$XSLTPROC" != "xno")
 # Check for xvfb-run
 ####################
 
-AC_ARG_WITH(xvfb-run,  [  --without-xvfb-run      Do not use xvfb-run for UI-dependent automatic tests])
+AC_ARG_WITH(xvfb-run,  [  --without-xvfb-run      do not use xvfb-run for UI-dependent automatic tests])
 
 have_xvfb_run="no (disabled)"
 if test "x$with_xvfb_run" != "xno"; then
@@ -1928,12 +1988,6 @@ AC_SUBST(gimplocaledir)
 ############################
 # Some defines for the build
 ############################
-
-GIMPINSTALL=
-if test "$INSTALL" = "$ac_install_sh"; then
-  GIMPINSTALL="gimpinstall-gimp_tool_version"
-fi
-AC_SUBST(GIMPINSTALL)
 
 AM_CONDITIONAL(STATICLIBS, test "x$enable_static" = xyes)
 
@@ -2136,6 +2190,7 @@ plug-ins/Makefile
 plug-ins/color-rotate/Makefile
 plug-ins/color-rotate/images/Makefile
 plug-ins/file-bmp/Makefile
+plug-ins/file-compressor/Makefile
 plug-ins/file-faxg3/Makefile
 plug-ins/file-fits/Makefile
 plug-ins/file-fli/Makefile
@@ -2212,7 +2267,16 @@ themes/Default/images/preferences/Makefile
 themes/Small/Makefile
 data/Makefile
 data/brushes/Makefile
+data/brushes/Basic/Makefile
+data/brushes/gimp-obsolete-files/Makefile
+data/brushes/Media/Makefile
+data/brushes/Legacy/Makefile
+data/brushes/Sketch/Makefile
+data/brushes/Splatters/Makefile
+data/brushes/Texture/Makefile
 data/dynamics/Makefile
+data/dynamics/Basic/Makefile
+data/dynamics/FX/Makefile
 data/environ/Makefile
 data/gradients/Makefile
 data/images/Makefile
@@ -2221,6 +2285,11 @@ data/palettes/Makefile
 data/patterns/Makefile
 data/tags/Makefile
 data/tips/Makefile
+data/tool-presets/Makefile
+data/tool-presets/FX/Makefile
+data/tool-presets/Paint/Makefile
+data/tool-presets/Selection/Makefile
+data/tool-presets/Sketch/Makefile
 desktop/Makefile
 desktop/gimp.desktop.in
 etc/Makefile
@@ -2268,6 +2337,8 @@ Optional Features:
 
 Optional Plug-Ins:
   Ascii Art:           $have_libaa
+  Compressor:          $have_compressor
+  Ghostscript:         $have_gs
   Help Browser:        $have_webkit
   LCMS:                $have_lcms
   JPEG:                $jpeg_ok

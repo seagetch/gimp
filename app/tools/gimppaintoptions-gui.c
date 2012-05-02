@@ -114,21 +114,25 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
   GObject          *config  = G_OBJECT (tool_options);
   GimpPaintOptions *options = GIMP_PAINT_OPTIONS (tool_options);
+
   GtkWidget        *vbox    = gimp_tool_options_gui_full (tool_options, horizontal);
   GtkWidget        *hbox;
   GtkWidget        *frame;
   GtkWidget        *table;
+#if 0
+  GtkWidget        *vbox    = gimp_tool_options_gui (tool_options);
+  GtkWidget        *hbox;
+#endif
   GtkWidget        *menu;
-  GtkWidget        *scale;
   GtkWidget        *label;
-  GtkWidget        *button;
-  GtkWidget        *incremental_toggle = NULL;
+  GtkWidget        *scale;
   GType             tool_type;
   GList            *children;
   GimpToolOptionsTableIncrement inc = gimp_tool_options_table_increment (horizontal);  
 
   tool_type = tool_options->tool_info->tool_type;
 
+#if 1
   /*  the main table  */
   table = gimp_tool_options_table (3, horizontal);
   gtk_table_set_col_spacings (GTK_TABLE (table), 2);
@@ -143,6 +147,20 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
                                      _("Mode:"), 0.0, 0.5,
                                      menu, 2, FALSE);
   gimp_tool_options_table_increment_next (&inc);
+#else
+  /*  the paint mode menu  */
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
+  gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
+  gtk_widget_show (hbox);
+
+  label = gtk_label_new (_("Mode:"));
+  gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, FALSE, 0);
+  gtk_widget_show (label);
+
+  menu = gimp_prop_paint_mode_menu_new (config, "paint-mode", TRUE, FALSE);
+  gtk_box_pack_start (GTK_BOX (hbox), menu, TRUE, TRUE, 0);
+  gtk_widget_show (menu);
+#endif
 
   if (tool_type == GIMP_TYPE_ERASER_TOOL     ||
       tool_type == GIMP_TYPE_CONVOLVE_TOOL   ||
@@ -163,6 +181,10 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   if (g_type_is_a (tool_type, GIMP_TYPE_BRUSH_TOOL))
     {
       GtkWidget *button;
+#if 0
+      GtkWidget *hbox;
+      GtkWidget *frame;
+#endif
 
       if (horizontal)
         button = gimp_brush_button_with_popup (config);
@@ -340,6 +362,11 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   if (g_type_is_a (tool_type, GIMP_TYPE_PAINT_TOOL))
     {
       frame = smoothing_options_gui (options, tool_type, horizontal);
+#if 0
+      GtkWidget *frame;
+
+      frame = smoothing_options_gui (options, tool_type);
+#endif
       gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
       gtk_widget_show (frame);
     }
@@ -349,14 +376,15 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
       tool_type == GIMP_TYPE_PAINTBRUSH_TOOL ||
       tool_type == GIMP_TYPE_ERASER_TOOL)
     {
-      incremental_toggle =
-        gimp_prop_enum_check_button_new (config,
-                                         "application-mode",
-                                         _("Incremental"),
-                                         GIMP_PAINT_CONSTANT,
-                                         GIMP_PAINT_INCREMENTAL);
-      gtk_box_pack_start (GTK_BOX (vbox), incremental_toggle, FALSE, FALSE, 0);
-      gtk_widget_show (incremental_toggle);
+      GtkWidget *button;
+
+      button = gimp_prop_enum_check_button_new (config,
+                                                "application-mode",
+                                                _("Incremental"),
+                                                GIMP_PAINT_CONSTANT,
+                                                GIMP_PAINT_INCREMENTAL);
+      gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
+      gtk_widget_show (button);
     }
 
   /* the "hard edge" toggle */
@@ -368,6 +396,8 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
       tool_type == GIMP_TYPE_DODGE_BURN_TOOL        ||
       tool_type == GIMP_TYPE_SMUDGE_TOOL)
     {
+      GtkWidget *button;
+
       button = gimp_prop_check_button_new (config, "hard", _("Hard edge"));
       gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
       gtk_widget_show (button);
@@ -375,6 +405,7 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
     
   if (tool_type == GIMP_TYPE_SMUDGE_TOOL)
     {
+      GtkWidget* button;
       button = gimp_prop_check_button_new (config, "use-color-blending", _("Color Blending"));
       gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
       gtk_widget_show (button);
@@ -405,7 +436,7 @@ static void
 dynamics_options_create_view (GtkWidget *button, GtkWidget **result, GObject *config)
 {
   GtkWidget *inner_frame;
-  GtkWidget *table;
+  GtkWidget *label;
   GtkWidget *scale;
   GtkWidget *menu;
   GtkWidget *combo;
@@ -449,15 +480,17 @@ dynamics_options_create_view (GtkWidget *button, GtkWidget **result, GObject *co
   gtk_widget_show (menu);
 
   /*  the repeat type  */
-  table = gtk_table_new (1, 2, FALSE);
-  gtk_table_set_col_spacings (GTK_TABLE (table), 2);
-  gtk_box_pack_start (GTK_BOX (inner_vbox), table, FALSE, FALSE, 0);
-  gtk_widget_show (table);
+  hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
+  gtk_box_pack_start (GTK_BOX (inner_vbox), hbox, FALSE, FALSE, 0);
+  gtk_widget_show (hbox);
+
+  label = gtk_label_new (_("Repeat:"));
+  gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, FALSE, 0);
+  gtk_widget_show (label);
 
   combo = gimp_prop_enum_combo_box_new (config, "fade-repeat", 0, 0);
-  gimp_table_attach_aligned (GTK_TABLE (table), 0, 0,
-                             _("Repeat:"), 0.0, 0.5,
-                             combo, 1, FALSE);
+  gtk_box_pack_start (GTK_BOX (hbox), combo, TRUE, TRUE, 0);
+  gtk_widget_show (combo);
 
   checkbox = gimp_prop_check_button_new (config, "fade-reverse",
                                          _("Reverse"));
