@@ -23,6 +23,7 @@
 #ifndef __GIMP_CAIRO_COLOR_H__
 #define __GIMP_CAIRO_COLOR_H__
 
+#include <cairo.h>
 
 void              gimp_cairo_set_source_rgb      (cairo_t       *cr,
                                                   const GimpRGB *color);
