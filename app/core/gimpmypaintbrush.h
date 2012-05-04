@@ -22,7 +22,6 @@ typedef struct _GimpMypaintBrushClass GimpMypaintBrushClass;
 
 #include "gimpdata.h"
 #include "mypaintbrush-enum-settings.h"
-#include <cairo.h>
 
 
 #define GIMP_TYPE_MYPAINT_BRUSH            (gimp_mypaint_brush_get_type ())
@@ -37,10 +36,6 @@ typedef struct _GimpMypaintBrushClass GimpMypaintBrushClass;
 struct _GimpMypaintBrush
 {
   GimpData        parent_instance;
-
-  cairo_surface_t *icon;
-//  TempBuf        *pixmap;     /*  optional pixmap data           */
-  
   gint            use_count;  /*  for keeping the caches alive   */
   gpointer        p;
 };
@@ -58,9 +53,6 @@ struct _GimpMypaintBrushClass
   gboolean          (* want_null_motion)    (GimpMypaintBrush        *mypaint_brush,
                                              const GimpCoords *last_coords,
                                              const GimpCoords *current_coords);
-
-  /*  signals  */
-  void             (* spacing_changed)    (GimpMypaintBrush        *mypaint_brush);
 };
 
 
@@ -79,14 +71,5 @@ GimpMypaintBrush     * gimp_mypaint_brush_select_mypaint_brush(GimpMypaintBrush 
 gboolean               gimp_mypaint_brush_want_null_motion    (GimpMypaintBrush        *mypaint_brush,
                                                                const GimpCoords *last_coords,
                                                                const GimpCoords *current_coords);
-
-/* Gets width and height of a transformed mask of the mypaint_brush, for
- * provided parameters.
- */
-
-gboolean              gimp_mypaint_brush_calculate           (const GimpMypaintBrush *mypaint_brush,
-                                                              gint    setting_index,
-                                                              gfloat *data,
-                                                              gfloat *result);
-
+GimpData              * gimp_mypaint_brush_duplicate         (GimpMypaintBrush *mypaint_brush);
 #endif /* __GIMP_MYPAINT_BRUSH_H__ */

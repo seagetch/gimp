@@ -18,6 +18,7 @@
 extern "C" {
 #include "config.h"
 
+#include <glib.h>
 #include <gegl.h>
 
 #include "libgimpbase/gimpbase.h"
@@ -28,15 +29,20 @@ extern "C" {
 
 #include "core/gimp.h"
 #include "core/gimpimage.h"
-#include "core/gimpdynamics.h"
-#include "core/gimpdynamicsoutput.h"
-#include "core/gimpgradient.h"
 #include "core/gimptoolinfo.h"
+#include "core/gimpmypaintbrush.h"
+#include "core/mypaintbrush-enum-settings.h"
+#include "core/mypaintbrush-brushsettings.h"
 
 #include "gimpmypaintoptions.h"
 
 #include "gimp-intl.h"
 
+extern "C++" {
+#include "core/gimpmypaintbrush-private.hpp"
+#include "base/scopeguard.hpp"
+}
+	
 #define DEFAULT_BRUSH_SIZE             20.0
 #define DEFAULT_BRUSH_ASPECT_RATIO     0.0
 #define DEFAULT_BRUSH_ANGLE            0.0
@@ -45,13 +51,7 @@ extern "C" {
 
 enum
 {
-  PROP_0,
-
-  PROP_MYPAINT_INFO,
-
-  PROP_BRUSH_SIZE,
-  PROP_BRUSH_ASPECT_RATIO,
-  PROP_BRUSH_ANGLE,
+  PROP_0 = BRUSH_SETTINGS_COUNT,
 
   PROP_BRUSH_MODE,
 
@@ -70,7 +70,8 @@ static void    gimp_mypaint_options_get_property     (GObject      *object,
                                                     guint         property_id,
                                                     GValue       *value,
                                                     GParamSpec   *pspec);
-
+static void    gimp_mypaint_options_mypaint_brush_changed (GObject *object,
+                                                           GimpData *data);
 
 
 G_DEFINE_TYPE (GimpMypaintOptions, gimp_mypaint_options, GIMP_TYPE_TOOL_OPTIONS)
@@ -88,28 +89,19 @@ gimp_mypaint_options_class_init (GimpMypaintOptionsClass *klass)
   object_class->set_property = gimp_mypaint_options_set_property;
   object_class->get_property = gimp_mypaint_options_get_property;
 
-#if 0
-  g_object_class_install_property (object_class, PROP_MYPAINT_INFO,
-                                   g_param_spec_object ("mypaint-info",
-                                                        NULL, NULL,
-                                                        GIMP_TYPE_MYPAINT_INFO,
-                                                        GParamFlags(GIMP_PARAM_READWRITE |
-                                                        G_PARAM_CONSTRUCT_ONLY)));
-#endif
-
-  GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, PROP_BRUSH_SIZE,
-                                   "brush-size", _("Brush Size"),
-                                   1.0, 10000.0, DEFAULT_BRUSH_SIZE,
-                                   (GParamFlags)(GIMP_PARAM_STATIC_STRINGS));
-
-  GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, PROP_BRUSH_ASPECT_RATIO,
-                                   "brush-aspect-ratio", _("Brush Aspect Ratio"),
-                                   -20.0, 20.0, DEFAULT_BRUSH_ASPECT_RATIO,
-                                   GParamFlags(GIMP_PARAM_STATIC_STRINGS));
-  GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, PROP_BRUSH_ANGLE,
-                                   "brush-angle", _("Brush Angle"),
-                                   -180.0, 180.0, DEFAULT_BRUSH_ANGLE,
-                                   GParamFlags(GIMP_PARAM_STATIC_STRINGS));
+  ScopeGuard<GList, void(GList*)> brush_settings(mypaint_brush_get_brush_settings (), g_list_free);
+  for (GList* i = brush_settings.ptr(); i; i = i->next) {
+    MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(i->data);
+    gchar* internal_name = g_strdup(setting->internal_name);
+    g_strcanon(internal_name,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-",'-');
+    g_print("install parameter %d:%s:(%f-%f),default=%f\n",
+      setting->index + 1, internal_name, setting->minimum, setting->maximum, setting->default_value);
+    GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, setting->index + 1,
+      internal_name, _(setting->displayed_name),
+      setting->minimum, setting->maximum,
+      setting->default_value, 
+      (GParamFlags)(GIMP_PARAM_STATIC_STRINGS));
+  }
 
   GIMP_CONFIG_INSTALL_PROP_ENUM (object_class, PROP_BRUSH_MODE,
                                  "brush-mode", _("Every stamp has its own opacity"),
@@ -122,20 +114,25 @@ gimp_mypaint_options_class_init (GimpMypaintOptionsClass *klass)
                                  GIMP_TYPE_VIEW_TYPE,
                                  GIMP_VIEW_TYPE_GRID,
                                  GParamFlags(GIMP_PARAM_STATIC_STRINGS));
+
   GIMP_CONFIG_INSTALL_PROP_INT (object_class, PROP_BRUSH_VIEW_SIZE,
-                                "brush-view-size", NULL,
-                                GIMP_VIEW_SIZE_TINY,
-                                GIMP_VIEWABLE_MAX_BUTTON_SIZE,
-                                GIMP_VIEW_SIZE_SMALL,
-                                GParamFlags(GIMP_PARAM_STATIC_STRINGS));
+				"brush-view-size", NULL,
+				GIMP_VIEW_SIZE_TINY,
+				GIMP_VIEWABLE_MAX_BUTTON_SIZE,
+				GIMP_VIEW_SIZE_SMALL,
+				GParamFlags(GIMP_PARAM_STATIC_STRINGS));
 
 }
 
 static void
 gimp_mypaint_options_init (GimpMypaintOptions *options)
 {
-  options->brush_mode_save = DEFAULT_BRUSH_MODE;
   options->brush_mode      = DEFAULT_BRUSH_MODE;
+  options->brush           = NULL;
+  g_signal_connect(G_OBJECT(options),  
+    gimp_context_type_to_signal_name (GIMP_TYPE_MYPAINT_BRUSH),
+    G_CALLBACK(gimp_mypaint_options_mypaint_brush_changed),
+    NULL);
 }
 
 static void
@@ -143,13 +140,6 @@ gimp_mypaint_options_dispose (GObject *object)
 {
   GimpMypaintOptions *options = GIMP_MYPAINT_OPTIONS (object);
 
-/*
-  if (options->mypaint_info)
-    {
-      g_object_unref (options->mypaint_info);
-      options->mypaint_info = NULL;
-    }
-*/
   G_OBJECT_CLASS (parent_class)->dispose (object);
 }
 
@@ -158,6 +148,10 @@ gimp_mypaint_options_finalize (GObject *object)
 {
   GimpMypaintOptions *options = GIMP_MYPAINT_OPTIONS (object);
 
+  if (options->brush) {
+    g_object_unref(options->brush);
+    options->brush = NULL;
+  }
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
 
@@ -168,40 +162,32 @@ gimp_mypaint_options_set_property (GObject      *object,
                                  GParamSpec   *pspec)
 {
   GimpMypaintOptions* options = GIMP_MYPAINT_OPTIONS (object);
-  switch (property_id)
-    {
-//    case PROP_MYPAINT_INFO:
-//      options->mypaint_info = GIMP_MYPAINT_INFO (g_value_dup_object (value));
-//      break;
 
-    case PROP_BRUSH_SIZE:
-      options->brush_size = g_value_get_double (value);
-      break;
-
-    case PROP_BRUSH_ASPECT_RATIO:
-      options->brush_aspect_ratio = g_value_get_double (value);
-      break;
-
-    case PROP_BRUSH_ANGLE:
-      options->brush_angle = - 1.0 * g_value_get_double (value) / 360.0; /* let's make the angle mathematically correct */
-      break;
-
-    case PROP_BRUSH_MODE:
-      options->brush_mode = (GimpMypaintBrushMode)(g_value_get_enum (value));
-      break;
-
-    case PROP_BRUSH_VIEW_TYPE:
-      options->brush_view_type = (GimpViewType)(g_value_get_enum (value));
-      break;
-
-    case PROP_BRUSH_VIEW_SIZE:
-      options->brush_view_size = (GimpViewSize)(g_value_get_int (value));
-      break;
-
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-      break;
+  if (property_id < PROP_0) {
+    if (options->brush) {
+      GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(options->brush->p);
+      priv->set_base_value (property_id - 1, g_value_get_double (value));
     }
+
+  } else {
+    switch (property_id) {
+      case PROP_BRUSH_MODE:
+	options->brush_mode = (GimpMypaintBrushMode)(g_value_get_enum (value));
+	break;
+
+      case PROP_BRUSH_VIEW_TYPE:
+	options->brush_view_type = (GimpViewType)(g_value_get_enum (value));
+	break;
+
+      case PROP_BRUSH_VIEW_SIZE:
+	options->brush_view_size = (GimpViewSize)(g_value_get_int (value));
+	break;
+
+      default:
+	G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+	break;
+    }
+  }
 }
 
 static void
@@ -212,24 +198,15 @@ gimp_mypaint_options_get_property (GObject    *object,
 {
   GimpMypaintOptions     *options           = GIMP_MYPAINT_OPTIONS (object);
 
-  switch (property_id)
-    {
-//    case PROP_MYPAINT_INFO:
-//      g_value_set_object (value, options->mypaint_info);
-//      break;
+  if (property_id < PROP_0) {
+    if (options->brush) {
+      GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(options->brush->p);
+      float val = priv->get_base_value (property_id - 1);
+      g_value_set_double (value, val);
+    }
 
-    case PROP_BRUSH_SIZE:
-      g_value_set_double (value, options->brush_size);
-      break;
-
-    case PROP_BRUSH_ASPECT_RATIO:
-      g_value_set_double (value, options->brush_aspect_ratio);
-      break;
-
-    case PROP_BRUSH_ANGLE:
-      g_value_set_double (value, - 1.0 * options->brush_angle * 360.0); /* mathematically correct -> intuitively correct */
-      break;
-
+  } else {
+    switch (property_id) {
     case PROP_BRUSH_MODE:
       g_value_set_enum (value, options->brush_mode);
       break;
@@ -246,21 +223,18 @@ gimp_mypaint_options_get_property (GObject    *object,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
     }
+  }
 }
 
 
 GimpMypaintOptions *
-gimp_mypaint_options_new (GimpToolInfo *tool_info/*GimpMypaintInfo *mypaint_info*/)
+gimp_mypaint_options_new (GimpToolInfo *tool_info)
 {
   GimpMypaintOptions *options;
-
-//  g_return_val_if_fail (GIMP_IS_MYPAINT_INFO (mypaint_info), NULL);
 
   options = GIMP_MYPAINT_OPTIONS (g_object_new (GIMP_TYPE_MYPAINT_OPTIONS,
                           "gimp",       tool_info->gimp,
                           "name",       "Mypaint",
-//                          "name",       gimp_object_get_name (mypaint_info),
-//                          "mypaint-info", mypaint_info,
                           NULL));
 
   return options;
@@ -299,6 +273,37 @@ gimp_mypaint_options_copy_brush_props (GimpMypaintOptions *src,
                 "brush-angle", brush_angle,
                 "brush-aspect-ratio", brush_aspect_ratio,
                 NULL);
+}
+
+static void    
+gimp_mypaint_options_mypaint_brush_changed (GObject *object,
+                                            GimpData *data)
+{
+  g_return_if_fail (GIMP_IS_MYPAINT_OPTIONS (object));
+  g_return_if_fail (GIMP_IS_MYPAINT_BRUSH (data));
+
+  g_print("GimpMpaintOptions::brush_changed\n");
+  GimpMypaintOptions* options = GIMP_MYPAINT_OPTIONS(object);
+  GimpData* brush_copied = gimp_mypaint_brush_duplicate(GIMP_MYPAINT_BRUSH(data));
+
+  if (options->brush)
+    g_object_unref(options->brush);
+
+  options->brush = GIMP_MYPAINT_BRUSH(brush_copied);
+  ScopeGuard<GList, void(GList*)> brush_settings(mypaint_brush_get_brush_settings (), g_list_free);
+  for (GList* i = brush_settings.ptr(); i; i = i->next) {
+    MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(i->data);
+    gchar* internal_name = g_strdup(setting->internal_name);
+    g_strcanon(internal_name,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-",'-');
+    g_object_notify(object, internal_name);
+    g_free(internal_name);
+  }
+}
+
+
+GimpMypaintBrush*
+gimp_mypaint_options_get_current_brush (GimpMypaintOptions* options) {
+  return options->brush;
 }
 
 };

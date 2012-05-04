@@ -521,5 +521,8 @@ MyPaintBrushReader::parse_raw (
 void
 MyPaintBrushReader::load_icon (gchar *filename)
 {
-  result->icon = cairo_image_surface_create_from_png(filename);
+  GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
+	cairo_surface_t* icon_image = cairo_image_surface_create_from_png(filename);
+  priv->set_icon_image(icon_image);
+  cairo_surface_destroy (icon_image);
 }

@@ -59,12 +59,14 @@ class MypaintPopupPrivate {
 
   GimpContainer *container;
   GimpContext   *context;
-  gint           spacing_changed_handler_id;
+	GClosure        *brush_changed_closure;
   
 public:
   MypaintPopupPrivate(GimpContainer* ctn, GimpContext* ctx) {
     container = ctn;
     context   = ctx;
+		
+		brush_changed_closure = NULL;
   }
   
   ~MypaintPopupPrivate();
@@ -215,34 +217,21 @@ MypaintPopupPrivate::~MypaintPopupPrivate ()
 void
 MypaintPopupPrivate::destroy (GObject* object)
 {
-/*
-  if (spacing_changed_handler_id)
-    {
-      gimp_container_remove_handler (container,
-                                     spacing_changed_handler_id);
-      pspacing_changed_handler_id = 0;
-    }
-*/  
-#if 0  
-  if (container)
-    {
-      g_object_unref (G_OBJECT (container));
-      container = NULL;
-    }
+  if (container) {
+    g_object_unref (G_OBJECT (container));
+    container = NULL;
+  }
 
-  if (context)
-    {
-      GimpBrush *brush = gimp_context_get_brush (context);
-      /*
-      if (brush) // BUG: old brush must be used, but "brush" is new brush object ...
-        g_signal_handlers_disconnect_by_func (brush, notify_brush, p);
-      g_signal_handlers_disconnect_by_func (p->context,
-                                            G_CALLBACK (brush_changed), p);
-      */
-      g_object_unref (G_OBJECT (context));
-      context = NULL;
+  if (context) {
+    if (brush_changed_closure) {
+      gulong handler_id = g_signal_handler_find(gpointer(context), 
+        G_SIGNAL_MATCH_CLOSURE,
+        0,0,brush_changed_closure,NULL,NULL);
+      if (handler_id)
+	g_signal_handler_disconnect (gpointer(context), handler_id);
+      brush_changed_closure = NULL;
     }
-#endif
+  }
 }
 
 void
@@ -267,6 +256,8 @@ MypaintPopupPrivate::create (GObject* object,
   
   container = gimp_data_factory_get_container (context->gimp->mypaint_brush_factory);
   brush     = gimp_context_get_mypaint_brush (context);
+
+	g_object_ref(G_OBJECT(container));
   
   g_return_if_fail (GIMP_IS_CONTAINER (container));
   g_return_if_fail (GIMP_IS_CONTEXT (context));
@@ -299,9 +290,10 @@ MypaintPopupPrivate::create (GObject* object,
   gtk_widget_show (GTK_WIDGET (editor));
   
 
-  g_signal_connect_delegator (G_OBJECT(context),
-                              gimp_context_type_to_signal_name (GIMP_TYPE_MYPAINT_BRUSH),
-                              Delegator::delegator(this, &MypaintPopupPrivate::brush_changed));
+  brush_changed_closure = 
+		g_signal_connect_delegator (G_OBJECT(context),
+                                gimp_context_type_to_signal_name (GIMP_TYPE_MYPAINT_BRUSH),
+                                Delegator::delegator(this, &MypaintPopupPrivate::brush_changed));
 
 /*
 //  g_signal_connect (brush, "notify", G_CALLBACK (notify_brush), p);

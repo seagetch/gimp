@@ -22,15 +22,15 @@
 #include <glib.h>
 #include <math.h>
 #include <stdlib.h>
+extern "C" {
+#include "libgimpcolor/gimpcolor.h"
+};
+
 /* #include "Python.h" */
 
 #include "core/mypaintbrush-brushsettings.h"
 #include "core/mypaintbrush-enum-settings.h"
 #include "core/mypaintbrush-mapping.hpp"
-
-extern "C" {
-#include "libgimpcolor/gimpcolor.h"
-};
 
 ///
 /// Helper functions

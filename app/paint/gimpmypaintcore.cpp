@@ -173,7 +173,8 @@ void GimpMypaintCore::split_stroke()
 void GimpMypaintCore::update_resource(GimpMypaintOptions* options)
 {
   GimpContext* context = GIMP_CONTEXT (options);
-  GimpMypaintBrush* myb = context->mypaint_brush;
+//  GimpMypaintBrush* myb = context->mypaint_brush;
+	GimpMypaintBrush* myb = gimp_mypaint_options_get_current_brush (options);
   GimpMypaintBrushPrivate *myb_priv = NULL;
   
   if (myb)

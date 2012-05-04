@@ -18,6 +18,8 @@
 extern "C" {
 #include "config.h"
 
+#include <glib.h>
+#include <glib/gprintf.h>
 #include <gtk/gtk.h>
 
 #include "libgimpwidgets/gimpwidgets.h"
@@ -28,6 +30,7 @@ extern "C" {
 
 #include "core/gimpmypaintbrush.h"
 #include "core/gimptoolinfo.h"
+#include "core/mypaintbrush-brushsettings.h"
 
 #include "paint/gimpmypaintoptions.h"
 
@@ -55,12 +58,95 @@ extern "C" {
 };
 
 #include "gimptooloptions-gui-cxx.hpp"
+#include "base/scopeguard.hpp"
 
 #include "gimp-intl.h"
 
 class MypaintOptionsGUIPrivate {
   GimpMypaintOptions* options;
   bool is_toolbar;
+
+  class MypaintOptionsPropertyGUIPrivate {
+    typedef MypaintOptionsPropertyGUIPrivate Class;
+    GimpMypaintOptions* options;
+    MyPaintBrushSettings* setting;
+    
+    GtkWidget* widget;
+    gchar*   property_name;
+    gchar*   internal_name;
+    GClosure* notify_closure;
+    GClosure* value_changed_closure;
+
+  public:
+    MypaintOptionsPropertyGUIPrivate(GimpMypaintOptions* opts,
+				     GHashTable* dict,
+				     gchar* name) 
+    {
+      ScopeGuard<gchar, void(gpointer)> name_replaced(g_strdup(name), g_free);
+      g_strcanon(name_replaced.ptr(), "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_",'_');
+      setting = reinterpret_cast<MyPaintBrushSettings*>(g_hash_table_lookup(dict, name_replaced.ptr()));
+      internal_name = (gchar*)g_strdup(name);
+      property_name = (gchar*)g_strdup_printf("notify::%s", name);
+      options = opts;
+      g_object_add_weak_pointer(G_OBJECT(options), (void**)&options);
+      notify_closure = value_changed_closure = NULL;
+    }
+      
+    ~MypaintOptionsPropertyGUIPrivate() {
+      if (property_name)
+        g_free(property_name);
+
+      if (internal_name)
+	g_free(internal_name);
+      
+/*      if (widget && value_changed_closure) {
+	  gulong handler_id = g_signal_handler_find(gpointer(widget), G_SIGNAL_MATCH_CLOSURE, 0, 0, value_changed_closure, NULL, NULL);
+	  g_signal_handler_disconnect(gpointer(widget), handler_id);
+	  value_changed_closure = NULL;
+      }
+
+      if (options && notify_closure) {
+        gulong handler_id = g_signal_handler_find(gpointer(optios), G_SIGNAL_MATCH_CLOSURE, 0, 0, notify_closure, NULL, NULL);
+	g_signal_handler_disconnect(gpointer(options), handler_id);
+	value_changed_closure = NULL;
+      }*/
+    }
+      
+    void notify(GObject* object) {
+      gdouble value;
+      g_object_get(G_OBJECT(options), internal_name, &value, NULL);
+    }
+
+    void value_changed(GObject* object) {
+      gdouble value = gtk_spin_button_get_value(GTK_SPIN_BUTTON(object));
+      g_object_set(G_OBJECT(options), property_name, value, NULL);
+    }
+      
+    GtkWidget* create() {
+      gdouble range = setting->maximum - setting->minimum;
+      widget  = gimp_prop_spin_scale_new (G_OBJECT(options), 
+                                          internal_name,
+					  _(setting->displayed_name),
+                                          range / 1000.0, range / 100.0, 2);
+      g_object_add_weak_pointer(G_OBJECT(widget), (void**)&widget);
+      gimp_spin_scale_set_scale_limits (GIMP_SPIN_SCALE (widget), 
+					setting->minimum, 
+					setting->maximum);
+
+/*      value_changed_closure = 
+        g_signal_connect_delegator(G_OBJECT(widget),
+				   "value-changed",
+				   Delegator::delegator(this, &Class::value_changed));
+      notify_closure = 
+        g_signal_connect_delegator(G_OBJECT(options),
+				   property_name,
+				   Delegator::delegator(this, &Class::notify));*/
+      g_object_set_cxx_object (G_OBJECT(widget), "behavior", this);
+      gtk_widget_set_size_request (widget, 200, -1);
+      return widget;
+    }
+  };
+  
 public:
   MypaintOptionsGUIPrivate(GimpToolOptions* options, bool toolbar);
   GtkWidget* create();
@@ -68,26 +154,6 @@ public:
   void destroy(GObject* o);
   void create_basic_options(GObject* object, GtkWidget** result);
   void reset_size(GObject *o);
-};
-
-
-/*  public functions  */
-extern "C" {
-
-GtkWidget *
-gimp_mypaint_options_gui (GimpToolOptions *tool_options)
-{
-  MypaintOptionsGUIPrivate* priv = new MypaintOptionsGUIPrivate(tool_options, false);
-  return priv->create();
-}
-
-GtkWidget *
-gimp_mypaint_options_gui_horizontal (GimpToolOptions *tool_options)
-{
-  MypaintOptionsGUIPrivate* priv = new MypaintOptionsGUIPrivate(tool_options, true);
-  return priv->create();
-}
-
 };
 
 
@@ -116,6 +182,7 @@ MypaintOptionsGUIPrivate::create ()
   GimpToolOptionsTableIncrement inc = gimp_tool_options_table_increment (is_toolbar);  
 
   tool_type = GIMP_TOOL_OPTIONS(options)->tool_info->tool_type;
+  ScopeGuard<GHashTable, void(GHashTable*)> brush_settings_dict(mypaint_brush_get_brush_settings_dict(), g_hash_table_unref);
 
   /*  the main table  */
   table = gimp_tool_options_table (3, is_toolbar);
@@ -126,13 +193,15 @@ MypaintOptionsGUIPrivate::create ()
   /*  the opacity scale  */
   scale = gimp_prop_opacity_spin_scale_new (config, "opacity",
                                             _("Opacity"));
+  gtk_widget_set_size_request (scale, 200, -1);
   gtk_box_pack_start (GTK_BOX (vbox), scale, FALSE, FALSE, 0);
   gtk_widget_show (scale);
 
   /*  the brush  */
     {
       GtkWidget *button;
-
+      MypaintOptionsPropertyGUIPrivate* scale_obj;
+      
       if (is_toolbar)
         button = gimp_mypaint_brush_button_with_popup (config);
       else {
@@ -153,10 +222,9 @@ MypaintOptionsGUIPrivate::create ()
         gtk_widget_show (hbox);
       }
 
-      scale = gimp_prop_spin_scale_new (config, "brush-size",
-                                        _("Size"),
-                                        0.01, 1.0, 2);
-      gimp_spin_scale_set_scale_limits (GIMP_SPIN_SCALE (scale), 1.0, 1000.0);
+      scale_obj = 
+	new MypaintOptionsPropertyGUIPrivate(options, brush_settings_dict.ptr(), "radius-logarithmic");
+      scale = scale_obj->create();
       gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
       gtk_widget_show (scale);
 
@@ -173,23 +241,22 @@ MypaintOptionsGUIPrivate::create ()
       gimp_help_set_help_data (button,
                                _("Reset size to brush's native size"), NULL);
 
+      scale_obj = 
+	new MypaintOptionsPropertyGUIPrivate(options, brush_settings_dict.ptr(), "slow-tracking");
+      scale = scale_obj->create();
+      gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
+      gtk_widget_show (scale);
+
+      scale_obj = 
+	new MypaintOptionsPropertyGUIPrivate(options, brush_settings_dict.ptr(), "hardness");
+      scale = scale_obj->create();
+      gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
+      gtk_widget_show (scale);
+
 //      frame = dynamics_options_gui (options, tool_type, is_toolbar);
 //      gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
 //      gtk_widget_show (frame);
     }
-
-#if 0
-  /* the "smoothing" toggle */
-  if (g_type_is_a (tool_type, GIMP_TYPE_BRUSH_TOOL) ||
-      tool_type == GIMP_TYPE_INK_TOOL ||
-      tool_type == GIMP_TYPE_SMUDGE_TOOL ||
-      tool_type == GIMP_TYPE_DODGE_BURN_TOOL)
-    {
-      frame = smoothing_options_gui (options, tool_type, horizontal);
-      gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
-      gtk_widget_show (frame);
-    }
-#endif
 
   if (is_toolbar)
     {
@@ -248,13 +315,22 @@ smoothing_options_create_view (GtkWidget *button, GtkWidget **result, GObject *c
   *result = vbox;
 }
 
-static GtkWidget *
-smoothing_options_gui (GimpPaintOptions         *paint_options,
-                    GType                       tool_type,
-                    gboolean                    horizontal)
+
+/*  public functions  */
+extern "C" {
+
+GtkWidget *
+gimp_mypaint_options_gui (GimpToolOptions *tool_options)
 {
-  return gimp_tool_options_toggle_gui_with_popup (G_OBJECT (paint_options), tool_type,
-                             "use-smoothing", _("Smooth"), _("Smooth stroke"),
-                             horizontal, smoothing_options_create_view);
+  MypaintOptionsGUIPrivate* priv = new MypaintOptionsGUIPrivate(tool_options, false);
+  return priv->create();
 }
 
+GtkWidget *
+gimp_mypaint_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  MypaintOptionsGUIPrivate* priv = new MypaintOptionsGUIPrivate(tool_options, true);
+  return priv->create();
+}
+
+}; // extern "C"

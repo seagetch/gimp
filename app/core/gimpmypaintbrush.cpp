@@ -100,21 +100,11 @@ G_DEFINE_TYPE_WITH_CODE (GimpMypaintBrush, gimp_mypaint_brush, GIMP_TYPE_DATA,
 static void
 gimp_mypaint_brush_class_init (GimpMypaintBrushClass *klass)
 {
-  GObjectClass      *object_class      = G_OBJECT_CLASS (klass);
+  GObjectClass        *object_class      = G_OBJECT_CLASS (klass);
   GimpObjectClass   *gimp_object_class = GIMP_OBJECT_CLASS (klass);
   GimpViewableClass *viewable_class    = GIMP_VIEWABLE_CLASS (klass);
-  GimpDataClass     *data_class        = GIMP_DATA_CLASS (klass);
+  GimpDataClass      *data_class        = GIMP_DATA_CLASS (klass);
 
-#if 0
-  mypaint_brush_signals[SPACING_CHANGED] =
-    g_signal_new ("spacing-changed",
-                  G_TYPE_FROM_CLASS (klass),
-                  G_SIGNAL_RUN_FIRST,
-                  G_STRUCT_OFFSET (GimpMypaintBrushClass, spacing_changed),
-                  NULL, NULL,
-                  gimp_marshal_VOID__VOID,
-                  G_TYPE_NONE, 0);
-#endif
   object_class->finalize           = gimp_mypaint_brush_finalize;
   object_class->get_property       = gimp_mypaint_brush_get_property;
   object_class->set_property       = gimp_mypaint_brush_set_property;
@@ -133,15 +123,6 @@ gimp_mypaint_brush_class_init (GimpMypaintBrushClass *klass)
   klass->end_use                   = gimp_mypaint_brush_real_end_use;
   klass->select_mypaint_brush              = gimp_mypaint_brush_real_select_mypaint_brush;
   klass->want_null_motion          = gimp_mypaint_brush_real_want_null_motion;
-#if 0
-  klass->spacing_changed           = NULL;
-  g_object_class_install_property (object_class, PROP_SPACING,
-                                   g_param_spec_double ("spacing", NULL,
-                                                        _("MypaintBrush Spacing"),
-                                                        1.0, 5000.0, 20.0,
-                                                        (GParamFlags)(GIMP_PARAM_READWRITE |
-                                                        G_PARAM_CONSTRUCT)));
-#endif
 }
 
 static void
@@ -153,9 +134,6 @@ gimp_mypaint_brush_tagged_iface_init (GimpTaggedInterface *iface)
 static void
 gimp_mypaint_brush_init (GimpMypaintBrush *mypaint_brush)
 {
-//  mypaint_brush->pixmap   = NULL;
-  mypaint_brush->icon     = NULL;
-
   mypaint_brush->p = (gpointer)(new GimpMypaintBrushPrivate());
 }
 
@@ -170,15 +148,6 @@ gimp_mypaint_brush_finalize (GObject *object)
     mypaint_brush->p = NULL;
   }
 
-/*
-  if (mypaint_brush->pixmap) {
-    temp_buf_free (mypaint_brush->pixmap);
-    mypaint_brush = NULL;
-  }
-*/
-  if (mypaint_brush->icon) {
-    cairo_surface_destroy (mypaint_brush->icon);
-  }
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
 
@@ -247,47 +216,18 @@ gimp_mypaint_brush_get_new_preview (GimpViewable *viewable,
                             gint          width,
                             gint          height)
 {
-  GimpMypaintBrush     *mypaint_brush       = GIMP_MYPAINT_BRUSH (viewable);
-  cairo_surface_t      *icon_image = mypaint_brush->icon;
-  ScopeGuard<cairo_surface_t, void(cairo_surface_t*)> scaled_icon(cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height), cairo_surface_destroy);
-  
+  GimpMypaintBrush      *mypaint_brush       = GIMP_MYPAINT_BRUSH (viewable);
+  GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(mypaint_brush->p);  
   TempBuf       *return_buf  = NULL;
-  gint           icon_width = cairo_image_surface_get_width (icon_image);
-  gint           icon_height = cairo_image_surface_get_height (icon_image);
-  guchar         transp[4]   = { 0, 0, 0, 0 };
-  gint           x, y;
-  gdouble        scale = 1.0;
+  guchar transp[4]   = { 0, 0, 0, 0 };
 
-  ScopeGuard<cairo_t, void(cairo_t*)> cr(cairo_create(scaled_icon.ptr()), cairo_destroy);
-  gimp_mypaint_brush_begin_use (mypaint_brush);
-  if (icon_width > width || icon_height > height)
-    {
-      gdouble ratio_x = (gdouble) width  / (gdouble) icon_width;
-      gdouble ratio_y = (gdouble) height / (gdouble) icon_height;
-      scale   = MIN (ratio_x, ratio_y);
-      cairo_scale (cr.ptr(), scale, scale);
-    }
-  cairo_set_source_surface (cr.ptr(), icon_image, 0, 0);
-  cairo_paint (cr.ptr());
-  
-  return_buf = temp_buf_new (width, height, 4, 0, 0, transp);
-
-  unsigned char *source_buf = cairo_image_surface_get_data (scaled_icon.ptr());
+	return_buf = temp_buf_new (width, height, 4, 0, 0, transp);
   guchar *dest_buf   = temp_buf_get_data (return_buf);
-  gint stride       = cairo_image_surface_get_stride (scaled_icon.ptr());
-  
-  for (y = 0; y < height; y ++) 
-    {
-      for (x = 0; x < width; x ++)
-        {
-          dest_buf[x * 4    ] = source_buf[x * 4 + 2];
-          dest_buf[x * 4 + 1] = source_buf[x * 4 + 1];
-          dest_buf[x * 4 + 2] = source_buf[x * 4 + 0];
-          dest_buf[x * 4 + 3] = source_buf[x * 4 + 3];
-        }
-      source_buf += stride;
-      dest_buf += width * 4;
-    }
+
+  gimp_mypaint_brush_begin_use (mypaint_brush);
+
+  priv->get_new_preview(dest_buf, width, height, 4, 4 * width);
+		
   gimp_mypaint_brush_end_use (mypaint_brush);
 
   return return_buf;
@@ -404,6 +344,20 @@ gimp_mypaint_brush_new (GimpContext *context,
   return GIMP_DATA (brush);
 }
 
+GimpData * 
+gimp_mypaint_brush_duplicate (GimpMypaintBrush *mypaint_brush)
+{
+  g_return_val_if_fail (GIMP_IS_MYPAINT_BRUSH (mypaint_brush), NULL);
+  gchar* name;
+  g_object_get (G_OBJECT(mypaint_brush), "name", &name, NULL);
+
+  GimpMypaintBrush* result = GIMP_MYPAINT_BRUSH(gimp_mypaint_brush_new(NULL, name));
+  delete reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
+  result->p = reinterpret_cast<GimpMypaintBrushPrivate*>(mypaint_brush->p)->duplicate();
+  return GIMP_DATA(result);
+}
+
+
 GimpData *
 gimp_mypaint_brush_get_standard (GimpContext *context)
 {
@@ -474,54 +428,6 @@ gimp_mypaint_brush_want_null_motion (GimpMypaintBrush        *mypaint_brush,
                                                          current_coords);
 }
 
-#if 0
-gint
-gimp_mypaint_brush_get_spacing (const GimpMypaintBrush *mypaint_brush)
-{
-  g_return_val_if_fail (GIMP_IS_MYPAINT_BRUSH (mypaint_brush), 0);
-
-  return mypaint_brush->spacing;
-}
-
-void
-gimp_mypaint_brush_set_spacing (GimpMypaintBrush *mypaint_brush,
-                        gint       spacing)
-{
-  g_return_if_fail (GIMP_IS_MYPAINT_BRUSH (mypaint_brush));
-
-  if (mypaint_brush->spacing != spacing)
-    {
-      mypaint_brush->spacing = spacing;
-
-      g_signal_emit (mypaint_brush, mypaint_brush_signals[SPACING_CHANGED], 0);
-      g_object_notify (G_OBJECT (mypaint_brush), "spacing");
-    }
-}
-#endif
-
-gboolean
-gimp_mypaint_brush_calculate           (const GimpMypaintBrush *mypaint_brush,
-                                        gint    setting_index,
-                                        gfloat *data, gfloat *result)
-{
-  g_return_val_if_fail (GIMP_IS_MYPAINT_BRUSH (mypaint_brush), FALSE);
-  g_return_val_if_fail (mypaint_brush->p != NULL, FALSE);
-  
-  GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(mypaint_brush->p);
-  g_return_val_if_fail (priv != NULL, FALSE);
-  
-  g_return_val_if_fail (0 <= setting_index && setting_index < BRUSH_SETTINGS_COUNT, FALSE);
-  
-  GimpMypaintBrushPrivate::Value* setting = priv->get_setting(setting_index);
-  
-  if (setting->mapping)
-    *result = setting->mapping->calculate(data);
-  else
-    *result = setting->base_value;
-
-  return TRUE;
-}
-
 } /* extern C */
 
 
@@ -529,6 +435,7 @@ gimp_mypaint_brush_calculate           (const GimpMypaintBrush *mypaint_brush,
 GimpMypaintBrushPrivate::GimpMypaintBrushPrivate() {
   parent_brush_name = g_strdup("");
   group = g_strdup("");
+	icon_image = NULL;
   for (int i = 0; i < BRUSH_SETTINGS_COUNT; i ++) {
     settings[i].base_value = 0;
     settings[i].mapping    = NULL;
@@ -538,15 +445,18 @@ GimpMypaintBrushPrivate::GimpMypaintBrushPrivate() {
 GimpMypaintBrushPrivate::~GimpMypaintBrushPrivate() {
   if (parent_brush_name) {
     g_free (parent_brush_name);
+    parent_brush_name = NULL;
   }
   if (group) {
     g_free (group);
+    group = NULL;
   }
   for (int i = 0; i < BRUSH_SETTINGS_COUNT; i ++) {
-    if (settings[i].mapping) {
-      delete settings[i].mapping;
-      settings[i].mapping    = NULL;
-    }
+    deallocate_mapping(i);
+  }
+  if (icon_image) {
+    cairo_surface_destroy (icon_image);
+    icon_image = NULL;
   }
 }
 
@@ -560,6 +470,15 @@ GimpMypaintBrushPrivate::set_base_value (int index, float value) {
   if (settings[index].mapping)
     settings[index].mapping->base_value = value;
   */
+}
+
+float
+GimpMypaintBrushPrivate::get_base_value (int index) {
+  g_assert (index >= 0 && index < BRUSH_SETTINGS_COUNT);
+  if (settings[index].mapping) {
+    return settings[index].mapping->base_value;
+  }
+  return settings[index].base_value;
 }
 
 void 
@@ -603,4 +522,86 @@ GimpMypaintBrushPrivate::set_group(char *name) {
   if (group)
     g_free (group);
   group = g_strdup(name);
+}
+
+void 
+GimpMypaintBrushPrivate::get_new_preview(guchar* dest_buf, 
+                                         int width, 
+                                         int height, 
+                                         int bytes, 
+                                         int dest_stride) {
+  ScopeGuard<cairo_surface_t, void(cairo_surface_t*)> scaled_icon(cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height), cairo_surface_destroy);
+  
+  gint           icon_width = cairo_image_surface_get_width (icon_image);
+  gint           icon_height = cairo_image_surface_get_height (icon_image);
+  gint           x, y;
+  gdouble        scale = 1.0;
+
+  ScopeGuard<cairo_t, void(cairo_t*)> cr(cairo_create(scaled_icon.ptr()), cairo_destroy);
+  if (icon_width > width || icon_height > height)
+    {
+      gdouble ratio_x = (gdouble) width  / (gdouble) icon_width;
+      gdouble ratio_y = (gdouble) height / (gdouble) icon_height;
+      scale   = MIN (ratio_x, ratio_y);
+      cairo_scale (cr.ptr(), scale, scale);
+    }
+  cairo_set_source_surface (cr.ptr(), icon_image, 0, 0);
+  cairo_paint (cr.ptr());
+  
+  unsigned char *source_buf = cairo_image_surface_get_data (scaled_icon.ptr());
+  gint src_stride       = cairo_image_surface_get_stride (scaled_icon.ptr());
+  
+  for (y = 0; y < height; y ++) 
+    {
+      for (x = 0; x < width; x ++)
+        {
+				  // Following code may be dependent on the endian.
+          dest_buf[x * 4    ] = source_buf[x * 4 + 2];
+          dest_buf[x * 4 + 1] = source_buf[x * 4 + 1];
+          dest_buf[x * 4 + 2] = source_buf[x * 4 + 0];
+          dest_buf[x * 4 + 3] = source_buf[x * 4 + 3];
+        }
+      source_buf += src_stride;
+      dest_buf   += dest_stride;
+    }
+}
+
+void
+GimpMypaintBrushPrivate::set_icon_image(cairo_surface_t* image) {
+  if (icon_image) {
+    cairo_surface_destroy (icon_image);
+    icon_image = NULL;
+  }
+  if (image) {
+    cairo_format_t format = cairo_image_surface_get_format(image);
+    int            width  = cairo_image_surface_get_width(image);
+    int            height = cairo_image_surface_get_height(image);
+    int            stride = cairo_image_surface_get_stride(image);
+    guchar         *src_data = cairo_image_surface_get_data(image);
+    int            buf_size = cairo_format_stride_for_width (format, width) * height;
+    guchar         *data = g_new(guchar, buf_size);
+    memcpy(data, src_data, buf_size);
+    icon_image = cairo_image_surface_create_for_data(data, format, width, height,stride);
+  }
+}
+
+cairo_surface_t*
+GimpMypaintBrushPrivate::get_icon_image() {
+  return icon_image;
+}
+
+GimpMypaintBrushPrivate*
+GimpMypaintBrushPrivate::duplicate() {
+	GimpMypaintBrushPrivate* priv = new GimpMypaintBrushPrivate();
+  priv->set_parent_brush_name(parent_brush_name);
+	priv->set_group(group);
+  for (int i = 0; i < BRUSH_SETTINGS_COUNT; i ++) {
+    priv->settings[i].base_value = settings[i].base_value;
+    if (settings[i].mapping) {
+      priv->allocate_mapping(i);
+      *(priv->settings[i].mapping) = *(settings[i].mapping);
+    }
+  }
+	priv->set_icon_image(icon_image);
+  return priv;
 }

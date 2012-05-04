@@ -50,7 +50,7 @@ struct _GimpMypaintOptions
   gdouble                   brush_aspect_ratio;
 
   GimpMypaintBrushMode      brush_mode;
-  GimpMypaintBrushMode      brush_mode_save;
+  GimpMypaintBrush        *brush;
 
   GimpViewType              brush_view_type;
   GimpViewSize              brush_view_size;
@@ -70,7 +70,9 @@ GimpMypaintOptions * gimp_mypaint_options_new      (GimpToolInfo    *tool_info);
 GimpMypaintBrushMode
 gimp_mypaint_options_get_brush_mode (GimpMypaintOptions *mypaint_options);
 
+GimpMypaintBrush*
+gimp_mypaint_options_get_current_brush (GimpMypaintOptions* options);
+
 void    gimp_mypaint_options_copy_brush_props    (GimpMypaintOptions *src,
                                                 GimpMypaintOptions *dest);
-
 #endif  /*  __GIMP_MYPAINT_OPTIONS_H__  */
