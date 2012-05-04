@@ -80,7 +80,6 @@ libappcore_a_sources = \
 	mypaintbrush-brushsettings.h \
 	mypaintbrush-brushsettings.c \
 	mypaintbrush-mapping.hpp \
-	mypaintbrush-private.hpp \
 	gimpbrushpipe.c				\
 	gimpbrushpipe.h				\
 	gimpbrushpipe-load.c			\
@@ -395,7 +394,8 @@ libappcore_a_sources = \
 	gimpundostack.c				\
 	gimpundostack.h				\
 	gimpviewable.c				\
-	gimpviewable.h
+	gimpviewable.h				\
+	gimpmypaintbrush-private.hpp
 
 libappcore_a_built_sources = \
 	core-enums.c	\
