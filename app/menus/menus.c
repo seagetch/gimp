@@ -207,6 +207,14 @@ menus_init (Gimp              *gimp,
                                       "brushes-menu.xml", plug_in_menus_setup,
                                       NULL);
 
+  gimp_menu_factory_manager_register (global_menu_factory, "<MypaintBrushes>",
+                                      "mypaint-brushes",
+                                      "plug-in",
+                                      NULL,
+                                      "/mypaint-brushes-popup",
+                                      "mypaint-brushes-menu.xml", plug_in_menus_setup,
+                                      NULL);
+
   gimp_menu_factory_manager_register (global_menu_factory, "<Dynamics>",
                                       "dynamics",
                                       "plug-in",

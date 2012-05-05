@@ -416,7 +416,9 @@ libappwidgets_a_sources = \
 	gtkwrapbox.c			\
 	gtkwrapbox.h			\
 	gtkhwrapbox.c			\
-	gtkhwrapbox.h
+	gtkhwrapbox.h		\
+	gimpmypaintbrusheditor.cpp		\
+	gimpmypaintbrusheditor.h
 
 libappwidgets_a_built_sources = widgets-enums.c
 

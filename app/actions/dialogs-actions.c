@@ -195,11 +195,17 @@ const GimpStringActionEntry dialogs_dockable_actions[] =
     "gimp-font-list|gimp-font-grid",
     GIMP_HELP_FONT_DIALOG },
 
-  { "dialogs-mypaint-brushes", GIMP_STOCK_BRUSH,
+  { "dialogs-mypaint-brushes", GIMP_STOCK_MYPAINT_BRUSH,
     NC_("dialogs-action", "My_paint Brushes"), NULL,
     NC_("dialogs-action", "Open the mypaint brushes dialog"),
     "gimp-mypaint_brush-grid|gimp-mypaint_brush-list",
     GIMP_HELP_MYPAINT_BRUSH_DIALOG },
+
+  { "dialogs-mypaint-brush-editor", GIMP_STOCK_MYPAINT_BRUSH,
+    NC_("dialogs-action", "Mypaint Brush Editor"), NULL,
+    NC_("dialogs-action", "Open the mypaint brush editor"),
+    "gimp-mypaint-brush-editor",
+    GIMP_HELP_MYPAINT_BRUSH_EDIT },
 
   { "dialogs-buffers", GIMP_STOCK_BUFFER,
     NC_("dialogs-action", "B_uffers"), "",

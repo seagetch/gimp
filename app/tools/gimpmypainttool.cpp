@@ -811,7 +811,7 @@ gimp_mypaint_tool_register (GimpToolRegisterCallback  callback,
 {
   (* callback) (GIMP_TYPE_MYPAINT_TOOL,
                 GIMP_TYPE_MYPAINT_OPTIONS,
-                NULL,
+                gimp_mypaint_options_gui,
                 gimp_mypaint_options_gui_horizontal,
                 GimpContextPropMask(GIMP_MYPAINT_OPTIONS_CONTEXT_MASK),
                 "gimp-mypaint-tool",

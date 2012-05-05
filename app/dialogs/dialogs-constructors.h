@@ -281,5 +281,9 @@ GtkWidget * dialogs_tool_preset_editor_get (GimpDialogFactory *factory,
                                             GimpContext       *context,
                                             GimpUIManager     *ui_manager,
                                             gint               view_size);
+GtkWidget * dialogs_mypaint_brush_editor_get (GimpDialogFactory *factory,
+                                            GimpContext       *context,
+                                            GimpUIManager     *ui_manager,
+                                            gint               view_size);
 
 #endif /* __DIALOGS_CONSTRUCTORS_H__ */

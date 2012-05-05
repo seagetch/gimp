@@ -163,7 +163,7 @@ gimp_mypaint_options_set_property (GObject      *object,
 {
   GimpMypaintOptions* options = GIMP_MYPAINT_OPTIONS (object);
 
-  if (property_id < PROP_0) {
+  if (property_id <= PROP_0) {
     if (options->brush) {
       GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(options->brush->p);
       priv->set_base_value (property_id - 1, g_value_get_double (value));
@@ -198,7 +198,7 @@ gimp_mypaint_options_get_property (GObject    *object,
 {
   GimpMypaintOptions     *options           = GIMP_MYPAINT_OPTIONS (object);
 
-  if (property_id < PROP_0) {
+  if (property_id <= PROP_0) {
     if (options->brush) {
       GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(options->brush->p);
       float val = priv->get_base_value (property_id - 1);

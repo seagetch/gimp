@@ -53,13 +53,14 @@ static const GimpActionEntry mypaint_brushes_actions[] =
     NC_("brushes-action", "Create a new brush"),
     G_CALLBACK (data_new_cmd_callback),
     GIMP_HELP_MYPAINT_BRUSH_NEW },
+#endif
 
   { "brushes-duplicate", GIMP_STOCK_DUPLICATE,
     NC_("brushes-action", "D_uplicate Brush"), NULL,
     NC_("brushes-action", "Duplicate this brush"),
     G_CALLBACK (data_duplicate_cmd_callback),
     GIMP_HELP_MYPAINT_BRUSH_DUPLICATE },
-#endif
+
   { "mypaint-brushes-copy-location", GTK_STOCK_COPY,
     NC_("mypaint-brushes-action", "Copy Mypaint Brush _Location"), "",
     NC_("mypaint-brushes-action", "Copy mypaint brush file location to clipboard"),
@@ -79,16 +80,14 @@ static const GimpActionEntry mypaint_brushes_actions[] =
     GIMP_HELP_MYPAINT_BRUSH_REFRESH }
 };
 
-#if 0
 static const GimpStringActionEntry mypaint_brushes_edit_actions[] =
 {
   { "mypaint-brushes-edit", GTK_STOCK_EDIT,
-    NC_("mypaint-brushes-action", "_Edit Brush..."), NULL,
-    NC_("brushes-action", "Edit this brush"),
-    "gimp-brush-editor",
+    NC_("mypaint-brushes-action", "Edit _Mypaint Brush..."), NULL,
+    NC_("mypaint-brushes-action", "Mypaint Edit this brush"),
+    "gimp-mypaint-brush-editor",
     GIMP_HELP_MYPAINT_BRUSH_EDIT }
 };
-#endif
 
 
 void
@@ -97,12 +96,10 @@ mypaint_brushes_actions_setup (GimpActionGroup *group)
   gimp_action_group_add_actions (group, "mypaint-brushes-action",
                                  mypaint_brushes_actions,
                                  G_N_ELEMENTS (mypaint_brushes_actions));
-#if 0
   gimp_action_group_add_string_actions (group, "mypaint-brushes-action",
                                         mypaint_brushes_edit_actions,
-                                        G_N_ELEMENTS (brushes_edit_actions),
+                                        G_N_ELEMENTS (mypaint_brushes_edit_actions),
                                         G_CALLBACK (data_edit_cmd_callback));
-#endif
 }
 
 void
@@ -133,10 +130,8 @@ mypaint_brushes_actions_update (GimpActionGroup *group,
 
 #define SET_SENSITIVE(action,condition) \
         gimp_action_group_set_action_sensitive (group, action, (condition) != 0)
-#if 0
-  SET_SENSITIVE ("brushes-edit",          brush);
-  SET_SENSITIVE ("brushes-duplicate",     brush && GIMP_DATA_GET_CLASS (data)->duplicate);
-#endif
+  SET_SENSITIVE ("mypaint-brushes-edit",          mypaint_brush);
+  SET_SENSITIVE ("mypaint-brushes-duplicate",     mypaint_brush && GIMP_DATA_GET_CLASS (data)->duplicate);
   SET_SENSITIVE ("mypaint-brushes-copy-location", mypaint_brush && filename);
   SET_SENSITIVE ("mypaint-brushes-delete",        mypaint_brush && gimp_data_is_deletable (data));
 

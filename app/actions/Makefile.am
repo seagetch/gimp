@@ -186,4 +186,6 @@ libappactions_a_SOURCES = \
 	windows-actions.c		\
 	windows-actions.h		\
 	windows-commands.c		\
-	windows-commands.h
+	windows-commands.h		\
+	mypaint-brush-editor-actions.c		\
+	mypaint-brush-editor-actions.h

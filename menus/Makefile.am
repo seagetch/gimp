@@ -38,7 +38,9 @@ menudata_DATA = \
 	text-tool-menu.xml		\
 	tool-options-menu.xml		\
 	undo-menu.xml			\
-	vectors-menu.xml
+	vectors-menu.xml		\
+	mypaint-brushes-menu.xml	\
+	mypaint-brush-editor-menu.xml
 
 EXTRA_DIST = \
 	$(menudata_DATA)		\

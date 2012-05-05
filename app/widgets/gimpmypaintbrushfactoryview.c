@@ -143,8 +143,8 @@ gimp_mypaint_brush_factory_view_new (GimpViewType     view_type,
                                "view-border-width", view_border_width,
                                "menu-factory",      menu_factory,
                                "menu-identifier",   "<MypaintBrushes>",
-                               "ui-path",           "/mypaint_brushes-popup",
-                               "action-group",      "mypaint_brushes",
+                               "ui-path",           "/mypaint-brushes-popup",
+                               "action-group",      "mypaint-brushes",
                                NULL);
 
 

@@ -61,6 +61,7 @@
 #include "widgets/gimptoolpreseteditor.h"
 #include "widgets/gimpundoeditor.h"
 #include "widgets/gimpvectorstreeview.h"
+#include "widgets/gimpmypaintbrusheditor.h"
 
 #include "display/gimpcursorview.h"
 #include "display/gimpnavigationeditor.h"
@@ -802,3 +803,14 @@ dialogs_tool_preset_editor_get (GimpDialogFactory *factory,
   return gimp_tool_preset_editor_new (context,
                                       gimp_dialog_factory_get_menu_factory (factory));
 }
+
+GtkWidget *
+dialogs_mypaint_brush_editor_get (GimpDialogFactory *factory,
+                          GimpContext       *context,
+                          GimpUIManager     *ui_manager,
+                          gint               view_size)
+{
+  return gimp_mypaint_brush_editor_new (context,
+                                         gimp_dialog_factory_get_menu_factory (factory));
+}
+

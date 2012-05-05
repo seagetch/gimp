@@ -62,9 +62,10 @@ extern "C" {
 
 #include "gimp-intl.h"
 
-class MypaintOptionsGUIPrivate {
+///////////////////////////////////////////////////////////////////////////////
+class MypaintGUIPrivateBase {
+protected:
   GimpMypaintOptions* options;
-  bool is_toolbar;
 
   class MypaintOptionsPropertyGUIPrivate {
     typedef MypaintOptionsPropertyGUIPrivate Class;
@@ -80,7 +81,7 @@ class MypaintOptionsGUIPrivate {
   public:
     MypaintOptionsPropertyGUIPrivate(GimpMypaintOptions* opts,
 				     GHashTable* dict,
-				     gchar* name) 
+				     const gchar* name) 
     {
       ScopeGuard<gchar, void(gpointer)> name_replaced(g_strdup(name), g_free);
       g_strcanon(name_replaced.ptr(), "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_",'_');
@@ -142,10 +143,26 @@ class MypaintOptionsGUIPrivate {
 				   property_name,
 				   Delegator::delegator(this, &Class::notify));*/
       g_object_set_cxx_object (G_OBJECT(widget), "behavior", this);
-      gtk_widget_set_size_request (widget, 200, -1);
+//      gtk_widget_set_size_request (widget, 200, -1);
       return widget;
     }
   };
+
+public:
+  MypaintGUIPrivateBase(GimpToolOptions* opts);
+  virtual ~MypaintGUIPrivateBase() {}
+  virtual GtkWidget* create() = 0;
+};
+
+MypaintGUIPrivateBase::
+MypaintGUIPrivateBase(GimpToolOptions* opts)
+{
+  options = GIMP_MYPAINT_OPTIONS(opts);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+class MypaintOptionsGUIPrivate : public MypaintGUIPrivateBase {
+  bool is_toolbar;
   
 public:
   MypaintOptionsGUIPrivate(GimpToolOptions* options, bool toolbar);
@@ -159,9 +176,8 @@ public:
 
 MypaintOptionsGUIPrivate::
 MypaintOptionsGUIPrivate(GimpToolOptions* opts, bool toolbar) :
-  is_toolbar(toolbar)
+  MypaintGUIPrivateBase(opts), is_toolbar(toolbar)
 {
-  options = GIMP_MYPAINT_OPTIONS(opts);
 }
 
 GtkWidget *
@@ -193,7 +209,7 @@ MypaintOptionsGUIPrivate::create ()
   /*  the opacity scale  */
   scale = gimp_prop_opacity_spin_scale_new (config, "opacity",
                                             _("Opacity"));
-  gtk_widget_set_size_request (scale, 200, -1);
+//  gtk_widget_set_size_request (scale, 200, -1);
   gtk_box_pack_start (GTK_BOX (vbox), scale, FALSE, FALSE, 0);
   gtk_widget_show (scale);
 
@@ -205,10 +221,11 @@ MypaintOptionsGUIPrivate::create ()
       if (is_toolbar)
         button = gimp_mypaint_brush_button_with_popup (config);
       else {
-        button = gimp_prop_brush_box_new (NULL, GIMP_CONTEXT(options),
-                                          _("Brush"), 2,
-                                          "brush-view-type", "brush-view-size",
-                                          "gimp-brush-editor");
+        button = gimp_mypaint_brush_button_with_popup (config);
+/*        button = gimp_prop_brush_box_new (NULL, GIMP_CONTEXT(options),
+                                          _("MypaintBrush"), 2,
+                                          "mypaint-brush-view-type", "mypaint-brush-view-size",
+                                          "gimp-mypaint-brush-editor");*/
       }
       gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
       gtk_widget_show (button);
@@ -241,12 +258,27 @@ MypaintOptionsGUIPrivate::create ()
       gimp_help_set_help_data (button,
                                _("Reset size to brush's native size"), NULL);
 
+      if (is_toolbar)
+        hbox = vbox;
+      else {
+        hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
+        gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
+        gtk_widget_show (hbox);
+      }
+
       scale_obj = 
 	new MypaintOptionsPropertyGUIPrivate(options, brush_settings_dict.ptr(), "slow-tracking");
       scale = scale_obj->create();
       gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
       gtk_widget_show (scale);
 
+      if (is_toolbar)
+        hbox = vbox;
+      else {
+        hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
+        gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
+        gtk_widget_show (hbox);
+      }
       scale_obj = 
 	new MypaintOptionsPropertyGUIPrivate(options, brush_settings_dict.ptr(), "hardness");
       scale = scale_obj->create();
@@ -264,7 +296,8 @@ MypaintOptionsGUIPrivate::create ()
       gimp_tool_options_setup_popup_layout (children, FALSE);
     }
 
-  g_object_set_cxx_object(G_OBJECT(vbox), "behavior", this);
+  g_object_set_cxx_object(G_OBJECT(vbox), "behavior-options-private", this);
+  gtk_widget_show(vbox);
   return vbox;
 }
 
@@ -284,6 +317,125 @@ MypaintOptionsGUIPrivate::reset_size (GObject* o)
 */
 }
 
+///////////////////////////////////////////////////////////////////////////////
+class MypaintBrushEditorPrivate : public MypaintGUIPrivateBase {
+public:
+  MypaintBrushEditorPrivate(GimpToolOptions* opts) :
+    MypaintGUIPrivateBase(opts)
+  {
+  }
+  GtkWidget* create();
+};
+
+GtkWidget*
+MypaintBrushEditorPrivate::create() {
+/*
+  GimpDataEditor *data_editor = GIMP_DATA_EDITOR (object);
+  GimpMypaintBrushEditor* editor = GIMP_MYPAINT_BRUSH_EDITOR (object);
+
+  if (G_OBJECT_CLASS (parent_class)->constructed)
+    G_OBJECT_CLASS (parent_class)->constructed (object);
+
+  GtkWidget      *frame;
+  GtkWidget      *hbox;
+  GtkWidget      *label;
+  GtkWidget      *box;
+
+  frame = gtk_frame_new (NULL);
+  gtk_frame_set_shadow_type (GTK_FRAME (frame), GTK_SHADOW_IN);
+  gtk_box_pack_start (GTK_BOX (editor), frame, TRUE, TRUE, 0);
+  gtk_widget_show (frame);
+
+  data_editor->view = gimp_view_new_full_by_types (NULL,
+                                                   GIMP_TYPE_VIEW,
+                                                   GIMP_TYPE_MYPAINT_BRUSH,
+                                                   MYPAINT_BRUSH_VIEW_SIZE,
+                                                   MYPAINT_BRUSH_VIEW_SIZE, 0,
+                                                   FALSE, FALSE, TRUE);
+  gtk_widget_set_size_request (data_editor->view, -1, MYPAINT_BRUSH_VIEW_SIZE);
+  gimp_view_set_expand (GIMP_VIEW (data_editor->view), TRUE);
+  gtk_container_add (GTK_CONTAINER (frame), data_editor->view);
+  gtk_widget_show (data_editor->view);
+*/
+  GtkWidget* brushsetting_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+  gtk_widget_show(brushsetting_vbox);
+
+
+  GList* setting_groups;
+  setting_groups = mypaint_brush_get_setting_group_list();
+/*
+  GimpContext* context;
+  g_object_get(object, "context", &context, NULL);
+ */ 
+    
+
+  for (GList* iter = setting_groups; iter; iter = iter->next) {
+    MypaintBrushSettingGroup* group =
+      (MypaintBrushSettingGroup*)iter->data;
+//    self.visible_settings = self.visible_settings + group['settings']
+
+    ScopeGuard<gchar, void(gpointer)> bold_title(
+      g_strdup_printf("<b>%s</b>", group->display_name), g_free);    
+    GtkWidget* group_expander = gtk_expander_new(bold_title.ptr());
+    gtk_expander_set_use_markup(GTK_EXPANDER(group_expander), TRUE);
+    gtk_widget_show(group_expander);
+
+    GtkWidget* table = gtk_table_new(3, g_list_length(group->setting_list), FALSE);
+    gtk_widget_show(table);
+
+    if (strcmp(group->name, "basic") == 0)
+	gtk_expander_set_expanded (GTK_EXPANDER(group_expander), TRUE);
+
+    int count = 0;
+    for (GList* iter2 = group->setting_list; iter2; iter2 = iter2->next, count ++) {
+      MyPaintBrushSettings* s = (MyPaintBrushSettings*)iter2->data;
+      ScopeGuard<gchar,void(gpointer)> prop_name(g_strdup(s->internal_name), g_free);
+      g_strcanon(prop_name.ptr(), "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-",'-');
+      GtkWidget* h = gimp_prop_spin_scale_new(G_OBJECT(options), prop_name.ptr(),
+                               s->displayed_name,
+                               0.1, 1.0, 2);
+      gtk_widget_set_tooltip_text(h, s->tooltip);
+      gtk_widget_show(h);
+
+      GtkWidget* button = gimp_stock_button_new (GIMP_STOCK_RESET, NULL);
+      gtk_button_set_relief (GTK_BUTTON (button), GTK_RELIEF_NONE);
+      gtk_image_set_from_stock (GTK_IMAGE (gtk_bin_get_child (GTK_BIN (button))),
+                                GIMP_STOCK_RESET, GTK_ICON_SIZE_MENU);
+      gtk_widget_show (button);
+      gtk_widget_set_tooltip_text(button, _("Reset to default value"));
+      
+      //g_signal_connect_...(button, "clicked,...);
+      GtkWidget* button2;
+      if (s->constant) {
+        button2 = gtk_label_new("");
+	gtk_widget_set_tooltip_text(button2, _("No additional configuration"));
+	gtk_misc_set_alignment(GTK_MISC(button2), 0.5, 0.5);
+      } else {
+        button2 = gtk_button_new_with_label("...");
+	gtk_widget_set_tooltip_text(button2, _("Add input value mapping"));
+        //g_signal_connect...(button2, "clicked", self.details_clicked_cb, adj, s)
+      }
+      gtk_widget_show(button2);
+      gtk_table_attach(GTK_TABLE(table), h, 0, 1, count, count+1, 
+                       GtkAttachOptions(GTK_EXPAND | GTK_FILL), 
+                       GtkAttachOptions(GTK_EXPAND | GTK_FILL), 0, 0);
+      gtk_table_attach(GTK_TABLE(table), button, 1, 2, count, count+1, 
+                       GtkAttachOptions(GTK_FILL), 
+                       GtkAttachOptions(GTK_FILL), 0, 0);
+      gtk_table_attach(GTK_TABLE(table), button2, 2, 3, count, count+1, 
+                       GtkAttachOptions(GTK_FILL), 
+                       GtkAttachOptions(GTK_FILL), 0, 0);
+    }
+    gtk_container_add(GTK_CONTAINER(group_expander), table);
+    gtk_box_pack_start(GTK_BOX(brushsetting_vbox) ,group_expander,TRUE,TRUE,0);
+  }
+  
+  g_object_set_cxx_object(G_OBJECT(brushsetting_vbox), "behavior-editor-private", this);
+  return brushsetting_vbox;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
 static void
 smoothing_options_create_view (GtkWidget *button, GtkWidget **result, GObject *config)
 {
@@ -316,14 +468,38 @@ smoothing_options_create_view (GtkWidget *button, GtkWidget **result, GObject *c
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
 /*  public functions  */
 extern "C" {
 
 GtkWidget *
 gimp_mypaint_options_gui (GimpToolOptions *tool_options)
 {
+  g_print("MYPAINTOPTIONSGUI::create...\n");
   MypaintOptionsGUIPrivate* priv = new MypaintOptionsGUIPrivate(tool_options, false);
-  return priv->create();
+  MypaintBrushEditorPrivate* editor_priv = new MypaintBrushEditorPrivate(tool_options);
+  GtkWidget* priv_widget = priv->create();
+  GtkWidget* editor_widget = editor_priv->create();
+
+  GtkWidget* options_box = gtk_notebook_new();
+  gtk_widget_show (options_box);
+//  gtk_notebook_set_show_tabs(GTK_NOTEBOOK(options_box), FALSE);
+
+//  gtk_notebook_insert_page(GTK_NOTEBOOK(options_box), brushsetting_vbox, label, 0);
+//  gtk_notebook_insert_page(GTK_NOTEBOOK(editor->options_box), brushinputs, label, 1);
+//  gtk_notebook_insert_page(GTK_NOTEBOOK(editor->options_box), brushicon, label, 2);
+  gtk_notebook_insert_page(GTK_NOTEBOOK(options_box), priv_widget, gtk_label_new(_("Basic")), 0);
+  gtk_notebook_insert_page(GTK_NOTEBOOK(options_box), editor_widget, gtk_label_new("Details"), 1);
+//  gtk_notebook_set_current_page (GTK_NOTEBOOK(options_box), 1);
+#if 0
+  GtkWidget*options_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+  gtk_widget_show (options_box);
+  g_print("MYPAINTOPTIONSGUI::add PRIV_WIDGET=%lx\n", (gulong)(gpointer)priv_widget);
+  gtk_box_pack_start(GTK_BOX(options_box), priv_widget, TRUE, TRUE, 2);  
+  g_print("MYPAINTOPTIONSGUI::add EDITOR_WIDGET=%lx\n", (gulong)(gpointer)editor_widget);
+  gtk_box_pack_start(GTK_BOX(options_box), editor_widget, TRUE, TRUE, 2);  
+#endif
+  return options_box;
 }
 
 GtkWidget *

@@ -220,6 +220,7 @@ gimp_data_factory_view_constructed (GObject *object)
                                    factory_view->priv->action_group,
                                    str, NULL);
   g_free (str);
+  g_print("%s: edit_button=%lx\n", factory_view->priv->action_group, factory_view->priv->edit_button);
 
   if (gimp_data_factory_view_has_data_new_func (factory_view))
     {
