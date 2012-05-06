@@ -321,7 +321,6 @@ GimpMypaintSurface::draw_dab (float x, float y,
        pr != NULL;
        pr = pixel_regions_process ((PixelRegionIterator*)pr)) {
     guchar  *s1 = src1PR.data;
-//    g_print("render dab mask @ %d,%d-(%d,%d)\n", src1PR.x, src1PR.y, src1PR.w, src1PR.h);
 
     render_dab_mask_in_tile(dab_mask,
                     dab_offsets,
@@ -370,15 +369,15 @@ GimpMypaintSurface::draw_dab (float x, float y,
   
   
   /*  Update the drawable  */
-  gimp_drawable_update (drawable, x1, y1, width, height);
-  if (x1 < this->x1)
-    this->x1 = x1;
-  if (y1 < this->y1)
-    this->y1 = y1;
-  if (x1 + width > this->x2)
-    this->x2 = x1 + width;
-  if (y1 + height > this->y2)
-    this->y2 = y1 + height;
+  gimp_drawable_update (drawable, rx1, ry1, width, height);
+  if (rx1 < this->x1)
+    this->x1 = rx1;
+  if (ry1 < this->y1)
+    this->y1 = ry1;
+  if (rx1 + width > this->x2)
+    this->x2 = rx1 + width;
+  if (ry1 + height > this->y2)
+    this->y2 = ry1 + height;
 
   return true;
 }
