@@ -40,15 +40,19 @@ void draw_dab_pixels_BlendMode_Normal (Pixel::real  * mask,
                                        Pixel::data_t  color_b,
                                        Pixel::data_t  opacity,
                                        gint           bytes) {
+  Pixel::real colors[3];
+  colors[0] = Pixel::to_f(color_r);
+  colors[1] = Pixel::to_f(color_g);
+  colors[2] = Pixel::to_f(color_b);
   switch (bytes) {
   case 3:
     while (1) {
       for (; mask[0]; mask++, rgba+=3) {
         pixel_t opa_a = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
         pixel_t opa_b = pix( eval (f2p(1.0) - opa_a ) ); // bottomAlpha
-        rgba[0] = r2d(eval( opa_a*pix(color_r) + opa_b*pix(rgba[0]) ));
-        rgba[1] = r2d(eval( opa_a*pix(color_g) + opa_b*pix(rgba[1]) ));
-        rgba[2] = r2d(eval( opa_a*pix(color_b) + opa_b*pix(rgba[2]) ));
+        rgba[0] = r2d(eval( opa_a*pix(colors[0]) + opa_b*pix(rgba[0]) ));
+        rgba[1] = r2d(eval( opa_a*pix(colors[1]) + opa_b*pix(rgba[1]) ));
+        rgba[2] = r2d(eval( opa_a*pix(colors[2]) + opa_b*pix(rgba[2]) ));
       }
       if (!offsets[0]) break;
       rgba += offsets[0] * 3;
@@ -65,9 +69,9 @@ void draw_dab_pixels_BlendMode_Normal (Pixel::real  * mask,
         rgba[3] = r2d(alpha);
         if (alpha) {
           pixel_t dest_a = pix(alpha);
-          rgba[0] = r2d(eval( (brush_a * pix(color_r) + (f2p(1.0) - brush_a) * base_a * pix(rgba[0])) / dest_a ));
-          rgba[1] = r2d(eval( (brush_a * pix(color_g) + (f2p(1.0) - brush_a) * base_a * pix(rgba[1])) / dest_a ));
-          rgba[2] = r2d(eval( (brush_a * pix(color_b) + (f2p(1.0) - brush_a) * base_a * pix(rgba[2])) / dest_a ));
+          rgba[0] = r2d(eval( (brush_a * pix(colors[0]) + (f2p(1.0) - brush_a) * base_a * pix(rgba[0])) / dest_a ));
+          rgba[1] = r2d(eval( (brush_a * pix(colors[1]) + (f2p(1.0) - brush_a) * base_a * pix(rgba[1])) / dest_a ));
+          rgba[2] = r2d(eval( (brush_a * pix(colors[2]) + (f2p(1.0) - brush_a) * base_a * pix(rgba[2])) / dest_a ));
         } else {
           rgba[0] = color_r;
           rgba[1] = color_g;
@@ -105,6 +109,14 @@ void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::real  * mask,
                                                   Pixel::data_t background_g = Pixel::from_f(1.0),
                                                   Pixel::data_t background_b = Pixel::from_f(1.0)) {
 //  g_print("BlendMode_Normal_and_Eraser(color_a=%d)\n", color_a);
+  Pixel::real fg_color[3];
+  fg_color[0] = Pixel::to_f(color_r);
+  fg_color[1] = Pixel::to_f(color_g);
+  fg_color[2] = Pixel::to_f(color_b);
+  Pixel::real bg_color[3];
+  bg_color[0] = Pixel::to_f(background_r);
+  bg_color[1] = Pixel::to_f(background_g);
+  bg_color[2] = Pixel::to_f(background_b);
 
   switch (bytes) {
   case 3:
@@ -112,9 +124,9 @@ void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::real  * mask,
       for (; mask[0]; mask++, rgba+=3) {
         pixel_t brush_a     = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
         pixel_t inv_brush_a = pix( eval (f2p(1.0) - brush_a ) ); // bottomAlpha
-        rgba[0] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(background_r) + pix(color_a)*pix(color_r)) + inv_brush_a*pix(rgba[0]) ));
-        rgba[1] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(background_g) + pix(color_a)*pix(color_g)) + inv_brush_a*pix(rgba[1]) ));
-        rgba[2] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(background_b) + pix(color_a)*pix(color_b)) + inv_brush_a*pix(rgba[2]) ));
+        rgba[0] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(bg_color[0]) + pix(color_a)*pix(fg_color[0])) + inv_brush_a*pix(rgba[0]) ));
+        rgba[1] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(bg_color[1]) + pix(color_a)*pix(fg_color[1])) + inv_brush_a*pix(rgba[1]) ));
+        rgba[2] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(bg_color[2]) + pix(color_a)*pix(fg_color[2])) + inv_brush_a*pix(rgba[2]) ));
       }
       if (!offsets[0]) break;
       rgba += offsets[0] * 3;
@@ -134,9 +146,9 @@ void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::real  * mask,
         if (alpha) {
           pixel_t inv_brush_a = pix( eval(pix(1.0f) - brush_a));
           pixel_t dest_a = pix(alpha);
-          rgba[0] = r2d(eval( (inv_brush_a*base_a*pix(rgba[0]) + brush_a*pix(color_a)*pix(color_r)) / dest_a ));
-          rgba[1] = r2d(eval( (inv_brush_a*base_a*pix(rgba[1]) + brush_a*pix(color_a)*pix(color_g)) / dest_a ));
-          rgba[2] = r2d(eval( (inv_brush_a*base_a*pix(rgba[2]) + brush_a*pix(color_a)*pix(color_b)) / dest_a ));
+          rgba[0] = r2d(eval( (inv_brush_a*base_a*pix(rgba[0]) + brush_a*pix(color_a)*pix(fg_color[0])) / dest_a ));
+          rgba[1] = r2d(eval( (inv_brush_a*base_a*pix(rgba[1]) + brush_a*pix(color_a)*pix(fg_color[1])) / dest_a ));
+          rgba[2] = r2d(eval( (inv_brush_a*base_a*pix(rgba[2]) + brush_a*pix(color_a)*pix(fg_color[2])) / dest_a ));
         } else {
           rgba[0] = color_r;
           rgba[1] = color_g;
