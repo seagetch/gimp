@@ -28,6 +28,7 @@ extern "C" {
 
 extern "C++" {
 #include "mypaintbrush-surface.hpp"
+#define REAL_CALC
 #include "base/pixel.hpp"
 
 class GimpMypaintSurface : public Surface
@@ -66,7 +67,7 @@ private:
                                        gint         h);
 #endif
 
-  void render_dab_mask_in_tile (Pixel::data_t * dab_mask,
+  void render_dab_mask_in_tile (Pixel::real * dab_mask,
                                 gint          *offsets,
                                 float x, float y,
                                 float radius,

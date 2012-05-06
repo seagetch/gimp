@@ -829,10 +829,12 @@ gimp_display_shell_canvas_tool_events (GtkWidget        *canvas,
                                        (shell->scroll_start_y - y -
                                         shell->offset_y));
           }
-        else if (state & GDK_BUTTON1_MASK)
+        else if (state & GDK_BUTTON1_MASK || 
+                 (active_tool && active_tool->want_full_motion_tracking))
           {
             if (active_tool                                        &&
-                gimp_tool_control_is_active (active_tool->control) &&
+                (gimp_tool_control_is_active (active_tool->control) ||
+                 active_tool->want_full_motion_tracking) &&
                 (! gimp_image_is_empty (image) ||
                  gimp_tool_control_get_handle_empty_image (active_tool->control)))
               {
@@ -1176,7 +1178,8 @@ gimp_display_shell_buffer_stroke (GimpMotionBuffer *buffer,
   active_tool = tool_manager_get_active (gimp);
 
   if (active_tool &&
-      gimp_tool_control_is_active (active_tool->control))
+      (gimp_tool_control_is_active (active_tool->control)||
+       active_tool->want_full_motion_tracking))
     {
       tool_manager_motion_active (gimp,
                                   coords, time, state,

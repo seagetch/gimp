@@ -41,6 +41,7 @@ struct _GimpTool
   GimpToolInfo    *tool_info;
 
   gint             ID;          /*  unique tool ID                         */
+  gboolean         want_full_motion_tracking; /* gimp-painter: set to true to grab all motion-notify-event */
 
   GimpToolControl *control;
 

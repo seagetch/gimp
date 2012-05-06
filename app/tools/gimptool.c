@@ -178,6 +178,7 @@ gimp_tool_init (GimpTool *tool)
 {
   tool->tool_info             = NULL;
   tool->ID                    = global_tool_ID++;
+  tool->want_full_motion_tracking = FALSE;
   tool->control               = g_object_new (GIMP_TYPE_TOOL_CONTROL, NULL);
   tool->display               = NULL;
   tool->drawable              = NULL;
@@ -708,8 +709,8 @@ gimp_tool_motion (GimpTool         *tool,
   g_return_if_fail (GIMP_IS_TOOL (tool));
   g_return_if_fail (coords != NULL);
   g_return_if_fail (GIMP_IS_DISPLAY (display));
-  g_return_if_fail (gimp_tool_control_is_active (tool->control) == TRUE);
-
+  g_return_if_fail (gimp_tool_control_is_active (tool->control) == TRUE ||
+                    tool->want_full_motion_tracking);
   tool->got_motion_event = TRUE;
   gimp_tool_check_click_distance (tool, coords, time, display);
 

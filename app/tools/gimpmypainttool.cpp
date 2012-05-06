@@ -137,6 +137,8 @@ gimp_mypaint_tool_init (GimpMypaintTool *paint_tool)
 {
   GimpTool *tool = GIMP_TOOL (paint_tool);
 
+  tool->want_full_motion_tracking = TRUE;
+  
   gimp_tool_control_set_motion_mode    (tool->control, GIMP_MOTION_MODE_EXACT);
   gimp_tool_control_set_scroll_lock    (tool->control, TRUE);
   gimp_tool_control_set_action_value_1 (tool->control,
@@ -292,9 +294,15 @@ gimp_mypaint_tool_button_press (GimpTool            *tool,
       return;
     }
 */
-  /*  chain up to activate the tool  */
-  GIMP_TOOL_CLASS (parent_class)->button_press (tool, coords, time, state,
-                                                press_type, display);
+
+  {
+      GimpImage *image = gimp_display_get_image (display);
+
+      tool->display  = display;
+      tool->drawable = gimp_image_get_active_drawable (image);
+
+      gimp_tool_control_activate (tool->control);
+    }
 
   /*  pause the current selection  */
   gimp_display_shell_selection_pause (shell);
@@ -352,12 +360,6 @@ gimp_mypaint_tool_button_release (GimpTool              *tool,
 
   /*  resume the current selection  */
   gimp_display_shell_selection_resume (shell);
-
-  /*  chain up to halt the tool */
-  GIMP_TOOL_CLASS (parent_class)->button_release (tool, coords, time, state,
-                                                  release_type, display);
-
-
   gimp_image_flush (image);
 
   gimp_draw_tool_resume (GIMP_DRAW_TOOL (tool));
@@ -612,14 +614,15 @@ gimp_mypaint_tool_oper_update (GimpTool         *tool,
                                                    proximity, display);
       return;
     }
-
+#if 0
   gimp_draw_tool_pause (draw_tool);
 
   timeval tv;
   gettimeofday(&tv, NULL);
-  guint32 time = (guint32)(tv.tv_sec) * 1000 + (tv.tv_usec / 1000);
+  guint32 time = (guint32)((tv.tv_sec) * 1000.0 + (tv.tv_usec / 1000.0));
+  g_print("time=%d\n", time);
   gimp_mypaint_tool_motion_internal (tool, coords, time, state, display, FALSE);
-
+#endif
 #if 0
   if (gimp_draw_tool_is_active (draw_tool) &&
       draw_tool->display != display)
@@ -744,8 +747,9 @@ gimp_mypaint_tool_oper_update (GimpTool         *tool,
 #endif
   GIMP_TOOL_CLASS (parent_class)->oper_update (tool, coords, state, proximity,
                                                display);
-
+#if 0
   gimp_draw_tool_resume (draw_tool);
+#endif
 }
 
 static void

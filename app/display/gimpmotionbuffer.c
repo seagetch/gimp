@@ -264,6 +264,7 @@ gimp_motion_buffer_motion_event (GimpMotionBuffer *buffer,
   gdouble  delta_time  = 0.001;
   gdouble  delta_x     = 0.0;
   gdouble  delta_y     = 0.0;
+  gdouble  delta_pressure = 0.0;
   gdouble  dir_delta_x = 0.0;
   gdouble  dir_delta_y = 0.0;
   gdouble  distance    = 1.0;
@@ -295,6 +296,7 @@ gimp_motion_buffer_motion_event (GimpMotionBuffer *buffer,
 
       delta_x = last_dir_event.x - coords->x;
       delta_y = last_dir_event.y - coords->y;
+      delta_pressure = last_dir_event.pressure - coords->pressure;
 
       /*  Events with distances less than the screen resolution are
        *  not worth handling.
@@ -302,7 +304,8 @@ gimp_motion_buffer_motion_event (GimpMotionBuffer *buffer,
       filter = MIN (1.0 / scale_x, 1.0 / scale_y) / 2.0;
 
       if (fabs (delta_x) < filter &&
-          fabs (delta_y) < filter)
+          fabs (delta_y) < filter &&
+          delta_pressure == 0.0)
         {
           return FALSE;
         }

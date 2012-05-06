@@ -127,7 +127,36 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
       g_print("recreate new surface...\n");
       surface = new GimpMypaintSurface(drawable);
     }
-//    g_print("Stroke::begin_session...\n");
+
+    GimpContext* context = GIMP_CONTEXT (options);
+    //  GimpMypaintBrush* myb = context->mypaint_brush;
+    GimpMypaintBrush* myb = gimp_mypaint_options_get_current_brush (options);
+    GimpMypaintBrushPrivate *myb_priv = NULL;
+    if (myb)
+      myb_priv = reinterpret_cast<GimpMypaintBrushPrivate*>(myb->p);
+
+
+    // copy brush setting here.
+    if (myb) {
+      for (int i = 0; i < BRUSH_SETTINGS_COUNT; i ++) {
+        Mapping* m = myb_priv->get_setting(i)->mapping;
+        if (m)
+          brush->copy_mapping(i, m);
+        else {
+          brush->set_mapping_n(i, 0, 0);
+          brush->set_base_value(i, myb_priv->get_setting(i)->base_value);
+        }
+      }
+    }
+    // update color values
+    GimpRGB rgb;
+    gimp_context_get_foreground(GIMP_CONTEXT(options), &rgb);
+    GimpHSV hsv;
+    gimp_rgb_to_hsv (&rgb, &hsv);
+    brush->set_base_value(BRUSH_COLOR_H, hsv.h);
+    brush->set_base_value(BRUSH_COLOR_S, hsv.s);
+    brush->set_base_value(BRUSH_COLOR_V, hsv.v);
+    
     surface->begin_session();
   }
   
@@ -162,11 +191,12 @@ void GimpMypaintCore::split_stroke()
 
   delete stroke;  
   stroke = NULL;
-  
+  /*
   if (brush) {
     delete brush;
     brush = NULL;
   }
+  */
   return;
 }
 
@@ -177,42 +207,17 @@ void GimpMypaintCore::update_resource(GimpMypaintOptions* options)
 	GimpMypaintBrush* myb = gimp_mypaint_options_get_current_brush (options);
   GimpMypaintBrushPrivate *myb_priv = NULL;
   
-  if (myb)
-    myb_priv = reinterpret_cast<GimpMypaintBrushPrivate*>(myb->p);
-
   if (mypaint_brush != myb) {
     delete brush;
     brush = NULL;
   }
   if (!brush) {
+    g_print("Create brush object\n");
     brush = new Brush();
     mypaint_brush = myb;
-    
-    // copy brush setting here.
-    if (myb) {
-      for (int i = 0; i < BRUSH_SETTINGS_COUNT; i ++) {
-        Mapping* m = myb_priv->get_setting(i)->mapping;
-        if (m)
-          brush->copy_mapping(i, m);
-        else {
-          brush->set_mapping_n(i, 0, 0);
-          brush->set_base_value(i, myb_priv->get_setting(i)->base_value);
-        }
-      }
-    }
-    
-    // update color values
-    GimpRGB rgb;
-    gimp_context_get_foreground(context, &rgb);
-    GimpHSV hsv;
-    gimp_rgb_to_hsv (&rgb, &hsv);
-    brush->set_base_value(BRUSH_COLOR_H, hsv.h);
-    brush->set_base_value(BRUSH_COLOR_S, hsv.s);
-    brush->set_base_value(BRUSH_COLOR_V, hsv.v);
-    
     brush->reset();
   }
-  
+
 }
 
 void GimpMypaintCore::reset_brush()
