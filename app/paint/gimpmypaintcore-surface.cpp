@@ -47,15 +47,17 @@ extern "C" {
 #include "gimpmypaintcoreundo.h"
 #include "gimpmypaintoptions.h"
 
-#include "gimpairbrush.h"
-
 #include "gimp-intl.h"
 };
+
+#define REAL_CALC
 
 #include "base/pixel.hpp"
 #include "paint-funcs/mypaint-brushmodes.hpp"
 #include "gimpmypaintcore-surface.hpp"
 #include "base/delegators.hpp"
+
+const float ALPHA_THRESHOLD = (float)((1 << 16) - 1);
 
 GimpMypaintSurface::GimpMypaintSurface(GimpDrawable* d) 
   : undo_tiles(NULL), undo_desc(""), session(0), drawable(d)
@@ -74,7 +76,7 @@ GimpMypaintSurface::~GimpMypaintSurface()
 }
 
 void 
-GimpMypaintSurface::render_dab_mask_in_tile (Pixel::data_t *dab_mask,
+GimpMypaintSurface::render_dab_mask_in_tile (Pixel::real *dab_mask,
                                              gint          *offsets,
                                              float x, float y,
                                              float radius,
@@ -140,7 +142,7 @@ GimpMypaintSurface::render_dab_mask_in_tile (Pixel::data_t *dab_mask,
   
   // we do run length encoding: if opacity is zero, the next
   // value in the mask is the number of pixels that can be skipped.
-  Pixel::data_t * dab_mask_p = dab_mask;
+  Pixel::real * dab_mask_p = dab_mask;
   int skip=0;
   
   if (channelPR) {
@@ -179,12 +181,13 @@ GimpMypaintSurface::render_dab_mask_in_tile (Pixel::data_t *dab_mask,
         opa = 0.0;
       }
 
-      result_t opa_;
+      result_t opa_ = eval(pix(0.0f));
       if (channel_data)
         opa_ = eval( pix(opa) * pix(channel_data[xp]) );
       else
         opa_ = eval( pix(opa) );
-      if (!opa_) {
+
+      if (opa_ * ALPHA_THRESHOLD < 1.0) {
         skip++;
       } else {
         if (skip) {
@@ -312,7 +315,7 @@ GimpMypaintSurface::draw_dab (float x, float y,
   }
 
   // first, we calculate the mask (opacity for each pixel)
-  static Pixel::data_t dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
+  static Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
   static gint dab_offsets[(TILE_HEIGHT + 2)*2];
   for (;
        pr != NULL;
@@ -472,7 +475,7 @@ GimpMypaintSurface::get_color (float x, float y,
   }
 
   // first, we calculate the mask (opacity for each pixel)
-  static Pixel::data_t dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
+  static Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
   static gint dab_offsets[(TILE_HEIGHT + 2)*2];
   for (;
        pr != NULL;
