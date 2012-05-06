@@ -77,7 +77,7 @@ struct Pixel {
     return (data_t)((value < min)? min: (value > max)? max: value);
   }
   static real clamp(const real value, const real min, const real max) {
-    return (data_t)((value < min)? min: (value > max)? max: value);
+    return (real)((value < min)? min: (value > max)? max: value);
   }
 };
 
@@ -113,8 +113,6 @@ Pixel::expressions<Pixel::sub_t<Pixel::expressions<T1>, Pixel::expressions<T2> >
 operator - (const Pixel::expressions<T1>& l, const Pixel::expressions<T2>& r) {
   return Pixel::sub_t<Pixel::expressions<T1>,Pixel::expressions<T2> >(l, r).wrap();
 }
-
-
 
 #ifndef REAL_CALC
 
@@ -270,17 +268,29 @@ result_t eval(const Pixel::expressions<Pixel::div_t<T1, T2> >& t) {
   return Pixel::clamp(value, Pixel::from_f(0.0), Pixel::from_f(1.0));
 }
 
+inline Pixel::data_t r2d(const result_t v) {
+  return v;
+}
+
+inline internal_t r2i(const result_t v) {
+  return (internal_t)v;
+}
+
+inline Pixel::real r2f(const result_t v) {
+  return Pixel::to_f(v);
+}
+
 
 #else /* REAL_CALC */
 
 typedef Pixel::rpixel_t pixel_t;
 typedef Pixel::real internal_t;
-typedef Pixel::data_t result_t;
+typedef Pixel::real result_t;
 
 // x -> P(x)
 inline
 pixel_t pix(const Pixel::data_t v) { 
-  return Pixel::real_t(Pixel::to_f(v)).wrap();
+  return Pixel::real_t(v / (Pixel::MAX_VALUE+0.0)).wrap();
 }
 
 inline
@@ -294,13 +304,13 @@ pixel_t f2p(const Pixel::real f) {
 }
 
 inline
-internal_t raw(const pixel_t& c) {
-  return (Pixel::internal_t)c.e.v;
+internal_t raw(const Pixel::pixel_t& c) {
+  return (internal_t)Pixel::to_f(c.e.v);
 }
 
 inline
-internal_t raw(const Pixel::expressions<Pixel::real_t>& c) {
-  return (Pixel::internal_t)(c.e.v);
+internal_t raw(const pixel_t& c) {
+  return (internal_t)c.e.v;
 }
 
 template<typename T1, typename T2>
@@ -329,7 +339,19 @@ internal_t raw(const Pixel::expressions<Pixel::sub_t<T1, T2> >& t) {
 
 template<typename T>
 inline result_t eval(const Pixel::expressions<T>& t) {
-  return (result_t)(Pixel::MAX_VALUE * Pixel::clamp(raw(t), 0.0, 1.0));
+  return Pixel::clamp(raw(t), 0.0, 1.0);
+}
+
+inline Pixel::data_t r2d(const result_t v) {
+  return (Pixel::data_t)Pixel::clamp((Pixel::MAX_VALUE + 0.) * v, 0.0f, (Pixel::real)Pixel::MAX_VALUE);
+}
+
+inline internal_t r2i(const result_t v) {
+  return v;
+}
+
+inline Pixel::real r2f(const result_t v) {
+  return v;
 }
 
 #endif
