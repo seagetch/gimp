@@ -32,7 +32,7 @@
 // resultAlpha = topAlpha + (1.0 - topAlpha) * bottomAlpha
 // resultColor = topColor + (1.0 - topAlpha) * bottomColor
 //
-void draw_dab_pixels_BlendMode_Normal (Pixel::data_t * mask,
+void draw_dab_pixels_BlendMode_Normal (Pixel::real  * mask,
                                        gint          *offsets,
                                        Pixel::data_t *rgba,
                                        Pixel::data_t  color_r,
@@ -46,9 +46,9 @@ void draw_dab_pixels_BlendMode_Normal (Pixel::data_t * mask,
       for (; mask[0]; mask++, rgba+=3) {
         pixel_t opa_a = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
         pixel_t opa_b = pix( eval (f2p(1.0) - opa_a ) ); // bottomAlpha
-        rgba[0] = eval( opa_a*pix(color_r) + opa_b*pix(rgba[0]) );
-        rgba[1] = eval( opa_a*pix(color_g) + opa_b*pix(rgba[1]) );
-        rgba[2] = eval( opa_a*pix(color_b) + opa_b*pix(rgba[2]) );
+        rgba[0] = r2d(eval( opa_a*pix(color_r) + opa_b*pix(rgba[0]) ));
+        rgba[1] = r2d(eval( opa_a*pix(color_g) + opa_b*pix(rgba[1]) ));
+        rgba[2] = r2d(eval( opa_a*pix(color_b) + opa_b*pix(rgba[2]) ));
       }
       if (!offsets[0]) break;
       rgba += offsets[0] * 3;
@@ -61,12 +61,13 @@ void draw_dab_pixels_BlendMode_Normal (Pixel::data_t * mask,
       for (; mask[0]; mask++, rgba+=4) {
         pixel_t brush_a = pix( eval( pix(mask[0]) * pix(opacity) ) );
         pixel_t base_a  = pix(rgba[3]);
-        rgba[3] = eval( brush_a + (f2p(1.0) - brush_a)*base_a );
-        if (rgba[3]) {
-          pixel_t dest_a = pix(rgba[3]);
-          rgba[0] = eval( (brush_a * pix(color_r) + (f2p(1.0) - brush_a) * base_a * pix(rgba[0])) / dest_a );
-          rgba[1] = eval( (brush_a * pix(color_g) + (f2p(1.0) - brush_a) * base_a * pix(rgba[1])) / dest_a );
-          rgba[2] = eval( (brush_a * pix(color_b) + (f2p(1.0) - brush_a) * base_a * pix(rgba[2])) / dest_a );
+	result_t alpha = eval( brush_a + (f2p(1.0) - brush_a)*base_a );
+        rgba[3] = r2d(alpha);
+        if (alpha) {
+          pixel_t dest_a = pix(alpha);
+          rgba[0] = r2d(eval( (brush_a * pix(color_r) + (f2p(1.0) - brush_a) * base_a * pix(rgba[0])) / dest_a ));
+          rgba[1] = r2d(eval( (brush_a * pix(color_g) + (f2p(1.0) - brush_a) * base_a * pix(rgba[1])) / dest_a ));
+          rgba[2] = r2d(eval( (brush_a * pix(color_b) + (f2p(1.0) - brush_a) * base_a * pix(rgba[2])) / dest_a ));
         } else {
           rgba[0] = color_r;
           rgba[1] = color_g;
@@ -91,7 +92,7 @@ void draw_dab_pixels_BlendMode_Normal (Pixel::data_t * mask,
 // and color_r/g/b will be ignored. This function can also do normal
 // blending (color_a=1.0).
 //
-void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::data_t * mask,
+void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::real  * mask,
                                                   gint          *offsets,
                                                   Pixel::data_t * rgba,
                                                   Pixel::data_t color_r,
@@ -111,9 +112,9 @@ void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::data_t * mask,
       for (; mask[0]; mask++, rgba+=3) {
         pixel_t brush_a     = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
         pixel_t inv_brush_a = pix( eval (f2p(1.0) - brush_a ) ); // bottomAlpha
-        rgba[0] = eval( brush_a*((pix(1.0f) - pix(color_a))*pix(background_r) + pix(color_a)*pix(color_r)) + inv_brush_a*pix(rgba[0]) );
-        rgba[1] = eval( brush_a*((pix(1.0f) - pix(color_a))*pix(background_g) + pix(color_a)*pix(color_g)) + inv_brush_a*pix(rgba[1]) );
-        rgba[2] = eval( brush_a*((pix(1.0f) - pix(color_a))*pix(background_b) + pix(color_a)*pix(color_b)) + inv_brush_a*pix(rgba[2]) );
+        rgba[0] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(background_r) + pix(color_a)*pix(color_r)) + inv_brush_a*pix(rgba[0]) ));
+        rgba[1] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(background_g) + pix(color_a)*pix(color_g)) + inv_brush_a*pix(rgba[1]) ));
+        rgba[2] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(background_b) + pix(color_a)*pix(color_b)) + inv_brush_a*pix(rgba[2]) ));
       }
       if (!offsets[0]) break;
       rgba += offsets[0] * 3;
@@ -127,14 +128,15 @@ void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::data_t * mask,
         pixel_t brush_a = pix( eval( pix(mask[0]) * pix(opacity) ) );
         pixel_t base_a  = pix(rgba[3]);
 //        pixel_t orig_dest = pix(rgba[3]);
-        rgba[3] = eval( brush_a * pix(color_a) + (pix(1.0f) - brush_a) * base_a );
+	result_t alpha = eval( brush_a * pix(color_a) + (pix(1.0f) - brush_a) * base_a );
+        rgba[3] = r2d(alpha);
         
-        if (rgba[3]) {
+        if (alpha) {
           pixel_t inv_brush_a = pix( eval(pix(1.0f) - brush_a));
-          pixel_t dest_a = pix(rgba[3]);
-          rgba[0] = eval( (inv_brush_a*base_a*pix(rgba[0]) + brush_a*pix(color_a)*pix(color_r)) / dest_a );
-          rgba[1] = eval( (inv_brush_a*base_a*pix(rgba[1]) + brush_a*pix(color_a)*pix(color_g)) / dest_a );
-          rgba[2] = eval( (inv_brush_a*base_a*pix(rgba[2]) + brush_a*pix(color_a)*pix(color_b)) / dest_a );
+          pixel_t dest_a = pix(alpha);
+          rgba[0] = r2d(eval( (inv_brush_a*base_a*pix(rgba[0]) + brush_a*pix(color_a)*pix(color_r)) / dest_a ));
+          rgba[1] = r2d(eval( (inv_brush_a*base_a*pix(rgba[1]) + brush_a*pix(color_a)*pix(color_g)) / dest_a ));
+          rgba[2] = r2d(eval( (inv_brush_a*base_a*pix(rgba[2]) + brush_a*pix(color_a)*pix(color_b)) / dest_a ));
         } else {
           rgba[0] = color_r;
           rgba[1] = color_g;
@@ -154,7 +156,7 @@ void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::data_t * mask,
 
 // This is BlendMode_Normal with locked alpha channel.
 //
-void draw_dab_pixels_BlendMode_LockAlpha (Pixel::data_t * mask,
+void draw_dab_pixels_BlendMode_LockAlpha (Pixel::real * mask,
                                           Pixel::data_t * rgba,
                                           Pixel::data_t color_r,
                                           Pixel::data_t color_g,
@@ -166,13 +168,13 @@ void draw_dab_pixels_BlendMode_LockAlpha (Pixel::data_t * mask,
       pixel_t opa_a = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
       pixel_t opa_b = pix( eval( f2p(1.0) - opa_a) ); // bottomAlpha
       pixel_t alpha = pix( rgba[3] );
-          
-      rgba[0] = eval(opa_a*alpha*pix(color_r) + opa_b*pix(rgba[0]) );
-      rgba[1] = eval(opa_a*alpha*pix(color_g) + opa_b*pix(rgba[1]) );
-      rgba[2] = eval(opa_a*alpha*pix(color_b) + opa_b*pix(rgba[2]) );
+      
+      rgba[0] = r2d(eval( opa_a*alpha*pix(color_r) + opa_b*pix(rgba[0]) ));
+      rgba[1] = r2d(eval( opa_a*alpha*pix(color_g) + opa_b*pix(rgba[1]) ));
+      rgba[2] = r2d(eval( opa_a*alpha*pix(color_b) + opa_b*pix(rgba[2]) ));
     }
     if (!mask[1]) break;
-    rgba += mask[1];
+    rgba += r2d(eval( pix(mask[1]) ));
     mask += 2;
   }
 };
@@ -181,7 +183,7 @@ void draw_dab_pixels_BlendMode_LockAlpha (Pixel::data_t * mask,
 // Sum up the color/alpha components inside the masked region.
 // Called by get_color().
 //
-void get_color_pixels_accumulate (Pixel::data_t * mask,
+void get_color_pixels_accumulate (Pixel::real  * mask,
                                   gint          *offsets,
                                   Pixel::data_t * rgba,
                                   float * sum_weight,
@@ -209,11 +211,11 @@ void get_color_pixels_accumulate (Pixel::data_t * mask,
     while (1) {
       for (; mask[0]; mask++, rgba+=3) {
         pixel_t opa = pix (mask[0]);
-        weight += eval(opa);
-        r      += eval (opa * pix(rgba[0]) * pix(1.0f));
-        g      += eval (opa * pix(rgba[1]) * pix(1.0f));
-        b      += eval (opa * pix(rgba[2]) * pix(1.0f));
-        a      += eval(opa);
+        weight += r2i(eval(opa));
+        r      += r2i(eval (opa * pix(rgba[0]) * pix(1.0f)));
+        g      += r2i(eval (opa * pix(rgba[1]) * pix(1.0f)));
+        b      += r2i(eval (opa * pix(rgba[2]) * pix(1.0f)));
+        a      += r2i(eval(opa));
       }
       if (!offsets[0]) break;
       rgba += offsets[0] * 3;
@@ -225,11 +227,11 @@ void get_color_pixels_accumulate (Pixel::data_t * mask,
     while (1) {
       for (; mask[0]; mask++, rgba+=4) {
         pixel_t opa = pix (mask[0]);
-        weight += eval(opa);
-        r      += eval (opa * pix(rgba[0]) * pix(rgba[3]));
-        g      += eval (opa * pix(rgba[1]) * pix(rgba[3]));
-        b      += eval (opa * pix(rgba[2]) * pix(rgba[3]));
-        a      += eval (opa * pix(rgba[3]));
+        weight += r2i(eval(opa));
+        r      += r2i(eval (opa * pix(rgba[0]) * pix(rgba[3])));
+        g      += r2i(eval (opa * pix(rgba[1]) * pix(rgba[3])));
+        b      += r2i(eval (opa * pix(rgba[2]) * pix(rgba[3])));
+        a      += r2i(eval (opa * pix(rgba[3])));
       }
       if (!offsets[0]) break;
       rgba += offsets[0] * 4;
