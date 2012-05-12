@@ -28,10 +28,12 @@ extern "C" {
 
 #include "paint-types.h"
 
+#include "base/base-types.h"
 #include "base/pixel-region.h"
 #include "base/temp-buf.h"
 #include "base/tile-manager.h"
 #include "base/tile.h"
+#include "base/pixel-processor.h"
 
 #include "core/gimp.h"
 #include "core/gimp-utils.h"
@@ -236,12 +238,6 @@ GimpMypaintSurface::draw_dab (float x, float y,
   if (hardness == 0.0) return false; // infintly small center point, fully transparent outside
   if (opaque == 0.0) return false;
 //  assert(atomic > 0);
-
-  Pixel::data_t color_r_ = Pixel::from_f(color_r);
-  Pixel::data_t color_g_ = Pixel::from_f(color_g);
-  Pixel::data_t color_b_ = Pixel::from_f(color_b);
-  Pixel::data_t color_a_ = Pixel::from_f(color_a);
-
   // blending mode preparation
   float normal = 1.0;
 
@@ -294,13 +290,7 @@ GimpMypaintSurface::draw_dab (float x, float y,
   pixel_region_init (&src1PR, gimp_drawable_get_tiles (drawable),
                      rx1, ry1, width, height,
                      TRUE);
-#if 0
-  pixel_region_resize (src2PR,
-                       src2PR->x + (x1 - x), src2PR->y + (y1 - y),
-                       x2 - x1, y2 - y1);
-#endif
 
-  gpointer pr;
   if (mask_item) {
     pixel_region_init (&maskPR,
                        gimp_drawable_get_tiles (GIMP_DRAWABLE (mask)),
@@ -308,64 +298,100 @@ GimpMypaintSurface::draw_dab (float x, float y,
                        ry1 + offset_y,
                        rx2 - rx1, ry2 - ry1,
                        TRUE);
-
-    pr = pixel_regions_register (2, &src1PR, &maskPR);
-  } else {
-    pr = pixel_regions_register (1, &src1PR);
   }
 
-  // first, we calculate the mask (opacity for each pixel)
-  static Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
-  static gint dab_offsets[(TILE_HEIGHT + 2)*2];
-  for (;
-       pr != NULL;
-       pr = pixel_regions_process ((PixelRegionIterator*)pr)) {
-    guchar  *s1 = src1PR.data;
+  struct DrawDabClosure {
+    GimpMypaintSurface* surface;
+    float x, y;
+    float radius;
+    float hardness;
+    float aspect_ratio;
+    float angle;
+    float normal;
+    float color_a;
+    Pixel::real opacity;
+    Pixel::real rgba[4];
+    Pixel::real bg_color[3];
+    
+    static void render_full(DrawDabClosure* closure, PixelRegion* src1PR, PixelRegion* maskPR) {
+      // first, we calculate the mask (opacity for each pixel)
+      Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
+      gint dab_offsets[(TILE_HEIGHT + 2)*2];
 
-    render_dab_mask_in_tile(dab_mask,
-                    dab_offsets,
-                    x - src1PR.x,
-                    y - src1PR.y,
-                    radius,
-                    hardness,
-                    aspect_ratio, angle,
-                    &src1PR, (mask_item)? &maskPR: NULL
-                    );
+      guchar  *s1 = src1PR->data;
+      
+      closure->surface->render_dab_mask_in_tile(dab_mask,
+                      dab_offsets,
+                      closure->x - src1PR->x,
+                      closure->y - src1PR->y,
+                      closure->radius,
+                      closure->hardness,
+                      closure->aspect_ratio, 
+                      closure->angle,
+                      src1PR, maskPR
+                      );
 
-    // second, we use the mask to stamp a dab for each activated blend mode
-    if (normal) {
-      if (color_a == 1.0) {
-        draw_dab_pixels_BlendMode_Normal(dab_mask, dab_offsets, 
-                                         s1, color_r_, color_g_, color_b_, 
-                                         Pixel::from_f(normal*opaque), 
-                                         src1PR.bytes);
-      } else {
-        // normal case for brushes that use smudging (eg. watercolor)
-        draw_dab_pixels_BlendMode_Normal_and_Eraser(dab_mask, dab_offsets, s1, 
-                                                    color_r_, color_g_, color_b_, color_a_, 
-                                                    Pixel::from_f(normal*opaque), 
-                                                    src1PR.bytes);
+      // second, we use the mask to stamp a dab for each activated blend mode
+      if (closure->normal) {
+        if (closure->color_a == 1.0) {
+          draw_dab_pixels_BlendMode_Normal(dab_mask, dab_offsets, 
+                                           s1, closure->rgba[0], closure->rgba[1], closure->rgba[2], 
+                                           closure->opacity, 
+                                           src1PR->bytes);
+        } else {
+          // normal case for brushes that use smudging (eg. watercolor)
+          draw_dab_pixels_BlendMode_Normal_and_Eraser(dab_mask, dab_offsets, s1, 
+                                                      closure->rgba[0], closure->rgba[1], closure->rgba[2], closure->rgba[3], 
+                                                      closure->opacity, 
+                                                      src1PR->bytes);
+        }
       }
-    }
 
-#if 0
-    if (lock_alpha) {
-      draw_dab_pixels_BlendMode_LockAlpha(dab_mask, s1,
-                                          color_r_, color_g_, color_b_, Pixel::from_f(lock_alpha*opaque));
-    }
-#endif
-#if 0
-    if (colorize) {
-      draw_dab_pixels_BlendMode_Color(mask, rgba_p,
-                                      color_r_, color_g_, color_b_,
-                                      colorize*opaque*(1<<15));
-    }
-#endif
-//      apply_layer_mode_replace (s1, s2, d, m, src1->x, src1->y + h,
-//                                opacity, src1->w,
-//                                src1->bytes, src2->bytes, affect);
+  #if 0
+      if (lock_alpha) {
+        draw_dab_pixels_BlendMode_LockAlpha(dab_mask, s1,
+                                            color_r_, color_g_, color_b_, Pixel::from_f(lock_alpha*opaque));
+      }
+  #endif
+  #if 0
+      if (colorize) {
+        draw_dab_pixels_BlendMode_Color(mask, rgba_p,
+                                        color_r_, color_g_, color_b_,
+                                        colorize*opaque*(1<<15));
+      }
+  #endif
+  //      apply_layer_mode_replace (s1, s2, d, m, src1->x, src1->y + h,
+  //                                opacity, src1->w,
+  //                                src1->bytes, src2->bytes, affect);
 
-  }
+          
+    }
+        
+    static void render (DrawDabClosure* closure, PixelRegion* src1PR) {
+      return render_full(closure, src1PR, NULL);
+    }
+  };
+    
+  DrawDabClosure closure;
+  closure.surface = this;
+  closure.x = x;
+  closure.y = y;
+  closure.radius = radius;
+  closure.hardness = hardness;
+  closure.aspect_ratio = aspect_ratio;
+  closure.angle = angle;
+  closure.normal = normal;
+  closure.color_a = color_a;
+  closure.opacity = normal * opaque;
+  closure.rgba[0] = color_r;
+  closure.rgba[1] = color_g;
+  closure.rgba[2] = color_b;
+  closure.rgba[3] = color_a;
+
+  if (!mask_item)
+    pixel_regions_process_parallel((PixelProcessorFunc)DrawDabClosure::render, &closure, 1, &src1PR);
+  else
+    pixel_regions_process_parallel((PixelProcessorFunc)DrawDabClosure::render_full, &closure, 2, &src1PR, &maskPR);
   
   
   /*  Update the drawable  */
@@ -453,11 +479,6 @@ GimpMypaintSurface::get_color (float x, float y,
   pixel_region_init (&src1PR, gimp_drawable_get_tiles (drawable),
                      rx1, ry1, width, height,
                      FALSE);
-#if 0
-  pixel_region_resize (src2PR,
-                       src2PR->x + (x1 - x), src2PR->y + (y1 - y),
-                       x2 - x1, y2 - y1);
-#endif
 
   gpointer pr;
   if (mask_item) {

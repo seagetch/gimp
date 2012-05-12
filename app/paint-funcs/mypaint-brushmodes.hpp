@@ -33,17 +33,17 @@
 // resultColor = topColor + (1.0 - topAlpha) * bottomColor
 //
 void draw_dab_pixels_BlendMode_Normal (Pixel::real  * mask,
-                                       gint          *offsets,
-                                       Pixel::data_t *rgba,
-                                       Pixel::data_t  color_r,
-                                       Pixel::data_t  color_g,
-                                       Pixel::data_t  color_b,
-                                       Pixel::data_t  opacity,
+                                       gint         *offsets,
+                                       Pixel::data_t*rgba,
+                                       Pixel::real   color_r,
+                                       Pixel::real   color_g,
+                                       Pixel::real   color_b,
+                                       Pixel::real   opacity,
                                        gint           bytes) {
   Pixel::real colors[3];
-  colors[0] = Pixel::to_f(color_r);
-  colors[1] = Pixel::to_f(color_g);
-  colors[2] = Pixel::to_f(color_b);
+  colors[0] = color_r;
+  colors[1] = color_g;
+  colors[2] = color_b;
   switch (bytes) {
   case 3:
     while (1) {
@@ -65,7 +65,7 @@ void draw_dab_pixels_BlendMode_Normal (Pixel::real  * mask,
       for (; mask[0]; mask++, rgba+=4) {
         pixel_t brush_a = pix( eval( pix(mask[0]) * pix(opacity) ) );
         pixel_t base_a  = pix(rgba[3]);
-	result_t alpha = eval( brush_a + (f2p(1.0) - brush_a)*base_a );
+	      result_t alpha = eval( brush_a + (f2p(1.0) - brush_a)*base_a );
         rgba[3] = r2d(alpha);
         if (alpha) {
           pixel_t dest_a = pix(alpha);
@@ -99,24 +99,24 @@ void draw_dab_pixels_BlendMode_Normal (Pixel::real  * mask,
 void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::real  * mask,
                                                   gint          *offsets,
                                                   Pixel::data_t * rgba,
-                                                  Pixel::data_t color_r,
-                                                  Pixel::data_t color_g,
-                                                  Pixel::data_t color_b,
-                                                  Pixel::data_t color_a,
-                                                  Pixel::data_t opacity,
+                                                  Pixel::real   color_r,
+                                                  Pixel::real   color_g,
+                                                  Pixel::real   color_b,
+                                                  Pixel::real   color_a,
+                                                  Pixel::real   opacity,
                                                   gint          bytes,
-                                                  Pixel::data_t background_r = Pixel::from_f(1.0),
-                                                  Pixel::data_t background_g = Pixel::from_f(1.0),
-                                                  Pixel::data_t background_b = Pixel::from_f(1.0)) {
+                                                  Pixel::real   background_r = 1.0f,
+                                                  Pixel::real   background_g = 1.0f,
+                                                  Pixel::real   background_b = 1.0f) {
 //  g_print("BlendMode_Normal_and_Eraser(color_a=%d)\n", color_a);
   Pixel::real fg_color[3];
-  fg_color[0] = Pixel::to_f(color_r);
-  fg_color[1] = Pixel::to_f(color_g);
-  fg_color[2] = Pixel::to_f(color_b);
+  fg_color[0] = color_r;
+  fg_color[1] = color_g;
+  fg_color[2] = color_b;
   Pixel::real bg_color[3];
-  bg_color[0] = Pixel::to_f(background_r);
-  bg_color[1] = Pixel::to_f(background_g);
-  bg_color[2] = Pixel::to_f(background_b);
+  bg_color[0] = background_r;
+  bg_color[1] = background_g;
+  bg_color[2] = background_b;
 
   switch (bytes) {
   case 3:
@@ -140,7 +140,7 @@ void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::real  * mask,
         pixel_t brush_a = pix( eval( pix(mask[0]) * pix(opacity) ) );
         pixel_t base_a  = pix(rgba[3]);
 //        pixel_t orig_dest = pix(rgba[3]);
-	result_t alpha = eval( brush_a * pix(color_a) + (pix(1.0f) - brush_a) * base_a );
+	      result_t alpha = eval( brush_a * pix(color_a) + (pix(1.0f) - brush_a) * base_a );
         rgba[3] = r2d(alpha);
         
         if (alpha) {
@@ -168,12 +168,18 @@ void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::real  * mask,
 
 // This is BlendMode_Normal with locked alpha channel.
 //
-void draw_dab_pixels_BlendMode_LockAlpha (Pixel::real * mask,
+void draw_dab_pixels_BlendMode_LockAlpha (Pixel::real  * mask,
+                                          gint          *offsets,
                                           Pixel::data_t * rgba,
-                                          Pixel::data_t color_r,
-                                          Pixel::data_t color_g,
-                                          Pixel::data_t color_b,
-                                          Pixel::data_t opacity) {
+                                          Pixel::real   color_r,
+                                          Pixel::real   color_g,
+                                          Pixel::real   color_b,
+                                          Pixel::real   color_a,
+                                          Pixel::real   opacity,
+                                          gint          bytes,
+                                          Pixel::real   background_r = 1.0f,
+                                          Pixel::real   background_g = 1.0f,
+                                          Pixel::real   background_b = 1.0f) {
 
   while (1) {
     for (; mask[0]; mask++, rgba+=4) {
