@@ -313,12 +313,13 @@ gimp_mypaint_tool_button_press (GimpTool            *tool,
       // For the mouse we don't get a motion event for "pressure"
       // changes, so we simulate it. (Note: we can't use the
       // event's button state because it carries the old state.)
-      gimp_mypaint_tool_motion_internal (tool, coords, time, state, display, TRUE);
+      gimp_mypaint_tool_motion_internal (tool, coords, time, state, display, coords->pressure > 0.0 || (state & GDK_BUTTON1_MASK));
     }
   }
 
   gimp_projection_flush_now (gimp_image_get_projection (image));
   gimp_display_flush_now (display);
+  GIMP_MYPAINT_TOOL(tool)->last_flush_time = time;
   gimp_draw_tool_start (draw_tool, display);
 }
 
@@ -356,7 +357,7 @@ gimp_mypaint_tool_button_release (GimpTool              *tool,
   gimp_draw_tool_pause (GIMP_DRAW_TOOL (tool));
 
   /*  Let the specific painting function finish up  */
-  gimp_mypaint_tool_motion_internal (tool, coords, time, state, display, FALSE);
+  gimp_mypaint_tool_motion_internal (tool, coords, time, state, display, coords->pressure > 0.0 || (state & GDK_BUTTON1_MASK));
 
   /*  resume the current selection  */
   gimp_display_shell_selection_resume (shell);
@@ -372,7 +373,7 @@ gimp_mypaint_tool_motion (GimpTool         *tool,
                         GdkModifierType   state,
                         GimpDisplay      *display)
 {
-  gimp_mypaint_tool_motion_internal (tool, coords, time, state, display, TRUE);
+  gimp_mypaint_tool_motion_internal (tool, coords, time, state, display, coords->pressure > 0.0 || (state & GDK_BUTTON1_MASK));
 }
 
 
@@ -489,8 +490,14 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
 
   core->stroke_to(drawable, dtime, &curr_coords, paint_options);
 
-  gimp_projection_flush (gimp_image_get_projection (image));
-  gimp_display_flush (display);
+  if (time - paint_tool->last_flush_time > 100) {
+    gimp_projection_finish_draw (gimp_image_get_projection (image)); 
+    gimp_display_flush_now (display);
+    paint_tool->last_flush_time = time;
+  } else {
+    gimp_projection_flush (gimp_image_get_projection (image));
+    gimp_display_flush (display);
+  }
 
   gimp_draw_tool_resume (GIMP_DRAW_TOOL (tool));
 }
