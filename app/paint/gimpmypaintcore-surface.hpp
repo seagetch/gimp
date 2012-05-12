@@ -67,6 +67,12 @@ private:
                                        gint         h);
 #endif
 
+  void start_undo_group();
+  void stop_updo_group();
+public:
+  GimpMypaintSurface(GimpDrawable* drawable);
+  virtual ~GimpMypaintSurface();
+
   void render_dab_mask_in_tile (Pixel::real * dab_mask,
                                 gint          *offsets,
                                 float x, float y,
@@ -76,12 +82,6 @@ private:
                                 PixelRegion* srcPR,
                                 PixelRegion* channelPR
                                 );
-  void start_undo_group();
-  void stop_updo_group();
-public:
-  GimpMypaintSurface(GimpDrawable* drawable);
-  virtual ~GimpMypaintSurface();
-
   virtual bool draw_dab (float x, float y, 
                          float radius, 
                          float color_r, float color_g, float color_b,
