@@ -60,10 +60,10 @@ struct Pixel {
   static const data_t MAX_VALUE = (data_t)((internal_t)(1 << DEPTH) - 1);
   
   static data_t from_f(const float v) { 
-    return (data_t)(CLAMP(CLAMP(v, 0, 1.0) * MAX_VALUE, 0, MAX_VALUE));
+    return (data_t)(CLAMP(CLAMP(v, 0, 1.0) * MAX_VALUE + 0.5f, 0, MAX_VALUE));
   };
   static float to_f(const data_t v) {
-    return ((float)v) / MAX_VALUE;
+    return ((float)v) / (float)MAX_VALUE;
   };
   static data_t from_u8(const guchar v) {
     return v;
@@ -290,7 +290,7 @@ typedef Pixel::real result_t;
 // x -> P(x)
 inline
 pixel_t pix(const Pixel::data_t v) { 
-  return Pixel::real_t(v / (Pixel::MAX_VALUE+0.0)).wrap();
+  return Pixel::real_t((float)v / (float)(Pixel::MAX_VALUE)).wrap();
 }
 
 inline
@@ -343,7 +343,7 @@ inline result_t eval(const Pixel::expressions<T>& t) {
 }
 
 inline Pixel::data_t r2d(const result_t v) {
-  return (Pixel::data_t)Pixel::clamp((Pixel::MAX_VALUE + 0.) * v, 0.0f, (Pixel::real)Pixel::MAX_VALUE);
+  return (Pixel::data_t)Pixel::clamp(((float)Pixel::MAX_VALUE) * v + 0.5f, 0.0f, (Pixel::real)Pixel::MAX_VALUE);
 }
 
 inline internal_t r2i(const result_t v) {
