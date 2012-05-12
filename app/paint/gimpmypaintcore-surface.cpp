@@ -308,6 +308,8 @@ GimpMypaintSurface::draw_dab (float x, float y,
     float aspect_ratio;
     float angle;
     float normal;
+    float lock_alpha;
+    float opaque;
     float color_a;
     Pixel::real opacity;
     Pixel::real rgba[4];
@@ -336,23 +338,23 @@ GimpMypaintSurface::draw_dab (float x, float y,
         if (closure->color_a == 1.0) {
           draw_dab_pixels_BlendMode_Normal(dab_mask, dab_offsets, 
                                            s1, closure->rgba[0], closure->rgba[1], closure->rgba[2], 
-                                           closure->opacity, 
+                                           closure->normal * closure->opaque, 
                                            src1PR->bytes);
         } else {
           // normal case for brushes that use smudging (eg. watercolor)
           draw_dab_pixels_BlendMode_Normal_and_Eraser(dab_mask, dab_offsets, s1, 
                                                       closure->rgba[0], closure->rgba[1], closure->rgba[2], closure->rgba[3], 
-                                                      closure->opacity, 
+                                                      closure->normal * closure->opaque, 
                                                       src1PR->bytes);
         }
       }
 
-  #if 0
-      if (lock_alpha) {
-        draw_dab_pixels_BlendMode_LockAlpha(dab_mask, s1,
-                                            color_r_, color_g_, color_b_, Pixel::from_f(lock_alpha*opaque));
+      if (closure->lock_alpha) {
+        draw_dab_pixels_BlendMode_LockAlpha(dab_mask, dab_offsets, s1,
+                                            closure->rgba[0], closure->rgba[1], closure->rgba[2], 
+                                            closure->lock_alpha * closure->opaque, src1PR->bytes);
       }
-  #endif
+
   #if 0
       if (colorize) {
         draw_dab_pixels_BlendMode_Color(mask, rgba_p,
@@ -382,7 +384,9 @@ GimpMypaintSurface::draw_dab (float x, float y,
   closure.angle = angle;
   closure.normal = normal;
   closure.color_a = color_a;
-  closure.opacity = normal * opaque;
+  closure.normal = normal;
+  closure.opaque = opaque;
+  closure.lock_alpha = lock_alpha;
   closure.rgba[0] = color_r;
   closure.rgba[1] = color_g;
   closure.rgba[2] = color_b;

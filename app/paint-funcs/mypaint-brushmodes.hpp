@@ -174,26 +174,38 @@ void draw_dab_pixels_BlendMode_LockAlpha (Pixel::real  * mask,
                                           Pixel::real   color_r,
                                           Pixel::real   color_g,
                                           Pixel::real   color_b,
-                                          Pixel::real   color_a,
                                           Pixel::real   opacity,
-                                          gint          bytes,
-                                          Pixel::real   background_r = 1.0f,
-                                          Pixel::real   background_g = 1.0f,
-                                          Pixel::real   background_b = 1.0f) {
+                                          gint          bytes) {
+  switch (bytes) {
+  case 3:
+    draw_dab_pixels_BlendMode_Normal(mask, offsets, rgba, color_r, color_g, color_b, opacity, bytes);
+    break;
+  case 4:
+    Pixel::real fg_color[3];
+    fg_color[0] = color_r;
+    fg_color[1] = color_g;
+    fg_color[2] = color_b;
 
-  while (1) {
-    for (; mask[0]; mask++, rgba+=4) {
-      pixel_t opa_a = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
-      pixel_t opa_b = pix( eval( f2p(1.0) - opa_a) ); // bottomAlpha
-      pixel_t alpha = pix( rgba[3] );
-      
-      rgba[0] = r2d(eval( opa_a*alpha*pix(color_r) + opa_b*pix(rgba[0]) ));
-      rgba[1] = r2d(eval( opa_a*alpha*pix(color_g) + opa_b*pix(rgba[1]) ));
-      rgba[2] = r2d(eval( opa_a*alpha*pix(color_b) + opa_b*pix(rgba[2]) ));
+    while (1) {
+      for (; mask[0]; mask++, rgba+=4) {
+        pixel_t brush_a = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
+        pixel_t inv_brush_a = pix( eval( f2p(1.0) - brush_a) ); // bottomAlpha
+        pixel_t alpha = pix( rgba[3] );
+        pixel_t dest_a = pix( rgba[3] );
+        pixel_t base_a = dest_a;
+        
+        rgba[0] = r2d(eval( (brush_a*alpha*pix(fg_color[0]) + inv_brush_a*base_a*pix(rgba[0])) / dest_a));
+        rgba[1] = r2d(eval( (brush_a*alpha*pix(fg_color[1]) + inv_brush_a*base_a*pix(rgba[1])) / dest_a));
+        rgba[2] = r2d(eval( (brush_a*alpha*pix(fg_color[2]) + inv_brush_a*base_a*pix(rgba[2])) / dest_a));
+      }
+      if (!offsets[0]) break;
+      rgba += offsets[0] * 4;
+      offsets ++;
+      mask ++;
     }
-    if (!mask[1]) break;
-    rgba += r2d(eval( pix(mask[1]) ));
-    mask += 2;
+  break;
+  default:
+    g_print("Unsupported layer type.\n");
   }
 };
 

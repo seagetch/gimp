@@ -42,6 +42,7 @@ extern "C" {
 #include "core/gimppickable.h"
 #include "core/gimpprojection.h"
 #include "core/gimpmypaintbrush.h"
+#include "core/gimplayer.h"
 
 #include "gimpmypaintcoreundo.h"
 #include "gimpmypaintoptions.h"
@@ -157,6 +158,14 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
     brush->set_base_value(BRUSH_COLOR_S, hsv.s);
     brush->set_base_value(BRUSH_COLOR_V, hsv.v);
     
+    if (GIMP_IS_LAYER (drawable)) {
+      gboolean lock_alpha = gimp_layer_get_lock_alpha (GIMP_LAYER (drawable));
+
+      if (lock_alpha)
+        brush->set_base_value(BRUSH_LOCK_ALPHA, 1.0);
+      else
+        brush->set_base_value(BRUSH_LOCK_ALPHA, 0.0);
+    }
     surface->begin_session();
   }
   

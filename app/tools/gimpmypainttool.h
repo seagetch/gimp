@@ -52,6 +52,8 @@ struct _GimpMypaintTool
   gdouble last_event_y;
   gdouble last_painting_x;
   gdouble last_painting_y;
+  
+  guint32 last_flush_time;
 
   gpointer core;
 };
