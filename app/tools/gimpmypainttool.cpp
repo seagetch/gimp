@@ -489,8 +489,8 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
 
   core->stroke_to(drawable, dtime, &curr_coords, paint_options);
 
-  gimp_projection_flush_now (gimp_image_get_projection (image));
-  gimp_display_flush_now (display);
+  gimp_projection_flush (gimp_image_get_projection (image));
+  gimp_display_flush (display);
 
   gimp_draw_tool_resume (GIMP_DRAW_TOOL (tool));
 }
