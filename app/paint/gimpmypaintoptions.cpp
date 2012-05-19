@@ -92,12 +92,11 @@ gimp_mypaint_options_class_init (GimpMypaintOptionsClass *klass)
   ScopeGuard<GList, void(GList*)> brush_settings(mypaint_brush_get_brush_settings (), g_list_free);
   for (GList* i = brush_settings.ptr(); i; i = i->next) {
     MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(i->data);
-    gchar* internal_name = g_strdup(setting->internal_name);
-    g_strcanon(internal_name,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-",'-');
+    gchar* signal_name = mypaint_brush_internal_name_to_signal_name (setting->internal_name);
     g_print("install parameter %d:%s:(%f-%f),default=%f\n",
-      setting->index + 1, internal_name, setting->minimum, setting->maximum, setting->default_value);
+      setting->index + 1, signal_name, setting->minimum, setting->maximum, setting->default_value);
     GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, setting->index + 1,
-      internal_name, _(setting->displayed_name),
+      signal_name, _(setting->displayed_name),
       setting->minimum, setting->maximum,
       setting->default_value, 
       (GParamFlags)(GIMP_PARAM_STATIC_STRINGS));
@@ -293,10 +292,9 @@ gimp_mypaint_options_mypaint_brush_changed (GObject *object,
   ScopeGuard<GList, void(GList*)> brush_settings(mypaint_brush_get_brush_settings (), g_list_free);
   for (GList* i = brush_settings.ptr(); i; i = i->next) {
     MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(i->data);
-    gchar* internal_name = g_strdup(setting->internal_name);
-    g_strcanon(internal_name,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-",'-');
-    g_object_notify(object, internal_name);
-    g_free(internal_name);
+    gchar* signal = mypaint_brush_internal_name_to_signal_name(setting->internal_name);
+    g_object_notify(object, signal);
+    g_free(signal);
   }
 }
 

@@ -154,7 +154,7 @@ gimp_curve_class_init (GimpCurveClass *klass)
   GIMP_CONFIG_INSTALL_PROP_INT (object_class, PROP_N_POINTS,
                                 "n-points",
                                 "The number of points",
-                                17, 17, 17, 0);
+                                1, 17, 17, 0);
 
   array_spec = g_param_spec_double ("point", NULL, NULL,
                                     -1.0, 1.0, 0.0, GIMP_PARAM_READWRITE);

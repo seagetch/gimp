@@ -197,7 +197,7 @@ gimp_gui_config_class_init (GimpGuiConfigClass *klass)
   GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_TOOLBOX_WILBER,
                                     "toolbox-wilber",
                                     TOOLBOX_WILBER_BLURB,
-                                    TRUE,
+                                    FALSE,
                                     GIMP_PARAM_STATIC_STRINGS);
   path = gimp_config_build_data_path ("themes");
   GIMP_CONFIG_INSTALL_PROP_PATH (object_class, PROP_THEME_PATH,

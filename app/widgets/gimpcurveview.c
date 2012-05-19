@@ -223,7 +223,7 @@ gimp_curve_view_init (GimpCurveView *view)
 
   view->x_axis_label = NULL;
   view->y_axis_label = NULL;
-
+  
   gtk_widget_set_can_focus (GTK_WIDGET (view), TRUE);
   gtk_widget_add_events (GTK_WIDGET (view),
                          GDK_BUTTON_PRESS_MASK   |
@@ -775,6 +775,7 @@ gimp_curve_view_button_press (GtkWidget      *widget,
   gdouble        y;
   gint           closest_point;
   gint           i;
+  gint           n_points = 0;
 
   if (! curve || bevent->button != 1)
     return TRUE;
@@ -830,7 +831,6 @@ gimp_curve_view_button_press (GtkWidget      *widget,
         }
 
       gimp_curve_view_set_selected (view, closest_point);
-
       gimp_curve_set_point (curve, view->selected, x, 1.0 - y);
       break;
 
@@ -1342,6 +1342,28 @@ gimp_curve_view_set_range_y (GimpCurveView *view,
 
   view->range_y_min = min;
   view->range_y_max = max;
+}
+
+void
+gimp_curve_view_get_range_x (GimpCurveView *view,
+                             gdouble       *min,
+                             gdouble       *max)
+{
+  g_return_if_fail (GIMP_IS_CURVE_VIEW (view));
+
+  *min = view->range_x_min;
+  *max = view->range_x_max;
+}
+
+void
+gimp_curve_view_get_range_y (GimpCurveView *view,
+                             gdouble       *min,
+                             gdouble       *max)
+{
+  g_return_if_fail (GIMP_IS_CURVE_VIEW (view));
+
+  *min = view->range_y_min;
+  *max = view->range_y_max;
 }
 
 void

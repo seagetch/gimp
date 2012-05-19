@@ -63,4 +63,7 @@ GHashTable *mypaint_brush_get_input_settings_dict (void);
 GHashTable *mypaint_brush_get_setting_migrate_dict (void);
 GHashTable *mypaint_brush_get_setting_group_dict (void);
 GList *mypaint_brush_get_setting_group_list (void);
+
+gchar* mypaint_brush_internal_name_to_signal_name (const gchar* name);
+gchar* mypaint_brush_signal_name_to_internal_name (const gchar* signal);
 #endif

@@ -109,6 +109,12 @@ void        gimp_curve_view_set_range_x       (GimpCurveView *view,
 void        gimp_curve_view_set_range_y       (GimpCurveView *view,
                                                gdouble        min,
                                                gdouble        max);
+void        gimp_curve_view_get_range_x       (GimpCurveView *view,
+                                               gdouble       *min,
+                                               gdouble       *max);
+void        gimp_curve_view_get_range_y       (GimpCurveView *view,
+                                               gdouble       *min,
+                                               gdouble       *max);
 void        gimp_curve_view_set_xpos          (GimpCurveView *view,
                                                gdouble        x);
 
@@ -116,6 +122,5 @@ void        gimp_curve_view_set_x_axis_label  (GimpCurveView *view,
                                                const gchar   *label);
 void        gimp_curve_view_set_y_axis_label  (GimpCurveView *view,
                                                const gchar   *label);
-
 
 #endif /* __GIMP_CURVE_VIEW_H__ */

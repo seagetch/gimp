@@ -31,6 +31,8 @@ extern "C" {
 #include "core/gimpmypaintbrush.h"
 #include "core/gimptoolinfo.h"
 #include "core/mypaintbrush-brushsettings.h"
+#include "core/gimpmypaintbrush-private.hpp"
+#include "core/gimpcurve.h"
 
 #include "paint/gimpmypaintoptions.h"
 
@@ -39,6 +41,7 @@ extern "C" {
 #include "widgets/gimpviewablebox.h"
 #include "widgets/gimpwidgets-constructors.h"
 #include "widgets/gimppopupbutton.h"
+#include "widgets/gimpcurveview.h"
 
 #include "widgets/gimpwidgets-utils.h"
 
@@ -83,8 +86,9 @@ protected:
 				     GHashTable* dict,
 				     const gchar* name) 
     {
-      ScopeGuard<gchar, void(gpointer)> name_replaced(g_strdup(name), g_free);
-      g_strcanon(name_replaced.ptr(), "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_",'_');
+      ScopeGuard<gchar, void(gpointer)> name_replaced(
+        mypaint_brush_signal_name_to_internal_name(name), g_free);
+
       setting = reinterpret_cast<MyPaintBrushSettings*>(g_hash_table_lookup(dict, name_replaced.ptr()));
       internal_name = (gchar*)g_strdup(name);
       property_name = (gchar*)g_strdup_printf("notify::%s", name);
@@ -100,7 +104,8 @@ protected:
       if (internal_name)
 	g_free(internal_name);
       
-/*      if (widget && value_changed_closure) {
+/*
+      if (widget && value_changed_closure) {
 	  gulong handler_id = g_signal_handler_find(gpointer(widget), G_SIGNAL_MATCH_CLOSURE, 0, 0, value_changed_closure, NULL, NULL);
 	  g_signal_handler_disconnect(gpointer(widget), handler_id);
 	  value_changed_closure = NULL;
@@ -169,7 +174,6 @@ public:
   GtkWidget* create();
 
   void destroy(GObject* o);
-  void create_basic_options(GObject* object, GtkWidget** result);
   void reset_size(GObject *o);
 };
 
@@ -240,7 +244,7 @@ MypaintOptionsGUIPrivate::create ()
       }
 
       scale_obj = 
-	new MypaintOptionsPropertyGUIPrivate(options, brush_settings_dict.ptr(), "radius-logarithmic");
+        new MypaintOptionsPropertyGUIPrivate(options, brush_settings_dict.ptr(), "radius-logarithmic");
       scale = scale_obj->create();
       gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
       gtk_widget_show (scale);
@@ -267,7 +271,7 @@ MypaintOptionsGUIPrivate::create ()
       }
 
       scale_obj = 
-	new MypaintOptionsPropertyGUIPrivate(options, brush_settings_dict.ptr(), "slow-tracking");
+        new MypaintOptionsPropertyGUIPrivate(options, brush_settings_dict.ptr(), "slow-tracking");
       scale = scale_obj->create();
       gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
       gtk_widget_show (scale);
@@ -280,7 +284,7 @@ MypaintOptionsGUIPrivate::create ()
         gtk_widget_show (hbox);
       }
       scale_obj = 
-	new MypaintOptionsPropertyGUIPrivate(options, brush_settings_dict.ptr(), "hardness");
+        new MypaintOptionsPropertyGUIPrivate(options, brush_settings_dict.ptr(), "hardness");
       scale = scale_obj->create();
       gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
       gtk_widget_show (scale);
@@ -318,61 +322,430 @@ MypaintOptionsGUIPrivate::reset_size (GObject* o)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+
+class ComplexBindAction {
+protected:
+  GObject* receiver;
+
+  template<typename Delegator>
+  void bind_to_full(GObject* target, const gchar* signal_name, Delegator* delegator) {
+    ScopeGuard<gchar, void(gpointer)> object_id(g_strdup_printf("behavior-%s-action", signal_name), g_free);
+    g_signal_connect_delegator (G_OBJECT(target), signal_name, delegator);
+    g_object_set_cxx_object(G_OBJECT(target), object_id, this);
+  };
+
+public:
+  ComplexBindAction(GObject* receiver_) : receiver(receiver_) {
+  };
+  virtual ~ComplexBindAction() {}
+  
+};
+
+class SimpleBindAction : public ComplexBindAction {
+protected:
+  virtual void emit(GObject* event_target) {};
+
+  void bind_to(GObject* target, const gchar* signal_name) {
+    bind_to_full(target, signal_name, Delegator::delegator(this, &SimpleBindAction::emit));
+  };
+
+public:
+  SimpleBindAction(GObject* target_, GObject* receiver_, const gchar* signal_name) : ComplexBindAction(receiver_) {
+    bind_to(target_, signal_name);
+  };
+  ~SimpleBindAction() {}
+  
+};
+
+class ToggleWidgetAction : public SimpleBindAction {
+public:
+  ToggleWidgetAction(GObject* target, GObject* receiver) : SimpleBindAction(target, receiver, "clicked") {};
+  ~ToggleWidgetAction() {}
+
+  void emit(GObject* event_target) {
+    gboolean visible = gtk_widget_get_visible(GTK_WIDGET(receiver));
+    gtk_widget_set_visible(GTK_WIDGET(receiver), !visible);
+  };
+};
+
+
 class MypaintBrushEditorPrivate : public MypaintGUIPrivateBase {
+
+  class CurveViewActions {
+    GObject*                   receiver;
+    GimpMypaintOptions*        options;
+    int                        setting_index;
+    MyPaintBrushInputSettings* input_setting;
+    GtkTreeModel*              model;
+    GtkAdjustment*             x_min_adj;
+    GtkAdjustment*             x_max_adj;
+    GtkAdjustment*             y_scale_adj;
+    GClosure*                  options_notify_closure;
+
+  public:
+
+    CurveViewActions(GObject* tree_view, 
+                     GObject* receiver_, 
+                     GimpMypaintOptions* opts, 
+                     int setting_index_, 
+                     GObject* toggle, 
+                     GtkAdjustment* x_min_adj_,
+                     GtkAdjustment* x_max_adj_,
+                     GtkAdjustment* y_scale_adj_) {
+      receiver      = receiver_;
+      options       = opts;
+      setting_index = setting_index_;
+      model         = GTK_TREE_MODEL( gtk_tree_view_get_model( GTK_TREE_VIEW(tree_view) ) );
+      x_min_adj     = x_min_adj_;
+      x_max_adj     = x_max_adj_;
+      y_scale_adj   = y_scale_adj_; 
+      GtkTreeSelection* tree_sel = gtk_tree_view_get_selection(GTK_TREE_VIEW (tree_view));
+      input_setting = NULL;
+
+      g_object_set_cxx_object(G_OBJECT(tree_view), "behavior", this);
+
+      g_signal_connect_delegator (G_OBJECT(tree_sel), "changed", Delegator::delegator(this, &CurveViewActions::selected));
+      g_signal_connect_delegator (G_OBJECT(toggle), "toggled", Delegator::delegator(this, &CurveViewActions::toggled));
+      options_notify_closure = NULL;
+//      ScopeGuard<gchar, void(gpointer)> signal_name(mypaint_brush_internal_name_to_signal_name(s->name));
+      options_notify_closure = g_signal_connect_delegator (G_OBJECT(options), "notify", Delegator::delegator(this, &CurveViewActions::notify_options));
+      g_signal_connect_delegator (G_OBJECT(x_min_adj), "value-changed", Delegator::delegator(this, &CurveViewActions::value_changed));
+      g_signal_connect_delegator (G_OBJECT(x_max_adj), "value-changed", Delegator::delegator(this, &CurveViewActions::value_changed));
+      g_signal_connect_delegator (G_OBJECT(y_scale_adj), "value-changed", Delegator::delegator(this, &CurveViewActions::value_changed));
+
+    };
+    ~CurveViewActions() {
+      if (options_notify_closure) {
+	      gulong handler_id = g_signal_handler_find(gpointer(options), G_SIGNAL_MATCH_CLOSURE, 0, 0, options_notify_closure, NULL, NULL);
+	      g_signal_handler_disconnect(gpointer(options), handler_id);
+	      options_notify_closure = NULL;
+      }
+    }
+
+    void selected(GObject* event_target) {
+      GtkTreeModel *model;
+      GtkTreeIter   iter;
+
+      if (gtk_tree_selection_get_selected (GTK_TREE_SELECTION(event_target), &model, &iter)) {
+        gchar* name = NULL;
+
+        gtk_tree_model_get (model, &iter,
+                            2, &name,
+                            -1);
+
+        activate_input (name);
+        if (name)
+          g_free(name);
+      }
+    };
+    
+    Mapping* get_mapping() {
+      GimpMypaintBrush* myb = gimp_mypaint_options_get_current_brush(options);
+      GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(myb->p);
+      Mapping* mapping = priv->get_setting(setting_index)->mapping;
+      return mapping;
+    }
+    
+    void activate_input(gchar* name) {
+      ScopeGuard<GHashTable, void(GHashTable*)> input_settings_dict(mypaint_brush_get_input_settings_dict(), g_hash_table_unref);
+      MyPaintBrushInputSettings* s = (MyPaintBrushInputSettings*)g_hash_table_lookup(input_settings_dict, name);
+      input_setting = s;
+      
+      g_return_if_fail (s != NULL);
+      
+      GimpCurveView* curve_view = GIMP_CURVE_VIEW(receiver);
+
+      GimpCurve* old_curve = GIMP_CURVE(gimp_curve_view_get_curve(curve_view));
+
+      gimp_curve_view_set_curve (curve_view, NULL, NULL);
+      gimp_curve_view_remove_all_backgrounds (curve_view);
+      
+      GimpCurve* curve = GIMP_CURVE(gimp_curve_new(s->displayed_name));
+      gimp_curve_set_curve_type(curve, GIMP_CURVE_SMOOTH);
+      g_object_set(G_OBJECT(curve), "n-points", 8, NULL); // "8" is the maximum number of control points of mypaint dynamics...
+      Mapping* mapping = get_mapping();
+      bool is_used = mapping && mapping->get_n(s->index) > 0;
+      
+      if (is_used) {
+        if (s->hard_minimum == s->hard_maximum) {
+          gtk_adjustment_set_lower(x_min_adj, -20);
+          gtk_adjustment_set_upper(x_min_adj,  20 - 0.1);
+          gtk_adjustment_set_lower(x_max_adj, -20 + 0.1);
+          gtk_adjustment_set_upper(x_max_adj,  20);
+        } else {
+          gtk_adjustment_set_lower(x_min_adj, s->hard_minimum);
+          gtk_adjustment_set_upper(x_min_adj, s->hard_maximum - 0.1);
+          gtk_adjustment_set_lower(x_max_adj, s->hard_minimum + 0.1);
+          gtk_adjustment_set_upper(x_max_adj, s->hard_maximum);
+        }
+        
+        mapping_to_curve(curve);
+
+        GimpRGB color = {1.0, 0., 0.};
+        gimp_curve_view_set_curve (curve_view,
+                                   curve, &color);
+
+        update_range_parameters();
+        
+      } else {
+      }
+      gimp_curve_view_set_x_axis_label (curve_view,
+                                        s->displayed_name);
+      g_signal_connect_delegator(G_OBJECT(curve), "notify::points",
+                                 Delegator::delegator(this, &CurveViewActions::notify_curve));      
+    }
+    
+    
+    void mapping_to_curve(GimpCurve* curve) {
+      g_return_if_fail( input_setting != NULL );
+
+      float xmin = input_setting->soft_maximum;
+      float ymin = 1.0;
+      float xmax = input_setting->soft_minimum;
+      float ymax = 0;
+
+      Mapping* mapping = get_mapping();
+      if (mapping) {
+        int n_points = mapping->get_n(input_setting->index);
+        if (n_points > 0) {
+          float x, y;
+
+          mapping->get_point(input_setting->index, 0, &x, &ymin);
+          ymax = ymin;
+          xmin = MIN(xmin, x);
+          xmax = MAX(xmax, x);
+          for (int i = 1; i < n_points; i ++) {
+            mapping->get_point(input_setting->index, i, &x, &y);
+            if (x == -1.0 && y == -1.0)
+              continue;
+            if (xmin > x)
+              xmin = x;
+            if (xmax < x)
+              xmax = x;
+            if (ymin > y)
+              ymin = y;
+            if (ymax < y)
+              ymax = y;
+          }
+          
+          float xrange = xmax - xmin;
+          float yrange = ymax - ymin;
+          int i = 0;
+
+          for (; i < n_points; i ++) {
+            mapping->get_point(input_setting->index, i, &x, &y);
+            float normalized_x = xrange != 0.0? (x - xmin) / xrange : 0.;
+            float normalized_y = yrange != 0.0? (y - ymin) / yrange : 0.;
+            gimp_curve_set_point(curve, i, normalized_x, normalized_y);
+          }
+          g_object_get(G_OBJECT(curve), "n-points", &n_points, NULL);
+          for (; i < n_points; i ++) {
+            gimp_curve_set_point(curve, i, -1.0, -1.0);
+          }
+
+        }
+      }
+    }
+    
+    
+    void update_range_parameters() {
+      g_return_if_fail( input_setting != NULL );
+      GimpCurveView* curve_view = GIMP_CURVE_VIEW(receiver);
+      g_return_if_fail( curve_view != NULL );
+
+      float xmin = input_setting->soft_maximum;
+      float ymin = 0;
+      float xmax = input_setting->soft_minimum;
+      float ymax;
+      Mapping* mapping = get_mapping();
+      if (mapping) {
+        int n_points = mapping->get_n(input_setting->index);
+        if (n_points > 0) {
+          float x, y;
+          mapping->get_point(input_setting->index, 0, &x, &y);
+          ymin = ymax = y;
+          xmin = MIN(xmin, x);
+          xmax = MAX(xmax, x);
+          for (int i = 1; i < n_points; i ++) {
+            mapping->get_point(input_setting->index, i, &x, &y);
+            if (x == -1.0 && y == -1.0)
+              continue;
+            if (xmin > x)
+              xmin = x;
+            if (xmax < x)
+              xmax = x;
+            if (ymin > y)
+              ymin = y;
+            if (ymax < y)
+              ymax = y;
+          }
+        }
+      }
+      g_print("xmin,xmax=%3.2lf,%3.2lf: ymin,ymax=%3.2lf, %3.2lf\n", xmin, xmax, ymin, ymax);
+
+      gdouble xmin_value = xmin;
+      gdouble xmax_value = xmax;
+      gdouble ymax_value = MAX(ABS(ymax), ABS(ymin));
+      
+      gtk_adjustment_set_upper(y_scale_adj,  7); // "7" is magic word...
+      gtk_adjustment_set_lower(y_scale_adj, -7);
+
+      gtk_adjustment_set_value(x_min_adj, xmin_value);
+      gtk_adjustment_set_value(x_max_adj, xmax_value);
+      gtk_adjustment_set_value(y_scale_adj, ymax_value);
+      
+      gimp_curve_view_set_range_x(curve_view,  xmin_value, xmax_value);
+      gimp_curve_view_set_range_y(curve_view, -ymax_value, ymax_value);
+    }
+    
+    
+    void update_list() {
+      ScopeGuard<GHashTable, void(GHashTable*)> input_settings_dict(mypaint_brush_get_input_settings_dict(), g_hash_table_unref);
+      GtkTreeIter iter;
+      g_return_if_fail (gtk_tree_model_get_iter_first(model, &iter));
+      do {
+        gchar* name = NULL;
+
+        gtk_tree_model_get (model, &iter, 2, &name, -1);
+
+        MyPaintBrushInputSettings* s = (MyPaintBrushInputSettings*)g_hash_table_lookup(input_settings_dict, name);
+        Mapping* mapping = get_mapping();
+        
+        bool is_used = mapping->get_n(s->index) > 0;
+        gtk_list_store_set (GTK_LIST_STORE(model), &iter,
+                            0, is_used,
+                            -1);
+      } while (gtk_tree_model_iter_next(model, &iter));        
+    }
+
+    
+    void toggled(GObject* event_target, gchar* path) {
+      GtkTreeIter                      iter;
+
+      if (gtk_tree_model_get_iter_from_string (model, &iter, path)) {
+        gchar*   name;
+        gboolean use;
+
+        gtk_tree_model_get (model, &iter,
+                            2, &name,
+                            0, &use,
+                            -1);
+        g_print("%s is now %d\n", name, use);
+
+        Mapping* mapping = get_mapping();
+        
+        if (mapping && input_setting) {
+          bool is_used = mapping->get_n(input_setting->index) > 1;
+          if (!is_used) {
+            mapping->set_n(input_setting->index, 2);
+            mapping->set_point(input_setting->index, 0, input_setting->hard_minimum, 0);
+            mapping->set_point(input_setting->index, 1, input_setting->hard_maximum, input_setting->normal);
+          } else {
+            mapping->set_n(input_setting->index, 0);
+          }
+          gtk_list_store_set (GTK_LIST_STORE(model), &iter,
+                              0, !is_used,
+                              -1);
+          activate_input(name);
+        }
+      }
+    }
+    
+    
+    void notify_curve(GObject* target, GParamSpec *pspec) {
+      GimpCurve* curve = GIMP_CURVE(target);
+      curve_to_mapping(curve);
+    }
+    
+    void curve_to_mapping(GimpCurve* curve) {
+      Mapping* mapping = get_mapping();
+      GimpCurveView* curve_view = GIMP_CURVE_VIEW(receiver);
+      
+      g_return_if_fail(input_setting && mapping && curve);
+
+      gint n_points;
+      g_object_get(G_OBJECT(curve), "n-points", &n_points, NULL);
+      
+      int count = 0;
+      struct { gdouble x, y; } points[n_points], tmp;
+
+      for (int i = 0; i < n_points; i ++) {
+        gimp_curve_get_point(curve, i, &(points[count].x), &(points[count].y));
+        if (points[count].x == -1.0 && points[count].y == -1.0)
+          continue;
+          
+        // insert by bubble sort method.
+        for (int j = count; j > 0; j --) {
+          if (points[j].x < points[j-1].x) {
+            tmp = points[j];
+            points[j] = points[j-1];
+            points[j-1] = tmp;
+          }
+        };
+        count ++;
+      }
+      
+      gdouble xmin, xmax, ymin, ymax, xrange, yrange;
+      gimp_curve_view_get_range_x(curve_view, &xmin, &xmax);
+      gimp_curve_view_get_range_y(curve_view, &ymin, &ymax);
+      
+      xrange = xmax - xmin;
+      yrange = ymax - ymin;
+      
+      if (count > 1 || count == 0) {
+        mapping->set_n(input_setting->index, count);
+        
+        for (int i = 0; i < count; i ++) {
+          mapping->set_point(input_setting->index, i, points[i].x * xrange + xmin, points[i].y * yrange + ymin);
+        }
+      }
+    }
+    
+    
+    void notify_options(GObject* config, GParamSpec *pspec) {
+      update_list();
+      if (input_setting)
+        activate_input(input_setting->name);
+    }
+    
+    
+    void value_changed(GObject* target) {
+      GimpCurveView* curve_view = GIMP_CURVE_VIEW(receiver);
+      GimpCurve*     curve      = GIMP_CURVE(gimp_curve_view_get_curve(curve_view));
+
+      gdouble xmin_value = gtk_adjustment_get_value(x_min_adj);
+      gdouble xmax_value = gtk_adjustment_get_value(x_max_adj);
+      gdouble ymax_value = gtk_adjustment_get_value(y_scale_adj);
+      
+      gimp_curve_view_set_range_x(curve_view, xmin_value, xmax_value);
+      gimp_curve_view_set_range_y(curve_view, -ymax_value, ymax_value);
+
+      curve_to_mapping(curve);
+    };
+
+  }; // class CurveViewActions
+  
+  
 public:
   MypaintBrushEditorPrivate(GimpToolOptions* opts) :
     MypaintGUIPrivateBase(opts)
   {
   }
   GtkWidget* create();
+  GtkWidget* create_input_editor(int setting_index);
 };
 
 GtkWidget*
 MypaintBrushEditorPrivate::create() {
-/*
-  GimpDataEditor *data_editor = GIMP_DATA_EDITOR (object);
-  GimpMypaintBrushEditor* editor = GIMP_MYPAINT_BRUSH_EDITOR (object);
-
-  if (G_OBJECT_CLASS (parent_class)->constructed)
-    G_OBJECT_CLASS (parent_class)->constructed (object);
-
-  GtkWidget      *frame;
-  GtkWidget      *hbox;
-  GtkWidget      *label;
-  GtkWidget      *box;
-
-  frame = gtk_frame_new (NULL);
-  gtk_frame_set_shadow_type (GTK_FRAME (frame), GTK_SHADOW_IN);
-  gtk_box_pack_start (GTK_BOX (editor), frame, TRUE, TRUE, 0);
-  gtk_widget_show (frame);
-
-  data_editor->view = gimp_view_new_full_by_types (NULL,
-                                                   GIMP_TYPE_VIEW,
-                                                   GIMP_TYPE_MYPAINT_BRUSH,
-                                                   MYPAINT_BRUSH_VIEW_SIZE,
-                                                   MYPAINT_BRUSH_VIEW_SIZE, 0,
-                                                   FALSE, FALSE, TRUE);
-  gtk_widget_set_size_request (data_editor->view, -1, MYPAINT_BRUSH_VIEW_SIZE);
-  gimp_view_set_expand (GIMP_VIEW (data_editor->view), TRUE);
-  gtk_container_add (GTK_CONTAINER (frame), data_editor->view);
-  gtk_widget_show (data_editor->view);
-*/
   GtkWidget* brushsetting_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
   gtk_widget_show(brushsetting_vbox);
 
-
   GList* setting_groups;
   setting_groups = mypaint_brush_get_setting_group_list();
-/*
-  GimpContext* context;
-  g_object_get(object, "context", &context, NULL);
- */ 
-    
 
   for (GList* iter = setting_groups; iter; iter = iter->next) {
     MypaintBrushSettingGroup* group =
       (MypaintBrushSettingGroup*)iter->data;
-//    self.visible_settings = self.visible_settings + group['settings']
 
     ScopeGuard<gchar, void(gpointer)> bold_title(
       g_strdup_printf("<b>%s</b>", group->display_name), g_free);    
@@ -380,17 +753,18 @@ MypaintBrushEditorPrivate::create() {
     gtk_expander_set_use_markup(GTK_EXPANDER(group_expander), TRUE);
     gtk_widget_show(group_expander);
 
-    GtkWidget* table = gtk_table_new(3, g_list_length(group->setting_list), FALSE);
+    GtkWidget* table = gtk_table_new(3, 2 * g_list_length(group->setting_list), FALSE);
     gtk_widget_show(table);
 
     if (strcmp(group->name, "basic") == 0)
-	gtk_expander_set_expanded (GTK_EXPANDER(group_expander), TRUE);
+      gtk_expander_set_expanded (GTK_EXPANDER(group_expander), TRUE);
 
     int count = 0;
-    for (GList* iter2 = group->setting_list; iter2; iter2 = iter2->next, count ++) {
+    for (GList* iter2 = group->setting_list; iter2; iter2 = iter2->next, count += 2) {
       MyPaintBrushSettings* s = (MyPaintBrushSettings*)iter2->data;
-      ScopeGuard<gchar,void(gpointer)> prop_name(g_strdup(s->internal_name), g_free);
-      g_strcanon(prop_name.ptr(), "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-",'-');
+      ScopeGuard<gchar,void(gpointer)> prop_name(
+        mypaint_brush_internal_name_to_signal_name(s->internal_name), g_free);
+
       GtkWidget* h = gimp_prop_spin_scale_new(G_OBJECT(options), prop_name.ptr(),
                                s->displayed_name,
                                0.1, 1.0, 2);
@@ -408,24 +782,37 @@ MypaintBrushEditorPrivate::create() {
       GtkWidget* button2;
       if (s->constant) {
         button2 = gtk_label_new("");
-	gtk_widget_set_tooltip_text(button2, _("No additional configuration"));
-	gtk_misc_set_alignment(GTK_MISC(button2), 0.5, 0.5);
+        gtk_widget_set_tooltip_text(button2, _("No additional configuration"));
+        gtk_misc_set_alignment(GTK_MISC(button2), 0.5, 0.5);
+
       } else {
         button2 = gtk_button_new_with_label("...");
-	gtk_widget_set_tooltip_text(button2, _("Add input value mapping"));
+        gtk_widget_set_tooltip_text(button2, _("Add input value mapping"));
         //g_signal_connect...(button2, "clicked", self.details_clicked_cb, adj, s)
       }
+
       gtk_widget_show(button2);
       gtk_table_attach(GTK_TABLE(table), h, 0, 1, count, count+1, 
                        GtkAttachOptions(GTK_EXPAND | GTK_FILL), 
                        GtkAttachOptions(GTK_EXPAND | GTK_FILL), 0, 0);
+
       gtk_table_attach(GTK_TABLE(table), button, 1, 2, count, count+1, 
                        GtkAttachOptions(GTK_FILL), 
                        GtkAttachOptions(GTK_FILL), 0, 0);
+
       gtk_table_attach(GTK_TABLE(table), button2, 2, 3, count, count+1, 
                        GtkAttachOptions(GTK_FILL), 
                        GtkAttachOptions(GTK_FILL), 0, 0);
+
+      GtkWidget* input_editor = create_input_editor(s->index);
+
+      new ToggleWidgetAction(G_OBJECT(button2), G_OBJECT(input_editor));
+      gtk_table_attach(GTK_TABLE(table), input_editor, 0, 3, count + 1, count + 2,
+                       GtkAttachOptions(GTK_FILL),
+                       GtkAttachOptions(GTK_FILL), 0, 0);
+      
     }
+
     gtk_container_add(GTK_CONTAINER(group_expander), table);
     gtk_box_pack_start(GTK_BOX(brushsetting_vbox) ,group_expander,TRUE,TRUE,0);
   }
@@ -434,6 +821,115 @@ MypaintBrushEditorPrivate::create() {
   return brushsetting_vbox;
 }
 
+
+GtkWidget*
+MypaintBrushEditorPrivate::create_input_editor(int setting_index) {
+  ScopeGuard<GList, void(GList*)> inputs(mypaint_brush_get_input_settings(), g_list_free);
+  
+  GtkWidget* result_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+
+  // List view  
+  GtkWidget* list_view  = gtk_tree_view_new();
+  gtk_box_pack_start(GTK_BOX(result_box), list_view, FALSE, TRUE, 0);
+  gtk_widget_show(list_view);
+  
+  gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(list_view), FALSE);
+
+  {  
+    ScopeGuard<GtkListStore, void(gpointer)> 
+      list_store(GTK_LIST_STORE(gtk_list_store_new(3, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_STRING)), g_object_unref);
+    gtk_tree_view_set_model (GTK_TREE_VIEW(list_view), GTK_TREE_MODEL((GtkListStore*)list_store));
+  }
+  
+  GtkListStore* store = GTK_LIST_STORE( gtk_tree_view_get_model( GTK_TREE_VIEW(list_view) ) );
+  gtk_list_store_clear (store);
+  
+  for (GList* iter = inputs; iter; iter = iter->next) {
+    
+    GtkTreeIter tree_iter;
+    MyPaintBrushInputSettings* input = reinterpret_cast<MyPaintBrushInputSettings*>(iter->data);
+    gtk_list_store_append(store, &tree_iter);
+    
+    GimpMypaintBrush* myb         = gimp_mypaint_options_get_current_brush(options);
+    GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(myb->p);
+    Mapping* mapping              = priv->get_setting(setting_index)->mapping;
+    
+    bool is_enabled = (mapping && mapping->get_n(input->index));
+    gtk_list_store_set(store, &tree_iter, 0, is_enabled, 1, input->displayed_name, 2, input->name, -1);
+  }
+
+  GtkTreeViewColumn   *column;
+  GtkCellRenderer *renderer;
+  GtkCellRenderer *used;
+
+  renderer = gtk_cell_renderer_toggle_new();
+  g_object_set (G_OBJECT(renderer),
+                "mode",        GTK_CELL_RENDERER_MODE_ACTIVATABLE,
+                "activatable", TRUE,
+                NULL);
+  column = gtk_tree_view_column_new_with_attributes(_("Input"), renderer,
+                                                    "active",  0,
+                                                    NULL);
+  gtk_tree_view_append_column(GTK_TREE_VIEW(list_view), column);
+  used = renderer;
+
+  renderer = gtk_cell_renderer_text_new();
+  column = gtk_tree_view_column_new_with_attributes(_("Input"), renderer,
+                                                    "text",  1,
+                                                    NULL);
+  gtk_tree_view_append_column(GTK_TREE_VIEW(list_view), column);
+
+  // GimpCurveView
+  GtkWidget* table = gtk_table_new(4, 4, FALSE);
+  gtk_widget_show(table);
+  gtk_box_pack_start(GTK_BOX(result_box), table, TRUE, TRUE, 0);
+
+  GtkWidget* curve_view = gimp_curve_view_new();
+  g_object_set (curve_view, "border-width", 1, NULL);
+  g_object_set (curve_view, "y-axis-label", "", NULL);
+  gtk_widget_show(curve_view);
+
+  gtk_table_attach(GTK_TABLE(table), curve_view, 0, 3, 0, 3, 
+                   GtkAttachOptions(GTK_EXPAND | GTK_FILL), 
+                   GtkAttachOptions(GTK_EXPAND | GTK_FILL), 0, 0);
+ 
+  GtkAdjustment* x_min_adj    = GTK_ADJUSTMENT(gtk_adjustment_new(0.0, 0, 0.1, 0.01, 0.1, 0));
+  GtkAdjustment* x_max_adj    = GTK_ADJUSTMENT(gtk_adjustment_new(1.0, 0.9, 1.0, 0.01, 0.1, 0));
+  GtkAdjustment* y_scale_adj  = GTK_ADJUSTMENT(gtk_adjustment_new(1.0/4.0, -1.0, 1.0, 0.01, 0.1, 0)); 
+  GtkWidget*     x_min_edit   = gtk_spin_button_new(x_min_adj, 0.01, 2);
+  GtkWidget*     x_max_edit   = gtk_spin_button_new(x_max_adj, 0.01, 2);
+  GtkWidget*     y_scale_edit = gtk_spin_button_new(y_scale_adj, 0.01, 2);
+
+  gtk_widget_show(x_min_edit);
+  gtk_widget_show(x_max_edit);
+  gtk_widget_show(y_scale_edit);
+
+  gtk_table_attach(GTK_TABLE(table), x_min_edit, 0, 1, 3, 4, 
+                   GtkAttachOptions(GTK_FILL), 
+                   GtkAttachOptions(GTK_FILL), 0, 0);
+  gtk_table_attach(GTK_TABLE(table), x_max_edit, 2, 3, 3, 4, 
+                   GtkAttachOptions(GTK_FILL), 
+                   GtkAttachOptions(GTK_FILL), 0, 0);
+  gtk_table_attach(GTK_TABLE(table), y_scale_edit, 3, 4, 0, 1, 
+                   GtkAttachOptions(GTK_FILL), 
+                   GtkAttachOptions(GTK_FILL), 0, 0);
+ 
+  
+  // Event handler construction
+  GtkTreeSelection* tree_sel = gtk_tree_view_get_selection(GTK_TREE_VIEW (list_view));
+  gtk_tree_selection_set_mode(tree_sel, GTK_SELECTION_BROWSE);
+
+  CurveViewActions* select_action = new CurveViewActions(G_OBJECT(list_view), 
+                                                         G_OBJECT(curve_view), 
+                                                         options, 
+                                                         setting_index, 
+                                                         G_OBJECT(used),
+                                                         x_min_adj,
+                                                         x_max_adj,
+                                                         y_scale_adj);
+
+  return result_box;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 static void
@@ -444,11 +940,6 @@ smoothing_options_create_view (GtkWidget *button, GtkWidget **result, GObject *c
   GList     *children;
 
   vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
-#if 0
-  frame = gimp_prop_expanding_frame_new (config, "use-smoothing",
-                                         _("Smooth stroke"),
-                                         vbox, NULL);
-#endif
   scale = gimp_prop_spin_scale_new (config, "smoothing-quality",
                                     _("Quality"),
                                     1, 20, 0);

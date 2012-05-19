@@ -362,3 +362,18 @@ GList *mypaint_brush_get_setting_group_list (void)
 
   return result;
 }
+
+gchar* mypaint_brush_internal_name_to_signal_name (const gchar* name)
+{
+  gchar* result = g_strdup(name);
+  g_strcanon(result,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-",'-');
+  return result;
+}
+
+gchar* mypaint_brush_signal_name_to_internal_name (const gchar* name)
+{
+  gchar* result = g_strdup(name);
+  g_strcanon(result,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_",'_');
+  return result;
+}
+
