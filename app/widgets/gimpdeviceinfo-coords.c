@@ -78,7 +78,7 @@ gimp_device_info_get_event_coords (GimpDeviceInfo *info,
         }
       else
         {
-          coords->pressure = (event->motion.state && GDK_BUTTON1_MASK)? 1.0: 0.0;
+          coords->pressure = (event->motion.state & GDK_BUTTON1_MASK)? 1.0: 0.0;
         }
 
       if (gdk_event_get_axis (event, GDK_AXIS_XTILT, &coords->xtilt))
