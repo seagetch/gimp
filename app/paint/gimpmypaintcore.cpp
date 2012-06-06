@@ -52,6 +52,7 @@ extern "C" {
 #include "gimp-intl.h"
 };
 
+#include "base/delegators.hpp"
 #include "gimpmypaintcore.hpp"
 #include "gimpmypaintcore-surface.hpp"
 #include "core/gimpmypaintbrush-private.hpp"
@@ -66,6 +67,7 @@ GimpMypaintCore::GimpMypaintCore()
   brush   = new Brush();
   stroke  = NULL;
   undo_desc = NULL;
+  option_changed_handler = NULL;
 }
 
 
@@ -80,6 +82,10 @@ GimpMypaintCore::~GimpMypaintCore ()
 void GimpMypaintCore::cleanup()
 {
   g_print("GimpMypaintCore::cleanup\n");
+  if (option_changed_handler)
+    delete option_changed_handler;
+  option_changed_handler = NULL;
+  
   if (surface && stroke) {
     split_stroke();
   }
@@ -102,22 +108,27 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
                                  const GimpCoords* coords,
                                  GimpMypaintOptions* options)
 {
-//  g_print("entering GimpMypaintCore::stroke_to...\n");
   bool split = false;
+  
+  if (options != this->options) {
+    if (this->options && option_changed_handler) {
+      delete option_changed_handler;
+      option_changed_handler = NULL;
+    }
+    this->options = options;
+    option_changed_handler = g_signal_connect_delegator(G_OBJECT(options), "notify", Delegator::delegator(this, &GimpMypaintCore::option_changed));
+  }
+  
   // Prepare Brush.
-//  g_print("updating resource...\n");
   update_resource(options);
   
   /// from Document#stroke_to
 
   // Prepare Stroke object
   if (!stroke) {
-//    g_print("create new stroke...\n");
     stroke = new Stroke();
-//    g_print("Stroke::start...\n");
     stroke->start(brush);
-    // Prepare Surface object for drawable
-//    g_print("testing surface...\n");
+
     if (!surface) {
       g_print("create new surface...\n");
       surface = new GimpMypaintSurface(drawable);
@@ -130,7 +141,7 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
     }
 
     GimpContext* context = GIMP_CONTEXT (options);
-    //  GimpMypaintBrush* myb = context->mypaint_brush;
+#if 0
     GimpMypaintBrush* myb = gimp_mypaint_options_get_current_brush (options);
     GimpMypaintBrushPrivate *myb_priv = NULL;
     if (myb)
@@ -138,7 +149,7 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
 
 
     // copy brush setting here.
-    if (myb) {
+    if (myb_priv) {
       for (int i = 0; i < BRUSH_SETTINGS_COUNT; i ++) {
         Mapping* m = myb_priv->get_setting(i)->mapping;
         if (m)
@@ -149,6 +160,7 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
         }
       }
     }
+#endif
     // update color values
     GimpRGB rgb;
     gimp_context_get_foreground(GIMP_CONTEXT(options), &rgb);
@@ -169,23 +181,15 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
     surface->begin_session();
   }
   
-//  g_print("Stroke::record...\n");
   stroke->record(dtime, coords);
 
   /// from Layer#stroke_to
-  {
-//    g_print("calling Brush::stroke_to(surf,%lf,%lf,%lf,%lf,%lf,%lf)...\n", coords->x, coords->y, coords->pressure, coords->xtilt, coords->ytilt, dtime);
-    //surface->begin_atomic();
-    split = brush->stroke_to(surface, coords->x, coords->y, 
-                             coords->pressure, 
-                             coords->xtilt, coords->ytilt, dtime);
-    //surface->end_atomic();
-  }
+  split = brush->stroke_to(surface, coords->x, coords->y, 
+                           coords->pressure, 
+                           coords->xtilt, coords->ytilt, dtime);
   
-  if (split) {
+  if (split)
     split_stroke();
-  }
-//  g_print("leaving GimpMypaintCore::stroke_to...\n");
 }
 
 void GimpMypaintCore::split_stroke()
@@ -215,11 +219,13 @@ void GimpMypaintCore::update_resource(GimpMypaintOptions* options)
 //  GimpMypaintBrush* myb = context->mypaint_brush;
 	GimpMypaintBrush* myb = gimp_mypaint_options_get_current_brush (options);
   GimpMypaintBrushPrivate *myb_priv = NULL;
-  
+#if 0  
   if (mypaint_brush != myb) {
+    g_print("Other brush is selected.\n");
     delete brush;
     brush = NULL;
   }
+#endif
   if (!brush) {
     g_print("Create brush object\n");
     brush = new Brush();
@@ -240,6 +246,33 @@ void GimpMypaintCore::set_undo_desc(gchar* value)
 {
 //  g_free (undo_desc);
 //  undo_desc = g_strdup (value);
+}
+
+void GimpMypaintCore::option_changed(GObject* target, GParamSpec *pspec)
+{
+  g_print("option_changed\n");
+  split_stroke();
+
+  GimpMypaintOptions* options = GIMP_MYPAINT_OPTIONS(target);
+
+  GimpMypaintBrush* myb = gimp_mypaint_options_get_current_brush (options);
+  GimpMypaintBrushPrivate *myb_priv = NULL;
+  if (myb)
+    myb_priv = reinterpret_cast<GimpMypaintBrushPrivate*>(myb->p);
+
+
+  // copy brush setting here.
+  if (myb_priv) {
+    for (int i = 0; i < BRUSH_SETTINGS_COUNT; i ++) {
+      Mapping* m = myb_priv->get_setting(i)->mapping;
+      if (m)
+        brush->copy_mapping(i, m);
+      else {
+        brush->set_mapping_n(i, 0, 0);
+        brush->set_base_value(i, myb_priv->get_setting(i)->base_value);
+      }
+    }
+  }
 }
 
 

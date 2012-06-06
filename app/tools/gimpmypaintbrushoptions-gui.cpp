@@ -57,16 +57,16 @@ extern "C" {
 class MypaintPopupPrivate {
   static const int MYPAINT_BRUSH_VIEW_SIZE = 256;
 
-  GimpContainer *container;
-  GimpContext   *context;
-	GClosure        *brush_changed_closure;
+  GimpContainer*         container;
+  GimpContext*           context;
+	Delegator::Connection* brush_changed_handler;
   
 public:
   MypaintPopupPrivate(GimpContainer* ctn, GimpContext* ctx) {
     container = ctn;
     context   = ctx;
 		
-		brush_changed_closure = NULL;
+		brush_changed_handler = NULL;
   }
   
   ~MypaintPopupPrivate();
@@ -223,13 +223,9 @@ MypaintPopupPrivate::destroy (GObject* object)
   }
 
   if (context) {
-    if (brush_changed_closure) {
-      gulong handler_id = g_signal_handler_find(gpointer(context), 
-        G_SIGNAL_MATCH_CLOSURE,
-        0,0,brush_changed_closure,NULL,NULL);
-      if (handler_id)
-	g_signal_handler_disconnect (gpointer(context), handler_id);
-      brush_changed_closure = NULL;
+    if (brush_changed_handler) {
+      delete brush_changed_handler;
+      brush_changed_handler = NULL;
     }
   }
 }
@@ -290,7 +286,7 @@ MypaintPopupPrivate::create (GObject* object,
   gtk_widget_show (GTK_WIDGET (editor));
   
 
-  brush_changed_closure = 
+  brush_changed_handler = 
 		g_signal_connect_delegator (G_OBJECT(context),
                                 gimp_context_type_to_signal_name (GIMP_TYPE_MYPAINT_BRUSH),
                                 Delegator::delegator(this, &MypaintPopupPrivate::brush_changed));

@@ -41,6 +41,7 @@ extern "C" {
 extern "C++" {
 #include "core/gimpmypaintbrush-private.hpp"
 #include "base/scopeguard.hpp"
+#include "base/glib-cxx-utils.hpp"
 }
 	
 #define DEFAULT_BRUSH_SIZE             20.0
@@ -89,12 +90,13 @@ gimp_mypaint_options_class_init (GimpMypaintOptionsClass *klass)
   object_class->set_property = gimp_mypaint_options_set_property;
   object_class->get_property = gimp_mypaint_options_get_property;
 
-  ScopeGuard<GList, void(GList*)> brush_settings(mypaint_brush_get_brush_settings (), g_list_free);
+  GListHolder brush_settings(mypaint_brush_get_brush_settings ());
   for (GList* i = brush_settings.ptr(); i; i = i->next) {
     MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(i->data);
     gchar* signal_name = mypaint_brush_internal_name_to_signal_name (setting->internal_name);
     g_print("install parameter %d:%s:(%f-%f),default=%f\n",
       setting->index + 1, signal_name, setting->minimum, setting->maximum, setting->default_value);
+      
     GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, setting->index + 1,
       signal_name, _(setting->displayed_name),
       setting->minimum, setting->maximum,
@@ -289,7 +291,8 @@ gimp_mypaint_options_mypaint_brush_changed (GObject *object,
     g_object_unref(options->brush);
 
   options->brush = GIMP_MYPAINT_BRUSH(brush_copied);
-  ScopeGuard<GList, void(GList*)> brush_settings(mypaint_brush_get_brush_settings (), g_list_free);
+  GListHolder brush_settings = mypaint_brush_get_brush_settings ();
+  
   for (GList* i = brush_settings.ptr(); i; i = i->next) {
     MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(i->data);
     gchar* signal = mypaint_brush_internal_name_to_signal_name(setting->internal_name);
@@ -300,8 +303,74 @@ gimp_mypaint_options_mypaint_brush_changed (GObject *object,
 
 
 GimpMypaintBrush*
-gimp_mypaint_options_get_current_brush (GimpMypaintOptions* options) {
+gimp_mypaint_options_get_current_brush (GimpMypaintOptions* options) 
+{
   return options->brush;
+}
+
+void
+gimp_mypaint_options_set_mapping_point(GimpMypaintOptions* options, 
+                                       gchar* prop_name,
+                                       guint inputs,
+                                       guint size, 
+                                       GimpVector2* points)
+{
+  GHashTableHolder<gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict ();
+  StringHolder     brush_setting_name  = mypaint_brush_signal_name_to_internal_name(prop_name);
+
+  MyPaintBrushSettings* brush_setting = brush_settings_dict[brush_setting_name];
+
+  if (options->brush) {
+    GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(options->brush->p);
+    GimpMypaintBrushPrivate::Value* setting = priv->get_setting(brush_setting->index);
+
+    if (setting && setting->mapping) {
+      Mapping* mapping = setting->mapping;
+      mapping->set_n(inputs, size);
+
+      for (int i = 0; i < size; i ++)
+        mapping->set_point(inputs, i, points[i].x, points[i].y);
+
+    }
+
+    g_object_notify(G_OBJECT(options), prop_name);
+  }
+}
+
+
+void
+gimp_mypaint_options_get_mapping_point(GimpMypaintOptions* options, 
+                                       gchar*              prop_name,
+                                       guint               inputs,
+                                       guint*              size, 
+                                       GimpVector2**       points)
+{
+  float x, y;
+  GHashTableHolder<gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict ();
+  StringHolder     brush_setting_name  = mypaint_brush_signal_name_to_internal_name(prop_name);
+
+  MyPaintBrushSettings* brush_setting = brush_settings_dict[brush_setting_name];
+  
+  *size = 0;
+  
+  if (options->brush) {
+    GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(options->brush->p);
+    GimpMypaintBrushPrivate::Value* setting = priv->get_setting(brush_setting->index);
+    
+    if (setting && setting->mapping) {
+      Mapping* mapping = setting->mapping;
+      *size = mapping->get_n(inputs);
+
+      *points = g_new0(GimpVector2, *size);
+  
+      for (int i = 0; i < *size; i++) {
+        mapping->get_point(inputs, i, &x, &y);
+        (*points)[i].x = x;
+        (*points)[i].y = y;
+      }
+  
+    }
+  }
 }
 
 };

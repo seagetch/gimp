@@ -3,10 +3,10 @@
 
 template<class T, class F>
 class ScopeGuard {
-  private:
+protected:
   T* obj;
   F* func;
-  public:
+public:
   ScopeGuard(T* ptr, F* f) : obj(ptr), func(f) {};
   ~ScopeGuard() {
     if (func && obj)

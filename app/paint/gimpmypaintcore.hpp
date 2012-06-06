@@ -28,6 +28,7 @@ extern "C++" {
 #include "gimpmypaintcore-surface.hpp"
 #include "mypaintbrush-brush.hpp"
 #include "mypaintbrush-stroke.hpp"
+#include "base/delegators.hpp"
 
 class GimpMypaintCore
 {
@@ -38,6 +39,9 @@ class GimpMypaintCore
   Stroke*      stroke;
   GimpMypaintBrush* mypaint_brush;
   gchar*       undo_desc;
+  GimpMypaintOptions*     options;
+
+  Delegator::Connection* option_changed_handler;
   
   public:
   GimpMypaintCore();
@@ -51,6 +55,8 @@ class GimpMypaintCore
   virtual void update_resource (GimpMypaintOptions* options);
   void split_stroke();
   void reset_brush();
+  
+  void option_changed(GObject* object, GParamSpec *pspec);
   
   void   set_undo_desc(gchar* desc);
   gchar* get_undo_desc();

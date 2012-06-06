@@ -298,9 +298,54 @@ delegator(void (*f)(GObject*, Arg1, Arg2, Arg3))
 {
   return new FunctionDelegator_arg3<Arg1, Arg2, Arg3>(f);
 }
+///////////////////////////////////////////////////////////////////////////////
+class Connection {
+  GObject*  target;
+  gchar*    signal;
+  GClosure* closure;
+public:
+  Connection(GObject* target_,
+             const gchar*   signal_,
+             GClosure* closure_)
+  {
+    target  = target_;
+    signal  = g_strdup(signal_);
+    closure = closure_;
+  };
+
+  ~Connection()
+  {
+      disconnect();
+  }
+  
+  void disconnect() {
+    if (target && closure) {
+      gulong handler_id = g_signal_handler_find(gpointer(target), G_SIGNAL_MATCH_CLOSURE, 0, 0, closure, NULL, NULL);
+      g_signal_handler_disconnect(gpointer(target), handler_id);
+    }
+    target  = NULL;
+    closure = NULL;
+  };
+  
+  void block() {
+    if (target && closure) {
+      g_signal_handlers_block_matched (target,
+                                       GSignalMatchType(G_SIGNAL_MATCH_DETAIL|G_SIGNAL_MATCH_CLOSURE),
+                                       0, g_quark_from_static_string (signal), closure, NULL, NULL);
+    }
+  }
+  
+  void unblock() {
+    if (target && closure) {
+      g_signal_handlers_unblock_matched (target,
+                                       GSignalMatchType(G_SIGNAL_MATCH_DETAIL|G_SIGNAL_MATCH_CLOSURE),
+                                       0, g_quark_from_static_string (signal), closure, NULL, NULL);
+    }
+  }
 };
 
 
+}; // namespace
 ///////////////////////////////////////////////////////////////////////////////
 template<typename T>
 void closure_destroy_notify(gpointer data, GClosure* closure)
@@ -309,7 +354,7 @@ void closure_destroy_notify(gpointer data, GClosure* closure)
 }
 
 template<typename Function>
-GClosure *
+Delegator::Connection *
 g_signal_connect_delegator (GObject* target, 
                             const gchar* event, 
                             Delegator::Delegator<Function>* delegator, 
@@ -320,13 +365,34 @@ g_signal_connect_delegator (GObject* target,
                             (gpointer)delegator, 
                             closure_destroy_notify<Delegator::Delegator<Function> >);
   g_signal_connect_closure (target, event, closure, after);
-  return closure;
+  return new Delegator::Connection(target, event, closure);
 }
 
 template<typename T>
 inline void g_object_set_cxx_object (GObject* target, const gchar* key, T* object)
 {
   g_object_set_data_full(target, key, (gpointer)object, Delegator::destroy_cxx_object_callback<T>);
+}
+
+inline gulong
+g_signal_handler_get_id(GObject* target, GClosure* closure)
+{
+  return g_signal_handler_find(gpointer(target), G_SIGNAL_MATCH_CLOSURE, 0, 0, closure, NULL, NULL);
+}
+
+inline void
+g_signal_disconnect (GObject* target,
+                     GClosure* closure)
+{
+  gulong handler_id = g_signal_handler_get_id(target, closure);
+	g_signal_handler_disconnect(gpointer(target), handler_id);
+}
+
+inline void
+g_signal_disconnect (GObject* target,
+                     gulong handler_id)
+{
+	g_signal_handler_disconnect(gpointer(target), handler_id);
 }
 
 #endif
