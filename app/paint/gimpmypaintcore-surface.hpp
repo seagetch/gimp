@@ -41,6 +41,7 @@ private:
 #endif
   virtual GimpUndo* push_undo (GimpImage *imag, const gchar* undo_desc);
   GimpDrawable* drawable;
+  GimpRGB       bg_color;
   
   gchar       *undo_desc;        /*  undo description                    */
   TileManager* undo_tiles;       /*  tiles which have been modified      */
@@ -100,6 +101,8 @@ public:
   virtual void end_session();
   
   bool is_surface_for (GimpDrawable* drawable) { return drawable == this->drawable; }
+  void set_bg_color (GimpRGB* src);
+  void get_bg_color(GimpRGB* dest);
 };
 
 }

@@ -338,14 +338,13 @@ GimpMypaintSurface::draw_dab (float x, float y,
         if (closure->color_a == 1.0) {
           draw_dab_pixels_BlendMode_Normal(dab_mask, dab_offsets, 
                                            s1, closure->rgba[0], closure->rgba[1], closure->rgba[2], 
-                                           closure->normal * closure->opaque, 
-                                           src1PR->bytes);
+                                           closure->normal * closure->opaque, src1PR->bytes);
         } else {
           // normal case for brushes that use smudging (eg. watercolor)
           draw_dab_pixels_BlendMode_Normal_and_Eraser(dab_mask, dab_offsets, s1, 
                                                       closure->rgba[0], closure->rgba[1], closure->rgba[2], closure->rgba[3], 
                                                       closure->normal * closure->opaque, 
-                                                      src1PR->bytes);
+                                                      src1PR->bytes, closure->bg_color[0], closure->bg_color[1], closure->bg_color[2]);
         }
       }
 
@@ -391,6 +390,9 @@ GimpMypaintSurface::draw_dab (float x, float y,
   closure.rgba[1] = color_g;
   closure.rgba[2] = color_b;
   closure.rgba[3] = color_a;
+  closure.bg_color[0] = bg_color.r;
+  closure.bg_color[1] = bg_color.g;
+  closure.bg_color[2] = bg_color.b;
 
   if (!mask_item)
     pixel_regions_process_parallel((PixelProcessorFunc)DrawDabClosure::render, &closure, 1, &src1PR);
@@ -833,3 +835,18 @@ GimpMypaintSurface::validate_undo_tiles (
   }
   
 }
+
+void 
+GimpMypaintSurface::set_bg_color (GimpRGB* src) 
+{ 
+  if (src)
+    bg_color = *src; 
+}
+
+void 
+GimpMypaintSurface::get_bg_color (GimpRGB* dest) 
+{
+  if (dest)
+    *dest = bg_color; 
+}
+

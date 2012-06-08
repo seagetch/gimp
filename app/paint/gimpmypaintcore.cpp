@@ -163,6 +163,7 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
     }
 #endif
     // update color values
+    // FIXME: Color should be updated when Foreground color is selected
     GimpRGB rgb;
     gimp_context_get_foreground(GIMP_CONTEXT(options), &rgb);
     GimpHSV hsv;
@@ -170,6 +171,9 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
     brush->set_base_value(BRUSH_COLOR_H, hsv.h);
     brush->set_base_value(BRUSH_COLOR_S, hsv.s);
     brush->set_base_value(BRUSH_COLOR_V, hsv.v);
+
+    gimp_context_get_background(GIMP_CONTEXT(options), &rgb);
+    surface->set_bg_color(&rgb);
     
     if (GIMP_IS_LAYER (drawable)) {
       gboolean lock_alpha = gimp_layer_get_lock_alpha (GIMP_LAYER (drawable));
