@@ -64,7 +64,7 @@ GimpMypaintCore::GimpMypaintCore()
   ID               = 0; //global_core_ID++;
 
   surface = NULL;
-  brush   = new Brush();
+  brush   = NULL;
   stroke  = NULL;
   undo_desc = NULL;
   option_changed_handler = NULL;
@@ -73,6 +73,7 @@ GimpMypaintCore::GimpMypaintCore()
 
 GimpMypaintCore::~GimpMypaintCore ()
 {
+  g_print("GimpMypaintCore(%lx)::destructor\n", (gulong)this);
   cleanup ();
   if (undo_desc)
     g_free (undo_desc);
@@ -81,7 +82,7 @@ GimpMypaintCore::~GimpMypaintCore ()
 
 void GimpMypaintCore::cleanup()
 {
-  g_print("GimpMypaintCore::cleanup\n");
+  g_print("GimpMypaintCore(%lx)::cleanup\n", (gulong)this);
   if (option_changed_handler)
     delete option_changed_handler;
   option_changed_handler = NULL;
@@ -130,13 +131,13 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
     stroke->start(brush);
 
     if (!surface) {
-      g_print("create new surface...\n");
+      g_print("MypaintCore(%lx)::create new surface...\n", (gulong)this);
       surface = new GimpMypaintSurface(drawable);
     } else if (!surface->is_surface_for(drawable)) {
       surface->end_session();
-      g_print("delete surface...\n");
+      g_print("MypaintCore(%lx)::delete surface...\n", (gulong)this);
       delete surface;
-      g_print("recreate new surface...\n");
+      g_print("MypaintCore(%lx)::recreate new surface...\n", (gulong)this);
       surface = new GimpMypaintSurface(drawable);
     }
 
@@ -227,8 +228,9 @@ void GimpMypaintCore::update_resource(GimpMypaintOptions* options)
   }
 #endif
   if (!brush) {
-    g_print("Create brush object\n");
+    g_print("MypaintCore(%lx)::Create brush object\n", (gulong)this);
     brush = new Brush();
+    option_changed(G_OBJECT(options), NULL);
     mypaint_brush = myb;
     brush->reset();
   }
@@ -250,7 +252,7 @@ void GimpMypaintCore::set_undo_desc(gchar* value)
 
 void GimpMypaintCore::option_changed(GObject* target, GParamSpec *pspec)
 {
-  g_print("option_changed\n");
+  g_print("MypaintCore(%lx)::option_changed\n", (gulong)this);
   split_stroke();
 
   GimpMypaintOptions* options = GIMP_MYPAINT_OPTIONS(target);

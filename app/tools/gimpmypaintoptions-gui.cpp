@@ -545,17 +545,18 @@ class MypaintBrushEditorPrivate : public MypaintGUIPrivateBase {
         }
         
         mapping_to_curve(curve);
+
+        GimpRGB color = {1.0, 0., 0.};
+        gimp_curve_view_set_curve (curve_view,
+                                     curve, &color);
+        curve_notify_handler = g_signal_connect_delegator(G_OBJECT(curve), "notify::points",
+                                                          Delegator::delegator(this, &CurveViewActions::notify_curve));      
       }
       
-      GimpRGB color = {1.0, 0., 0.};
-      gimp_curve_view_set_curve (curve_view,
-                                   curve, &color);
       update_range_parameters();        
 
       gimp_curve_view_set_x_axis_label (curve_view,
                                         input_setting->displayed_name);
-      curve_notify_handler = g_signal_connect_delegator(G_OBJECT(curve), "notify::points",
-                                                        Delegator::delegator(this, &CurveViewActions::notify_curve));      
     }
     
     
