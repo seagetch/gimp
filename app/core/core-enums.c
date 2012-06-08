@@ -1303,7 +1303,7 @@ gimp_dynamics_output_type_get_type (void)
     { GIMP_DYNAMICS_OUTPUT_RATE, NC_("dynamics-output-type", "Rate"), NULL },
     { GIMP_DYNAMICS_OUTPUT_FLOW, NC_("dynamics-output-type", "Flow"), NULL },
     { GIMP_DYNAMICS_OUTPUT_JITTER, NC_("dynamics-output-type", "Jitter"), NULL },
-    { GIMP_DYNAMICS_OUTPUT_BLENDING, NC_("dynamics-output-type", "Bleding"), NULL },
+    { GIMP_DYNAMICS_OUTPUT_BLENDING, NC_("dynamics-output-type", "Blending"), NULL },
     { 0, NULL, NULL }
   };
 
