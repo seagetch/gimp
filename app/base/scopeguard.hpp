@@ -13,7 +13,7 @@ public:
       func(obj);
   }
   T& operator *() { return *obj; }
-  T& operator ->() { return *obj; }
+  T* operator ->() { return obj; }
   T* ptr() { return obj; }
   operator T*() { return obj; }
   operator T*() const { return obj; }
