@@ -142,26 +142,7 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
     }
 
     GimpContext* context = GIMP_CONTEXT (options);
-#if 0
-    GimpMypaintBrush* myb = gimp_mypaint_options_get_current_brush (options);
-    GimpMypaintBrushPrivate *myb_priv = NULL;
-    if (myb)
-      myb_priv = reinterpret_cast<GimpMypaintBrushPrivate*>(myb->p);
 
-
-    // copy brush setting here.
-    if (myb_priv) {
-      for (int i = 0; i < BRUSH_SETTINGS_COUNT; i ++) {
-        Mapping* m = myb_priv->get_setting(i)->mapping;
-        if (m)
-          brush->copy_mapping(i, m);
-        else {
-          brush->set_mapping_n(i, 0, 0);
-          brush->set_base_value(i, myb_priv->get_setting(i)->base_value);
-        }
-      }
-    }
-#endif
     // update color values
     // FIXME: Color should be updated when Foreground color is selected
     GimpRGB rgb;
@@ -174,6 +155,9 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
 
     gimp_context_get_background(GIMP_CONTEXT(options), &rgb);
     surface->set_bg_color(&rgb);
+    
+    GimpBrush* brushmark = gimp_context_get_brush (GIMP_CONTEXT(options));
+    surface->set_brush(brushmark);
     
     if (GIMP_IS_LAYER (drawable)) {
       gboolean lock_alpha = gimp_layer_get_lock_alpha (GIMP_LAYER (drawable));

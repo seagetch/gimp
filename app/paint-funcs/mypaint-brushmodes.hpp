@@ -9,7 +9,84 @@
 
 #define REAL_CALC
 #include "base/pixel.hpp"
-//using namespace Pixel::DataCalc;
+
+struct BrushPixelIteratorForRunLength {
+  Pixel::real*   mask;
+  gint*          offsets;
+  Pixel::data_t* rgba;
+  gint           bytes;
+  
+  BrushPixelIteratorForRunLength(Pixel::real* mask_, gint* offsets_, Pixel::data_t* rgba_, gint bytes_) {
+    mask    = mask_;
+    offsets = offsets_;
+    rgba    = rgba_;
+    bytes   = bytes_;
+  }
+  
+  bool is_row_end() { return !mask[0]; };
+  bool is_data_end() { return !offsets[0]; };
+  void next_pixel() { mask++, rgba+=bytes; };
+  void next_row() { 
+    rgba += offsets[0] * bytes;
+    offsets ++;
+    mask ++;
+  };
+  bool should_skipped() { return false; }
+};
+
+struct BrushPixelIteratorForBrushmark {
+  Pixel::data_t* mask;
+  Pixel::data_t* rgba;
+  gint           width;
+  gint           height;
+  gint           mask_stride;
+  gint           rgba_stride;
+  gint           bytes;
+  Pixel::data_t* row_guard;
+  Pixel::data_t* data_guard;
+//  int x, y;
+  
+  BrushPixelIteratorForBrushmark(Pixel::data_t* mask_, Pixel::data_t* rgba_, 
+                                 gint width_, gint height_, 
+                                 gint mask_stride_, gint rgba_stride_,
+                                 gint bytes_) 
+  {
+    mask        = mask_;
+    rgba        = rgba_;
+    width       = width_;
+    height      = height_;
+    mask_stride = mask_stride_;
+    rgba_stride = rgba_stride_;
+    bytes       = bytes_;
+    row_guard   = mask_ + width;
+    data_guard  = mask_ + height * mask_stride;
+//    x = y = 0;
+//    g_print("w,h=%d,%d,mask_stride=%d,rgba_stride=%d,row_guard=%lx,data_guard=%lx\n", width, height, mask_stride, rgba_stride,(gulong)row_guard,(gulong)data_guard);
+  }
+  
+  bool is_row_end() { return mask == row_guard; };
+  bool is_data_end() { return (mask + mask_stride - width) == data_guard; };
+
+  void next_pixel() { 
+//    g_print("%lx x,y=%d,%d ",(gulong)mask, x,y); 
+//    x++; 
+    mask++;
+    rgba += bytes; 
+  };
+
+  void next_row() {
+//    g_print("\n");
+//    y ++; x = 0;
+    mask += mask_stride - width;
+    row_guard = mask + width;
+    rgba += rgba_stride - width * bytes;
+  };
+
+  bool should_skipped() { return !mask[0]; }
+
+
+};
+
 // parameters to those methods:
 //
 // rgba: A pointer to 16bit rgba data with premultiplied alpha.
@@ -32,56 +109,62 @@
 // resultAlpha = topAlpha + (1.0 - topAlpha) * bottomAlpha
 // resultColor = topColor + (1.0 - topAlpha) * bottomColor
 //
-void draw_dab_pixels_BlendMode_Normal (Pixel::real  * mask,
+template<typename Iter>
+void draw_dab_pixels_BlendMode_Normal (Iter iter,
+/*
+                                       Pixel::real  * mask,
                                        gint         *offsets,
                                        Pixel::data_t*rgba,
+*/
                                        Pixel::real   color_r,
                                        Pixel::real   color_g,
                                        Pixel::real   color_b,
-                                       Pixel::real   opacity,
-                                       gint           bytes) {
+                                       Pixel::real   opacity
+/*                                       gint           bytes*/
+) {
   Pixel::real colors[3];
   colors[0] = color_r;
   colors[1] = color_g;
   colors[2] = color_b;
-  switch (bytes) {
+  switch (iter.bytes) {
   case 3:
     while (1) {
-      for (; mask[0]; mask++, rgba+=3) {
-        pixel_t opa_a = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
+      for (; !iter.is_row_end(); iter.next_pixel()) {
+        if (iter.should_skipped())
+          continue;
+        pixel_t opa_a = pix( eval( pix(iter.mask[0]) * pix(opacity) ) ); // topAlpha
         pixel_t opa_b = pix( eval (f2p(1.0) - opa_a ) ); // bottomAlpha
-        rgba[0] = r2d(eval( opa_a*pix(colors[0]) + opa_b*pix(rgba[0]) ));
-        rgba[1] = r2d(eval( opa_a*pix(colors[1]) + opa_b*pix(rgba[1]) ));
-        rgba[2] = r2d(eval( opa_a*pix(colors[2]) + opa_b*pix(rgba[2]) ));
+        iter.rgba[0] = r2d(eval( opa_a*pix(colors[0]) + opa_b*pix(iter.rgba[0]) ));
+        iter.rgba[1] = r2d(eval( opa_a*pix(colors[1]) + opa_b*pix(iter.rgba[1]) ));
+        iter.rgba[2] = r2d(eval( opa_a*pix(colors[2]) + opa_b*pix(iter.rgba[2]) ));
       }
-      if (!offsets[0]) break;
-      rgba += offsets[0] * 3;
-      offsets ++;
-      mask ++;
+      if (iter.is_data_end()) break;
+      iter.next_row();
     }
     break;
   case 4:
     while (1) {
-      for (; mask[0]; mask++, rgba+=4) {
-        pixel_t brush_a = pix( eval( pix(mask[0]) * pix(opacity) ) );
-        pixel_t base_a  = pix(rgba[3]);
+      for (; !iter.is_row_end(); iter.next_pixel()) {
+        if (iter.should_skipped())
+          continue;
+
+        pixel_t brush_a = pix( eval( pix(iter.mask[0]) * pix(opacity) ) );
+        pixel_t base_a  = pix(iter.rgba[3]);
 	      result_t alpha = eval( brush_a + (f2p(1.0) - brush_a)*base_a );
-        rgba[3] = r2d(alpha);
+        iter.rgba[3] = r2d(alpha);
         if (alpha) {
           pixel_t dest_a = pix(alpha);
-          rgba[0] = r2d(eval( (brush_a * pix(colors[0]) + (f2p(1.0) - brush_a) * base_a * pix(rgba[0])) / dest_a ));
-          rgba[1] = r2d(eval( (brush_a * pix(colors[1]) + (f2p(1.0) - brush_a) * base_a * pix(rgba[1])) / dest_a ));
-          rgba[2] = r2d(eval( (brush_a * pix(colors[2]) + (f2p(1.0) - brush_a) * base_a * pix(rgba[2])) / dest_a ));
+          iter.rgba[0] = r2d(eval( (brush_a * pix(colors[0]) + (f2p(1.0) - brush_a) * base_a * pix(iter.rgba[0])) / dest_a ));
+          iter.rgba[1] = r2d(eval( (brush_a * pix(colors[1]) + (f2p(1.0) - brush_a) * base_a * pix(iter.rgba[1])) / dest_a ));
+          iter.rgba[2] = r2d(eval( (brush_a * pix(colors[2]) + (f2p(1.0) - brush_a) * base_a * pix(iter.rgba[2])) / dest_a ));
         } else {
-          rgba[0] = color_r;
-          rgba[1] = color_g;
-          rgba[2] = color_b;
+          iter.rgba[0] = color_r;
+          iter.rgba[1] = color_g;
+          iter.rgba[2] = color_b;
         }
       }
-      if (!offsets[0]) break;
-      rgba += offsets[0] * 4;
-      offsets ++;
-      mask ++;
+      if (iter.is_data_end()) break;
+      iter.next_row();
     }
     break;
   default:
@@ -96,15 +179,20 @@ void draw_dab_pixels_BlendMode_Normal (Pixel::real  * mask,
 // and color_r/g/b will be ignored. This function can also do normal
 // blending (color_a=1.0).
 //
-void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::real  * mask,
+template<typename Iter>
+void draw_dab_pixels_BlendMode_Normal_and_Eraser (/*Pixel::real  * mask,
                                                   gint          *offsets,
                                                   Pixel::data_t * rgba,
+                                                  */
+                                                  Iter iter,
                                                   Pixel::real   color_r,
                                                   Pixel::real   color_g,
                                                   Pixel::real   color_b,
                                                   Pixel::real   color_a,
                                                   Pixel::real   opacity,
+                                                  /*
                                                   gint          bytes,
+                                                  */
                                                   Pixel::real   background_r = 1.0f,
                                                   Pixel::real   background_g = 1.0f,
                                                   Pixel::real   background_b = 1.0f) {
@@ -118,47 +206,51 @@ void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::real  * mask,
   bg_color[1] = background_g;
   bg_color[2] = background_b;
 
-  switch (bytes) {
+  switch (iter.bytes) {
   case 3:
     while (1) {
-      for (; mask[0]; mask++, rgba+=3) {
-        pixel_t brush_a     = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
+      for (; !iter.is_row_end(); iter.next_pixel()) {
+
+        if (iter.should_skipped())
+          continue;
+
+        pixel_t brush_a     = pix( eval( pix(iter.mask[0]) * pix(opacity) ) ); // topAlpha
         pixel_t inv_brush_a = pix( eval (f2p(1.0) - brush_a ) ); // bottomAlpha
-        rgba[0] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(bg_color[0]) + pix(color_a)*pix(fg_color[0])) + inv_brush_a*pix(rgba[0]) ));
-        rgba[1] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(bg_color[1]) + pix(color_a)*pix(fg_color[1])) + inv_brush_a*pix(rgba[1]) ));
-        rgba[2] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(bg_color[2]) + pix(color_a)*pix(fg_color[2])) + inv_brush_a*pix(rgba[2]) ));
+        iter.rgba[0] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(bg_color[0]) + pix(color_a)*pix(fg_color[0])) + inv_brush_a*pix(iter.rgba[0]) ));
+        iter.rgba[1] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(bg_color[1]) + pix(color_a)*pix(fg_color[1])) + inv_brush_a*pix(iter.rgba[1]) ));
+        iter.rgba[2] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(bg_color[2]) + pix(color_a)*pix(fg_color[2])) + inv_brush_a*pix(iter.rgba[2]) ));
       }
-      if (!offsets[0]) break;
-      rgba += offsets[0] * 3;
-      offsets ++;
-      mask ++;
+      if (iter.is_data_end()) break;
+      iter.next_row();
     }
     break;
   case 4:
     while (1) {
-      for (; mask[0]; mask++, rgba+=4) {
-        pixel_t brush_a = pix( eval( pix(mask[0]) * pix(opacity) ) );
-        pixel_t base_a  = pix(rgba[3]);
+      for (; !iter.is_row_end(); iter.next_pixel()) {
+
+        if (iter.should_skipped())
+          continue;
+
+        pixel_t brush_a = pix( eval( pix(iter.mask[0]) * pix(opacity) ) );
+        pixel_t base_a  = pix(iter.rgba[3]);
 //        pixel_t orig_dest = pix(rgba[3]);
 	      result_t alpha = eval( brush_a * pix(color_a) + (pix(1.0f) - brush_a) * base_a );
-        rgba[3] = r2d(alpha);
+        iter.rgba[3] = r2d(alpha);
         
         if (alpha) {
           pixel_t inv_brush_a = pix( eval(pix(1.0f) - brush_a));
           pixel_t dest_a = pix(alpha);
-          rgba[0] = r2d(eval( (inv_brush_a*base_a*pix(rgba[0]) + brush_a*pix(color_a)*pix(fg_color[0])) / dest_a ));
-          rgba[1] = r2d(eval( (inv_brush_a*base_a*pix(rgba[1]) + brush_a*pix(color_a)*pix(fg_color[1])) / dest_a ));
-          rgba[2] = r2d(eval( (inv_brush_a*base_a*pix(rgba[2]) + brush_a*pix(color_a)*pix(fg_color[2])) / dest_a ));
+          iter.rgba[0] = r2d(eval( (inv_brush_a*base_a*pix(iter.rgba[0]) + brush_a*pix(color_a)*pix(fg_color[0])) / dest_a ));
+          iter.rgba[1] = r2d(eval( (inv_brush_a*base_a*pix(iter.rgba[1]) + brush_a*pix(color_a)*pix(fg_color[1])) / dest_a ));
+          iter.rgba[2] = r2d(eval( (inv_brush_a*base_a*pix(iter.rgba[2]) + brush_a*pix(color_a)*pix(fg_color[2])) / dest_a ));
         } else {
-          rgba[0] = color_r;
-          rgba[1] = color_g;
-          rgba[2] = color_b;
+          iter.rgba[0] = color_r;
+          iter.rgba[1] = color_g;
+          iter.rgba[2] = color_b;
         }
       }
-      if (!offsets[0]) break;
-      rgba += offsets[0] * 4;
-      offsets ++;
-      mask ++;
+      if (iter.is_data_end()) break;
+      iter.next_row();
     }
     break;
   default:
@@ -168,17 +260,20 @@ void draw_dab_pixels_BlendMode_Normal_and_Eraser (Pixel::real  * mask,
 
 // This is BlendMode_Normal with locked alpha channel.
 //
-void draw_dab_pixels_BlendMode_LockAlpha (Pixel::real  * mask,
+template<typename Iter>
+void draw_dab_pixels_BlendMode_LockAlpha (/*
+                                          Pixel::real  * mask,
                                           gint          *offsets,
-                                          Pixel::data_t * rgba,
+                                          Pixel::data_t * rgba,*/
+                                          Iter          iter,
                                           Pixel::real   color_r,
                                           Pixel::real   color_g,
                                           Pixel::real   color_b,
-                                          Pixel::real   opacity,
-                                          gint          bytes) {
-  switch (bytes) {
+                                          Pixel::real   opacity
+                                          /*gint          bytes*/) {
+  switch (iter.bytes) {
   case 3:
-    draw_dab_pixels_BlendMode_Normal(mask, offsets, rgba, color_r, color_g, color_b, opacity, bytes);
+    draw_dab_pixels_BlendMode_Normal(iter, color_r, color_g, color_b, opacity);
     break;
   case 4:
     Pixel::real fg_color[3];
@@ -187,21 +282,23 @@ void draw_dab_pixels_BlendMode_LockAlpha (Pixel::real  * mask,
     fg_color[2] = color_b;
 
     while (1) {
-      for (; mask[0]; mask++, rgba+=4) {
-        pixel_t brush_a = pix( eval( pix(mask[0]) * pix(opacity) ) ); // topAlpha
+      for (; !iter.is_row_end(); iter.next_pixel()) {
+
+        if (iter.should_skipped())
+          continue;
+
+        pixel_t brush_a = pix( eval( pix(iter.mask[0]) * pix(opacity) ) ); // topAlpha
         pixel_t inv_brush_a = pix( eval( f2p(1.0) - brush_a) ); // bottomAlpha
-        pixel_t alpha = pix( rgba[3] );
-        pixel_t dest_a = pix( rgba[3] );
+        pixel_t alpha = pix( iter.rgba[3] );
+        pixel_t dest_a = pix( iter.rgba[3] );
         pixel_t base_a = dest_a;
         
-        rgba[0] = r2d(eval( (brush_a*alpha*pix(fg_color[0]) + inv_brush_a*base_a*pix(rgba[0])) / dest_a));
-        rgba[1] = r2d(eval( (brush_a*alpha*pix(fg_color[1]) + inv_brush_a*base_a*pix(rgba[1])) / dest_a));
-        rgba[2] = r2d(eval( (brush_a*alpha*pix(fg_color[2]) + inv_brush_a*base_a*pix(rgba[2])) / dest_a));
+        iter.rgba[0] = r2d(eval( (brush_a*alpha*pix(fg_color[0]) + inv_brush_a*base_a*pix(iter.rgba[0])) / dest_a));
+        iter.rgba[1] = r2d(eval( (brush_a*alpha*pix(fg_color[1]) + inv_brush_a*base_a*pix(iter.rgba[1])) / dest_a));
+        iter.rgba[2] = r2d(eval( (brush_a*alpha*pix(fg_color[2]) + inv_brush_a*base_a*pix(iter.rgba[2])) / dest_a));
       }
-      if (!offsets[0]) break;
-      rgba += offsets[0] * 4;
-      offsets ++;
-      mask ++;
+      if (iter.is_data_end()) break;
+      iter.next_row();
     }
   break;
   default:
@@ -213,15 +310,17 @@ void draw_dab_pixels_BlendMode_LockAlpha (Pixel::real  * mask,
 // Sum up the color/alpha components inside the masked region.
 // Called by get_color().
 //
-void get_color_pixels_accumulate (Pixel::real  * mask,
+template<typename Iter>
+void get_color_pixels_accumulate (/*Pixel::real  * mask,
                                   gint          *offsets,
-                                  Pixel::data_t * rgba,
+                                  Pixel::data_t * rgba,*/
+                                  Iter iter,
                                   float * sum_weight,
                                   float * sum_r,
                                   float * sum_g,
                                   float * sum_b,
-                                  float * sum_a,
-                                  gint bytes
+                                  float * sum_a/*,
+                                  gint bytes*/
                                   ) {
 
 
@@ -236,37 +335,41 @@ void get_color_pixels_accumulate (Pixel::real  * mask,
   internal_t b = 0;
   internal_t a = 0;
 
-  switch (bytes) {
+  switch (iter.bytes) {
   case 3:
     while (1) {
-      for (; mask[0]; mask++, rgba+=3) {
-        pixel_t opa = pix (mask[0]);
+      for (; !iter.is_row_end(); iter.next_pixel()) {
+
+        if (iter.should_skipped())
+          continue;
+
+        pixel_t opa = pix (iter.mask[0]);
         weight += r2i(eval(opa));
-        r      += r2i(eval (opa * pix(rgba[0]) * pix(1.0f)));
-        g      += r2i(eval (opa * pix(rgba[1]) * pix(1.0f)));
-        b      += r2i(eval (opa * pix(rgba[2]) * pix(1.0f)));
+        r      += r2i(eval (opa * pix(iter.rgba[0]) * pix(1.0f)));
+        g      += r2i(eval (opa * pix(iter.rgba[1]) * pix(1.0f)));
+        b      += r2i(eval (opa * pix(iter.rgba[2]) * pix(1.0f)));
         a      += r2i(eval(opa));
       }
-      if (!offsets[0]) break;
-      rgba += offsets[0] * 3;
-      offsets ++;
-      mask ++;
+      if (iter.is_data_end()) break;
+      iter.next_row();
     }
     break;
   case 4:
     while (1) {
-      for (; mask[0]; mask++, rgba+=4) {
-        pixel_t opa = pix (mask[0]);
+      for (; !iter.is_row_end(); iter.next_pixel()) {
+
+        if (iter.should_skipped())
+          continue;
+
+        pixel_t opa = pix (iter.mask[0]);
         weight += r2i(eval(opa));
-        r      += r2i(eval (opa * pix(rgba[0]) * pix(rgba[3])));
-        g      += r2i(eval (opa * pix(rgba[1]) * pix(rgba[3])));
-        b      += r2i(eval (opa * pix(rgba[2]) * pix(rgba[3])));
-        a      += r2i(eval (opa * pix(rgba[3])));
+        r      += r2i(eval (opa * pix(iter.rgba[0]) * pix(iter.rgba[3])));
+        g      += r2i(eval (opa * pix(iter.rgba[1]) * pix(iter.rgba[3])));
+        b      += r2i(eval (opa * pix(iter.rgba[2]) * pix(iter.rgba[3])));
+        a      += r2i(eval (opa * pix(iter.rgba[3])));
       }
-      if (!offsets[0]) break;
-      rgba += offsets[0] * 4;
-      offsets ++;
-      mask ++;
+      if (iter.is_data_end()) break;
+      iter.next_row();
     }
     break;
   default:

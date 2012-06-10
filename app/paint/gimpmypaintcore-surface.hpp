@@ -24,6 +24,7 @@ extern "C" {
 #include "gimpmypaintoptions.h"
 #include "core/gimpmypaintbrush.h"
 #include "core/gimpundo.h"
+#include "core/gimpbrush.h"
 }
 
 extern "C++" {
@@ -42,6 +43,7 @@ private:
   virtual GimpUndo* push_undo (GimpImage *imag, const gchar* undo_desc);
   GimpDrawable* drawable;
   GimpRGB       bg_color;
+  GimpBrush*    brush;
   
   gchar       *undo_desc;        /*  undo description                    */
   TileManager* undo_tiles;       /*  tiles which have been modified      */
@@ -92,6 +94,23 @@ public:
                          float lock_alpha = 0.0, float colorize = 0.0
                          );
 
+  virtual bool draw_brushmark_dab (float x, float y, 
+                                    float radius, 
+                                    float color_r, float color_g, float color_b,
+                                    float opaque, float hardness = 0.5,
+                                    float alpha_eraser = 1.0,
+                                    float aspect_ratio = 1.0, float angle = 0.0,
+                                    float lock_alpha = 0.0, float colorize = 0.0);
+
+  virtual bool draw_mypaint_dab (float x, float y, 
+                         float radius, 
+                         float color_r, float color_g, float color_b,
+                         float opaque, float hardness = 0.5,
+                         float alpha_eraser = 1.0,
+                         float aspect_ratio = 1.0, float angle = 0.0,
+                         float lock_alpha = 0.0, float colorize = 0.0
+                         );
+
   virtual void get_color (float x, float y, 
                           float radius, 
                           float * color_r, float * color_g, float * color_b, float * color_a
@@ -103,6 +122,8 @@ public:
   bool is_surface_for (GimpDrawable* drawable) { return drawable == this->drawable; }
   void set_bg_color (GimpRGB* src);
   void get_bg_color(GimpRGB* dest);
+  void set_brush(GimpBrush* brush_);
+  GimpBrush* get_brush();
 };
 
 }
