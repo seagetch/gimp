@@ -32,7 +32,7 @@ static MyPaintBrushInputSettings inputs_list[] = {
   {"speed2",  INPUT_SPEED2, None, 0.0,  0.5,  4.0, None, _("Gross speed"), _("Same as fine speed, but changes slower. Also look at the \"gross speed filter\" setting.")},
   {"random",  INPUT_RANDOM, 0.0,  0.0,  0.5,  1.0, 1.0, _("Random"), _("Fast random noise, changing at each evaluation. Evenly distributed between 0 and 1.")},
   {"stroke",  INPUT_STROKE,  0.0,  0.0,  0.5,  1.0, 1.0, _("Stroke"), _("This input slowly goes from zero to one while you draw a stroke. It can also be configured to jump back to zero periodically while you move. Look at the \"stroke duration\" and \"stroke hold time\" settings.")},
-  {"direction", INPUT_DIRECTION, -180.0,  -180.0,  0.0,  180.0, 180.0, _("Direction"), _("The angle of the stroke, in degrees. The value will stay between 0.0 and 180.0, effectively ignoring turns of 180 degrees.")},
+  {"direction", INPUT_DIRECTION, 0.0,  0.0,  0.0,  360.0, 360.0, _("Direction"), _("The angle of the stroke, in degrees. The value will stay between 0.0 and 360.0, effectively ignoring turns of 180 degrees.")},
   {"tilt_declination", INPUT_TILT_DECLINATION, 0.0,  0.0,  0.0,  90.0, 90.0,  _("Declination"), _("Declination of stylus tilt. 0 when stylus is parallel to tablet and 90.0 when it's perpendicular to tablet.")},
   {"tilt_ascension", INPUT_TILT_ASCENSION, -180.0,  -180.0,  0.0,  180.0, 180.0, _("Ascension"),  _("Right ascension of stylus tilt. 0 when stylus working end points to you, +90 when rotated 90 degrees clockwise, -90 when rotated 90 degrees counterclockwise.")},
   //{"motion_strength", INPUT_MOTION_STRENGTH, 0.0,0.0,  0.0,  1.0, 1.0,  "[EXPERIMENTAL} Same as angle, but wraps at 180 degrees. The dynamics are shared with BRUSH_OFFSET_BY_SPEED_FILTER (FIXME: which is a bad thing)."},
@@ -91,7 +91,7 @@ static MyPaintBrushSettings settings_list[] = {
   {"custom_input_slowness", BRUSH_CUSTOM_INPUT_SLOWNESS, _("Custom input filter"), False, 0.0, 0.0, 10.0, _("How slow the custom input actually follows the desired value (the one above). This happens at brushdab level (ignoring how much time has past, if brushdabs do not depend on time).\n0.0 no slowdown (changes apply instantly)")},
 
   {"elliptical_dab_ratio", BRUSH_ELLIPTICAL_DAB_RATIO, _("Elliptical dab: ratio"), False, 1.0, 1.0, 10.0, _("Aspect ratio of the dabs; must be >= 1.0, where 1.0 means a perfectly round dab. TODO: linearize? start at 0.0 maybe, or log?")},
-  {"elliptical_dab_angle", BRUSH_ELLIPTICAL_DAB_ANGLE, _("Elliptical dab: angle"), False, 0.0, 90.0, 180.0, _("Angle by which elliptical dabs are tilted\n 0.0 horizontal dabs\n 45.0 45 degrees, turned clockwise\n 180.0 horizontal again")},
+  {"elliptical_dab_angle", BRUSH_ELLIPTICAL_DAB_ANGLE, _("Elliptical dab: angle"), False, 0.0, 90.0, 360.0, _("Angle by which elliptical dabs are tilted\n 0.0 horizontal dabs\n 45.0 45 degrees, turned clockwise\n 180.0 horizontal again")},
   {"direction_filter", BRUSH_DIRECTION_FILTER, _("Direction filter"), False, 0.0, 2.0, 10.0, _("A low value will make the direction input adapt more quickly, a high value will make it smoother")},
 
   {"lock_alpha", BRUSH_LOCK_ALPHA, _("Lock alpha"), False, 0.0, 0.0, 1.0, _("Do not modify the alpha channel of the layer (paint only where there is paint already)\n 0.0 normal painting\n 0.5 half of the paint gets applied normally\n 1.0 alpha channel fully locked")},
