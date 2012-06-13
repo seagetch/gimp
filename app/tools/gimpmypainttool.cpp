@@ -152,6 +152,9 @@ gimp_mypaint_tool_init (GimpMypaintTool *paint_tool)
   paint_tool->status_ctrl = _("%s to pick a color");
 
   paint_tool->core        = NULL;
+
+  //FIXME! pick_mode should be changed according to the attributes of the selected slash
+  GIMP_COLOR_TOOL (tool)->pick_mode = GIMP_COLOR_PICK_MODE_FOREGROUND;
 }
 
 static void
@@ -175,7 +178,6 @@ gimp_mypaint_tool_constructed (GObject *object)
 
   paint_tool->core = core = new GimpMypaintCore();
   g_object_set_cxx_object(object, "paint-core", core);
-  core->set_undo_desc("Mypaint");
 /*
   g_signal_connect_object (options, "notify::hard",
                            G_CALLBACK (gimp_mypaint_tool_hard_notify),
@@ -257,19 +259,11 @@ gimp_mypaint_tool_button_press (GimpTool            *tool,
   GError           *error = NULL;
 
   if (gimp_color_tool_is_enabled (GIMP_COLOR_TOOL (tool))) {
+    g_print("button_press where ColorTool.is_enabled == TRUE\n");
     GIMP_TOOL_CLASS (parent_class)->button_press (tool, coords, time, state,
                                                   press_type, display);
     return;
   }
-
-/*
-  curr_coords = *coords;
-
-  gimp_item_get_offset (GIMP_ITEM (drawable), &off_x, &off_y);
-
-  curr_coords.x -= off_x;
-  curr_coords.y -= off_y;
-*/
 
   if (gimp_draw_tool_is_active (draw_tool))
     gimp_draw_tool_stop (draw_tool);
@@ -394,7 +388,8 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
   gint              off_x, off_y;
   gdouble           dtime;
 
-  GIMP_TOOL_CLASS (parent_class)->motion (tool, coords, time, state, display);
+  if (button1_pressed)
+    GIMP_TOOL_CLASS (parent_class)->motion (tool, coords, time, state, display);
 
   if (gimp_color_tool_is_enabled (GIMP_COLOR_TOOL (tool)))
     return;
@@ -515,44 +510,38 @@ gimp_mypaint_tool_modifier_key (GimpTool        *tool,
   if (key != gimp_get_constrain_behavior_mask ())
     return;
 
-  if (paint_tool->pick_colors && ! paint_tool->draw_line) {
-    if (press) {
-        GimpToolInfo *info = gimp_get_tool_info (display->gimp,
-                                                 "gimp-color-picker-tool");
+  if (press) {
+    GimpToolInfo *info = gimp_get_tool_info (display->gimp,
+                                             "gimp-color-picker-tool");
 
-      if (GIMP_IS_TOOL_INFO (info)) {
-          if (gimp_draw_tool_is_active (draw_tool))
-            gimp_draw_tool_stop (draw_tool);
+    if (GIMP_IS_TOOL_INFO (info)) {
+        if (gimp_draw_tool_is_active (draw_tool))
+          gimp_draw_tool_stop (draw_tool);
 
-          gimp_color_tool_enable (GIMP_COLOR_TOOL (tool),
-                                  GIMP_COLOR_OPTIONS (info->tool_options));
+        gimp_color_tool_enable (GIMP_COLOR_TOOL (tool),
+                                GIMP_COLOR_OPTIONS (info->tool_options));
 
-          switch (GIMP_COLOR_TOOL (tool)->pick_mode) {
-            case GIMP_COLOR_PICK_MODE_FOREGROUND:
-              gimp_tool_push_status (tool, display,
-                                     _("Click in any image to pick the "
-                                       "foreground color"));
-              break;
+        switch (GIMP_COLOR_TOOL (tool)->pick_mode) {
+          case GIMP_COLOR_PICK_MODE_FOREGROUND:
+            gimp_tool_push_status (tool, display,
+                                   _("Click in any image to pick the "
+                                     "foreground color"));
+            break;
 
-            case GIMP_COLOR_PICK_MODE_BACKGROUND:
-              gimp_tool_push_status (tool, display,
-                                     _("Click in any image to pick the "
-                                       "background color"));
-              break;
+          case GIMP_COLOR_PICK_MODE_BACKGROUND:
+            gimp_tool_push_status (tool, display,
+                                   _("Click in any image to pick the "
+                                     "background color"));
+            break;
 
-            default:
-              break;
-          }
-      }
-    } else {
-      if (gimp_color_tool_is_enabled (GIMP_COLOR_TOOL (tool))) {
-        gimp_tool_pop_status (tool, display);
-        gimp_color_tool_disable (GIMP_COLOR_TOOL (tool));
-      }
+          default:
+            break;
+        }
     }
-
+  } else if (gimp_color_tool_is_enabled (GIMP_COLOR_TOOL (tool))) {
+    gimp_tool_pop_status (tool, display);
+    gimp_color_tool_disable (GIMP_COLOR_TOOL (tool));
   }
-
 }
 
 static void
