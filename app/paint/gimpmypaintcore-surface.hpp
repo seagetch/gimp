@@ -45,7 +45,6 @@ private:
   GimpRGB       bg_color;
   GimpBrush*    brush;
   
-  gchar       *undo_desc;        /*  undo description                    */
   TileManager* undo_tiles;       /*  tiles which have been modified      */
 
   gint         x1, y1;           /*  undo extents in image coords        */
@@ -76,7 +75,7 @@ public:
   GimpMypaintSurface(GimpDrawable* drawable);
   virtual ~GimpMypaintSurface();
 
-  void render_dab_mask_in_tile (Pixel::real * dab_mask,
+  void render_mypaint_dab_mask_in_tile (Pixel::real * dab_mask,
                                 gint          *offsets,
                                 float x, float y,
                                 float radius,
@@ -84,6 +83,11 @@ public:
                                 float aspect_ratio, float angle,
                                 PixelRegion* srcPR,
                                 PixelRegion* channelPR
+                                );
+  void render_brushmark_dab_mask_in_tile (Pixel::real * dab_mask,
+                                PixelRegion* srcPR,
+                                PixelRegion* channelPR,
+                                PixelRegion* texturePR
                                 );
   virtual bool draw_dab (float x, float y, 
                          float radius, 

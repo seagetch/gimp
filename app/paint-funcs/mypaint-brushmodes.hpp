@@ -35,18 +35,18 @@ struct BrushPixelIteratorForRunLength {
 };
 
 struct BrushPixelIteratorForBrushmark {
-  Pixel::data_t* mask;
+  Pixel::real*   mask;
   Pixel::data_t* rgba;
   gint           width;
   gint           height;
   gint           mask_stride;
   gint           rgba_stride;
   gint           bytes;
-  Pixel::data_t* row_guard;
-  Pixel::data_t* data_guard;
+  Pixel::real*   row_guard;
+  Pixel::real*   data_guard;
 //  int x, y;
   
-  BrushPixelIteratorForBrushmark(Pixel::data_t* mask_, Pixel::data_t* rgba_, 
+  BrushPixelIteratorForBrushmark(Pixel::real* mask_, Pixel::data_t* rgba_, 
                                  gint width_, gint height_, 
                                  gint mask_stride_, gint rgba_stride_,
                                  gint bytes_) 

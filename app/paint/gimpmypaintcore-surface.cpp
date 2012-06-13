@@ -63,7 +63,7 @@ extern "C" {
 const float ALPHA_THRESHOLD = (float)((1 << 16) - 1);
 
 GimpMypaintSurface::GimpMypaintSurface(GimpDrawable* d) 
-  : undo_tiles(NULL), undo_desc(""), session(0), drawable(d), brush(NULL)
+  : undo_tiles(NULL), session(0), drawable(d), brush(NULL)
 {
   g_object_add_weak_pointer(G_OBJECT(d), (gpointer*)&drawable);
 }
@@ -81,15 +81,15 @@ GimpMypaintSurface::~GimpMypaintSurface()
 }
 
 void 
-GimpMypaintSurface::render_dab_mask_in_tile (Pixel::real *dab_mask,
-                                             gint          *offsets,
-                                             float x, float y,
-                                             float radius,
-                                             float hardness,
-                                             float aspect_ratio, float angle,
-                                             PixelRegion* srcPR,
-                                             PixelRegion* channelPR
-                                            ) {
+GimpMypaintSurface::render_mypaint_dab_mask_in_tile (Pixel::real *dab_mask,
+                                                    gint          *offsets,
+                                                    float x, float y,
+                                                    float radius,
+                                                    float hardness,
+                                                    float aspect_ratio, float angle,
+                                                    PixelRegion* srcPR,
+                                                    PixelRegion* channelPR
+                                                   ) {
   gint stride = srcPR->rowstride / srcPR->bytes;
 //  g_print("dab_in_tile(x=%f,y=%f,r=%f,hd=%f,ar=%f,ang=%f,w=%d,h=%d,B=%d,s=%d)\n",x,y,radius,hardness,aspect_ratio,angle,w,h,bytes,stride);
   hardness = CLAMP(hardness, 0.0, 1.0);
@@ -211,6 +211,56 @@ GimpMypaintSurface::render_dab_mask_in_tile (Pixel::real *dab_mask,
   *offsets  = 0;
 }
 
+void 
+GimpMypaintSurface::render_brushmark_dab_mask_in_tile (Pixel::real *dab_mask,
+                                                    PixelRegion* srcPR,
+                                                    PixelRegion* channelPR,
+                                                    PixelRegion* texturePR
+                                                   ) 
+{
+  Pixel::real*   mask_ptr;
+  Pixel::data_t* data;
+
+  mask_ptr = dab_mask;
+  data = srcPR->data;
+  for (int y = 0; y < srcPR->h; y ++) {
+    for (int x = 0; x < srcPR->w; x ++) {
+      *mask_ptr = eval(pix(data[x]));
+      mask_ptr ++;
+    }
+    data += srcPR->rowstride;
+  }
+
+  if (channelPR) {
+    mask_ptr = dab_mask;
+    data = srcPR->data;
+    Pixel::data_t* data2 = channelPR->data;
+    for (int y = 0; y < srcPR->h; y ++) {
+      for (int x = 0; x < srcPR->w; x ++) {
+        *mask_ptr = eval(pix(*mask_ptr) * pix(data2[x]));
+        mask_ptr ++;
+      }
+      data2 += channelPR->rowstride;
+    }
+  }
+
+  if (texturePR) {
+    mask_ptr = dab_mask;
+    data = srcPR->data;
+    Pixel::data_t* data2 = texturePR->data;
+    for (int y = 0; y < srcPR->h; y ++) {
+      for (int x = 0; x < srcPR->w; x ++) {
+        *mask_ptr = eval(pix(*mask_ptr) * pix(data2[x]));
+        mask_ptr ++;
+      }
+      data2 += texturePR->rowstride;
+    }
+  }
+
+  
+}
+
+
 bool
 GimpMypaintSurface::draw_dab (float x, float y, 
                               float radius, 
@@ -218,7 +268,8 @@ GimpMypaintSurface::draw_dab (float x, float y,
                               float opaque, float hardness,
                               float color_a,
                               float aspect_ratio, float angle,
-                              float lock_alpha,float colorize)
+                              float lock_alpha,
+                              float colorize)
 {
   if (brush)
     return draw_brushmark_dab(x, y, radius, color_r, color_g, color_b, opaque,
@@ -237,8 +288,8 @@ GimpMypaintSurface::draw_mypaint_dab (float x, float y,
                          float opaque, float hardness,
                          float color_a,
                          float aspect_ratio, float angle,
-                         float lock_alpha,float colorize
-                         )
+                         float lock_alpha,
+                         float colorize)
 {
   GimpItem        *item  = GIMP_ITEM (drawable);
   GimpImage       *image = gimp_item_get_image (item);
@@ -344,7 +395,7 @@ GimpMypaintSurface::draw_mypaint_dab (float x, float y,
 
       guchar  *s1 = src1PR->data;
       
-      closure->surface->render_dab_mask_in_tile(dab_mask,
+      closure->surface->render_mypaint_dab_mask_in_tile(dab_mask,
                       dab_offsets,
                       closure->x - src1PR->x,
                       closure->y - src1PR->y,
@@ -565,13 +616,18 @@ GimpMypaintSurface::draw_brushmark_dab (float x, float y,
     Pixel::real bg_color[3];
     
     static void render_full(DrawBrushmarkClosure* closure, PixelRegion* src1PR, PixelRegion* brushPR, PixelRegion* maskPR) {
+      Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
 
-      guchar* rgba     = src1PR->data;
-      guchar* dab_mask = brushPR->data;
+      guchar* rgba = src1PR->data;
+      
+      closure->surface->render_brushmark_dab_mask_in_tile(dab_mask,
+                                                          brushPR,
+                                                          maskPR,
+                                                          NULL);
 
       BrushPixelIteratorForBrushmark iter(dab_mask, rgba, 
                                           src1PR->w, src1PR->h, 
-                                          brushPR->rowstride, src1PR->rowstride, 
+                                          brushPR->w, src1PR->rowstride, 
                                           src1PR->bytes);
       // second, we use the mask to stamp a dab for each activated blend mode
       if (closure->normal) {
@@ -736,7 +792,7 @@ GimpMypaintSurface::get_color (float x, float y,
        pr = pixel_regions_process ((PixelRegionIterator*)pr)) {
     guchar  *s1 = src1PR.data;
 
-    render_dab_mask_in_tile(dab_mask,
+    render_mypaint_dab_mask_in_tile(dab_mask,
                     dab_offsets,
                     x - src1PR.x,
                     y - src1PR.y,
