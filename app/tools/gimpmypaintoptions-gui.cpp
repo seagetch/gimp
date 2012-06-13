@@ -468,6 +468,9 @@ class MypaintBrushEditorPrivate : public MypaintGUIPrivateBase {
           if (*ymax < y)
             *ymax = y;
         }
+      } else {
+        *xmin = *xmax = 0;
+        *ymin = *ymax = 0;
       }
       
     }
@@ -531,27 +534,31 @@ class MypaintBrushEditorPrivate : public MypaintGUIPrivateBase {
 
       bool is_used = mapping && (ymin != ymax || ymax != 0.0);
       
-      if (is_used) {
-        if (input_setting->hard_minimum == input_setting->hard_maximum) {
-          gtk_adjustment_set_lower(x_min_adj, -20);
-          gtk_adjustment_set_upper(x_min_adj,  20 - 0.1);
-          gtk_adjustment_set_lower(x_max_adj, -20 + 0.1);
-          gtk_adjustment_set_upper(x_max_adj,  20);
-        } else {
-          gtk_adjustment_set_lower(x_min_adj, input_setting->hard_minimum);
-          gtk_adjustment_set_upper(x_min_adj, input_setting->hard_maximum - 0.1);
-          gtk_adjustment_set_lower(x_max_adj, input_setting->hard_minimum + 0.1);
-          gtk_adjustment_set_upper(x_max_adj, input_setting->hard_maximum);
-        }
+      if (input_setting->hard_minimum == input_setting->hard_maximum) {
+        gtk_adjustment_set_lower(x_min_adj, -20);
+        gtk_adjustment_set_upper(x_min_adj,  20 - 0.1);
+        gtk_adjustment_set_lower(x_max_adj, -20 + 0.1);
+        gtk_adjustment_set_upper(x_max_adj,  20);
         
-        mapping_to_curve(curve);
-
-        GimpRGB color = {1.0, 0., 0.};
-        gimp_curve_view_set_curve (curve_view,
-                                     curve, &color);
-        curve_notify_handler = g_signal_connect_delegator(G_OBJECT(curve), "notify::points",
-                                                          Delegator::delegator(this, &CurveViewActions::notify_curve));      
+      } else {
+        gtk_adjustment_set_lower(x_min_adj, input_setting->hard_minimum);
+        gtk_adjustment_set_upper(x_min_adj, input_setting->hard_maximum - 0.1);
+        gtk_adjustment_set_lower(x_max_adj, input_setting->hard_minimum + 0.1);
+        gtk_adjustment_set_upper(x_max_adj, input_setting->hard_maximum);
       }
+
+      gtk_adjustment_set_upper(y_scale_adj,  brush_setting->maximum);
+      gtk_adjustment_set_lower(y_scale_adj,  brush_setting->minimum);
+
+      if (is_used) {
+        mapping_to_curve(curve);
+      }
+
+      GimpRGB color = {1.0, 0., 0.};
+      gimp_curve_view_set_curve (curve_view,
+                                   curve, &color);
+      curve_notify_handler = g_signal_connect_delegator(G_OBJECT(curve), "notify::points",
+                                                        Delegator::delegator(this, &CurveViewActions::notify_curve));      
       
       update_range_parameters();        
 
@@ -570,7 +577,11 @@ class MypaintBrushEditorPrivate : public MypaintGUIPrivateBase {
 
       Mapping* mapping = get_mapping();
       if (mapping) {
-        int n_points = mapping->get_n(input_setting->index);
+        int mapping_n_points = mapping->get_n(input_setting->index);
+        int curve_n_points;
+
+        g_object_get(G_OBJECT(curve), "n-points", &curve_n_points, NULL);
+
         get_mapping_range(mapping, input_setting->index, &xmin, &xmax, &ymin, &ymax);
         
         if (ymin != ymax || ymax != 0.0) {
@@ -580,15 +591,23 @@ class MypaintBrushEditorPrivate : public MypaintGUIPrivateBase {
           float x, y;
           int i = 0;
 
-          for (; i < n_points; i ++) {
+          for (; i < MAXIMUM_NUM_POINTS; i ++) {
+            gimp_curve_set_point(curve, i, -1.0, -1.0);
+          }
+
+          for (i = 0; i < mapping_n_points; i ++) {
             mapping->get_point(input_setting->index, i, &x, &y);
             float normalized_x = xrange != 0.0? (x - xmin) / xrange : 0.;
             float normalized_y = yrange != 0.0? (y - ymin) / yrange : 0.;
-            gimp_curve_set_point(curve, i, normalized_x, normalized_y);
-          }
-          g_object_get(G_OBJECT(curve), "n-points", &n_points, NULL);
-          for (; i < MAXIMUM_NUM_POINTS; i ++) {
-            gimp_curve_set_point(curve, i, -1.0, -1.0);
+            int closest_index = (int)(normalized_x * curve_n_points);
+            closest_index = CLAMP(closest_index, 0, curve_n_points - 1);
+            double tmp_x, tmp_y;
+            gimp_curve_get_point(curve, closest_index, &tmp_x, &tmp_y);
+            
+            if (tmp_x < 0)
+              gimp_curve_set_point(curve, i, normalized_x, normalized_y);
+            else
+              ;;
           }
         }
         
@@ -606,32 +625,8 @@ class MypaintBrushEditorPrivate : public MypaintGUIPrivateBase {
       float xmax = input_setting->soft_minimum;
       float ymax;
       Mapping* mapping = get_mapping();
-      if (mapping) {
-        int n_points = mapping->get_n(input_setting->index);
-        if (n_points > 0) {
-          float x, y;
-          mapping->get_point(input_setting->index, 0, &x, &y);
-          ymin = ymax = y;
-          xmin = MIN(xmin, x);
-          xmax = MAX(xmax, x);
-          for (int i = 1; i < n_points; i ++) {
-            mapping->get_point(input_setting->index, i, &x, &y);
-            if (xmin > x) xmin = x;
-            if (xmax < x) xmax = x;
-            if (ymin > y) ymin = y;
-            if (ymax < y) ymax = y;
-          }
-        } else {
-          xmin = input_setting->soft_minimum;
-          xmax = input_setting->soft_maximum;
-          ymin = ymax = 0;
-        }
-      } else {
-        xmin = input_setting->soft_minimum;
-        xmax = input_setting->soft_maximum;
-        ymin = ymax = 0;
-      }
-      g_print("xmin,xmax=%3.2lf,%3.2lf: ymin,ymax=%3.2lf, %3.2lf\n", xmin, xmax, ymin, ymax);
+      get_mapping_range(mapping, input_setting->index, &xmin, &xmax, &ymin, &ymax);
+      g_print("xmin,xmax=%3.2f,%3.2f: ymin,ymax=%3.2f, %3.2f in [%f,%f]\n", xmin, xmax, ymin, ymax,brush_setting->minimum, brush_setting->maximum);
 
       gdouble xmin_value = xmin;
       gdouble xmax_value = xmax;
@@ -645,9 +640,6 @@ class MypaintBrushEditorPrivate : public MypaintGUIPrivateBase {
       }
       gdouble ymax_value = MAX(ABS(ymax), ABS(ymin));
       
-      gtk_adjustment_set_upper(y_scale_adj,  7); // "7" is magic word...
-      gtk_adjustment_set_lower(y_scale_adj, -7);
-
       gtk_adjustment_set_value(x_min_adj, xmin_value);
       gtk_adjustment_set_value(x_max_adj, xmax_value);
       gtk_adjustment_set_value(y_scale_adj, ymax_value);
@@ -777,10 +769,18 @@ class MypaintBrushEditorPrivate : public MypaintGUIPrivateBase {
       
       xrange = xmax - xmin;
       yrange = ymax - ymin;
+      
+      float ymin_value = ymax, ymax_value = ymin;
 
       for (int i = 0; i < count; i ++) {
         points[i].x = points[i].x * xrange + xmin;
         points[i].y = points[i].y * yrange + ymin;
+        ymin_value = MIN(points[i].y, ymin_value);
+        ymax_value = MAX(points[i].y, ymax_value);
+      }
+      
+      if (ymin_value == ymax_value) {
+        count = 0;
       }
       
       if (count > 1 || count == 0) {
