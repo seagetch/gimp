@@ -38,7 +38,6 @@ class GimpMypaintCore
   Brush*       brush;
   Stroke*      stroke;
   GimpMypaintBrush* mypaint_brush;
-  gchar*       undo_desc;
   GimpMypaintOptions*     options;
 
   Delegator::Connection* option_changed_handler;
@@ -58,8 +57,6 @@ class GimpMypaintCore
   
   void option_changed(GObject* object, GParamSpec *pspec);
   
-  void   set_undo_desc(gchar* desc);
-  gchar* get_undo_desc();
 };
 
 void      gimp_mypaint_core_round_line                (GimpMypaintCore    *core,

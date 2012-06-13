@@ -66,7 +66,6 @@ GimpMypaintCore::GimpMypaintCore()
   surface = NULL;
   brush   = NULL;
   stroke  = NULL;
-  undo_desc = NULL;
   option_changed_handler = NULL;
 }
 
@@ -75,9 +74,6 @@ GimpMypaintCore::~GimpMypaintCore ()
 {
   g_print("GimpMypaintCore(%lx)::destructor\n", (gulong)this);
   cleanup ();
-  if (undo_desc)
-    g_free (undo_desc);
-  undo_desc = NULL;
 }
 
 void GimpMypaintCore::cleanup()
@@ -230,12 +226,6 @@ void GimpMypaintCore::reset_brush()
   if (brush) {
     brush->reset();
   }
-}
-
-void GimpMypaintCore::set_undo_desc(gchar* value)
-{
-//  g_free (undo_desc);
-//  undo_desc = g_strdup (value);
 }
 
 void GimpMypaintCore::option_changed(GObject* target, GParamSpec *pspec)
