@@ -547,8 +547,8 @@ class MypaintBrushEditorPrivate : public MypaintGUIPrivateBase {
         gtk_adjustment_set_upper(x_max_adj, input_setting->hard_maximum);
       }
 
-      gtk_adjustment_set_upper(y_scale_adj,  brush_setting->maximum);
-      gtk_adjustment_set_lower(y_scale_adj,  brush_setting->minimum);
+      gtk_adjustment_set_upper(y_scale_adj,  MAX(0.1, brush_setting->maximum));
+      gtk_adjustment_set_lower(y_scale_adj,  MIN(0, brush_setting->minimum));
 
       if (is_used) {
         mapping_to_curve(curve);

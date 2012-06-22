@@ -30,6 +30,7 @@ extern "C" {
 extern "C++" {
 #include "mypaintbrush-surface.hpp"
 #define REAL_CALC
+#include "core/gimpcoords.h"
 #include "base/pixel.hpp"
 
 class GimpMypaintSurface : public Surface
@@ -44,8 +45,11 @@ private:
   GimpDrawable* drawable;
   GimpRGB       bg_color;
   GimpBrush*    brush;
+  GimpCoords    last_coords;
+  GimpCoords    current_coords;
   
   TileManager* undo_tiles;       /*  tiles which have been modified      */
+  TileManager* floating_stroke_tiles;
 
   gint         x1, y1;           /*  undo extents in image coords        */
   gint         x2, y2;           /*  undo extents in image coords        */
@@ -55,6 +59,11 @@ private:
                                        gint              y,
                                        gint              w,
                                        gint              h);
+
+  void      validate_floating_stroke_tiles (gint              x,
+                                            gint              y,
+                                            gint              w,
+                                            gint              h);
 #if 0
   void      validate_canvas_tiles     (GimpMypaintCore    *core,
                                        gint              x,
@@ -71,6 +80,9 @@ private:
 
   void start_undo_group();
   void stop_updo_group();
+  
+  void start_floating_stroke();
+  void stop_floating_stroke();
 public:
   GimpMypaintSurface(GimpDrawable* drawable);
   virtual ~GimpMypaintSurface();
@@ -128,6 +140,7 @@ public:
   void get_bg_color(GimpRGB* dest);
   void set_brush(GimpBrush* brush_);
   GimpBrush* get_brush();
+  void set_coords(const GimpCoords* coords) { current_coords = *coords; }
 };
 
 }

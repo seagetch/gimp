@@ -166,6 +166,8 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
     surface->begin_session();
   }
   
+  surface->set_coords(coords);
+  
   stroke->record(dtime, coords);
 
   /// from Layer#stroke_to
