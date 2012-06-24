@@ -128,13 +128,13 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
 
     if (!surface) {
       g_print("MypaintCore(%lx)::create new surface...\n", (gulong)this);
-      surface = new GimpMypaintSurface(drawable);
+      surface = GimpMypaintSurface_new(drawable);
     } else if (!surface->is_surface_for(drawable)) {
       surface->end_session();
       g_print("MypaintCore(%lx)::delete surface...\n", (gulong)this);
       delete surface;
       g_print("MypaintCore(%lx)::recreate new surface...\n", (gulong)this);
-      surface = new GimpMypaintSurface(drawable);
+      surface = GimpMypaintSurface_new(drawable);
     }
 
     GimpContext* context = GIMP_CONTEXT (options);

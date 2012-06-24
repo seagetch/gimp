@@ -37,8 +37,8 @@ struct BrushPixelIteratorForRunLength {
   
   bool is_row_end() { return !mask[0]; };
   bool is_data_end() { return !offsets[0]; };
-  void next_pixel() { mask++, src+=src_bytes; dest += dest_bytes; };
-  void next_row() { 
+  void next_pixel() { mask++; src+=src_bytes; dest += dest_bytes; };
+  void next_row() {
     src  += offsets[0] * src_bytes;
     dest += offsets[0] * dest_bytes;
     offsets ++;
@@ -147,7 +147,7 @@ struct PixmapBrushmarkIterator {
 };
 
 template<typename ParentClass, typename Mask, typename Color>
-struct BrushPixelIteratorForBrushmark : ParentClass {
+struct BrushPixelIteratorForPlainData : ParentClass {
   typedef Mask mask_t;
   typedef Color color_t;
   Pixel::data_t* src;
@@ -158,7 +158,7 @@ struct BrushPixelIteratorForBrushmark : ParentClass {
   gint           dest_bytes;
   Pixel::data_t* dest_guard;
   
-  BrushPixelIteratorForBrushmark(mask_t*  mask_,
+  BrushPixelIteratorForPlainData(mask_t*  mask_,
                                  color_t* colors_,
                                  Pixel::data_t* src_,
                                  Pixel::data_t* dest_,

@@ -63,746 +63,894 @@ extern "C" {
 
 const float ALPHA_THRESHOLD = (float)((1 << 16) - 1);
 
-GimpMypaintSurface::GimpMypaintSurface(GimpDrawable* d) 
-  : undo_tiles(NULL), floating_stroke_tiles(NULL), 
-    session(0), drawable(d), brush(NULL)
+////////////////////////////////////////////////////////////////////////////////
+template<typename PixelIter>
+class GimpMypaintSurfaceForGeneralBrush {
+protected:
+  float x, y;
+  float opaque;
+  float normal, lock_alpha;
+  float color_a;
+  Pixel::real fg_color[4];
+  Pixel::real bg_color[3];
+public:
+  typedef PixelIter iterator;
+  bool 
+  prepare_brush(float x, 
+                float y, 
+                float radius, 
+                float hardness, 
+                float aspect_ratio, 
+                float angle, 
+                float normal, 
+                float opaque, 
+                float lock_alpha, 
+                Pixel::real* fg_color, 
+                float color_a, 
+                Pixel::real* bg_color, 
+                void* /*unused*/)
+  {
+    this->x            = x;
+    this->y            = y;
+    this->normal       = normal;
+    this->opaque       = opaque;
+    this->lock_alpha   = lock_alpha;
+    this->color_a      = color_a;
+    this->fg_color[0]  = fg_color[0];
+    this->fg_color[1]  = fg_color[1];
+    this->fg_color[2]  = fg_color[2];
+    this->fg_color[3]  = fg_color[3];
+    this->bg_color[0]  = bg_color[0];
+    this->bg_color[1]  = bg_color[1];
+    this->bg_color[2]  = bg_color[2];
+    return true;
+  }
+
+
+  void
+  draw_dab(PixelIter& iter) 
+  {
+    // second, we use the mask to stamp a dab for each activated blend mode
+    if (normal) {
+      if (color_a == 1.0) {
+        draw_dab_pixels_BlendMode_Normal(iter, 
+                                         normal * opaque);
+      } else {
+        // normal case for brushes that use smudging (eg. watercolor)
+        draw_dab_pixels_BlendMode_Normal_and_Eraser(iter,
+                                                    color_a,
+                                                    normal * opaque, 
+                                                    bg_color[0], bg_color[1], bg_color[2]);
+      }
+    }
+
+    if (lock_alpha) {
+      draw_dab_pixels_BlendMode_LockAlpha(iter,
+                                          lock_alpha * opaque);
+    }
+  }
+  
+
+  void
+  copy_stroke(PixelRegion* src1PR, 
+              PixelRegion* destPR, 
+              PixelRegion* brushPR, 
+              PixelRegion* maskPR) 
+  {
+    BrushPixelIteratorForPlainData<PixmapBrushmarkIterator, Pixel::data_t, Pixel::data_t>
+       iter(brushPR->data, NULL, 
+            src1PR->data, destPR->data, 
+            src1PR->w, src1PR->h, 
+            brushPR->rowstride, 
+            src1PR->rowstride,
+            destPR->rowstride,
+            brushPR->bytes,
+            src1PR->bytes,
+            destPR->bytes);
+    // normal case for brushes that use smudging (eg. watercolor)
+    draw_dab_pixels_BlendMode_Normal_and_Eraser(iter,
+                                                color_a,
+                                                0.4,
+                                                bg_color[0], bg_color[1], bg_color[2]);
+//        draw_dab_pixels_BlendMode_Normal(iter, 0.4);
+  }
+
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+class GimpMypaintSurfaceForMypaintBrush : 
+  public GimpMypaintSurfaceForGeneralBrush<BrushPixelIteratorForRunLength>
 {
-  g_object_add_weak_pointer(G_OBJECT(d), (gpointer*)&drawable);
-}
+  float radius;
+  float hardness, aspect_ratio, angle;
 
-GimpMypaintSurface::~GimpMypaintSurface()
-{
-  if (drawable)
-    g_object_remove_weak_pointer(G_OBJECT(drawable), (gpointer*)&drawable);
-  if (undo_tiles) {
-    tile_manager_unref (undo_tiles);
-    undo_tiles = NULL;
+public:
+  typedef BrushPixelIteratorForRunLength iterator;
+  typedef GimpMypaintSurfaceForGeneralBrush<iterator> Parent;
+
+  bool 
+  prepare_brush(float x, 
+                float y, 
+                float radius, 
+                float hardness, 
+                float aspect_ratio, 
+                float angle, 
+                float normal, 
+                float opaque, 
+                float lock_alpha, 
+                Pixel::real* fg_color, 
+                float color_a, 
+                Pixel::real* bg_color, 
+                void* brush)
+  {
+    Parent::prepare_brush(x, y, 
+                          radius, 
+                          hardness, 
+                          aspect_ratio, 
+                          angle, 
+                          normal, 
+                          opaque, 
+                          lock_alpha, 
+                          fg_color, 
+                          color_a, 
+                          bg_color, brush);
+    this->radius       = radius;
+    this->hardness     = hardness;
+    this->aspect_ratio = aspect_ratio;
+    this->angle        = angle;
+    return true;
   }
-  if (floating_stroke_tiles) {
-    tile_manager_unref (floating_stroke_tiles);
-    floating_stroke_tiles = NULL;
-  }
-  if (brush)
-    g_object_unref(G_OBJECT(brush));
-}
-
-void 
-GimpMypaintSurface::render_mypaint_dab_mask_in_tile (Pixel::real *dab_mask,
-                                                    gint          *offsets,
-                                                    float x, float y,
-                                                    float radius,
-                                                    float hardness,
-                                                    float aspect_ratio, float angle,
-                                                    PixelRegion* srcPR,
-                                                    PixelRegion* channelPR
-                                                   ) {
-  gint stride = srcPR->rowstride / srcPR->bytes;
-//  g_print("dab_in_tile(x=%f,y=%f,r=%f,hd=%f,ar=%f,ang=%f,w=%d,h=%d,B=%d,s=%d)\n",x,y,radius,hardness,aspect_ratio,angle,w,h,bytes,stride);
-  hardness = CLAMP(hardness, 0.0, 1.0);
-  if (aspect_ratio<1.0) aspect_ratio=1.0;
-    assert(hardness != 0.0); // assured by caller
-
-  float r_fringe;
-  int xp, yp;
-  float xx, yy, rr;
-  float one_over_radius2;
-  Pixel::data_t* channel_data = NULL;
-
-  r_fringe = radius + 1;
-  rr = radius*radius;
-  one_over_radius2 = 1.0/rr;
-
-  // For a graphical explanation, see:
-  // http://wiki.mypaint.info/Development/Documentation/Brushlib
-  //
-  // The hardness calculation is explained below:
-  //
-  // Dab opacity gradually fades out from the center (rr=0) to
-  // fringe (rr=1) of the dab. How exactly depends on the hardness.
-  // We use two linear segments, for which we pre-calculate slope
-  // and offset here.
-  //
-  // opa
-  // ^
-  // *   .
-  // |        *
-  // |          .
-  // +-----------*> rr = (distance_from_center/radius)^2
-  // 0           1
-  //
-  float segment1_offset = 1.0;
-  float segment1_slope  = -(1.0/hardness - 1.0);
-  float segment2_offset = hardness/(1.0-hardness);
-  float segment2_slope  = -hardness/(1.0-hardness);
-  // for hardness == 1.0, segment2 will never be used
-
-  float angle_rad=angle/360*2*M_PI;
-  float cs=cos(angle_rad);
-  float sn=sin(angle_rad);
-
-  int x0 = floor (x - r_fringe);
-  int y0 = floor (y - r_fringe);
-  int x1 = ceil (x + r_fringe);
-  int y1 = ceil (y + r_fringe);
-  if (x0 < 0) x0 = 0;
-  if (y0 < 0) y0 = 0;
-  if (x1 > srcPR->w-1) x1 = srcPR->w-1;
-  if (y1 > srcPR->h-1) y1 = srcPR->h-1;
   
-//  g_print("dab area: (%d,%d)-(%d,%d)\n",x0,y0,x1,y1);
+  TempBuf* get_brush_data() { return NULL; }
   
-  // we do run length encoding: if opacity is zero, the next
-  // value in the mask is the number of pixels that can be skipped.
-  Pixel::real * dab_mask_p = dab_mask;
-  int skip=0;
+
+  void 
+  get_boundary(int&x1, int& y1, int& x2, int& y2) 
+  {
+    float r_fringe = radius + 1;
+    
+    x1  = floor(x - r_fringe);
+    y1  = floor(y - r_fringe);
+    x2  = floor(x + r_fringe);
+    y2  = floor(y + r_fringe);
+  };
+
   
-  if (channelPR) {
-    channel_data = channelPR->data;
-    channel_data += channelPR->rowstride * y0;
-  }
-  skip += y0*stride;
-  for (yp = y0; yp <= y1; yp++) {
-    yy = (yp + 0.5 - y);
-    skip += x0;
-    for (xp = x0; xp <= x1; xp++) {
-      xx = (xp + 0.5 - x);
-      // code duplication, see brush::count_dabs_to()
-      float yyr=(yy*cs-xx*sn)*aspect_ratio;
-      float xxr=yy*sn+xx*cs;
-      rr = (yyr*yyr + xxr*xxr) * one_over_radius2;
-      // rr is in range 0.0..1.0*sqrt(2)
-      
-      float opa;
-      if (rr <= 1.0) {
-        float fac;
-        if (rr <= hardness) {
-          opa = segment1_offset;
-          fac = segment1_slope;
-        } else {
-          opa = segment2_offset;
-          fac = segment2_slope;
-        }
-        opa += rr*fac;
+  void 
+  fill_brushmark_buffer (Pixel::real *dab_mask,
+                         gint          *offsets,
+                         float cx_in_tile_coords, 
+                         float cy_in_tile_coords,
+                         PixelRegion* srcPR,
+                         PixelRegion* channelPR,
+                         PixelRegion* texturePR) 
+  {
+    gint stride = srcPR->rowstride / srcPR->bytes;
+    hardness = CLAMP(hardness, 0.0, 1.0);
+    if (aspect_ratio<1.0) aspect_ratio=1.0;
+      assert(hardness != 0.0); // assured by caller
+
+    float r_fringe;
+    int xp, yp;
+    float xx, yy, rr;
+    float one_over_radius2;
+    Pixel::data_t* channel_data = NULL;
+
+    r_fringe = radius + 1;
+    rr = radius*radius;
+    one_over_radius2 = 1.0/rr;
+
+    // For a graphical explanation, see:
+    // http://wiki.mypaint.info/Development/Documentation/Brushlib
+    //
+    // The hardness calculation is explained below:
+    //
+    // Dab opacity gradually fades out from the center (rr=0) to
+    // fringe (rr=1) of the dab. How exactly depends on the hardness.
+    // We use two linear segments, for which we pre-calculate slope
+    // and offset here.
+    //
+    // opa
+    // ^
+    // *   .
+    // |        *
+    // |          .
+    // +-----------*> rr = (distance_from_center/radius)^2
+    // 0           1
+    //
+    float segment1_offset = 1.0;
+    float segment1_slope  = -(1.0/hardness - 1.0);
+    float segment2_offset = hardness/(1.0-hardness);
+    float segment2_slope  = -hardness/(1.0-hardness);
+    // for hardness == 1.0, segment2 will never be used
+
+    float angle_rad=angle/360*2*M_PI;
+    float cs=cos(angle_rad);
+    float sn=sin(angle_rad);
+
+    int x0 = floor (cx_in_tile_coords - r_fringe);
+    int y0 = floor (cy_in_tile_coords - r_fringe);
+    int x1 = ceil (cx_in_tile_coords + r_fringe);
+    int y1 = ceil (cy_in_tile_coords + r_fringe);
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x1 > srcPR->w-1) x1 = srcPR->w-1;
+    if (y1 > srcPR->h-1) y1 = srcPR->h-1;
+    
+//    g_print("dab area: (%d,%d)-(%d,%d)\n",x0,y0,x1,y1);
+    
+    // we do run length encoding: if opacity is zero, the next
+    // value in the mask is the number of pixels that can be skipped.
+    Pixel::real * dab_mask_p = dab_mask;
+    int skip=0;
+    
+    if (channelPR) {
+      channel_data = channelPR->data;
+      channel_data += channelPR->rowstride * y0;
+    }
+    skip += y0*stride;
+    for (yp = y0; yp <= y1; yp++) {
+      yy = (yp + 0.5 - cy_in_tile_coords);
+      skip += x0;
+      for (xp = x0; xp <= x1; xp++) {
+        xx = (xp + 0.5 - cx_in_tile_coords);
+        // code duplication, see brush::count_dabs_to()
+        float yyr=(yy*cs-xx*sn)*aspect_ratio;
+        float xxr=yy*sn+xx*cs;
+        rr = (yyr*yyr + xxr*xxr) * one_over_radius2;
+        // rr is in range 0.0..1.0*sqrt(2)
         
-#ifdef HEAVY_DEBUG
-        assert(isfinite(opa));
-        assert(opa >= 0.0 && opa <= 1.0);
-#endif
-      } else {
-        opa = 0.0;
-      }
-
-      result_t opa_ = eval(pix(0.0f));
-      if (channel_data)
-        opa_ = eval( pix(opa) * pix(channel_data[xp]) );
-      else
-        opa_ = eval( pix(opa) );
-
-      if (opa_ * ALPHA_THRESHOLD < 1.0) {
-        skip++;
-      } else {
-        if (skip) {
-          *dab_mask_p++ = 0;
-          *offsets++ = skip;
-          skip = 0;
+        float opa;
+        if (rr <= 1.0) {
+          float fac;
+          if (rr <= hardness) {
+            opa = segment1_offset;
+            fac = segment1_slope;
+          } else {
+            opa = segment2_offset;
+            fac = segment2_slope;
+          }
+          opa += rr*fac;
+  #ifdef HEAVY_DEBUG
+          assert(isfinite(opa));
+          assert(opa >= 0.0 && opa <= 1.0);
+  #endif
+        } else {
+          opa = 0.0;
         }
-        *dab_mask_p++ = opa_;
-      }
-    }
-    skip += stride-xp;
-    if (channelPR)
-      channel_data += channelPR->rowstride;
-  }
-  *dab_mask_p++ = 0;
-  *offsets  = 0;
-}
 
-void 
-GimpMypaintSurface::render_brushmark_dab_mask_in_tile (Pixel::real *dab_mask,
-                                                    PixelRegion* srcPR,
-                                                    PixelRegion* channelPR,
-                                                    PixelRegion* texturePR
-                                                   ) 
+        result_t opa_ = eval(pix(0.0f));
+        if (channel_data)
+          opa_ = eval( pix(opa) * pix(channel_data[xp]) );
+        else
+          opa_ = eval( pix(opa) );
+
+        if (opa_ * ALPHA_THRESHOLD < 1.0) {
+          skip++;
+        } else {
+          if (skip) {
+            *dab_mask_p++ = 0;
+            *offsets++ = skip;
+            skip = 0;
+          }
+          *dab_mask_p++ = opa_;
+        }
+      }
+      skip += stride-xp;
+      if (channelPR)
+        channel_data += channelPR->rowstride;
+    }
+    *dab_mask_p++ = 0;
+    *offsets  = 0;
+  }
+
+  void 
+  draw_dab(PixelRegion* src1PR, 
+           PixelRegion* destPR,
+           PixelRegion* , // unused 
+           PixelRegion* maskPR)
+  {
+    // first, we calculate the mask (opacity for each pixel)
+    Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
+    gint dab_offsets[(TILE_HEIGHT + 2)*2];
+
+    Pixel::data_t* src_data  = src1PR->data;
+    Pixel::data_t* dest_data = destPR->data;
+
+    fill_brushmark_buffer (dab_mask,
+                           dab_offsets,
+                           x - src1PR->x,
+                           y - src1PR->y,
+                           src1PR,
+                           maskPR,
+                           NULL);
+
+    BrushPixelIteratorForRunLength iter(dab_mask, dab_offsets, fg_color, src_data, dest_data, src1PR->bytes, destPR->bytes);
+    
+    Parent::draw_dab(iter);
+  }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class GimpMypaintSurfaceForGimpBrush : 
+  public GimpMypaintSurfaceForGeneralBrush<BrushPixelIteratorForPlainData<ColoredBrushmarkIterator, Pixel::real, Pixel::real> >
 {
-  Pixel::real*   mask_ptr;
-  Pixel::data_t* data;
+  GimpCoords* last_coords;
+  GimpCoords* current_coords;
+  const TempBuf* dab_mask;
+  float radius;
+  
+public:
+  typedef BrushPixelIteratorForPlainData<ColoredBrushmarkIterator, Pixel::real, Pixel::real> iterator;
+  typedef GimpMypaintSurfaceForGeneralBrush<iterator> Parent;
+  GimpMypaintSurfaceForGimpBrush(GimpCoords* current_coords,
+                                 GimpCoords* last_coords)
+    : dab_mask(NULL)
+  {
+    this->current_coords = current_coords;
+    this->last_coords    = last_coords;
+  };
 
-  mask_ptr = dab_mask;
-  data = srcPR->data;
-  for (int y = 0; y < srcPR->h; y ++) {
-    for (int x = 0; x < srcPR->w; x ++) {
-      *mask_ptr = eval(pix(data[x]));
-      mask_ptr ++;
-    }
-    data += srcPR->rowstride;
+  const TempBuf* get_brush_data()
+  { 
+    return dab_mask;
   }
 
-  if (channelPR) {
-    mask_ptr = dab_mask;
-    data = srcPR->data;
-    Pixel::data_t* data2 = channelPR->data;
-    for (int y = 0; y < srcPR->h; y ++) {
-      for (int x = 0; x < srcPR->w; x ++) {
-        *mask_ptr = eval(pix(*mask_ptr) * pix(data2[x]));
-        mask_ptr ++;
-      }
-      data2 += channelPR->rowstride;
-    }
-  }
 
-  if (texturePR) {
-    mask_ptr = dab_mask;
-    data = srcPR->data;
-    Pixel::data_t* data2 = texturePR->data;
-    for (int y = 0; y < srcPR->h; y ++) {
-      for (int x = 0; x < srcPR->w; x ++) {
-        *mask_ptr = eval(pix(*mask_ptr) * pix(data2[x]));
-        mask_ptr ++;
-      }
-      data2 += texturePR->rowstride;
-    }
+  bool 
+  prepare_brush(float x, 
+                float y, 
+                float radius, 
+                float hardness, 
+                float aspect_ratio, 
+                float angle, 
+                float normal, 
+                float opaque, 
+                float lock_alpha, 
+                Pixel::real* fg_color, 
+                float color_a, 
+                Pixel::real* bg_color, 
+                void* data)
+  {
+    Parent::prepare_brush(x, y, 
+                          radius, 
+                          hardness, 
+                          aspect_ratio, 
+                          angle, 
+                          normal, 
+                          opaque, 
+                          lock_alpha, 
+                          fg_color, 
+                          color_a, 
+                          bg_color,
+                          data);
+    dab_mask         = NULL;
+    GimpBrush* brush = GIMP_BRUSH(data);
+    this->radius     = radius;
+    int brush_radius = MAX(brush->mask->width, brush->mask->height);
+
+    if (brush_radius < 1) 
+      return false;
+
+    float scale                   = radius * 2 / brush_radius;
+    float gimp_brush_aspect_ratio = 20 * (1.0 - ( 1.0 / aspect_ratio));
+
+    GimpBrush* current_brush;
+    current_brush = gimp_brush_select_brush (brush,
+                                            last_coords,
+                                            current_coords);
+
+    *last_coords = *current_coords;
+
+    dab_mask=
+      gimp_brush_transform_mask (current_brush,
+                                 scale,
+                                 gimp_brush_aspect_ratio,
+                                 -angle / 360,
+                                 hardness);
+    return true;
   }
+  
+
+  void 
+  get_boundary(int&x1, int& y1, int& x2, int& y2) 
+  {
+    int radius_x  = (dab_mask->width + 1) / 2;
+    int radius_y  = (dab_mask->height + 1) / 2;
+    /* configure the pixel regions */
+    x1  = floor(x - radius_x);
+    y1  = floor(y - radius_y);
+    x2  = floor(x1 + dab_mask->width - 1);
+    y2  = floor(y1 + dab_mask->height - 1);
+  };
 
   
-}
+  void 
+  fill_brushmark_buffer (Pixel::real *dab_mask,
+                         gint*, //offsets: unused
+                         float ,//cx_in_tile: unused 
+                         float ,//cy_in_tile: unused
+                         PixelRegion* srcPR,
+                         PixelRegion* channelPR,
+                         PixelRegion* texturePR) 
+  {
+    Pixel::real*   mask_ptr;
+    Pixel::data_t* data;
+
+    mask_ptr = dab_mask;
+    data = srcPR->data;
+    for (int y = 0; y < srcPR->h; y ++) {
+      for (int x = 0; x < srcPR->w; x ++) {
+        *mask_ptr = eval(pix(data[x]));
+        mask_ptr ++;
+      }
+      data += srcPR->rowstride;
+    }
+
+    if (channelPR) {
+      mask_ptr = dab_mask;
+      data = srcPR->data;
+      Pixel::data_t* data2 = channelPR->data;
+      for (int y = 0; y < srcPR->h; y ++) {
+        for (int x = 0; x < srcPR->w; x ++) {
+          *mask_ptr = eval(pix(*mask_ptr) * pix(data2[x]));
+          mask_ptr ++;
+        }
+        data2 += channelPR->rowstride;
+      }
+    }
+
+    if (texturePR) {
+      mask_ptr = dab_mask;
+      data = srcPR->data;
+      Pixel::data_t* data2 = texturePR->data;
+      for (int y = 0; y < srcPR->h; y ++) {
+        for (int x = 0; x < srcPR->w; x ++) {
+          *mask_ptr = eval(pix(*mask_ptr) * pix(data2[x]));
+          mask_ptr ++;
+        }
+        data2 += texturePR->rowstride;
+      }
+    }
+
+  }
 
 
-bool
-GimpMypaintSurface::draw_dab (float x, float y, 
-                              float radius, 
-                              float color_r, float color_g, float color_b,
-                              float opaque, float hardness,
-                              float color_a,
-                              float aspect_ratio, float angle,
-                              float lock_alpha,
-                              float colorize)
+  void 
+  draw_dab(PixelRegion* srcPR, 
+           PixelRegion* destPR,
+           PixelRegion* brushPR, 
+           PixelRegion* maskPR)
+  {
+    Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
+
+    Pixel::data_t* src_data  = srcPR->data;
+    Pixel::data_t* dest_data = destPR->data; 
+    
+    fill_brushmark_buffer (dab_mask,
+                           NULL,
+                           x - srcPR->x,
+                           y - srcPR->y,
+                           brushPR,
+                           maskPR, NULL);
+
+    iterator iter(dab_mask, fg_color, 
+                  src_data, dest_data, 
+                  srcPR->w, srcPR->h, 
+                  brushPR->w, 
+                  srcPR->rowstride,
+                  destPR->rowstride,
+                  1,
+                  srcPR->bytes,
+                  destPR->bytes);
+
+    Parent::draw_dab(iter);        
+  }
+
+};
+
+////////////////////////////////////////////////////////////////////////////////
+#define DefineRegionProcessor(CLASS, FUNC) \
+template<typename MypaintSurfaceImpl> \
+class CLASS { \
+public: \
+  static void process_src_dest(MypaintSurfaceImpl* impl, \
+                               PixelRegion* srcPR, \
+                               PixelRegion* destPR) \
+  { \
+    impl->FUNC(srcPR, destPR, NULL, NULL); \
+  } \
+ \
+  static void process_src_dest_mask(MypaintSurfaceImpl* impl,  \
+                                    PixelRegion* srcPR,  \
+                                    PixelRegion* destPR,  \
+                                    PixelRegion* maskPR) \
+  { \
+    impl->FUNC(srcPR, destPR, NULL, maskPR); \
+  } \
+ \
+  static void process_src_dest_brush(MypaintSurfaceImpl* impl, \
+                                     PixelRegion* srcPR,  \
+                                     PixelRegion* destPR, \
+                                     PixelRegion* brushPR) \
+  { \
+    impl->FUNC(srcPR, destPR, brushPR, NULL); \
+  } \
+ \
+  static void process_full(MypaintSurfaceImpl* impl, \
+                           PixelRegion* srcPR, \
+                           PixelRegion* destPR, \
+                           PixelRegion* brushPR, \
+                           PixelRegion* maskPR) \
+  { \
+    impl->FUNC(srcPR, destPR, brushPR, maskPR); \
+  } \
+ \
+  void \
+  process(MypaintSurfaceImpl* impl, \
+          PixelRegion* srcPR, \
+          PixelRegion* destPR, \
+          PixelRegion* brushPR, \
+          PixelRegion* maskPR) \
+  { \
+    if (!brushPR) { \
+      if (!maskPR) { \
+        pixel_regions_process_parallel((PixelProcessorFunc)CLASS::process_src_dest, \
+                                       impl, \
+                                       2, srcPR, destPR); \
+      } else { \
+        pixel_regions_process_parallel((PixelProcessorFunc)CLASS::process_src_dest_mask, \
+                                       impl, \
+                                       3, srcPR, destPR, maskPR); \
+      } \
+    } else { \
+      if (!maskPR) { \
+        pixel_regions_process_parallel((PixelProcessorFunc)CLASS::process_src_dest_brush, \
+                                       impl, \
+                                       3, srcPR, destPR, brushPR); \
+      } else { \
+        pixel_regions_process_parallel((PixelProcessorFunc)CLASS::process_full, \
+                                       impl, \
+                                       4, srcPR, destPR, brushPR, maskPR); \
+      } \
+    } \
+ \
+  }; \
+      \
+};
+
+DefineRegionProcessor(DrawDabProcessor, draw_dab);
+DefineRegionProcessor(CopyStrokeProcessor, copy_stroke);
+
+////////////////////////////////////////////////////////////////////////////////
+class GimpMypaintSurfaceImpl : public GimpMypaintSurface
 {
-  if (brush)
-    return draw_brushmark_dab(x, y, radius, color_r, color_g, color_b, opaque,
-                              hardness, color_a, aspect_ratio, angle, lock_alpha,
-                              colorize);
-  else
-    return draw_mypaint_dab  (x, y, radius, color_r, color_g, color_b, opaque,
-                              hardness, color_a, aspect_ratio, angle, lock_alpha,
-                              colorize);
-}
+private:
+  virtual GimpUndo* push_undo (GimpImage *imag, const gchar* undo_desc);
+  GimpDrawable* drawable;
+  GimpRGB       bg_color;
+  GimpBrush*    brush;
+  GimpCoords    last_coords;
+  GimpCoords    current_coords;
+  
+  TileManager* undo_tiles;       /*  tiles which have been modified      */
+  TileManager* floating_stroke_tiles;
 
-bool 
-GimpMypaintSurface::draw_mypaint_dab (float x, float y, 
+  gint         x1, y1;           /*  undo extents in image coords        */
+  gint         x2, y2;           /*  undo extents in image coords        */
+  gint         session;          /*  reference counter of atomic scope   */
+
+  void      validate_undo_tiles       (gint              x,
+                                       gint              y,
+                                       gint              w,
+                                       gint              h);
+
+  void      validate_floating_stroke_tiles (gint              x,
+                                            gint              y,
+                                            gint              w,
+                                            gint              h);
+
+  void start_undo_group();
+  void stop_updo_group();
+  
+  void start_floating_stroke();
+  void stop_floating_stroke();
+public:
+  GimpMypaintSurfaceImpl(GimpDrawable* d) 
+    : undo_tiles(NULL), floating_stroke_tiles(NULL), 
+      session(0), drawable(d), brush(NULL)
+  {
+    g_object_add_weak_pointer(G_OBJECT(d), (gpointer*)&drawable);
+  }
+
+  virtual ~GimpMypaintSurfaceImpl()
+  {
+    if (drawable)
+      g_object_remove_weak_pointer(G_OBJECT(drawable), (gpointer*)&drawable);
+    if (undo_tiles) {
+      tile_manager_unref (undo_tiles);
+      undo_tiles = NULL;
+    }
+    if (floating_stroke_tiles) {
+      tile_manager_unref (floating_stroke_tiles);
+      floating_stroke_tiles = NULL;
+    }
+    if (brush)
+      g_object_unref(G_OBJECT(brush));
+  }
+
+
+  virtual bool draw_dab (float x, float y, 
                          float radius, 
                          float color_r, float color_g, float color_b,
-                         float opaque, float hardness,
-                         float color_a,
-                         float aspect_ratio, float angle,
-                         float lock_alpha,
-                         float colorize)
-{
-  GimpItem        *item  = GIMP_ITEM (drawable);
-  GimpImage       *image = gimp_item_get_image (item);
-  GimpChannel     *mask  = gimp_image_get_mask (image);
-  gint            offset_x, offset_y;
-  PixelRegion     src1PR;
-  PixelRegion     maskPR;
-  
-//  g_print("Entering GimpMypaintSurface::draw_dab(x=%f,y=%f,r=%f,R=%f,G=%f,B=%f,o=%f,h=%f,a=%f,%f,%f,%f,%f)\n",x,y,radius,color_r,color_g,color_b,opaque,hardness,color_a,aspect_ratio,angle,lock_alpha,colorize);
+                         float opaque, float hardness = 0.5,
+                         float alpha_eraser = 1.0,
+                         float aspect_ratio = 1.0, float angle = 0.0,
+                         float lock_alpha = 0.0, float colorize = 0.0
+                         );
 
-  /*  get the layer offsets  */
-  gimp_item_get_offset (item, &offset_x, &offset_y);
+  template<class BrushImpl>
+  bool draw_dab_impl (BrushImpl& brush_impl,
+                      float x, float y, 
+                      float radius, 
+                      float color_r, float color_g, float color_b,
+                      float opaque, float hardness,
+                      float color_a,
+                      float aspect_ratio, float angle,
+                      float lock_alpha,float colorize)
+  {
+    GimpItem        *item  = GIMP_ITEM (drawable);
+    GimpImage       *image = gimp_item_get_image (item);
+    GimpChannel     *mask  = gimp_image_get_mask (image);
+    gint            offset_x, offset_y;
+    PixelRegion     src1PR, destPR;
+    PixelRegion     brushPR;
+    PixelRegion     maskPR;
+    
+    opaque     = CLAMP(opaque, 0.0, 1.0);
+    hardness   = CLAMP(hardness, 0.0, 1.0);
+    lock_alpha = CLAMP(lock_alpha, 0.0, 1.0);
+    colorize   = CLAMP(colorize, 0.0, 1.0);
 
-  opaque = CLAMP(opaque, 0.0, 1.0);
-  hardness = CLAMP(hardness, 0.0, 1.0);
-  lock_alpha = CLAMP(lock_alpha, 0.0, 1.0);
-  colorize = CLAMP(colorize, 0.0, 1.0);
-  if (radius < 0.1) return false; // don't bother with dabs smaller than 0.1 pixel
-  if (hardness == 0.0) return false; // infintly small center point, fully transparent outside
-  if (opaque == 0.0) return false;
-//  assert(atomic > 0);
-  // blending mode preparation
-  float normal = 1.0;
+    if (radius < 0.1) return false; // don't bother with dabs smaller than 0.1 pixel
+    if (hardness == 0.0) return false; // infintly small center point, fully transparent outside
+    if (opaque == 0.0) return false;
 
-  normal *= 1.0-lock_alpha;
-  normal *= 1.0-colorize;
+    if (aspect_ratio<1.0) aspect_ratio=1.0;
 
-  if (aspect_ratio<1.0) aspect_ratio=1.0;
+    /*  get the layer offsets  */
+    gimp_item_get_offset (item, &offset_x, &offset_y);
 
-  float r_fringe = radius + 1;
-  
-  /* configure the pixel regions */
-  int x1  = floor(x - r_fringe);
-  int y1  = floor(y - r_fringe);
-  int x2  = floor(x + r_fringe);
-  int y2  = floor(y + r_fringe);
+    // blending mode preparation
+    float normal = 1.0;
 
-  int rx1 = x1;
-  int ry1 = y1;
-  int rx2 = x2;
-  int ry2 = y2;
+    normal *= 1.0-lock_alpha;
+    normal *= 1.0-colorize;
 
-  GimpItem *mask_item = NULL;
-  if (mask && !gimp_channel_is_empty(GIMP_CHANNEL(mask))) {
-    mask_item = GIMP_ITEM (mask);
-
-    /*  make sure coordinates are in mask bounds ...
-     *  we need to add the layer offset to transform coords
-     *  into the mask coordinate system
-     */
-    rx1 = CLAMP (rx1, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
-    ry1 = CLAMP (ry1, -offset_y, gimp_item_get_height (mask_item) - offset_y);
-    rx2 = CLAMP (rx2, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
-    ry2 = CLAMP (ry2, -offset_y, gimp_item_get_height (mask_item) - offset_y);
-  }
-  rx1 = CLAMP (rx1, 0, gimp_item_get_width  (item) - 1);
-  ry1 = CLAMP (ry1, 0, gimp_item_get_height (item) - 1);
-  rx2 = CLAMP (rx2, 0, gimp_item_get_width  (item) - 1);
-  ry2 = CLAMP (ry2, 0, gimp_item_get_height (item) - 1);
-
-  int width   = (rx2 - rx1 + 1);
-  int height   = (ry2 - ry1 + 1);
-
-  if (rx1 > rx2 || ry1 > ry2)
-    return false;
-
-  /*  set undo blocks  */
-  start_undo_group();
-  validate_undo_tiles (rx1, ry1, width, height);
-
-  pixel_region_init (&src1PR, gimp_drawable_get_tiles (drawable),
-                     rx1, ry1, width, height,
-                     TRUE);
-
-  if (mask_item) {
-    pixel_region_init (&maskPR,
-                       gimp_drawable_get_tiles (GIMP_DRAWABLE (mask)),
-                       rx1 + offset_x,
-                       ry1 + offset_y,
-                       rx2 - rx1, ry2 - ry1,
-                       TRUE);
-  }
-
-  struct DrawDabClosure {
-    GimpMypaintSurface* surface;
-    float x, y;
-    float radius;
-    float hardness;
-    float aspect_ratio;
-    float angle;
-    float normal;
-    float lock_alpha;
-    float opaque;
-    float color_a;
-    Pixel::real opacity;
-    Pixel::real rgba[4];
+    Pixel::real fg_color[4];
+    fg_color[0] = color_r;
+    fg_color[1] = color_g;
+    fg_color[2] = color_b;
+    fg_color[3] = color_a;
     Pixel::real bg_color[3];
+    bg_color[0] = this->bg_color.r;
+    bg_color[1] = this->bg_color.g;
+    bg_color[2] = this->bg_color.b;
+
+    if (!brush_impl.prepare_brush(x, y, radius, 
+                                  hardness, aspect_ratio, angle, 
+                                  normal, opaque, lock_alpha,
+                                  fg_color, color_a, bg_color, 
+                                  (void*)brush))
+      return false;
+
+    int x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+    brush_impl.get_boundary(x1, y1, x2, y2);
+
+    int rx1 = x1;
+    int ry1 = y1;
+    int rx2 = x2;
+    int ry2 = y2;
     
-    static void render_full(DrawDabClosure* closure, PixelRegion* src1PR, PixelRegion* maskPR) {
-      // first, we calculate the mask (opacity for each pixel)
-      Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
-      gint dab_offsets[(TILE_HEIGHT + 2)*2];
+    GimpItem *mask_item = NULL;
+    if (mask && !gimp_channel_is_empty(GIMP_CHANNEL(mask))) {
+      mask_item = GIMP_ITEM (mask);
 
-      guchar  *s1 = src1PR->data;
-      
-      closure->surface->render_mypaint_dab_mask_in_tile(dab_mask,
-                      dab_offsets,
-                      closure->x - src1PR->x,
-                      closure->y - src1PR->y,
-                      closure->radius,
-                      closure->hardness,
-                      closure->aspect_ratio, 
-                      closure->angle,
-                      src1PR, maskPR
-                      );
-
-      BrushPixelIteratorForRunLength iter(dab_mask, dab_offsets, closure->rgba, s1, s1, src1PR->bytes, src1PR->bytes);
-      // second, we use the mask to stamp a dab for each activated blend mode
-      if (closure->normal) {
-        if (closure->color_a == 1.0) {
-          draw_dab_pixels_BlendMode_Normal(iter,
-                                           closure->normal * closure->opaque);
-        } else {
-          // normal case for brushes that use smudging (eg. watercolor)
-          draw_dab_pixels_BlendMode_Normal_and_Eraser(iter,
-                                                      closure->normal * closure->opaque, 
-                                                      closure->bg_color[0], closure->bg_color[1], closure->bg_color[2]);
-        }
-      }
-
-      if (closure->lock_alpha) {
-        draw_dab_pixels_BlendMode_LockAlpha(iter,
-                                            closure->lock_alpha * closure->opaque);
-      }
-
-  #if 0
-      if (colorize) {
-        draw_dab_pixels_BlendMode_Color(mask, rgba_p,
-                                        color_r_, color_g_, color_b_,
-                                        colorize*opaque*(1<<15));
-      }
-  #endif
-          
+      /*  make sure coordinates are in mask bounds ...
+       *  we need to add the layer offset to transform coords
+       *  into the mask coordinate system
+       */
+      rx1 = CLAMP (rx1, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
+      ry1 = CLAMP (ry1, -offset_y, gimp_item_get_height (mask_item) - offset_y);
+      rx2 = CLAMP (rx2, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
+      ry2 = CLAMP (ry2, -offset_y, gimp_item_get_height (mask_item) - offset_y);
     }
-        
-    static void render (DrawDabClosure* closure, PixelRegion* src1PR) {
-      return render_full(closure, src1PR, NULL);
+    rx1 = CLAMP (rx1, 0, gimp_item_get_width  (item) - 1);
+    ry1 = CLAMP (ry1, 0, gimp_item_get_height (item) - 1);
+    rx2 = CLAMP (rx2, 0, gimp_item_get_width  (item) - 1);
+    ry2 = CLAMP (ry2, 0, gimp_item_get_height (item) - 1);
+
+    int width   = (rx2 - rx1 + 1);
+    int height   = (ry2 - ry1 + 1);
+
+    if (rx1 > rx2 || ry1 > ry2)
+      return false;
+
+    /*  set undo blocks  */
+    start_undo_group();
+    validate_undo_tiles (rx1, ry1, width, height);
+
+    if (floating_stroke_tiles) {
+      validate_floating_stroke_tiles(rx1, ry1, width, height);
+
+      pixel_region_init (&src1PR, floating_stroke_tiles,
+                         rx1, ry1, width, height,
+                         FALSE);
+
+      pixel_region_init (&destPR, floating_stroke_tiles,
+                         rx1, ry1, width, height,
+                         FALSE);
+    } else {
+      pixel_region_init (&src1PR, gimp_drawable_get_tiles (drawable),
+                         rx1, ry1, width, height,
+                         TRUE);
+
+      pixel_region_init (&destPR, gimp_drawable_get_tiles (drawable),
+                         rx1, ry1, width, height,
+                         TRUE);
     }
-  };
-    
-  DrawDabClosure closure;
-  closure.surface = this;
-  closure.x = x;
-  closure.y = y;
-  closure.radius = radius;
-  closure.hardness = hardness;
-  closure.aspect_ratio = aspect_ratio;
-  closure.angle = angle;
-  closure.normal = normal;
-  closure.color_a = color_a;
-  closure.normal = normal;
-  closure.opaque = opaque;
-  closure.lock_alpha = lock_alpha;
-  closure.rgba[0] = color_r;
-  closure.rgba[1] = color_g;
-  closure.rgba[2] = color_b;
-  closure.rgba[3] = color_a;
-  closure.bg_color[0] = bg_color.r;
-  closure.bg_color[1] = bg_color.g;
-  closure.bg_color[2] = bg_color.b;
 
-  if (!mask_item)
-    pixel_regions_process_parallel((PixelProcessorFunc)DrawDabClosure::render, &closure, 1, &src1PR);
-  else
-    pixel_regions_process_parallel((PixelProcessorFunc)DrawDabClosure::render_full, &closure, 2, &src1PR, &maskPR);
-  
-  
-  /*  Update the drawable  */
-  gimp_drawable_update (drawable, rx1, ry1, width, height);
-  if (rx1 < this->x1)
-    this->x1 = rx1;
-  if (ry1 < this->y1)
-    this->y1 = ry1;
-  if (rx1 + width > this->x2)
-    this->x2 = rx1 + width;
-  if (ry1 + height > this->y2)
-    this->y2 = ry1 + height;
-
-  return true;
-}
-
-
-bool 
-GimpMypaintSurface::draw_brushmark_dab (float x, float y, 
-                                        float radius, 
-                                        float color_r, float color_g, float color_b,
-                                        float opaque, float hardness,
-                                        float color_a,
-                                        float aspect_ratio, float angle,
-                                        float lock_alpha,float colorize)
-{
-  GimpItem        *item  = GIMP_ITEM (drawable);
-  GimpImage       *image = gimp_item_get_image (item);
-  GimpChannel     *mask  = gimp_image_get_mask (image);
-  gint            offset_x, offset_y;
-  PixelRegion     src1PR, destPR;
-  PixelRegion     brushPR;
-  PixelRegion     maskPR;
-  
-  int brush_radius = MAX(brush->mask->width, brush->mask->height);
-  if (brush_radius < 1) return false;
-  float scale = radius * 2 / brush_radius;
-
-  opaque = CLAMP(opaque, 0.0, 1.0);
-  hardness = CLAMP(hardness, 0.0, 1.0);
-  lock_alpha = CLAMP(lock_alpha, 0.0, 1.0);
-  colorize = CLAMP(colorize, 0.0, 1.0);
-
-  if (radius < 0.1) return false; // don't bother with dabs smaller than 0.1 pixel
-  if (hardness == 0.0) return false; // infintly small center point, fully transparent outside
-  if (opaque == 0.0) return false;
-
-  if (aspect_ratio<1.0) aspect_ratio=1.0;
-
-  float gimp_brush_aspect_ratio = 20 * (1.0 - ( 1.0 / aspect_ratio));
-
-  GimpBrush* current_brush;
-  current_brush = gimp_brush_select_brush (brush,
-                                          &last_coords,
-                                          &current_coords);
-
-  last_coords = current_coords;
-
-  const TempBuf* dab_mask=
-    gimp_brush_transform_mask (current_brush,
-                               scale,
-                               gimp_brush_aspect_ratio,
-                               -angle / 360,
-                               hardness);
-
-  /*  get the layer offsets  */
-  gimp_item_get_offset (item, &offset_x, &offset_y);
-
-  // blending mode preparation
-  float normal = 1.0;
-
-  normal *= 1.0-lock_alpha;
-  normal *= 1.0-colorize;
-
-  int radius_x  = (dab_mask->width + 1) / 2;
-  int radius_y  = (dab_mask->height + 1) / 2;
-  /* configure the pixel regions */
-  int x1  = floor(x - radius_x);
-  int y1  = floor(y - radius_y);
-  int x2  = floor(x1 + dab_mask->width - 1);
-  int y2  = floor(y1 + dab_mask->height - 1);
-
-  int rx1 = x1;
-  int ry1 = y1;
-  int rx2 = x2;
-  int ry2 = y2;
-  
-  GimpItem *mask_item = NULL;
-  if (mask && !gimp_channel_is_empty(GIMP_CHANNEL(mask))) {
-    mask_item = GIMP_ITEM (mask);
-
-    /*  make sure coordinates are in mask bounds ...
-     *  we need to add the layer offset to transform coords
-     *  into the mask coordinate system
-     */
-    rx1 = CLAMP (rx1, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
-    ry1 = CLAMP (ry1, -offset_y, gimp_item_get_height (mask_item) - offset_y);
-    rx2 = CLAMP (rx2, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
-    ry2 = CLAMP (ry2, -offset_y, gimp_item_get_height (mask_item) - offset_y);
-  }
-  rx1 = CLAMP (rx1, 0, gimp_item_get_width  (item) - 1);
-  ry1 = CLAMP (ry1, 0, gimp_item_get_height (item) - 1);
-  rx2 = CLAMP (rx2, 0, gimp_item_get_width  (item) - 1);
-  ry2 = CLAMP (ry2, 0, gimp_item_get_height (item) - 1);
-
-  int width   = (rx2 - rx1 + 1);
-  int height   = (ry2 - ry1 + 1);
-
-  if (rx1 > rx2 || ry1 > ry2)
-    return false;
-
-  /*  set undo blocks  */
-  start_undo_group();
-  validate_undo_tiles (rx1, ry1, width, height);
-
-  if (floating_stroke_tiles) {
-    validate_floating_stroke_tiles(rx1, ry1, width, height);
-
-    pixel_region_init (&src1PR, floating_stroke_tiles,
-                       rx1, ry1, width, height,
-                       FALSE);
-
-    pixel_region_init (&destPR, floating_stroke_tiles,
-                       rx1, ry1, width, height,
-                       FALSE);
-  } else {
-    pixel_region_init (&src1PR, gimp_drawable_get_tiles (drawable),
-                       rx1, ry1, width, height,
-                       TRUE);
-
-    pixel_region_init (&destPR, gimp_drawable_get_tiles (drawable),
-                       rx1, ry1, width, height,
-                       TRUE);
-  }
-
-  pixel_region_init_temp_buf(&brushPR, (TempBuf*)dab_mask, MAX(rx1 - x1, 0), MAX(ry1 - y1, 0), width, height);
-
-  if (mask_item) {
-    pixel_region_init (&maskPR,
-                       gimp_drawable_get_tiles (GIMP_DRAWABLE (mask)),
-                       rx1 + offset_x,
-                       ry1 + offset_y,
-                       rx2 - rx1, ry2 - ry1,
-                       TRUE);
-  }
-
-  struct DrawBrushmarkClosure {
-    GimpMypaintSurface* surface;
-    float normal;
-    float lock_alpha;
-    float opaque;
-    float color_a;
-    Pixel::real rgba[4];
-    Pixel::real bg_color[3];
-    
-    static void render_full(DrawBrushmarkClosure* closure, 
-                            PixelRegion* src1PR, 
-                            PixelRegion* destPR, 
-                            PixelRegion* brushPR, 
-                            PixelRegion* maskPR) {
-      Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
-
-      Pixel::data_t* src_data  = src1PR->data;
-      Pixel::data_t* dest_data = destPR->data; 
-      
-      closure->surface->render_brushmark_dab_mask_in_tile(dab_mask,
-                                                          brushPR,
-                                                          maskPR,
-                                                          NULL);
-
-      BrushPixelIteratorForBrushmark<ColoredBrushmarkIterator, Pixel::real, Pixel::real>
-         iter(dab_mask, closure->rgba, 
-              src_data, dest_data, 
-              src1PR->w, src1PR->h, 
-              brushPR->w, 
-              src1PR->rowstride,
-              destPR->rowstride,
-              1,
-              src1PR->bytes,
-              destPR->bytes);
-      // second, we use the mask to stamp a dab for each activated blend mode
-      if (closure->normal) {
-        if (closure->color_a == 1.0) {
-          draw_dab_pixels_BlendMode_Normal(iter, 
-                                           closure->normal * closure->opaque);
-        } else {
-          // normal case for brushes that use smudging (eg. watercolor)
-          draw_dab_pixels_BlendMode_Normal_and_Eraser(iter,
-                                                      closure->rgba[3],
-                                                      closure->normal * closure->opaque, 
-                                                      closure->bg_color[0], closure->bg_color[1], closure->bg_color[2]);
-        }
-      }
-
-      if (closure->lock_alpha) {
-        draw_dab_pixels_BlendMode_LockAlpha(iter,
-                                            closure->lock_alpha * closure->opaque);
-      }
-          
-    }
-        
-    static void render (DrawBrushmarkClosure* closure, 
-                        PixelRegion* src1PR, 
-                        PixelRegion* destPR,  
-                        PixelRegion* brushPR) {
-      return render_full(closure, src1PR, destPR, brushPR, NULL);
-    }
-  };
-    
-  DrawBrushmarkClosure closure;
-  closure.surface = this;
-  closure.normal = normal;
-  closure.color_a = color_a;
-  closure.normal = normal;
-  closure.opaque = opaque;
-  closure.lock_alpha = lock_alpha;
-  closure.rgba[0] = color_r;
-  closure.rgba[1] = color_g;
-  closure.rgba[2] = color_b;
-  closure.rgba[3] = color_a;
-  closure.bg_color[0] = bg_color.r;
-  closure.bg_color[1] = bg_color.g;
-  closure.bg_color[2] = bg_color.b;
-
-  if (!mask_item)
-    pixel_regions_process_parallel((PixelProcessorFunc)DrawBrushmarkClosure::render, 
-                                   &closure, 
-                                   3, &src1PR, &destPR, &brushPR);
-  else
-    pixel_regions_process_parallel((PixelProcessorFunc)DrawBrushmarkClosure::render_full, 
-                                   &closure, 
-                                   4, &src1PR, &destPR, &brushPR, &maskPR);
-
-
-  if (floating_stroke_tiles) {
-    /* Copy floating stroke buffer into drawable buffer */
-    pixel_region_init (&src1PR, undo_tiles,
-                       rx1, ry1, width, height,
-                       TRUE);
-
-    pixel_region_init (&destPR, gimp_drawable_get_tiles(drawable),
-                       rx1, ry1, width, height,
-                       TRUE);
-
-    pixel_region_init (&brushPR, floating_stroke_tiles,
-                       rx1, ry1, width, height,
-                       FALSE);
+    TempBuf* dab_mask = (TempBuf*)brush_impl.get_brush_data();
+    if (dab_mask)
+      pixel_region_init_temp_buf(&brushPR, dab_mask, 
+                                 MAX(rx1 - x1, 0), MAX(ry1 - y1, 0), 
+                                 width, height);
 
     if (mask_item) {
       pixel_region_init (&maskPR,
                          gimp_drawable_get_tiles (GIMP_DRAWABLE (mask)),
                          rx1 + offset_x,
                          ry1 + offset_y,
-                         rx2 - rx1, ry2 - ry1,
+                         width, height,
                          TRUE);
     }
-
-    struct CopyStrokeToDrawableClosure {
-      GimpMypaintSurface* surface;
-      gfloat              opaque;
-      gfloat              color_a;
-      gfloat              bg_color[3];
-      
-      static void render_full(DrawBrushmarkClosure* closure, 
-                              PixelRegion* src1PR, 
-                              PixelRegion* destPR, 
-                              PixelRegion* brushPR, 
-                              PixelRegion* maskPR) {
-        BrushPixelIteratorForBrushmark<PixmapBrushmarkIterator, Pixel::data_t, Pixel::data_t>
-           iter(brushPR->data, NULL, 
-                src1PR->data, destPR->data, 
-                src1PR->w, src1PR->h, 
-                brushPR->rowstride, 
-                src1PR->rowstride,
-                destPR->rowstride,
-                brushPR->bytes,
-                src1PR->bytes,
-                destPR->bytes);
-        // normal case for brushes that use smudging (eg. watercolor)
-        draw_dab_pixels_BlendMode_Normal_and_Eraser(iter,
-                                                    closure->color_a,
-                                                    0.4,
-                                                    closure->bg_color[0], closure->bg_color[1], closure->bg_color[2]);
-//        draw_dab_pixels_BlendMode_Normal(iter, 0.4);
-      }
-          
-      static void render (DrawBrushmarkClosure* closure, 
-                          PixelRegion* src1PR, 
-                          PixelRegion* destPR,  
-                          PixelRegion* brushPR) {
-        return render_full(closure, src1PR, destPR, brushPR, NULL);
-      }
-    };
     
-    CopyStrokeToDrawableClosure closure2;
-    closure2.surface     = this;
-    closure2.opaque      = opaque;
-    closure2.color_a     = color_a;
-    closure2.bg_color[0] = bg_color.r;
-    closure2.bg_color[1] = bg_color.g;
-    closure2.bg_color[2] = bg_color.b;
+    DrawDabProcessor<BrushImpl> processor;
+    processor.process(&brush_impl,
+                      &src1PR, 
+                      &destPR, 
+                      (dab_mask)? &brushPR: NULL, 
+                      (mask_item)? &maskPR: NULL);
 
-    if (!mask_item)
-      pixel_regions_process_parallel((PixelProcessorFunc)CopyStrokeToDrawableClosure::render, 
-                                     &closure2, 
-                                     3, &src1PR, &destPR, &brushPR);
-    else
-      pixel_regions_process_parallel((PixelProcessorFunc)CopyStrokeToDrawableClosure::render_full, 
-                                     &closure2, 
-                                     4, &src1PR, &destPR, &brushPR, &maskPR);
+    if (floating_stroke_tiles) {
+      /* Copy floating stroke buffer into drawable buffer */
+      pixel_region_init (&src1PR, undo_tiles,
+                         rx1, ry1, width, height,
+                         TRUE);
+
+      pixel_region_init (&destPR, gimp_drawable_get_tiles(drawable),
+                         rx1, ry1, width, height,
+                         TRUE);
+
+      pixel_region_init (&brushPR, floating_stroke_tiles,
+                         rx1, ry1, width, height,
+                         FALSE);
+
+      if (mask_item) {
+        pixel_region_init (&maskPR,
+                           gimp_drawable_get_tiles (GIMP_DRAWABLE (mask)),
+                           rx1 + offset_x,
+                           ry1 + offset_y,
+                           rx2 - rx1, ry2 - ry1,
+                           TRUE);
+      }
+      
+      CopyStrokeProcessor<BrushImpl> stroke_processor;
+      stroke_processor.process(&brush_impl,
+                               &src1PR,
+                               &destPR,
+                               &brushPR,
+                               NULL);
+    }
+
+    /*  Update the drawable  */
+    gimp_drawable_update (drawable, rx1, ry1, width, height);
+    if (rx1 < this->x1)
+      this->x1 = rx1;
+    if (ry1 < this->y1)
+      this->y1 = ry1;
+    if (rx1 + width > this->x2)
+      this->x2 = rx1 + width;
+    if (ry1 + height > this->y2)
+      this->y2 = ry1 + height;
+
+    return true;
   }
 
-  /*  Update the drawable  */
-  gimp_drawable_update (drawable, rx1, ry1, width, height);
-  if (rx1 < this->x1)
-    this->x1 = rx1;
-  if (ry1 < this->y1)
-    this->y1 = ry1;
-  if (rx1 + width > this->x2)
-    this->x2 = rx1 + width;
-  if (ry1 + height > this->y2)
-    this->y2 = ry1 + height;
 
-  return true;
+  virtual void get_color (float x, float y, 
+                          float radius, 
+                          float * color_r, float * color_g, float * color_b, float * color_a
+                          );
+
+  virtual void begin_session();
+  virtual void end_session();
+  
+  bool is_surface_for (GimpDrawable* drawable) { return drawable == this->drawable; }
+  void set_bg_color (GimpRGB* src) 
+  { 
+    if (src)
+      bg_color = *src; 
+  }
+
+  void get_bg_color (GimpRGB* dest) 
+  {
+    if (dest)
+      *dest = bg_color; 
+  }
+
+  void set_brush(GimpBrush* brush_)
+  {
+    if (brush) {
+      gimp_brush_end_use(brush);
+      g_object_unref(G_OBJECT(brush));
+      brush = NULL;
+    }
+
+    if (brush_) {
+      brush = brush_;
+      gimp_brush_begin_use(brush);
+      g_object_ref(G_OBJECT(brush));
+    }
+  }
+
+  GimpBrush* get_brush()
+  {
+    return brush;
+  }
+
+
+  virtual void set_coords(const GimpCoords* coords) { current_coords = *coords; }
+};
+
+
+
+bool
+GimpMypaintSurfaceImpl::draw_dab (float x, float y, 
+                                  float radius, 
+                                  float color_r, float color_g, float color_b,
+                                  float opaque, float hardness,
+                                  float color_a,
+                                  float aspect_ratio, float angle,
+                                  float lock_alpha,
+                                  float colorize)
+{
+  if (brush) {
+    GimpMypaintSurfaceForGimpBrush brush_impl(&current_coords, &last_coords);
+    return draw_dab_impl(brush_impl,
+                          x, y, radius, color_r, color_g, color_b, opaque,
+                          hardness, color_a, aspect_ratio, angle, lock_alpha,
+                          colorize);
+  } else {
+    GimpMypaintSurfaceForMypaintBrush brush_impl;
+    return draw_dab_impl(brush_impl,
+                          x, y, radius, color_r, color_g, color_b, opaque,
+                          hardness, color_a, aspect_ratio, angle, lock_alpha,
+                          colorize);
+  }
 }
 
 void 
-GimpMypaintSurface::get_color (float x, float y, 
-                          float radius, 
-                          float * color_r, float * color_g, float * color_b, float * color_a
-                          )
+GimpMypaintSurfaceImpl::get_color (float x, float y, 
+                                   float radius, 
+                                   float * color_r, 
+                                   float * color_g, 
+                                   float * color_b, 
+                                   float * color_a)
 {
+  GimpMypaintSurfaceForMypaintBrush brush_impl;
+
   if (radius < 1.0) radius = 1.0;
 
   float sum_weight, sum_r, sum_g, sum_b, sum_a;
@@ -827,14 +975,17 @@ GimpMypaintSurface::get_color (float x, float y,
   
   /*  get the layer offsets  */
   gimp_item_get_offset (item, &offset_x, &offset_y);
+  Pixel::real fg_color[] = {0.0, 0.0, 0.0, 1.0};
+  Pixel::real bg_color[] = {1.0, 1.0, 1.0};
+  if (!brush_impl.prepare_brush(x, y, radius, 
+                                hardness, aspect_ratio, angle, 
+                                1.0, 1.0, 0.0,
+                                fg_color, 1.0, bg_color, 
+                                brush))
+      return;
 
-  float r_fringe = radius + 1;
-  
-  /* configure the pixel regions */
-  int x1  = floor(x - r_fringe);
-  int y1  = floor(y - r_fringe);
-  int x2  = floor(x + r_fringe);
-  int y2  = floor(y + r_fringe);
+  int x1, y1, x2, y2;
+  brush_impl.get_boundary(x1, y1, x2, y2);
 
   int rx1 = x1;
   int ry1 = y1;
@@ -864,7 +1015,6 @@ GimpMypaintSurface::get_color (float x, float y,
   
   int width   = (rx2 - rx1 + 1);
   int height   = (ry2 - ry1 + 1);
-
   if (floating_stroke_tiles) {
   
     pixel_region_init (&src1PR, floating_stroke_tiles,
@@ -872,11 +1022,9 @@ GimpMypaintSurface::get_color (float x, float y,
                        FALSE);
 
   } else {
-
     pixel_region_init (&src1PR, gimp_drawable_get_tiles (drawable),
                        rx1, ry1, width, height,
                        FALSE);
-
   }
 
   gpointer pr;
@@ -894,24 +1042,22 @@ GimpMypaintSurface::get_color (float x, float y,
   }
 
   // first, we calculate the mask (opacity for each pixel)
-  static Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
-  static gint dab_offsets[(TILE_HEIGHT + 2)*2];
+  Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
+  gint dab_offsets[(TILE_HEIGHT + 2)*2];
   for (;
        pr != NULL;
        pr = pixel_regions_process ((PixelRegionIterator*)pr)) {
-    guchar  *s1 = src1PR.data;
+    Pixel::data_t*  src_data = src1PR.data;
+    
 
-    render_mypaint_dab_mask_in_tile(dab_mask,
-                    dab_offsets,
-                    x - src1PR.x,
-                    y - src1PR.y,
-                    radius,
-                    hardness,
-                    aspect_ratio, angle,
-                    &src1PR, (mask_item)? &maskPR : NULL
-                    );
+    brush_impl.fill_brushmark_buffer(dab_mask,
+                                     dab_offsets,
+                                     x - src1PR.x,
+                                     y - src1PR.y,
+                                     &src1PR, (mask_item)? &maskPR : NULL, NULL
+                                     );
 
-    BrushPixelIteratorForRunLength iter(dab_mask, dab_offsets, NULL, s1, s1,  src1PR.bytes, src1PR.bytes);
+    BrushPixelIteratorForRunLength iter(dab_mask, dab_offsets, NULL, src_data, src_data,  src1PR.bytes, src1PR.bytes);
 
     get_color_pixels_accumulate (iter,
                                  &sum_weight, &sum_r, &sum_g, &sum_b, &sum_a);
@@ -947,14 +1093,14 @@ GimpMypaintSurface::get_color (float x, float y,
 }
 
 void 
-GimpMypaintSurface::begin_session()
+GimpMypaintSurfaceImpl::begin_session()
 {
   session = 0;
   start_floating_stroke();
 }
 
 void 
-GimpMypaintSurface::end_session()
+GimpMypaintSurfaceImpl::end_session()
 {
   if (session <= 0)
     return;
@@ -965,7 +1111,7 @@ GimpMypaintSurface::end_session()
 }
 
 void 
-GimpMypaintSurface::start_undo_group()
+GimpMypaintSurfaceImpl::start_undo_group()
 {
   GimpItem *item;
   
@@ -1002,7 +1148,7 @@ GimpMypaintSurface::start_undo_group()
 }
 
 void 
-GimpMypaintSurface::stop_updo_group()
+GimpMypaintSurfaceImpl::stop_updo_group()
 {
   GimpImage *image;
 
@@ -1028,7 +1174,7 @@ GimpMypaintSurface::stop_updo_group()
 }
 
 GimpUndo *
-GimpMypaintSurface::push_undo (GimpImage     *image,
+GimpMypaintSurfaceImpl::push_undo (GimpImage     *image,
                                 const gchar   *undo_desc)
 {
   gimp_image_undo_group_start (image, GIMP_UNDO_GROUP_MYPAINT,
@@ -1052,7 +1198,7 @@ GimpMypaintSurface::push_undo (GimpImage     *image,
 }
 
 void 
-GimpMypaintSurface::start_floating_stroke()
+GimpMypaintSurfaceImpl::start_floating_stroke()
 {
   g_return_if_fail(drawable);
   GimpItem* item = GIMP_ITEM (drawable);
@@ -1070,7 +1216,7 @@ GimpMypaintSurface::start_floating_stroke()
 }
 
 void 
-GimpMypaintSurface::stop_floating_stroke()
+GimpMypaintSurfaceImpl::stop_floating_stroke()
 {
   if (floating_stroke_tiles) {
     tile_manager_unref(floating_stroke_tiles);
@@ -1079,7 +1225,7 @@ GimpMypaintSurface::stop_floating_stroke()
 }
 
 void
-GimpMypaintSurface::validate_floating_stroke_tiles(gint x, 
+GimpMypaintSurfaceImpl::validate_floating_stroke_tiles(gint x, 
                                                    gint y,
                                                    gint w,
                                                    gint h)
@@ -1105,155 +1251,12 @@ GimpMypaintSurface::validate_floating_stroke_tiles(gint x,
 
 }
 
-
-#if 0
-// copy unmodified tiles from undo tile stack
 void
-GimpMypaintSurface::copy_valid_tiles (TileManager *src_tiles,
-                                  TileManager *dest_tiles,
-                                  gint         x,
-                                  gint         y,
-                                  gint         w,
-                                  gint         h)
-{
-  Tile *src_tile;
-  gint  i, j;
-
-  for (i = y; i < (y + h); i += (TILE_HEIGHT - (i % TILE_HEIGHT))) {
-    for (j = x; j < (x + w); j += (TILE_WIDTH - (j % TILE_WIDTH))) {
-      src_tile = tile_manager_get_tile (src_tiles, j, i, FALSE, FALSE);
-
-      if (tile_is_valid (src_tile)) {
-        src_tile = tile_manager_get_tile (src_tiles, j, i, TRUE, FALSE);
-        tile_manager_map_tile (dest_tiles, j, i, src_tile);
-        tile_release (src_tile, FALSE);
-      }
-    }
-  }
-
-}
-#endif
-#if 0
-void
-GimpMypaintSurface::paste (PixelRegion              *mypaint_maskPR,
-                       GimpDrawable             *drawable,
-                       gdouble                   mypaint_opacity,
-                       gdouble                   image_opacity,
-                       GimpLayerModeEffects      mypaint_mode,
-                       GimpMypaintBrushMode  mode)
-{
-  TileManager *alt = NULL;
-  PixelRegion  srcPR;
-
-  /*  set undo blocks  */
-  gimp_mypaint_core_validate_undo_tiles (core, drawable,
-                                       core->canvas_buf->x,
-                                       core->canvas_buf->y,
-                                       core->canvas_buf->width,
-                                       core->canvas_buf->height);
-
-  mypaint_mask_to_canvas_buf (core, mypaint_maskPR, mypaint_opacity);
-
-  /*  intialize canvas buf source pixel regions  */
-  pixel_region_init_temp_buf (&srcPR, core->canvas_buf,
-                              0, 0,
-                              core->canvas_buf->width,
-                              core->canvas_buf->height);
-
-  /*  apply the mypaint area to the image  */
-  gimp_drawable_apply_region (drawable, &srcPR,
-                              FALSE, NULL,
-                              image_opacity, mypaint_mode,
-                              alt,  /*  specify an alternative src1  */
-                              NULL,
-                              core->canvas_buf->x,
-                              core->canvas_buf->y);
-
-  /*  Update the undo extents  */
-  core->x1 = MIN (core->x1, core->canvas_buf->x);
-  core->y1 = MIN (core->y1, core->canvas_buf->y);
-  core->x2 = MAX (core->x2, core->canvas_buf->x + core->canvas_buf->width);
-  core->y2 = MAX (core->y2, core->canvas_buf->y + core->canvas_buf->height);
-
-  /*  Update the drawable  */
-  gimp_drawable_update (drawable,
-                        core->canvas_buf->x,
-                        core->canvas_buf->y,
-                        core->canvas_buf->width,
-                        core->canvas_buf->height);
-
-}
-#endif
-
-/* This works similarly to gimp_mypaint_core_paste. However, instead of
- * combining the canvas to the mypaint core drawable using one of the
- * combination modes, it uses a "replace" mode (i.e. transparent
- * pixels in the canvas erase the mypaint core drawable).
-
- * When not drawing on alpha-enabled images, it just mypaints using
- * NORMAL mode.
- */
-#if 0
-void
-GimpMypaintSurface::replace (PixelRegion              *mypaint_maskPR,
-                         GimpDrawable             *drawable,
-                         gdouble                   mypaint_opacity,
-                         gdouble                   image_opacity,
-                         GimpMypaintBrushMode  mode)
-{
-  PixelRegion  srcPR;
-
-  if (! gimp_drawable_has_alpha (drawable))
-    {
-      gimp_mypaint_core_paste (core, mypaint_maskPR, drawable,
-                             mypaint_opacity,
-                             image_opacity, GIMP_NORMAL_MODE,
-                             mode);
-      return;
-    }
-
-  /*  set undo blocks  */
-  validate_undo_tiles (drawable,
-                       canvas_buf->x,
-                       canvas_buf->y,
-                       canvas_buf->width,
-                       canvas_buf->height);
-
-  /*  intialize canvas buf source pixel regions  */
-  pixel_region_init_temp_buf (&srcPR, core->canvas_buf,
-                              0, 0,
-                              core->canvas_buf->width,
-                              core->canvas_buf->height);
-
-  /*  apply the mypaint area to the image  */
-  gimp_drawable_replace_region (drawable, &srcPR,
-                                FALSE, NULL,
-                                image_opacity,
-                                mypaint_maskPR,
-                                core->canvas_buf->x,
-                                core->canvas_buf->y);
-
-  /*  Update the undo extents  */
-  core->x1 = MIN (core->x1, core->canvas_buf->x);
-  core->y1 = MIN (core->y1, core->canvas_buf->y);
-  core->x2 = MAX (core->x2, core->canvas_buf->x + core->canvas_buf->width) ;
-  core->y2 = MAX (core->y2, core->canvas_buf->y + core->canvas_buf->height) ;
-
-  /*  Update the drawable  */
-  gimp_drawable_update (drawable,
-                        core->canvas_buf->x,
-                        core->canvas_buf->y,
-                        core->canvas_buf->width,
-                        core->canvas_buf->height);
-}
-#endif
-
-void
-GimpMypaintSurface::validate_undo_tiles (
-                                     gint           x,
-                                     gint           y,
-                                     gint           w,
-                                     gint           h)
+GimpMypaintSurfaceImpl::validate_undo_tiles (
+                                             gint           x,
+                                             gint           y,
+                                             gint           w,
+                                             gint           h)
 {
   gint i, j;
   GimpItem* item = GIMP_ITEM (drawable);
@@ -1278,7 +1281,6 @@ GimpMypaintSurface::validate_undo_tiles (
                                  j, i, TRUE, FALSE);
         tile_manager_map_tile (undo_tiles, j, i, src_tile);
         tile_release (src_tile, FALSE);
-//        g_print("validate_undo_tiles:backup xy=(%d,%d),bound=(%d,%d)\n",j,i,MIN(x+w-j, TILE_WIDTH), MIN(y+h-i,TILE_HEIGHT));
 
       }
     }
@@ -1286,38 +1288,7 @@ GimpMypaintSurface::validate_undo_tiles (
   
 }
 
-void 
-GimpMypaintSurface::set_bg_color (GimpRGB* src) 
-{ 
-  if (src)
-    bg_color = *src; 
-}
-
-void 
-GimpMypaintSurface::get_bg_color (GimpRGB* dest) 
+GimpMypaintSurface* GimpMypaintSurface_new(GimpDrawable* drawable)
 {
-  if (dest)
-    *dest = bg_color; 
-}
-
-void 
-GimpMypaintSurface::set_brush(GimpBrush* brush_)
-{
-  if (brush) {
-    gimp_brush_end_use(brush);
-    g_object_unref(G_OBJECT(brush));
-    brush = NULL;
-  }
-
-  if (brush_) {
-    brush = brush_;
-    gimp_brush_begin_use(brush);
-    g_object_ref(G_OBJECT(brush));
-  }
-}
-
-GimpBrush* 
-GimpMypaintSurface::get_brush()
-{
-  return brush;
+  return new GimpMypaintSurfaceImpl(drawable);
 }

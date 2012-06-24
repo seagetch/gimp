@@ -35,113 +35,17 @@ extern "C++" {
 
 class GimpMypaintSurface : public Surface
 {
-private:
-#if 0
-  virtual TempBuf* get_paint_area (GimpDrawable *drawable,
-                                    GimpMypaintOptions *options,
-                                    const GimpCoords *coords);
-#endif
-  virtual GimpUndo* push_undo (GimpImage *imag, const gchar* undo_desc);
-  GimpDrawable* drawable;
-  GimpRGB       bg_color;
-  GimpBrush*    brush;
-  GimpCoords    last_coords;
-  GimpCoords    current_coords;
-  
-  TileManager* undo_tiles;       /*  tiles which have been modified      */
-  TileManager* floating_stroke_tiles;
-
-  gint         x1, y1;           /*  undo extents in image coords        */
-  gint         x2, y2;           /*  undo extents in image coords        */
-  gint         session;          /*  reference counter of atomic scope   */
-
-  void      validate_undo_tiles       (gint              x,
-                                       gint              y,
-                                       gint              w,
-                                       gint              h);
-
-  void      validate_floating_stroke_tiles (gint              x,
-                                            gint              y,
-                                            gint              w,
-                                            gint              h);
-#if 0
-  void      validate_canvas_tiles     (GimpMypaintCore    *core,
-                                       gint              x,
-                                       gint              y,
-                                       gint              w,
-                                       gint              h);
-  void      copy_valid_tiles          (TileManager *src_tiles,
-                                       TileManager *dest_tiles,
-                                       gint         x,
-                                       gint         y,
-                                       gint         w,
-                                       gint         h);
-#endif
-
-  void start_undo_group();
-  void stop_updo_group();
-  
-  void start_floating_stroke();
-  void stop_floating_stroke();
 public:
-  GimpMypaintSurface(GimpDrawable* drawable);
-  virtual ~GimpMypaintSurface();
 
-  void render_mypaint_dab_mask_in_tile (Pixel::real * dab_mask,
-                                gint          *offsets,
-                                float x, float y,
-                                float radius,
-                                float hardness,
-                                float aspect_ratio, float angle,
-                                PixelRegion* srcPR,
-                                PixelRegion* channelPR
-                                );
-  void render_brushmark_dab_mask_in_tile (Pixel::real * dab_mask,
-                                PixelRegion* srcPR,
-                                PixelRegion* channelPR,
-                                PixelRegion* texturePR
-                                );
-  virtual bool draw_dab (float x, float y, 
-                         float radius, 
-                         float color_r, float color_g, float color_b,
-                         float opaque, float hardness = 0.5,
-                         float alpha_eraser = 1.0,
-                         float aspect_ratio = 1.0, float angle = 0.0,
-                         float lock_alpha = 0.0, float colorize = 0.0
-                         );
-
-  virtual bool draw_brushmark_dab (float x, float y, 
-                                    float radius, 
-                                    float color_r, float color_g, float color_b,
-                                    float opaque, float hardness = 0.5,
-                                    float alpha_eraser = 1.0,
-                                    float aspect_ratio = 1.0, float angle = 0.0,
-                                    float lock_alpha = 0.0, float colorize = 0.0);
-
-  virtual bool draw_mypaint_dab (float x, float y, 
-                         float radius, 
-                         float color_r, float color_g, float color_b,
-                         float opaque, float hardness = 0.5,
-                         float alpha_eraser = 1.0,
-                         float aspect_ratio = 1.0, float angle = 0.0,
-                         float lock_alpha = 0.0, float colorize = 0.0
-                         );
-
-  virtual void get_color (float x, float y, 
-                          float radius, 
-                          float * color_r, float * color_g, float * color_b, float * color_a
-                          );
-
-  virtual void begin_session();
-  virtual void end_session();
-  
-  bool is_surface_for (GimpDrawable* drawable) { return drawable == this->drawable; }
-  void set_bg_color (GimpRGB* src);
-  void get_bg_color(GimpRGB* dest);
-  void set_brush(GimpBrush* brush_);
-  GimpBrush* get_brush();
-  void set_coords(const GimpCoords* coords) { current_coords = *coords; }
+  virtual bool is_surface_for (GimpDrawable* drawable) = 0;
+  virtual void set_bg_color (GimpRGB* src) = 0;
+  virtual void get_bg_color(GimpRGB* dest) = 0;
+  virtual void set_brush(GimpBrush* brush_) = 0;
+  virtual GimpBrush* get_brush() = 0;
+  virtual void set_coords(const GimpCoords* coords) = 0;
 };
+
+GimpMypaintSurface* GimpMypaintSurface_new(GimpDrawable* drawable);
 
 }
 #endif  /*  __GIMP_MYPAINT_SURFACE_HPP__  */
