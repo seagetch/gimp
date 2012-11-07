@@ -59,7 +59,7 @@ class MypaintPopupPrivate {
 
   GimpContainer*         container;
   GimpContext*           context;
-	Delegator::Connection* brush_changed_handler;
+  Delegator::Connection* brush_changed_handler;
   
 public:
   MypaintPopupPrivate(GimpContainer* ctn, GimpContext* ctx) {

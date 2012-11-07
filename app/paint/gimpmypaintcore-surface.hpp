@@ -40,8 +40,8 @@ public:
   virtual bool is_surface_for (GimpDrawable* drawable) = 0;
   virtual void set_bg_color (GimpRGB* src) = 0;
   virtual void get_bg_color(GimpRGB* dest) = 0;
-  virtual void set_brush(GimpBrush* brush_) = 0;
-  virtual GimpBrush* get_brush() = 0;
+  virtual void set_brushmark(GimpBrush* brush_) = 0;
+  virtual GimpBrush* get_brushmark() = 0;
   virtual void set_coords(const GimpCoords* coords) = 0;
 };
 

@@ -135,7 +135,7 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
       delete surface;
       g_print("MypaintCore(%lx)::recreate new surface...\n", (gulong)this);
       surface = GimpMypaintSurface_new(drawable);
-    }
+     }
 
     GimpContext* context = GIMP_CONTEXT (options);
 
@@ -151,9 +151,10 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
 
     gimp_context_get_background(GIMP_CONTEXT(options), &rgb);
     surface->set_bg_color(&rgb);
-    
+
+    // Attach gimp brush to the surface object.
     GimpBrush* brushmark = gimp_context_get_brush (GIMP_CONTEXT(options));
-    surface->set_brush(brushmark);
+    surface->set_brushmark(brushmark);
     
     if (GIMP_IS_LAYER (drawable)) {
       gboolean lock_alpha = gimp_layer_get_lock_alpha (GIMP_LAYER (drawable));

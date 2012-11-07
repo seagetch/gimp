@@ -483,8 +483,11 @@ public:
     for (int y = 0; y < srcPR->h; y ++) {
       for (int x = 0; x < srcPR->w; x ++) {
         *mask_ptr = eval(pix(data[x]));
+//         g_print("%1d", data[x]? 1:0);
+//        *mask_ptr = 1.0;
         mask_ptr ++;
       }
+//         g_print("\n");
       data += srcPR->rowstride;
     }
 
@@ -541,7 +544,7 @@ public:
                   brushPR->w, 
                   srcPR->rowstride,
                   destPR->rowstride,
-                  1,
+                      1,
                   srcPR->bytes,
                   destPR->bytes);
 
@@ -630,7 +633,7 @@ private:
   virtual GimpUndo* push_undo (GimpImage *imag, const gchar* undo_desc);
   GimpDrawable* drawable;
   GimpRGB       bg_color;
-  GimpBrush*    brush;
+  GimpBrush*    brushmark;
   GimpCoords    last_coords;
   GimpCoords    current_coords;
   
@@ -659,7 +662,7 @@ private:
 public:
   GimpMypaintSurfaceImpl(GimpDrawable* d) 
     : undo_tiles(NULL), floating_stroke_tiles(NULL), 
-      session(0), drawable(d), brush(NULL)
+      session(0), drawable(d), brushmark(NULL)
   {
     g_object_add_weak_pointer(G_OBJECT(d), (gpointer*)&drawable);
   }
@@ -676,8 +679,8 @@ public:
       tile_manager_unref (floating_stroke_tiles);
       floating_stroke_tiles = NULL;
     }
-    if (brush)
-      g_object_unref(G_OBJECT(brush));
+    if (brushmark)
+      g_object_unref(G_OBJECT(brushmark));
   }
 
 
@@ -742,7 +745,7 @@ public:
                                   hardness, aspect_ratio, angle, 
                                   normal, opaque, lock_alpha,
                                   fg_color, color_a, bg_color, 
-                                  (void*)brush))
+                                  (void*)brushmark))
       return false;
 
     int x1 = 0, y1 = 0, x2 = 0, y2 = 0;
@@ -765,7 +768,7 @@ public:
       ry1 = CLAMP (ry1, -offset_y, gimp_item_get_height (mask_item) - offset_y);
       rx2 = CLAMP (rx2, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
       ry2 = CLAMP (ry2, -offset_y, gimp_item_get_height (mask_item) - offset_y);
-    }
+     }
     rx1 = CLAMP (rx1, 0, gimp_item_get_width  (item) - 1);
     ry1 = CLAMP (ry1, 0, gimp_item_get_height (item) - 1);
     rx2 = CLAMP (rx2, 0, gimp_item_get_width  (item) - 1);
@@ -799,7 +802,7 @@ public:
       pixel_region_init (&destPR, gimp_drawable_get_tiles (drawable),
                          rx1, ry1, width, height,
                          TRUE);
-    }
+     }
 
     TempBuf* dab_mask = (TempBuf*)brush_impl.get_brush_data();
     if (dab_mask)
@@ -814,14 +817,14 @@ public:
                          ry1 + offset_y,
                          width, height,
                          TRUE);
-    }
+     }
     
     DrawDabProcessor<BrushImpl> processor;
     processor.process(&brush_impl,
-                      &src1PR, 
-                      &destPR, 
-                      (dab_mask)? &brushPR: NULL, 
-                      (mask_item)? &maskPR: NULL);
+                     &src1PR, 
+                     &destPR, 
+                     (dab_mask)? &brushPR: NULL, 
+                     (mask_item)? &maskPR: NULL);
 
     if (floating_stroke_tiles) {
       /* Copy floating stroke buffer into drawable buffer */
@@ -844,7 +847,7 @@ public:
                            ry1 + offset_y,
                            rx2 - rx1, ry2 - ry1,
                            TRUE);
-      }
+        }
       
       CopyStrokeProcessor<BrushImpl> stroke_processor;
       stroke_processor.process(&brush_impl,
@@ -852,7 +855,7 @@ public:
                                &destPR,
                                &brushPR,
                                NULL);
-    }
+     }
 
     /*  Update the drawable  */
     gimp_drawable_update (drawable, rx1, ry1, width, height);
@@ -890,24 +893,24 @@ public:
       *dest = bg_color; 
   }
 
-  void set_brush(GimpBrush* brush_)
+  void set_brushmark(GimpBrush* brush_)
   {
-    if (brush) {
-      gimp_brush_end_use(brush);
-      g_object_unref(G_OBJECT(brush));
-      brush = NULL;
+    if (brushmark) {
+      gimp_brush_end_use(brushmark);
+      g_object_unref(G_OBJECT(brushmark));
+      brushmark = NULL;
     }
 
     if (brush_) {
-      brush = brush_;
-      gimp_brush_begin_use(brush);
-      g_object_ref(G_OBJECT(brush));
+      brushmark = brush_;
+      gimp_brush_begin_use(brushmark);
+      g_object_ref(G_OBJECT(brushmark));
     }
   }
 
-  GimpBrush* get_brush()
+  GimpBrush* get_brushmark()
   {
-    return brush;
+    return brushmark;
   }
 
 
@@ -926,13 +929,15 @@ GimpMypaintSurfaceImpl::draw_dab (float x, float y,
                                   float lock_alpha,
                                   float colorize)
 {
-  if (brush) {
+  if (brushmark) {
+//	 g_print("GimpBrush::draw_dab_impl@%4f,%4f\n", x, y);
     GimpMypaintSurfaceForGimpBrush brush_impl(&current_coords, &last_coords);
     return draw_dab_impl(brush_impl,
                           x, y, radius, color_r, color_g, color_b, opaque,
                           hardness, color_a, aspect_ratio, angle, lock_alpha,
                           colorize);
   } else {
+//	 g_print("MypaintBrush::draw_dab_impl@%4f,%4f\n",x,y);
     GimpMypaintSurfaceForMypaintBrush brush_impl;
     return draw_dab_impl(brush_impl,
                           x, y, radius, color_r, color_g, color_b, opaque,
@@ -979,9 +984,9 @@ GimpMypaintSurfaceImpl::get_color (float x, float y,
   Pixel::real bg_color[] = {1.0, 1.0, 1.0};
   if (!brush_impl.prepare_brush(x, y, radius, 
                                 hardness, aspect_ratio, angle, 
-                                1.0, 1.0, 0.0,
+                                        1.0, 1.0, 0.0,
                                 fg_color, 1.0, bg_color, 
-                                brush))
+                                brushmark))
       return;
 
   int x1, y1, x2, y2;
@@ -1096,7 +1101,7 @@ void
 GimpMypaintSurfaceImpl::begin_session()
 {
   session = 0;
-  start_floating_stroke();
+//  start_floating_stroke();
 }
 
 void 
@@ -1106,7 +1111,7 @@ GimpMypaintSurfaceImpl::end_session()
     return;
     
   stop_updo_group();
-  stop_floating_stroke();
+//  stop_floating_stroke();
   session = 0;
 }
 
@@ -1208,7 +1213,7 @@ GimpMypaintSurfaceImpl::start_floating_stroke()
     floating_stroke_tiles = NULL;
   }
 
-  gint bytes = gimp_drawable_bytes_with_alpha (drawable);  
+  gint bytes = gimp_drawable_bytes_with_alpha (drawable);
   floating_stroke_tiles = tile_manager_new(gimp_item_get_width(item),
                                            gimp_item_get_height(item),
                                            bytes);
