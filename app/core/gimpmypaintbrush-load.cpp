@@ -57,12 +57,12 @@ extern "C" {
 
 #include "gimpmypaintbrush.h"
 #include "gimpmypaintbrush-load.h"
-#include "gimpmypaintbrush-private.hpp"
 #include "mypaintbrush-brushsettings.h"
 
 #include "gimp-intl.h"
 
 }
+#include "gimpmypaintbrush-private.hpp"
 
 #define CURRENT_BRUSHFILE_VERSION 2
 

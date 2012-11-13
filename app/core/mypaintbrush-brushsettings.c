@@ -95,9 +95,20 @@ static MyPaintBrushSettings settings_list[] = {
   {"direction_filter", BRUSH_DIRECTION_FILTER, _("Direction filter"), False, 0.0, 2.0, 10.0, _("A low value will make the direction input adapt more quickly, a high value will make it smoother")},
 
   {"lock_alpha", BRUSH_LOCK_ALPHA, _("Lock alpha"), False, 0.0, 0.0, 1.0, _("Do not modify the alpha channel of the layer (paint only where there is paint already)\n 0.0 normal painting\n 0.5 half of the paint gets applied normally\n 1.0 alpha channel fully locked")},
+  {"stroke_opacity", BRUSH_STROKE_OPACITY, _("Stroke opacity"), True, 0.0, 1.0, 1.0, _("Opacity applied for whole stroke. meaningful only when non-incremental mode is enabled.\n") },
   {NULL}
 };
 
+static MyPaintBrushSwitchSettings switches_list[] = {
+  {"non_incremental", BRUSH_NON_INCREMENTAL, _("Non-incremental painting mode."), FALSE },
+  {"use_gimp_brushmark", BRUSH_USE_GIMP_BRUSHMARK, _("Use GIMP brush for brushmark."), TRUE },
+  {NULL}
+};
+
+static MyPaintBrushTextSettings text_list[] = {
+  {"brushmark", BRUSH_BRUSHMARK_NAME, _("Brushmark name"), NULL},
+  {NULL}
+};
 
 struct _MypaintBrushSettingGroupInternal {
   gchar                          *name;
@@ -107,7 +118,7 @@ struct _MypaintBrushSettingGroupInternal {
 };
 typedef struct _MypaintBrushSettingGroupInternal MypaintBrushSettingGroupInternal;
 
-static gchar* basic_group_list[] = { 
+static gchar* basic_group_list[] = {
     "radius_logarithmic", 
     "radius_by_random", 
     "hardness", 
@@ -128,6 +139,7 @@ static gchar* dabs_group_list[] = {
     "dabs_per_basic_radius",
     "dabs_per_actual_radius",
     "dabs_per_second",
+    "use_gimp_brushmark",
     NULL};
 static gchar* smudge_group_list[] = {
     "smudge", 
@@ -150,6 +162,8 @@ static gchar* stroke_group_list[] = {
     "stroke_threshold", 
     "stroke_duration_logarithmic", 
     "stroke_holdtime", 
+    "non_incremental",
+    "stroke_opacity",
     NULL};
 static gchar* color_group_list[] = {
     "change_color_h", 
@@ -239,26 +253,21 @@ for line in states_list.split("\n"):
         states.append(st)
 #endif
 
-GList *
-mypaint_brush_get_brush_settings (void)
-{
-  GList *result = NULL;
-  MyPaintBrushSettings *setting = settings_list;
-  for (; setting->internal_name; setting ++)
-    {
-      result = g_list_append (result, setting);
-    }
-  return result;
-}
 
-static GList*      brush_input_settings_list  = NULL;
-static GHashTable* brush_input_settings_dict  = NULL;
-static GList*      brush_settings_list        = NULL;
-static GHashTable* brush_settings_dict        = NULL;
-static GList*      brush_setting_migrate_list = NULL;
-static GHashTable* brush_setting_migrate_dict = NULL;
-static GHashTable* brush_setting_group_dict   = NULL;
-static GList*      brush_setting_group_list   = NULL;
+static GList*      brush_input_settings_list    = NULL;
+static GHashTable* brush_input_settings_dict    = NULL;
+static GList*      brush_settings_list          = NULL;
+static GHashTable* brush_settings_dict          = NULL;
+static GList*      brush_setting_migrate_list   = NULL;
+static GHashTable* brush_setting_migrate_dict   = NULL;
+static GHashTable* brush_setting_group_dict     = NULL;
+static GList*      brush_setting_group_list     = NULL;
+static GList*      brush_switch_settings_list   = NULL;
+static GHashTable* brush_switch_settings_dict   = NULL;
+static GList*      brush_text_settings_list     = NULL;
+static GHashTable* brush_text_settings_dict     = NULL;
+
+static GHashTable* index_to_name_dict           = NULL;
 
 GList *
 mypaint_brush_get_input_settings (void)
@@ -286,6 +295,18 @@ GHashTable *mypaint_brush_get_input_settings_dict (void)
   return brush_input_settings_dict;
 }
 
+GList *
+mypaint_brush_get_brush_settings (void)
+{
+  GList *result = NULL;
+  MyPaintBrushSettings *setting = settings_list;
+  for (; setting->internal_name; setting ++)
+    {
+      result = g_list_append (result, setting);
+    }
+  return result;
+}
+
 GHashTable *mypaint_brush_get_brush_settings_dict (void)
 {
   if (!brush_settings_dict) {
@@ -295,10 +316,68 @@ GHashTable *mypaint_brush_get_brush_settings_dict (void)
     {
       g_hash_table_insert (brush_settings_dict, setting->internal_name, setting);
     }
+    g_hash_table_ref (brush_settings_dict);
   }
   g_hash_table_ref (brush_settings_dict);
   
   return brush_settings_dict;
+}
+
+GList *
+mypaint_brush_get_brush_switch_settings (void)
+{
+  GList *result = NULL;
+  MyPaintBrushSwitchSettings *setting = switches_list;
+  for (; setting->internal_name; setting ++)
+    {
+      result = g_list_append (result, setting);
+    }
+  return result;
+}
+
+GHashTable *mypaint_brush_get_brush_switch_settings_dict (void)
+{
+  if (!brush_switch_settings_dict) {
+    MyPaintBrushSwitchSettings *setting = switches_list;
+    brush_switch_settings_dict = g_hash_table_new (g_str_hash, g_str_equal);
+    for (; setting->internal_name; setting ++)
+    {
+      g_hash_table_insert (brush_switch_settings_dict, setting->internal_name, setting);
+    }
+    g_hash_table_ref (brush_switch_settings_dict);
+  }
+  g_hash_table_ref (brush_switch_settings_dict);
+  
+  return brush_switch_settings_dict;
+}
+
+
+GList *
+mypaint_brush_get_brush_text_settings (void)
+{
+  GList *result = NULL;
+  MyPaintBrushTextSettings *setting = text_list;
+  for (; setting->internal_name; setting ++)
+    {
+      result = g_list_append (result, setting);
+    }
+  return result;
+}
+
+GHashTable *mypaint_brush_get_brush_text_settings_dict (void)
+{
+  if (!brush_text_settings_dict) {
+    MyPaintBrushTextSettings *setting = text_list;
+    brush_text_settings_dict = g_hash_table_new (g_str_hash, g_str_equal);
+    for (; setting->internal_name; setting ++)
+    {
+      g_hash_table_insert (brush_text_settings_dict, setting->internal_name, setting);
+    }
+    g_hash_table_ref (brush_text_settings_dict);
+  }
+  g_hash_table_ref (brush_text_settings_dict);
+  
+  return brush_text_settings_dict;
 }
 
 
@@ -311,6 +390,7 @@ GHashTable *mypaint_brush_get_setting_migrate_dict (void)
     {
       g_hash_table_insert (brush_setting_migrate_dict, setting->old_name, setting);
     }
+    g_hash_table_ref (brush_setting_migrate_dict);
   }
   g_hash_table_ref (brush_setting_migrate_dict);
   return brush_setting_migrate_dict;
@@ -322,6 +402,8 @@ GHashTable *mypaint_brush_get_setting_group_dict (void)
   if (!brush_setting_group_dict) {
     MypaintBrushSettingGroupInternal* group = group_list;
     GHashTable* settings_dict = mypaint_brush_get_brush_settings_dict ();
+    GHashTable* switches_dict = mypaint_brush_get_brush_switch_settings_dict();
+    GHashTable* text_dict     = mypaint_brush_get_brush_text_settings_dict ();
     brush_setting_group_dict = g_hash_table_new (g_str_hash, g_str_equal);
     for (; group->name; group ++)
     {
@@ -332,16 +414,33 @@ GHashTable *mypaint_brush_get_setting_group_dict (void)
       group_entry->setting_list = NULL;
 
       for (name = group->setting_list; *name; name ++) {
-        gpointer setting = g_hash_table_lookup (settings_dict, *name);
-	if (setting)
-	  group_entry->setting_list = g_list_append (group_entry->setting_list, setting);
-	else
-	  g_print("BrushSettingGroup::NOT_FOUND::%s\n", *name);
-      }
+        MyPaintBrushSettingEntry* entry;
+        gpointer setting;
+        entry = g_new0(MyPaintBrushSettingEntry, 1);
+        setting = g_hash_table_lookup (settings_dict, *name);
+        if (!setting)
+          setting = g_hash_table_lookup (switches_dict, *name);
+        if (!setting)
+            setting = g_hash_table_lookup (text_dict, *name);
+        
+        if (setting) {
+          entry->ptr  = setting;
+          entry->type = mypaint_brush_get_prop_type(*name);
+          group_entry->setting_list = g_list_append (group_entry->setting_list, entry);
+        } else {
+          g_print("BrushSettingGroup::NOT_FOUND::%s\n", *name);
+          }
+        }
 
       g_hash_table_insert (brush_setting_group_dict, group->name, group_entry);
     }
+    g_hash_table_unref(settings_dict);
+    g_hash_table_unref(switches_dict);
+    g_hash_table_unref(text_dict);  
+
+    g_hash_table_ref (brush_setting_group_dict);
   }
+
   g_hash_table_ref (brush_setting_group_dict);
 
   return brush_setting_group_dict;
@@ -377,3 +476,42 @@ gchar* mypaint_brush_signal_name_to_internal_name (const gchar* name)
   return result;
 }
 
+GType mypaint_brush_get_prop_type (const gchar* name)
+{
+  GType       result      = G_TYPE_NONE;
+  GHashTable* switch_dict = mypaint_brush_get_brush_switch_settings_dict();
+  GHashTable* text_dict   = mypaint_brush_get_brush_text_settings_dict();
+  GHashTable* float_dict  = mypaint_brush_get_brush_settings_dict();
+
+  if (g_hash_table_lookup(switch_dict, name)) {
+    result = G_TYPE_BOOLEAN;
+  } else if (g_hash_table_lookup(text_dict, name)) {
+    result = G_TYPE_STRING;
+  } else if (g_hash_table_lookup(float_dict, name)) {
+    result = G_TYPE_DOUBLE;
+  }
+  g_hash_table_unref(switch_dict);
+  g_hash_table_unref(text_dict);
+  g_hash_table_unref(float_dict);
+  return result;
+}
+
+gchar* mypaint_brush_settings_index_to_internal_name(int index)
+{
+  if (!index_to_name_dict) {
+    MyPaintBrushSettings* s1;
+    MyPaintBrushSwitchSettings* s2;
+    MyPaintBrushTextSettings* s3;
+    index_to_name_dict = g_hash_table_new(g_direct_hash, g_direct_equal);
+    for (s1 = settings_list; s1->internal_name; s1 ++) {
+      g_hash_table_insert(index_to_name_dict, (gpointer)(s1->index), s1->internal_name);
+    }
+    for (s2 = switches_list; s2->internal_name; s2 ++) {
+      g_hash_table_insert(index_to_name_dict, (gpointer)(s2->index), s2->internal_name);
+    }
+    for (s3 = text_list; s3->internal_name; s3 ++) {
+      g_hash_table_insert(index_to_name_dict, (gpointer)(s3->index), s3->internal_name);
+    }
+  }
+  return (gchar*)g_hash_table_lookup(index_to_name_dict, (gpointer)index);
+}

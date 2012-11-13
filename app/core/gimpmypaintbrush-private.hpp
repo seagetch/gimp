@@ -19,17 +19,21 @@ class GimpMypaintBrushPrivate {
   private:
   char *parent_brush_name;
   char *group;
-  Value  settings[BRUSH_SETTINGS_COUNT];
+  Value  settings[BRUSH_MAPPING_COUNT];
+  bool   switches[BRUSH_BOOL_COUNT];
+  gchar* text[BRUSH_TEXT_COUNT];
   cairo_surface_t *icon_image;
 
   public:
   GimpMypaintBrushPrivate();
   ~GimpMypaintBrushPrivate();
   Value* get_setting(int index) {
-    g_assert (0 <= index && index < BRUSH_SETTINGS_COUNT);
+    g_assert (0 <= index && index < BRUSH_MAPPING_COUNT);
     return &settings[index];
   }
   void set_base_value (int index, float value);
+  void set_bool_value (int index, bool value);
+  bool get_bool_value (int index);
   float get_base_value (int index);
   void allocate_mapping (int index);
   void deallocate_mapping (int index);

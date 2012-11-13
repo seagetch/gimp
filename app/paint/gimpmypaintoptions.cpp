@@ -94,12 +94,36 @@ gimp_mypaint_options_class_init (GimpMypaintOptionsClass *klass)
   for (GList* i = brush_settings.ptr(); i; i = i->next) {
     MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(i->data);
     gchar* signal_name = mypaint_brush_internal_name_to_signal_name (setting->internal_name);
-    g_print("install parameter %d:%s:(%f-%f),default=%f\n",
+    g_print("install double parameter %d:%s:(%f-%f),default=%f\n",
       setting->index + 1, signal_name, setting->minimum, setting->maximum, setting->default_value);
       
     GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, setting->index + 1,
       signal_name, _(setting->displayed_name),
       setting->minimum, setting->maximum,
+      setting->default_value, 
+      (GParamFlags)(GIMP_PARAM_STATIC_STRINGS));
+  }
+  GListHolder switch_settings(mypaint_brush_get_brush_switch_settings ());
+  for (GList* i = switch_settings.ptr(); i; i = i->next) {
+    MyPaintBrushSwitchSettings* setting = reinterpret_cast<MyPaintBrushSwitchSettings*>(i->data);
+    gchar* signal_name = mypaint_brush_internal_name_to_signal_name (setting->internal_name);
+    g_print("install boolean parameter %d:%s,default=%d\n",
+      setting->index + 1, signal_name, setting->default_value);
+      
+    GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, setting->index + 1,
+      signal_name, _(setting->displayed_name),
+      setting->default_value, 
+      (GParamFlags)(GIMP_PARAM_STATIC_STRINGS));
+  }
+  GListHolder text_settings(mypaint_brush_get_brush_text_settings ());
+  for (GList* i = text_settings.ptr(); i; i = i->next) {
+    MyPaintBrushTextSettings* setting = reinterpret_cast<MyPaintBrushTextSettings*>(i->data);
+    gchar* signal_name = mypaint_brush_internal_name_to_signal_name (setting->internal_name);
+    g_print("install string parameter %d:%s,default=%s\n",
+      setting->index + 1, signal_name, setting->default_value);
+      
+    GIMP_CONFIG_INSTALL_PROP_STRING (object_class, setting->index + 1,
+      signal_name, _(setting->displayed_name),
       setting->default_value, 
       (GParamFlags)(GIMP_PARAM_STATIC_STRINGS));
   }
@@ -167,7 +191,20 @@ gimp_mypaint_options_set_property (GObject      *object,
   if (property_id <= PROP_0) {
     if (options->brush) {
       GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(options->brush->p);
-      priv->set_base_value (property_id - 1, g_value_get_double (value));
+      gchar* name = mypaint_brush_settings_index_to_internal_name (property_id - 1);
+      GType type  = mypaint_brush_get_prop_type (name);
+
+      switch (type) {
+      case G_TYPE_DOUBLE:
+        priv->set_base_value (property_id - 1, g_value_get_double (value));
+        break;
+      case G_TYPE_BOOLEAN:
+        priv->set_bool_value (property_id - 1, g_value_get_boolean (value));
+        break;
+      case G_TYPE_STRING:
+//        priv->set_text_value (property_id - 1, g_value_get_string (value));
+        break;
+      }
     }
 
   } else {
@@ -202,8 +239,22 @@ gimp_mypaint_options_get_property (GObject    *object,
   if (property_id <= PROP_0) {
     if (options->brush) {
       GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(options->brush->p);
-      float val = priv->get_base_value (property_id - 1);
-      g_value_set_double (value, val);
+      gchar* name = mypaint_brush_settings_index_to_internal_name (property_id - 1);
+      GType type  = mypaint_brush_get_prop_type (name);
+      switch (type) {
+      case G_TYPE_DOUBLE: {
+        float fval = priv->get_base_value (property_id - 1);
+        g_value_set_double (value, fval);
+        break;
+      }
+      case G_TYPE_BOOLEAN: {
+        bool bval = priv->get_bool_value (property_id - 1);
+        g_value_set_boolean (value, bval);
+        break;
+      }
+      case G_TYPE_STRING:
+        break;
+      }
     }
 
   } else {

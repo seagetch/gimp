@@ -31,7 +31,7 @@ typedef enum _MypaintBrushSettingGroupID MypaintBrushSettingGroupID;
 
 struct _MypaintBrushSettingGroup {
   gchar                          *name;
-  MypaintBrushSettingGroupID  index;
+  MypaintBrushSettingGroupID      index;
   gchar                          *display_name;
   GList                          *setting_list;
 };
@@ -43,11 +43,27 @@ struct _MyPaintBrushSettings {
   gchar    *displayed_name;
   gboolean  constant;
   gfloat    minimum;
-  gfloat     default_value;
+  gfloat    default_value;
   gfloat    maximum;
   gchar    *tooltip;
 };
 typedef struct _MyPaintBrushSettings MyPaintBrushSettings;
+
+struct _MyPaintBrushSwitchSettings {
+  gchar    *internal_name;
+  gint      index;
+  gchar    *displayed_name;
+  gboolean  default_value;
+};
+typedef struct _MyPaintBrushSwitchSettings MyPaintBrushSwitchSettings;
+
+struct _MyPaintBrushTextSettings {
+  gchar    *internal_name;
+  gint      index;
+  gchar    *displayed_name;
+  gchar    *default_value;
+};
+typedef struct _MyPaintBrushTextSettings MyPaintBrushTextSettings;
 
 struct _MyPaintBrushSettingMigrate {
   gchar *old_name;
@@ -56,9 +72,24 @@ struct _MyPaintBrushSettingMigrate {
 };
 typedef struct _MyPaintBrushSettingMigrate MyPaintBrushSettingMigrate;
 
+struct _MyPaintBrushSettingEntry {
+  GType  type;
+  union {
+    MyPaintBrushSettings       *f;
+    MyPaintBrushSwitchSettings *b;
+    MyPaintBrushTextSettings   *t;
+    gpointer                    ptr;
+  };
+};
+typedef struct _MyPaintBrushSettingEntry MyPaintBrushSettingEntry;
+
 GList *mypaint_brush_get_brush_settings (void);
+GList *mypaint_brush_get_brush_switch_settings (void);
+GList *mypaint_brush_get_brush_text_settings (void);
 GList *mypaint_brush_get_input_settings (void);
 GHashTable *mypaint_brush_get_brush_settings_dict (void);
+GHashTable *mypaint_brush_get_brush_switch_settings_dict (void);
+GHashTable *mypaint_brush_get_brush_text_settings_dict (void);
 GHashTable *mypaint_brush_get_input_settings_dict (void);
 GHashTable *mypaint_brush_get_setting_migrate_dict (void);
 GHashTable *mypaint_brush_get_setting_group_dict (void);
@@ -66,4 +97,7 @@ GList *mypaint_brush_get_setting_group_list (void);
 
 gchar* mypaint_brush_internal_name_to_signal_name (const gchar* name);
 gchar* mypaint_brush_signal_name_to_internal_name (const gchar* signal);
+
+GType mypaint_brush_get_prop_type (const gchar* name);
+gchar* mypaint_brush_settings_index_to_internal_name(int index);
 #endif

@@ -70,6 +70,7 @@ protected:
   float x, y;
   float opaque;
   float normal, lock_alpha;
+  float stroke_opacity;
   float color_a;
   Pixel::real fg_color[4];
   Pixel::real bg_color[3];
@@ -88,6 +89,7 @@ public:
                 Pixel::real* fg_color, 
                 float color_a, 
                 Pixel::real* bg_color, 
+                float stroke_opacity,
                 void* /*unused*/)
   {
     this->x            = x;
@@ -103,6 +105,7 @@ public:
     this->bg_color[0]  = bg_color[0];
     this->bg_color[1]  = bg_color[1];
     this->bg_color[2]  = bg_color[2];
+    this->stroke_opacity = stroke_opacity;
     return true;
   }
 
@@ -150,7 +153,7 @@ public:
     // normal case for brushes that use smudging (eg. watercolor)
     draw_dab_pixels_BlendMode_Normal_and_Eraser(iter,
                                                 color_a,
-                                                0.4,
+                                                stroke_opacity,
                                                 bg_color[0], bg_color[1], bg_color[2]);
 //        draw_dab_pixels_BlendMode_Normal(iter, 0.4);
   }
@@ -182,6 +185,7 @@ public:
                 Pixel::real* fg_color, 
                 float color_a, 
                 Pixel::real* bg_color, 
+                float stroke_opacity,
                 void* brush)
   {
     Parent::prepare_brush(x, y, 
@@ -194,7 +198,8 @@ public:
                           lock_alpha, 
                           fg_color, 
                           color_a, 
-                          bg_color, brush);
+                          bg_color, stroke_opacity,
+                          brush);
     this->radius       = radius;
     this->hardness     = hardness;
     this->aspect_ratio = aspect_ratio;
@@ -411,6 +416,7 @@ public:
                 Pixel::real* fg_color, 
                 float color_a, 
                 Pixel::real* bg_color, 
+                float stroke_opacity,
                 void* data)
   {
     Parent::prepare_brush(x, y, 
@@ -424,6 +430,7 @@ public:
                           fg_color, 
                           color_a, 
                           bg_color,
+                          stroke_opacity,
                           data);
     dab_mask         = NULL;
     GimpBrush* brush = GIMP_BRUSH(data);
@@ -636,6 +643,8 @@ private:
   GimpBrush*    brushmark;
   GimpCoords    last_coords;
   GimpCoords    current_coords;
+  bool          floating_stroke;
+  double        stroke_opacity;
   
   TileManager* undo_tiles;       /*  tiles which have been modified      */
   TileManager* floating_stroke_tiles;
@@ -662,7 +671,8 @@ private:
 public:
   GimpMypaintSurfaceImpl(GimpDrawable* d) 
     : undo_tiles(NULL), floating_stroke_tiles(NULL), 
-      session(0), drawable(d), brushmark(NULL)
+      session(0), drawable(d), brushmark(NULL), 
+      floating_stroke(false), stroke_opacity(1.0)
   {
     g_object_add_weak_pointer(G_OBJECT(d), (gpointer*)&drawable);
   }
@@ -744,7 +754,7 @@ public:
     if (!brush_impl.prepare_brush(x, y, radius, 
                                   hardness, aspect_ratio, angle, 
                                   normal, opaque, lock_alpha,
-                                  fg_color, color_a, bg_color, 
+                                  fg_color, color_a, bg_color, stroke_opacity,
                                   (void*)brushmark))
       return false;
 
@@ -784,7 +794,7 @@ public:
     start_undo_group();
     validate_undo_tiles (rx1, ry1, width, height);
 
-    if (floating_stroke_tiles) {
+    if (floating_stroke) {
       validate_floating_stroke_tiles(rx1, ry1, width, height);
 
       pixel_region_init (&src1PR, floating_stroke_tiles,
@@ -826,7 +836,7 @@ public:
                      (dab_mask)? &brushPR: NULL, 
                      (mask_item)? &maskPR: NULL);
 
-    if (floating_stroke_tiles) {
+    if (floating_stroke) {
       /* Copy floating stroke buffer into drawable buffer */
       pixel_region_init (&src1PR, undo_tiles,
                          rx1, ry1, width, height,
@@ -913,6 +923,17 @@ public:
     return brushmark;
   }
 
+  void set_floating_stroke(bool value) {
+    floating_stroke = value;
+  }
+
+  bool get_floating_stroke () {
+    return floating_stroke;
+  }
+
+  void set_stroke_opacity(double value) {
+    stroke_opacity = CLAMP(value, 0.0, 1.0);
+  }
 
   virtual void set_coords(const GimpCoords* coords) { current_coords = *coords; }
 };
@@ -985,7 +1006,7 @@ GimpMypaintSurfaceImpl::get_color (float x, float y,
   if (!brush_impl.prepare_brush(x, y, radius, 
                                 hardness, aspect_ratio, angle, 
                                         1.0, 1.0, 0.0,
-                                fg_color, 1.0, bg_color, 
+                                fg_color, 1.0, bg_color, stroke_opacity,
                                 brushmark))
       return;
 
@@ -1020,7 +1041,7 @@ GimpMypaintSurfaceImpl::get_color (float x, float y,
   
   int width   = (rx2 - rx1 + 1);
   int height   = (ry2 - ry1 + 1);
-  if (floating_stroke_tiles) {
+  if (floating_stroke) {
   
     pixel_region_init (&src1PR, floating_stroke_tiles,
                        rx1, ry1, width, height,
@@ -1101,7 +1122,8 @@ void
 GimpMypaintSurfaceImpl::begin_session()
 {
   session = 0;
-//  start_floating_stroke();
+  if (floating_stroke)
+    start_floating_stroke();
 }
 
 void 
@@ -1111,7 +1133,8 @@ GimpMypaintSurfaceImpl::end_session()
     return;
     
   stop_updo_group();
-//  stop_floating_stroke();
+  if (floating_stroke)
+    stop_floating_stroke();
   session = 0;
 }
 

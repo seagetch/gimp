@@ -436,9 +436,12 @@ GimpMypaintBrushPrivate::GimpMypaintBrushPrivate() {
   parent_brush_name = g_strdup("");
   group = g_strdup("");
 	icon_image = NULL;
-  for (int i = 0; i < BRUSH_SETTINGS_COUNT; i ++) {
+  for (int i = 0; i < BRUSH_MAPPING_COUNT; i ++) {
     settings[i].base_value = 0;
     settings[i].mapping    = NULL;
+  }
+  for (int i = 0; i < BRUSH_BOOL_COUNT; i ++) {
+    switches[i] = FALSE;
   }
 }
 
@@ -451,7 +454,7 @@ GimpMypaintBrushPrivate::~GimpMypaintBrushPrivate() {
     g_free (group);
     group = NULL;
   }
-  for (int i = 0; i < BRUSH_SETTINGS_COUNT; i ++) {
+  for (int i = 0; i < BRUSH_MAPPING_COUNT; i ++) {
     deallocate_mapping(i);
   }
   if (icon_image) {
@@ -462,7 +465,7 @@ GimpMypaintBrushPrivate::~GimpMypaintBrushPrivate() {
 
 void 
 GimpMypaintBrushPrivate::set_base_value (int index, float value) {
-  g_assert (index >= 0 && index < BRUSH_SETTINGS_COUNT);
+  g_assert (index >= 0 && index < BRUSH_MAPPING_COUNT);
   allocate_mapping(index);
   settings[index].mapping->base_value = value;
   /*
@@ -474,7 +477,7 @@ GimpMypaintBrushPrivate::set_base_value (int index, float value) {
 
 float
 GimpMypaintBrushPrivate::get_base_value (int index) {
-  g_assert (index >= 0 && index < BRUSH_SETTINGS_COUNT);
+  g_assert (index >= 0 && index < BRUSH_MAPPING_COUNT);
   if (settings[index].mapping) {
     return settings[index].mapping->base_value;
   }
@@ -483,7 +486,7 @@ GimpMypaintBrushPrivate::get_base_value (int index) {
 
 void 
 GimpMypaintBrushPrivate::allocate_mapping (int index) {
-  g_assert (index >= 0 && index < BRUSH_SETTINGS_COUNT);
+  g_assert (index >= 0 && index < BRUSH_MAPPING_COUNT);
   if (!settings[index].mapping) {
     settings[index].mapping = new Mapping(INPUT_COUNT);
   }
@@ -491,7 +494,7 @@ GimpMypaintBrushPrivate::allocate_mapping (int index) {
 
 void
 GimpMypaintBrushPrivate::deallocate_mapping (int index) {
-  g_assert (index >= 0 && index < BRUSH_SETTINGS_COUNT);
+  g_assert (index >= 0 && index < BRUSH_MAPPING_COUNT);
   if (settings[index].mapping) {
     delete settings[index].mapping;
     settings[index].mapping = NULL;
@@ -523,6 +526,21 @@ GimpMypaintBrushPrivate::set_group(char *name) {
     g_free (group);
   group = g_strdup(name);
 }
+
+void 
+GimpMypaintBrushPrivate::set_bool_value (int index, bool value) {
+  index -= BRUSH_BOOL_BASE;
+  g_assert (index >= 0 && index < BRUSH_BOOL_COUNT);
+  switches[index] = value;
+}
+
+bool
+GimpMypaintBrushPrivate::get_bool_value (int index) {
+  index -= BRUSH_BOOL_BASE;
+  g_assert (index >= 0 && index < BRUSH_BOOL_COUNT);
+  return switches[index];
+}
+
 
 void 
 GimpMypaintBrushPrivate::get_new_preview(guchar* dest_buf, 
@@ -595,12 +613,15 @@ GimpMypaintBrushPrivate::duplicate() {
 	GimpMypaintBrushPrivate* priv = new GimpMypaintBrushPrivate();
   priv->set_parent_brush_name(parent_brush_name);
 	priv->set_group(group);
-  for (int i = 0; i < BRUSH_SETTINGS_COUNT; i ++) {
+  for (int i = 0; i < BRUSH_MAPPING_COUNT; i ++) {
     priv->settings[i].base_value = settings[i].base_value;
     if (settings[i].mapping) {
       priv->allocate_mapping(i);
       *(priv->settings[i].mapping) = *(settings[i].mapping);
     }
+  }
+  for (int i = 0; i < BRUSH_BOOL_COUNT; i ++) {
+    priv->switches[i] = switches[i];
   }
 	priv->set_icon_image(icon_image);
   return priv;

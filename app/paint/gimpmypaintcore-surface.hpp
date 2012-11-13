@@ -42,6 +42,9 @@ public:
   virtual void get_bg_color(GimpRGB* dest) = 0;
   virtual void set_brushmark(GimpBrush* brush_) = 0;
   virtual GimpBrush* get_brushmark() = 0;
+  virtual void set_floating_stroke(bool value) = 0;
+  virtual bool get_floating_stroke() = 0;
+  virtual void set_stroke_opacity(double value) = 0;
   virtual void set_coords(const GimpCoords* coords) = 0;
 };
 

@@ -106,6 +106,9 @@ protected:
       StringHolder name_replaced(mypaint_brush_signal_name_to_internal_name(name));
 
       setting = reinterpret_cast<MyPaintBrushSettings*>(g_hash_table_lookup(dict, name_replaced.ptr()));
+      if (!setting) {
+        g_print("property %s is not found in the lookup dictionary.\n", name_replaced.ptr());
+      }
       internal_name = (gchar*)g_strdup(name);
       property_name = (gchar*)g_strdup_printf("notify::%s", name);
       options = opts;
@@ -148,7 +151,7 @@ protected:
       gdouble range = setting->maximum - setting->minimum;
       widget  = gimp_prop_spin_scale_new (G_OBJECT(options), 
                                           internal_name,
-					  _(setting->displayed_name),
+                                          _(setting->displayed_name),
                                           range / 1000.0, range / 100.0, 2);
       g_object_add_weak_pointer(G_OBJECT(widget), (void**)&widget);
       gimp_spin_scale_set_scale_limits (GIMP_SPIN_SCALE (widget), 
@@ -870,53 +873,74 @@ MypaintBrushEditorPrivate::create() {
 
     int count = 0;
     for (GList* iter2 = group->setting_list; iter2; iter2 = iter2->next, count += 2) {
-      MyPaintBrushSettings* s = (MyPaintBrushSettings*)iter2->data;
-      StringHolder prop_name(mypaint_brush_internal_name_to_signal_name(s->internal_name));
+      MyPaintBrushSettingEntry* entry = (MyPaintBrushSettingEntry*)iter2->data;
+      switch (entry->type) {
+        case G_TYPE_DOUBLE: {
+          MyPaintBrushSettings* s = entry->f;
+          StringHolder prop_name(mypaint_brush_internal_name_to_signal_name(s->internal_name));
+          g_print("%s : type=double\n", prop_name.ptr());
 
-      GtkWidget* h = gimp_prop_spin_scale_new(G_OBJECT(options), prop_name.ptr(),
-                               s->displayed_name,
-                               0.1, 1.0, 2);
-      gtk_widget_set_tooltip_text(h, s->tooltip);
-      gtk_widget_show(h);
+          GtkWidget* h;
+          h = gimp_prop_spin_scale_new(G_OBJECT(options), prop_name.ptr(),
+                                       s->displayed_name,
+                                       0.1, 1.0, 2);
+          gtk_widget_set_tooltip_text(h, s->tooltip);
+          gtk_widget_show(h);
 
-      GtkWidget* button = gimp_stock_button_new (GIMP_STOCK_RESET, NULL);
-      gtk_button_set_relief (GTK_BUTTON (button), GTK_RELIEF_NONE);
-      gtk_image_set_from_stock (GTK_IMAGE (gtk_bin_get_child (GTK_BIN (button))),
-                                GIMP_STOCK_RESET, GTK_ICON_SIZE_MENU);
-      gtk_widget_show (button);
-      gtk_widget_set_tooltip_text(button, _("Reset to default value"));
+          GtkWidget* button = gimp_stock_button_new (GIMP_STOCK_RESET, NULL);
+          gtk_button_set_relief (GTK_BUTTON (button), GTK_RELIEF_NONE);
+          gtk_image_set_from_stock (GTK_IMAGE (gtk_bin_get_child (GTK_BIN (button))),
+                                    GIMP_STOCK_RESET, GTK_ICON_SIZE_MENU);
+          gtk_widget_show (button);
+          gtk_widget_set_tooltip_text(button, _("Reset to default value"));
+
+          //g_signal_connect_...(button, "clicked,...);
+          GtkWidget* button2;
+          if (s->constant) {
+            button2 = gtk_label_new("");
+            gtk_widget_set_tooltip_text(button2, _("No additional configuration"));
+            gtk_misc_set_alignment(GTK_MISC(button2), 0.5, 0.5);
+
+          } else {
+            //        button2 = gtk_button_new_with_label("...");
+            CurveViewCreator* create_view = new CurveViewCreator(options, s->internal_name);
+            button2 = 
+              gimp_tool_options_button_with_popup(gtk_label_new("..."),
+                                                  Delegator::delegator(create_view, &CurveViewCreator::create_view),
+                                                  create_view);
+            gtk_widget_set_tooltip_text(button2, _("Add input value mapping"));
+            //g_signal_connect...(button2, "clicked", self.details_clicked_cb, adj, s)
+          }
+
+          gtk_widget_show(button2);
+          gtk_table_attach(GTK_TABLE(table), h, 0, 1, count, count+1, 
+                           GtkAttachOptions(GTK_EXPAND | GTK_FILL), 
+                           GtkAttachOptions(GTK_EXPAND | GTK_FILL), 0, 0);
+
+          gtk_table_attach(GTK_TABLE(table), button, 1, 2, count, count+1, 
+                           GtkAttachOptions(GTK_FILL), 
+                           GtkAttachOptions(GTK_FILL), 0, 0);
+
+          gtk_table_attach(GTK_TABLE(table), button2, 2, 3, count, count+1,                         
+                           GtkAttachOptions(GTK_FILL),                         
+                           GtkAttachOptions(GTK_FILL), 0, 0);
+          break;
+        }  
+        case G_TYPE_BOOLEAN: {
+          MyPaintBrushSwitchSettings* s = entry->b;
+          StringHolder prop_name(mypaint_brush_internal_name_to_signal_name(s->internal_name));
+          g_print("%s : type=boolean\n", prop_name.ptr());
+          GtkWidget* h;
+          h = gimp_prop_check_button_new (G_OBJECT(options), prop_name.ptr(),
+                                          s->displayed_name);
+          gtk_widget_show(h);
+          gtk_table_attach(GTK_TABLE(table), h, 0, 1, count, count+1, 
+                           GtkAttachOptions(GTK_EXPAND | GTK_FILL), 
+                           GtkAttachOptions(GTK_EXPAND | GTK_FILL), 0, 0);
+          break;
+        }
+      };
       
-      //g_signal_connect_...(button, "clicked,...);
-      GtkWidget* button2;
-      if (s->constant) {
-        button2 = gtk_label_new("");
-        gtk_widget_set_tooltip_text(button2, _("No additional configuration"));
-        gtk_misc_set_alignment(GTK_MISC(button2), 0.5, 0.5);
-
-      } else {
-//        button2 = gtk_button_new_with_label("...");
-        CurveViewCreator* create_view = new CurveViewCreator(options, s->internal_name);
-        button2 = 
-          gimp_tool_options_button_with_popup(gtk_label_new("..."),
-            Delegator::delegator(create_view, &CurveViewCreator::create_view),
-            create_view);
-        gtk_widget_set_tooltip_text(button2, _("Add input value mapping"));
-        //g_signal_connect...(button2, "clicked", self.details_clicked_cb, adj, s)
-      }
-
-      gtk_widget_show(button2);
-      gtk_table_attach(GTK_TABLE(table), h, 0, 1, count, count+1, 
-                       GtkAttachOptions(GTK_EXPAND | GTK_FILL), 
-                       GtkAttachOptions(GTK_EXPAND | GTK_FILL), 0, 0);
-
-      gtk_table_attach(GTK_TABLE(table), button, 1, 2, count, count+1, 
-                       GtkAttachOptions(GTK_FILL), 
-                       GtkAttachOptions(GTK_FILL), 0, 0);
-
-      gtk_table_attach(GTK_TABLE(table), button2, 2, 3, count, count+1, 
-                       GtkAttachOptions(GTK_FILL), 
-                       GtkAttachOptions(GTK_FILL), 0, 0);
-
       //GtkWidget* input_editor = create_input_editor(s->internal_name);
 
       //new ToggleWidgetAction(G_OBJECT(button2), G_OBJECT(input_editor));

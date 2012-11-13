@@ -153,8 +153,21 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
     surface->set_bg_color(&rgb);
 
     // Attach gimp brush to the surface object.
-    GimpBrush* brushmark = gimp_context_get_brush (GIMP_CONTEXT(options));
-    surface->set_brushmark(brushmark);
+    gboolean use_gimp_brushmark;
+    g_object_get(G_OBJECT(options), "use_gimp_brushmark", &use_gimp_brushmark, NULL);
+    if (use_gimp_brushmark) {
+      GimpBrush* brushmark = gimp_context_get_brush (GIMP_CONTEXT(options));
+      surface->set_brushmark(brushmark);
+    } else {
+      surface->set_brushmark(NULL);
+    }
+
+    gboolean floating_stroke;
+    g_object_get(G_OBJECT(options), "non_incremental", &floating_stroke, NULL);
+    surface->set_floating_stroke(floating_stroke);
+    gdouble stroke_opacity;
+    g_object_get(G_OBJECT(options), "stroke_opacity", &stroke_opacity, NULL);
+    surface->set_stroke_opacity(stroke_opacity);
     
     if (GIMP_IS_LAYER (drawable)) {
       gboolean lock_alpha = gimp_layer_get_lock_alpha (GIMP_LAYER (drawable));
@@ -246,7 +259,7 @@ void GimpMypaintCore::option_changed(GObject* target, GParamSpec *pspec)
 
   // copy brush setting here.
   if (myb_priv) {
-    for (int i = 0; i < BRUSH_SETTINGS_COUNT; i ++) {
+    for (int i = 0; i < BRUSH_MAPPING_COUNT; i ++) {
       Mapping* m = myb_priv->get_setting(i)->mapping;
       if (m)
         brush->copy_mapping(i, m);
