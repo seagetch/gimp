@@ -22,12 +22,13 @@
 #include "core/gimptooloptions.h"
 
 
-#define GIMP_MYPAINT_OPTIONS_CONTEXT_MASK GIMP_CONTEXT_FOREGROUND_MASK | \
-                                        GIMP_CONTEXT_BACKGROUND_MASK | \
-                                        GIMP_CONTEXT_OPACITY_MASK    | \
-                                        GIMP_CONTEXT_BRUSH_MASK      | \
-                                        GIMP_CONTEXT_MYPAINT_MODE_MASK | \
-                                        GIMP_CONTEXT_MYPAINT_BRUSH_MASK      | \
+#define GIMP_MYPAINT_OPTIONS_CONTEXT_MASK GIMP_CONTEXT_FOREGROUND_MASK  | \
+                                        GIMP_CONTEXT_BACKGROUND_MASK    | \
+                                        GIMP_CONTEXT_OPACITY_MASK       | \
+                                        GIMP_CONTEXT_BRUSH_MASK         | \
+                                        GIMP_CONTEXT_MYPAINT_MODE_MASK  | \
+                                        GIMP_CONTEXT_MYPAINT_BRUSH_MASK | \
+                                        GIMP_CONTEXT_PATTERN_MASK       |\
                                         GIMP_CONTEXT_DYNAMICS_MASK
 
 #define GIMP_TYPE_MYPAINT_OPTIONS            (gimp_mypaint_options_get_type ())

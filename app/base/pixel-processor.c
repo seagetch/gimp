@@ -58,6 +58,12 @@ typedef void  (* p4_func) (gpointer      data,
                            PixelRegion  *region2,
                            PixelRegion  *region3,
                            PixelRegion  *region4);
+typedef void  (* p5_func) (gpointer      data,
+                           PixelRegion  *region1,
+                           PixelRegion  *region2,
+                           PixelRegion  *region3,
+                           PixelRegion  *region4,
+                           PixelRegion  *region5);
 
 
 typedef struct _PixelProcessor PixelProcessor;
@@ -75,7 +81,7 @@ struct _PixelProcessor
 
   PixelRegionIterator *PRI;
   gint                 num_regions;
-  PixelRegion         *regions[4];
+  PixelRegion         *regions[5];
 
   gulong               progress;
 };
@@ -85,7 +91,7 @@ struct _PixelProcessor
 static void
 do_parallel_regions (PixelProcessor *processor)
 {
-  PixelRegion tr[4];
+  PixelRegion tr[5];
   gint        i;
 
   g_mutex_lock (processor->mutex);
@@ -140,6 +146,14 @@ do_parallel_regions (PixelProcessor *processor)
                                        processor->regions[1] ? &tr[1] : NULL,
                                        processor->regions[2] ? &tr[2] : NULL,
                                        processor->regions[3] ? &tr[3] : NULL);
+          break;
+        case 5:
+          ((p5_func) processor->func) (processor->data,
+                                       processor->regions[0] ? &tr[0] : NULL,
+                                       processor->regions[1] ? &tr[1] : NULL,
+                                       processor->regions[2] ? &tr[2] : NULL,
+                                       processor->regions[3] ? &tr[3] : NULL,
+                                       processor->regions[4] ? &tr[4] : NULL);
           break;
 
         default:
@@ -229,6 +243,15 @@ do_parallel_regions_single (PixelProcessor             *processor,
                                        processor->regions[1],
                                        processor->regions[2],
                                        processor->regions[3]);
+          break;
+
+        case 5:
+          ((p5_func) processor->func) (processor->data,
+                                       processor->regions[0],
+                                       processor->regions[1],
+                                       processor->regions[2],
+                                       processor->regions[3],
+                                       processor->regions[4]);
           break;
 
         default:
@@ -382,6 +405,15 @@ pixel_regions_process_parallel_valist (PixelProcessorFunc         func,
                                               processor.regions[1],
                                               processor.regions[2],
                                               processor.regions[3]);
+      break;
+
+    case 5:
+      processor.PRI = pixel_regions_register (num_regions,
+                                              processor.regions[0],
+                                              processor.regions[1],
+                                              processor.regions[2],
+                                              processor.regions[3],
+                                              processor.regions[4]);
       break;
 
     default:

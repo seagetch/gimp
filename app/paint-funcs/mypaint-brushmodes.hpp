@@ -344,7 +344,7 @@ void draw_dab_pixels_BlendMode_Normal (Iter iter,
     }
     break;
   default:
-    g_print("Unsupported layer type.\n");
+    g_print("Unsupported layer type: %d.\n", iter.src_bytes);
   }
 };
 

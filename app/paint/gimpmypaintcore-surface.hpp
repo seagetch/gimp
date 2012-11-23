@@ -46,6 +46,8 @@ public:
   virtual bool get_floating_stroke() = 0;
   virtual void set_stroke_opacity(double value) = 0;
   virtual void set_coords(const GimpCoords* coords) = 0;
+  virtual void set_texture(GimpPattern* texture) = 0;
+  virtual GimpPattern* get_texture() = 0;
 };
 
 GimpMypaintSurface* GimpMypaintSurface_new(GimpDrawable* drawable);

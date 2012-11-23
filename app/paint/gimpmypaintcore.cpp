@@ -162,6 +162,9 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
       surface->set_brushmark(NULL);
     }
 
+    GimpPattern* pattern = gimp_context_get_pattern(GIMP_CONTEXT(options));
+    surface->set_texture(pattern);
+
     gboolean floating_stroke;
     g_object_get(G_OBJECT(options), "non_incremental", &floating_stroke, NULL);
     surface->set_floating_stroke(floating_stroke);

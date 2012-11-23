@@ -42,6 +42,7 @@ extern "C" {
 #include "core/gimpimage-undo.h"
 #include "core/gimpimage-undo-push.h"
 #include "core/gimpchannel.h"
+#include "core/gimppattern.h"
 #include "core/gimppickable.h"
 #include "core/gimpprojection.h"
 
@@ -138,7 +139,8 @@ public:
   copy_stroke(PixelRegion* src1PR, 
               PixelRegion* destPR, 
               PixelRegion* brushPR, 
-              PixelRegion* maskPR) 
+              PixelRegion* maskPR,
+              PixelRegion* texturePR) 
   {
     BrushPixelIteratorForPlainData<PixmapBrushmarkIterator, Pixel::data_t, Pixel::data_t>
        iter(brushPR->data, NULL, 
@@ -241,6 +243,7 @@ public:
     float xx, yy, rr;
     float one_over_radius2;
     Pixel::data_t* channel_data = NULL;
+    Pixel::data_t* texture_data = NULL;
 
     r_fringe = radius + 1;
     rr = radius*radius;
@@ -294,6 +297,12 @@ public:
       channel_data = channelPR->data;
       channel_data += channelPR->rowstride * y0;
     }
+
+    if (texturePR) {
+      texture_data = texturePR->data;
+      texture_data += texturePR->rowstride * y0;
+    }
+    
     skip += y0*stride;
     for (yp = y0; yp <= y1; yp++) {
       yy = (yp + 0.5 - cy_in_tile_coords);
@@ -331,6 +340,10 @@ public:
         else
           opa_ = eval( pix(opa) );
 
+        if (texture_data) {
+          opa_ = eval( pix(opa_) * pix(texture_data[xp * texturePR->bytes]) );
+        }
+
         if (opa_ * ALPHA_THRESHOLD < 1.0) {
           skip++;
         } else {
@@ -345,6 +358,8 @@ public:
       skip += stride-xp;
       if (channelPR)
         channel_data += channelPR->rowstride;
+      if (texturePR)
+        texture_data += texturePR->rowstride;
     }
     *dab_mask_p++ = 0;
     *offsets  = 0;
@@ -354,11 +369,12 @@ public:
   draw_dab(PixelRegion* src1PR, 
            PixelRegion* destPR,
            PixelRegion* , // unused 
-           PixelRegion* maskPR)
+           PixelRegion* maskPR,
+           PixelRegion* texturePR)
   {
     // first, we calculate the mask (opacity for each pixel)
-    Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
-    gint dab_offsets[(TILE_HEIGHT + 2)*2];
+    Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2];
+    gint dab_offsets[TILE_WIDTH * TILE_HEIGHT];
 
     Pixel::data_t* src_data  = src1PR->data;
     Pixel::data_t* dest_data = destPR->data;
@@ -369,7 +385,7 @@ public:
                            y - src1PR->y,
                            src1PR,
                            maskPR,
-                           NULL);
+                           texturePR);
 
     BrushPixelIteratorForRunLength iter(dab_mask, dab_offsets, fg_color, src_data, dest_data, src1PR->bytes, destPR->bytes);
     
@@ -517,7 +533,7 @@ public:
       Pixel::data_t* data2 = texturePR->data;
       for (int y = 0; y < srcPR->h; y ++) {
         for (int x = 0; x < srcPR->w; x ++) {
-          *mask_ptr = eval(pix(*mask_ptr) * pix(data2[x]));
+          *mask_ptr = eval(pix(*mask_ptr) * pix(data2[x * texturePR->bytes]));
           mask_ptr ++;
         }
         data2 += texturePR->rowstride;
@@ -531,7 +547,8 @@ public:
   draw_dab(PixelRegion* srcPR, 
            PixelRegion* destPR,
            PixelRegion* brushPR, 
-           PixelRegion* maskPR)
+           PixelRegion* maskPR,
+           PixelRegion* texturePR)
   {
     Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
 
@@ -543,7 +560,7 @@ public:
                            x - srcPR->x,
                            y - srcPR->y,
                            brushPR,
-                           maskPR, NULL);
+                           maskPR, texturePR);
 
     iterator iter(dab_mask, fg_color, 
                   src_data, dest_data, 
@@ -569,7 +586,7 @@ public: \
                                PixelRegion* srcPR, \
                                PixelRegion* destPR) \
   { \
-    impl->FUNC(srcPR, destPR, NULL, NULL); \
+    impl->FUNC(srcPR, destPR, NULL, NULL, NULL); \
   } \
  \
   static void process_src_dest_mask(MypaintSurfaceImpl* impl,  \
@@ -577,7 +594,7 @@ public: \
                                     PixelRegion* destPR,  \
                                     PixelRegion* maskPR) \
   { \
-    impl->FUNC(srcPR, destPR, NULL, maskPR); \
+    impl->FUNC(srcPR, destPR, NULL, maskPR, NULL); \
   } \
  \
   static void process_src_dest_brush(MypaintSurfaceImpl* impl, \
@@ -585,16 +602,17 @@ public: \
                                      PixelRegion* destPR, \
                                      PixelRegion* brushPR) \
   { \
-    impl->FUNC(srcPR, destPR, brushPR, NULL); \
+    impl->FUNC(srcPR, destPR, brushPR, NULL, NULL); \
   } \
  \
   static void process_full(MypaintSurfaceImpl* impl, \
                            PixelRegion* srcPR, \
                            PixelRegion* destPR, \
                            PixelRegion* brushPR, \
-                           PixelRegion* maskPR) \
+                           PixelRegion* maskPR, \
+                           PixelRegion* texturePR) \
   { \
-    impl->FUNC(srcPR, destPR, brushPR, maskPR); \
+    impl->FUNC(srcPR, destPR, brushPR, maskPR, texturePR); \
   } \
  \
   void \
@@ -602,30 +620,13 @@ public: \
           PixelRegion* srcPR, \
           PixelRegion* destPR, \
           PixelRegion* brushPR, \
-          PixelRegion* maskPR) \
+          PixelRegion* maskPR, \
+          PixelRegion* texturePR) \
   { \
-    if (!brushPR) { \
-      if (!maskPR) { \
-        pixel_regions_process_parallel((PixelProcessorFunc)CLASS::process_src_dest, \
-                                       impl, \
-                                       2, srcPR, destPR); \
-      } else { \
-        pixel_regions_process_parallel((PixelProcessorFunc)CLASS::process_src_dest_mask, \
-                                       impl, \
-                                       3, srcPR, destPR, maskPR); \
-      } \
-    } else { \
-      if (!maskPR) { \
-        pixel_regions_process_parallel((PixelProcessorFunc)CLASS::process_src_dest_brush, \
-                                       impl, \
-                                       3, srcPR, destPR, brushPR); \
-      } else { \
-        pixel_regions_process_parallel((PixelProcessorFunc)CLASS::process_full, \
-                                       impl, \
-                                       4, srcPR, destPR, brushPR, maskPR); \
-      } \
-    } \
- \
+    pixel_regions_process_parallel((PixelProcessorFunc)CLASS::process_full, \
+                                   impl, \
+                                   5, \
+                                   srcPR, destPR, brushPR, maskPR, texturePR); \
   }; \
       \
 };
@@ -641,6 +642,7 @@ private:
   GimpDrawable* drawable;
   GimpRGB       bg_color;
   GimpBrush*    brushmark;
+  GimpPattern*  texture;
   GimpCoords    last_coords;
   GimpCoords    current_coords;
   bool          floating_stroke;
@@ -672,7 +674,7 @@ public:
   GimpMypaintSurfaceImpl(GimpDrawable* d) 
     : undo_tiles(NULL), floating_stroke_tiles(NULL), 
       session(0), drawable(d), brushmark(NULL), 
-      floating_stroke(false), stroke_opacity(1.0)
+      floating_stroke(false), stroke_opacity(1.0), texture(NULL)
   {
     g_object_add_weak_pointer(G_OBJECT(d), (gpointer*)&drawable);
   }
@@ -691,6 +693,9 @@ public:
     }
     if (brushmark)
       g_object_unref(G_OBJECT(brushmark));
+
+    if (texture)
+      g_object_unref(G_OBJECT(texture));
   }
 
 
@@ -720,6 +725,7 @@ public:
     PixelRegion     src1PR, destPR;
     PixelRegion     brushPR;
     PixelRegion     maskPR;
+    PixelRegion     texturePR;
     
     opaque     = CLAMP(opaque, 0.0, 1.0);
     hardness   = CLAMP(hardness, 0.0, 1.0);
@@ -815,6 +821,8 @@ public:
      }
 
     TempBuf* dab_mask = (TempBuf*)brush_impl.get_brush_data();
+    TempBuf* pattern  = gimp_pattern_get_mask (texture);
+
     if (dab_mask)
       pixel_region_init_temp_buf(&brushPR, dab_mask, 
                                  MAX(rx1 - x1, 0), MAX(ry1 - y1, 0), 
@@ -828,13 +836,22 @@ public:
                          width, height,
                          TRUE);
      }
+
+    if (pattern) {
+      pixel_region_init_temp_buf(&texturePR, pattern,
+                                 rx1 % pattern->width,
+                                 ry1 % pattern->height,
+                                 pattern->width, pattern->height);
+      pixel_region_set_closed_loop(&texturePR, TRUE);
+    }
     
     DrawDabProcessor<BrushImpl> processor;
     processor.process(&brush_impl,
                      &src1PR, 
                      &destPR, 
                      (dab_mask)? &brushPR: NULL, 
-                     (mask_item)? &maskPR: NULL);
+                     (mask_item)? &maskPR: NULL,
+                     (pattern)? &texturePR: NULL);
 
     if (floating_stroke) {
       /* Copy floating stroke buffer into drawable buffer */
@@ -864,8 +881,8 @@ public:
                                &src1PR,
                                &destPR,
                                &brushPR,
-                               NULL);
-     }
+                               NULL, NULL);
+    }
 
     /*  Update the drawable  */
     gimp_drawable_update (drawable, rx1, ry1, width, height);
@@ -921,6 +938,24 @@ public:
   GimpBrush* get_brushmark()
   {
     return brushmark;
+  }
+
+  void set_texture(GimpPattern* texture_)
+  {
+    if (texture) {
+      g_object_unref(G_OBJECT(texture));
+      texture = NULL;
+    }
+
+    if (texture_) {
+      texture = texture_;
+      g_object_ref(G_OBJECT(texture));
+    }
+  }
+
+  GimpPattern* get_texture()
+  {
+    return texture;
   }
 
   void set_floating_stroke(bool value) {

@@ -34,6 +34,9 @@ struct _PixelRegion
   gint         bytes;          /*  bytes per pixel               */
   gboolean     dirty;          /*  will this region be dirtied?  */
   gint         process_count;  /*  used internally               */
+  gboolean     closed_loop;
+  gint         loop_w;
+  gint         loop_h;
 };
 
 struct _PixelRegionHolder
@@ -106,6 +109,10 @@ void     pixel_region_set_col       (PixelRegion         *PR,
                                      gint                 y,
                                      gint                 h,
                                      const guchar        *data);
+void     pixel_region_set_closed_loop (PixelRegion       *PR,
+                                       gboolean           value);
+gboolean  pixel_region_get_closed_loop (PixelRegion       *PR);
+
 gboolean pixel_region_has_alpha     (PixelRegion         *PR);
 
 PixelRegionIterator * pixel_regions_register     (gint    num_regions,
