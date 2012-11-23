@@ -96,12 +96,15 @@ static MyPaintBrushSettings settings_list[] = {
 
   {"lock_alpha", BRUSH_LOCK_ALPHA, _("Lock alpha"), False, 0.0, 0.0, 1.0, _("Do not modify the alpha channel of the layer (paint only where there is paint already)\n 0.0 normal painting\n 0.5 half of the paint gets applied normally\n 1.0 alpha channel fully locked")},
   {"stroke_opacity", BRUSH_STROKE_OPACITY, _("Stroke opacity"), True, 0.0, 1.0, 1.0, _("Opacity applied for whole stroke. meaningful only when non-incremental mode is enabled.\n") },
+  {"texture_grain", BRUSH_TEXTURE_GRAIN, _("Texture grain level"), False, -1.0, 0.0, 1.0, _("Grain level applied for texture mapping.")},
+  {"texture_contrast", BRUSH_TEXTURE_CONTRAST, _("Texture contrast level"), False, 0.0, 1.0, 1.0, _("Contrast level applied for texture mapping.")},
   {NULL}
 };
 
 static MyPaintBrushSwitchSettings switches_list[] = {
   {"non_incremental", BRUSH_NON_INCREMENTAL, _("Non-incremental painting mode."), FALSE },
   {"use_gimp_brushmark", BRUSH_USE_GIMP_BRUSHMARK, _("Use GIMP brush for brushmark."), TRUE },
+  {"use_gimp_texture", BRUSH_USE_GIMP_TEXTURE, _("Use GIMP pattern for texture."), FALSE },
   {NULL}
 };
 
@@ -165,6 +168,11 @@ static gchar* stroke_group_list[] = {
     "non_incremental",
     "stroke_opacity",
     NULL};
+static gchar* texture_group_list[] = {
+    "use_gimp_texture", 
+    "texture_grain",
+    "texture_contrast",
+    NULL};
 static gchar* color_group_list[] = {
     "change_color_h", 
     "change_color_l",
@@ -189,6 +197,7 @@ static MypaintBrushSettingGroupInternal group_list[] = {
   {"tracking", BRUSH_SETTING_GROUP_TRACKING, _("Tracking"), tracking_group_list},
   {"stroke",  BRUSH_SETTING_GROUP_TRACKING, _("Stroke"), stroke_group_list},
   {"color", BRUSH_SETTING_GROUP_COLOR, _("Color"), color_group_list},
+  {"texture", BRUSH_SETTING_GROUP_TEXTURE, _("Texture"), texture_group_list},
   {"custom", BRUSH_SETTING_GROUP_CUSTOM, _("Custom"), custom_group_list},
   {NULL}
 };

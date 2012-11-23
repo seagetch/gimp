@@ -75,6 +75,8 @@ protected:
   float color_a;
   Pixel::real fg_color[4];
   Pixel::real bg_color[3];
+  float texture_grain;
+  float texture_contrast;
 public:
   typedef PixelIter iterator;
   bool 
@@ -91,6 +93,8 @@ public:
                 float color_a, 
                 Pixel::real* bg_color, 
                 float stroke_opacity,
+                float texture_grain,
+                float texture_contrast,
                 void* /*unused*/)
   {
     this->x            = x;
@@ -107,6 +111,8 @@ public:
     this->bg_color[1]  = bg_color[1];
     this->bg_color[2]  = bg_color[2];
     this->stroke_opacity = stroke_opacity;
+    this->texture_grain = texture_grain;
+    this->texture_contrast = texture_contrast;
     return true;
   }
 
@@ -188,6 +194,8 @@ public:
                 float color_a, 
                 Pixel::real* bg_color, 
                 float stroke_opacity,
+                float texture_grain,
+                float texture_contrast,
                 void* brush)
   {
     Parent::prepare_brush(x, y, 
@@ -201,6 +209,7 @@ public:
                           fg_color, 
                           color_a, 
                           bg_color, stroke_opacity,
+                          texture_grain, texture_contrast,
                           brush);
     this->radius       = radius;
     this->hardness     = hardness;
@@ -341,7 +350,8 @@ public:
           opa_ = eval( pix(opa) );
 
         if (texture_data) {
-          opa_ = eval( pix(opa_) * pix(texture_data[xp * texturePR->bytes]) );
+          opa_ = eval( pix(opa_) * 
+                      (pix(texture_data[xp * texturePR->bytes]) + pix(texture_grain)) * pix(texture_contrast));
         }
 
         if (opa_ * ALPHA_THRESHOLD < 1.0) {
@@ -433,6 +443,7 @@ public:
                 float color_a, 
                 Pixel::real* bg_color, 
                 float stroke_opacity,
+                float texture_grain, float texture_contrast,
                 void* data)
   {
     Parent::prepare_brush(x, y, 
@@ -447,6 +458,7 @@ public:
                           color_a, 
                           bg_color,
                           stroke_opacity,
+                          texture_grain, texture_contrast,
                           data);
     dab_mask         = NULL;
     GimpBrush* brush = GIMP_BRUSH(data);
@@ -533,7 +545,7 @@ public:
       Pixel::data_t* data2 = texturePR->data;
       for (int y = 0; y < srcPR->h; y ++) {
         for (int x = 0; x < srcPR->w; x ++) {
-          *mask_ptr = eval(pix(*mask_ptr) * pix(data2[x * texturePR->bytes]));
+          *mask_ptr = eval(pix(*mask_ptr) * (pix(data2[x * texturePR->bytes]) + pix(texture_grain)) * pix(texture_contrast) );
           mask_ptr ++;
         }
         data2 += texturePR->rowstride;
@@ -705,7 +717,8 @@ public:
                          float opaque, float hardness = 0.5,
                          float alpha_eraser = 1.0,
                          float aspect_ratio = 1.0, float angle = 0.0,
-                         float lock_alpha = 0.0, float colorize = 0.0
+                         float lock_alpha = 0.0, float colorize = 0.0,
+                         float texture_grain = 0.0, float texture_contrast = 1.0
                          );
 
   template<class BrushImpl>
@@ -716,7 +729,8 @@ public:
                       float opaque, float hardness,
                       float color_a,
                       float aspect_ratio, float angle,
-                      float lock_alpha,float colorize)
+                      float lock_alpha,float colorize,
+                      float texture_grain = 0.0, float texture_contrast = 1.0)
   {
     GimpItem        *item  = GIMP_ITEM (drawable);
     GimpImage       *image = gimp_item_get_image (item);
@@ -761,6 +775,7 @@ public:
                                   hardness, aspect_ratio, angle, 
                                   normal, opaque, lock_alpha,
                                   fg_color, color_a, bg_color, stroke_opacity,
+                                  texture_grain, texture_contrast,
                                   (void*)brushmark))
       return false;
 
@@ -901,7 +916,8 @@ public:
 
   virtual void get_color (float x, float y, 
                           float radius, 
-                          float * color_r, float * color_g, float * color_b, float * color_a
+                          float * color_r, float * color_g, float * color_b, float * color_a,
+                          float texture_grain, float texture_contrast
                           );
 
   virtual void begin_session();
@@ -983,7 +999,9 @@ GimpMypaintSurfaceImpl::draw_dab (float x, float y,
                                   float color_a,
                                   float aspect_ratio, float angle,
                                   float lock_alpha,
-                                  float colorize)
+                                  float colorize,
+                                  float texture_grain,
+                                  float texture_contrast)
 {
   if (brushmark) {
 //	 g_print("GimpBrush::draw_dab_impl@%4f,%4f\n", x, y);
@@ -991,14 +1009,14 @@ GimpMypaintSurfaceImpl::draw_dab (float x, float y,
     return draw_dab_impl(brush_impl,
                           x, y, radius, color_r, color_g, color_b, opaque,
                           hardness, color_a, aspect_ratio, angle, lock_alpha,
-                          colorize);
+                          colorize, texture_grain, texture_contrast);
   } else {
 //	 g_print("MypaintBrush::draw_dab_impl@%4f,%4f\n",x,y);
     GimpMypaintSurfaceForMypaintBrush brush_impl;
     return draw_dab_impl(brush_impl,
                           x, y, radius, color_r, color_g, color_b, opaque,
                           hardness, color_a, aspect_ratio, angle, lock_alpha,
-                          colorize);
+                          colorize, texture_grain, texture_contrast);
   }
 }
 
@@ -1008,7 +1026,9 @@ GimpMypaintSurfaceImpl::get_color (float x, float y,
                                    float * color_r, 
                                    float * color_g, 
                                    float * color_b, 
-                                   float * color_a)
+                                   float * color_a,
+                                   float texture_grain,
+                                   float texture_contrast)
 {
   GimpMypaintSurfaceForMypaintBrush brush_impl;
 
@@ -1042,6 +1062,7 @@ GimpMypaintSurfaceImpl::get_color (float x, float y,
                                 hardness, aspect_ratio, angle, 
                                         1.0, 1.0, 0.0,
                                 fg_color, 1.0, bg_color, stroke_opacity,
+                                texture_grain, texture_contrast,
                                 brushmark))
       return;
 

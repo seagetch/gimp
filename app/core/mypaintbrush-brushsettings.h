@@ -25,6 +25,7 @@ enum _MypaintBrushSettingGroupID {
   BRUSH_SETTING_GROUP_TRACKING,
   BRUSH_SETTING_GROUP_STROKE,
   BRUSH_SETTING_GROUP_COLOR,
+  BRUSH_SETTING_GROUP_TEXTURE,
   BRUSH_SETTING_GROUP_CUSTOM
 };
 typedef enum _MypaintBrushSettingGroupID MypaintBrushSettingGroupID;
