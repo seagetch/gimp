@@ -912,15 +912,15 @@ MypaintBrushEditorPrivate::create() {
           gtk_widget_show(button2);
           gtk_table_attach(GTK_TABLE(table), h, 0, 1, count, count+1, 
                            GtkAttachOptions(GTK_EXPAND | GTK_FILL), 
-                           GtkAttachOptions(GTK_EXPAND | GTK_FILL), 0, 0);
+                           GtkAttachOptions(GTK_FILL), 0, 0);
 
           gtk_table_attach(GTK_TABLE(table), button, 1, 2, count, count+1, 
                            GtkAttachOptions(GTK_FILL), 
-                           GtkAttachOptions(GTK_FILL), 0, 0);
+                           GtkAttachOptions(0), 0, 0);
 
           gtk_table_attach(GTK_TABLE(table), button2, 2, 3, count, count+1,                         
                            GtkAttachOptions(GTK_FILL),                         
-                           GtkAttachOptions(GTK_FILL), 0, 0);
+                           GtkAttachOptions(0), 0, 0);
           break;
         }  
         case G_TYPE_BOOLEAN: {
@@ -933,7 +933,7 @@ MypaintBrushEditorPrivate::create() {
           gtk_widget_show(h);
           gtk_table_attach(GTK_TABLE(table), h, 0, 1, count, count+1, 
                            GtkAttachOptions(GTK_EXPAND | GTK_FILL), 
-                           GtkAttachOptions(GTK_EXPAND | GTK_FILL), 0, 0);
+                           GtkAttachOptions(0), 0, 0);
           break;
         }
       };
@@ -977,7 +977,7 @@ public:
   MypaintDetailOptionsPopupPrivate(GimpContainer* ctn, GimpContext* ctx) {
     container = ctn;
     context   = ctx;
-		
+
     brush_changed_handler = NULL;
   }
   
