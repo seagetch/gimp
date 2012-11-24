@@ -653,7 +653,6 @@ private:
     
     
     void notify_options(GObject* config, GParamSpec *pspec) {
-//      g_print("notify_options(%lx)->(%lx)\n", (gulong)config, (gulong)receiver);
       GimpCurveView* curve_view = GIMP_CURVE_VIEW(receiver);
       
       g_return_if_fail (curve_view);
@@ -669,13 +668,11 @@ private:
 
       if (input_setting && strcmp(input_setting->name, pspec->name) == 0)
         mapping_to_curve(curve);
-//        activate_input(input_setting->name);
 
       if (curve_notify_handler) {
         curve_notify_handler->unblock();
       }
     
-//      g_print("/notify_options\n");
     }
     
     
@@ -1148,13 +1145,7 @@ MypaintDetailOptionsPopupPrivate::create (GObject* object,
   MypaintBrushEditorPrivate* editor_priv = new MypaintBrushEditorPrivate(GIMP_TOOL_OPTIONS(context), MypaintBrushEditorPrivate::TAB);
   GtkWidget* dynamics_editor = editor_priv->create();
   gtk_widget_show(dynamics_editor);
-  /*
-  GtkWidget* editor_container = gtk_scrolled_window_new (NULL, NULL);
-  gtk_widget_set_size_request(editor_container, 400, 500);
-  gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(editor_container), dynamics_editor);
-  gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(editor_container), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-  gtk_widget_show(editor_container);
-  */
+  
   gtk_box_pack_start (GTK_BOX (*result), GTK_WIDGET (dynamics_editor), TRUE, TRUE, 0);      
 }
 

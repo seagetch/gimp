@@ -518,11 +518,8 @@ public:
     for (int y = 0; y < srcPR->h; y ++) {
       for (int x = 0; x < srcPR->w; x ++) {
         *mask_ptr = eval(pix(data[x]));
-//         g_print("%1d", data[x]? 1:0);
-//        *mask_ptr = 1.0;
         mask_ptr ++;
       }
-//         g_print("\n");
       data += srcPR->rowstride;
     }
 
@@ -799,16 +796,29 @@ public:
       ry1 = CLAMP (ry1, -offset_y, gimp_item_get_height (mask_item) - offset_y);
       rx2 = CLAMP (rx2, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
       ry2 = CLAMP (ry2, -offset_y, gimp_item_get_height (mask_item) - offset_y);
-     }
+    }
     rx1 = CLAMP (rx1, 0, gimp_item_get_width  (item) - 1);
     ry1 = CLAMP (ry1, 0, gimp_item_get_height (item) - 1);
     rx2 = CLAMP (rx2, 0, gimp_item_get_width  (item) - 1);
     ry2 = CLAMP (ry2, 0, gimp_item_get_height (item) - 1);
 
-    int width   = (rx2 - rx1 + 1);
+    TempBuf* dab_mask = (TempBuf*)brush_impl.get_brush_data();
+
+    if (dab_mask) {
+      if (dab_mask->width < rx2 - rx1 + 1)
+        rx2 = rx1 + dab_mask->width - 1;
+      if (dab_mask->height < ry2 - ry1 + 1)
+        ry2 = ry1 + dab_mask->height - 1;
+    }
+
+    int width    = (rx2 - rx1 + 1);
     int height   = (ry2 - ry1 + 1);
 
     if (rx1 > rx2 || ry1 > ry2)
+      return false;
+
+    if (dab_mask &&
+        (dab_mask->width < rx1 - x1 || dab_mask->height < ry1 - y1))
       return false;
 
     /*  set undo blocks  */
@@ -835,12 +845,12 @@ public:
                          TRUE);
      }
 
-    TempBuf* dab_mask = (TempBuf*)brush_impl.get_brush_data();
     TempBuf* pattern  = gimp_pattern_get_mask (texture);
 
     if (dab_mask)
       pixel_region_init_temp_buf(&brushPR, dab_mask, 
-                                 MAX(rx1 - x1, 0), MAX(ry1 - y1, 0), 
+                                 MAX(rx1 - x1, 0), 
+                                 MAX(ry1 - y1, 0), 
                                  width, height);
 
     if (mask_item) {
@@ -1060,7 +1070,7 @@ GimpMypaintSurfaceImpl::get_color (float x, float y,
   Pixel::real bg_color[] = {1.0, 1.0, 1.0};
   if (!brush_impl.prepare_brush(x, y, radius, 
                                 hardness, aspect_ratio, angle, 
-                                        1.0, 1.0, 0.0,
+                                1.0, 1.0, 0.0,
                                 fg_color, 1.0, bg_color, stroke_opacity,
                                 texture_grain, texture_contrast,
                                 brushmark))

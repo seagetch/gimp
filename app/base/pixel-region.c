@@ -467,7 +467,8 @@ get_portion_height (PixelRegionIterator *PRI)
       if (PRH->PR)
         {
           /*  Check if we're past the point of no return  */
-          if ((PRH->PR->y - PRH->starty) >= PRI->region_height)
+          if (!PRH->PR->closed_loop &&
+              (PRH->PR->y - PRH->starty) >= PRI->region_height)
             return 0;
 
           if (PRH->PR->tiles)
@@ -520,7 +521,8 @@ get_portion_width (PixelRegionIterator *PRI)
       if (PRH->PR)
         {
           /*  Check if we're past the point of no return  */
-          if ((PRH->PR->x - PRH->startx) >= PRI->region_width)
+          if (!PRH->PR->closed_loop &&
+              (PRH->PR->x - PRH->startx) >= PRI->region_width)
             return 0;
 
           if (PRH->PR->tiles)
