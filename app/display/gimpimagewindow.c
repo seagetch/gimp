@@ -219,6 +219,9 @@ static GtkWidget *
                  gimp_image_window_create_tab_label    (GimpImageWindow     *window,
                                                         GimpDisplayShell    *shell);
 
+static void    gimp_image_window_rotate_left_clicked (GtkWidget* widget, GimpImageWindow *window);
+static void    gimp_image_window_rotate_right_clicked (GtkWidget* widget, GimpImageWindow *window);
+
 
 G_DEFINE_TYPE_WITH_CODE (GimpImageWindow, gimp_image_window, GIMP_TYPE_WINDOW,
                          G_IMPLEMENT_INTERFACE (GIMP_TYPE_DOCK_CONTAINER,
@@ -308,6 +311,8 @@ gimp_image_window_constructed (GObject *object)
   GimpImageWindow        *window  = GIMP_IMAGE_WINDOW (object);
   GimpImageWindowPrivate *private = GIMP_IMAGE_WINDOW_GET_PRIVATE (window);
   GimpGuiConfig          *config;
+  GtkWidget              *hbox; /* placeholder for disposable widget */
+  GtkWidget              *widget; /* placeholder for disposable widget */
 
   g_assert (GIMP_IS_UI_MANAGER (private->menubar_manager));
 
@@ -366,11 +371,29 @@ gimp_image_window_constructed (GObject *object)
     }
   
   /* Create toolbar */
+  hbox           = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+  gtk_box_pack_start (GTK_BOX (private->main_vbox), hbox,
+                      FALSE, TRUE, 0);
+  gtk_widget_show (hbox);
+  
   private->toolbar = gimp_tool_options_toolbar_new (private->gimp,
                                                    gimp_dialog_factory_get_menu_factory (private->dialog_factory));
-  gtk_box_pack_start (GTK_BOX (private->main_vbox), private->toolbar,
+  gtk_box_pack_start (GTK_BOX (hbox), private->toolbar,
+                      TRUE, TRUE, 0);
+  gtk_widget_set_visible (private->toolbar, config->single_window_mode);
+
+  /* Temporary: rotate buttons */
+  widget = gtk_button_new_with_label(">");
+  gtk_widget_show (widget);
+  g_signal_connect(widget, "clicked", G_CALLBACK(gimp_image_window_rotate_right_clicked), window);
+  gtk_box_pack_end (GTK_BOX (hbox), widget,
                       FALSE, TRUE, 0);
-  gtk_widget_set_visible (private->toolbar, config->single_window_mode);  
+
+  widget = gtk_button_new_with_label("<");
+  gtk_widget_show (widget);
+  g_signal_connect(widget, "clicked", G_CALLBACK(gimp_image_window_rotate_left_clicked), window);
+  gtk_box_pack_end (GTK_BOX (hbox), widget,
+                      FALSE, TRUE, 0);
 
   /* Create the hbox that contains docks and images */
   private->hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
@@ -1918,4 +1941,21 @@ gimp_image_window_create_tab_label (GimpImageWindow  *window,
                             shell);
 
   return hbox;
+}
+static void
+gimp_image_window_rotate_left_clicked (GtkWidget* widget, 
+                                       GimpImageWindow *window)
+{
+  GimpDisplayShell *shell  = gimp_image_window_get_active_shell (window);
+  shell->rotate_angle = fmod(shell->rotate_angle-10, 360);
+  gtk_widget_queue_draw(GTK_WIDGET(shell));
+}
+
+static void
+gimp_image_window_rotate_right_clicked (GtkWidget* widget, 
+                                        GimpImageWindow *window)
+{
+  GimpDisplayShell *shell  = gimp_image_window_get_active_shell (window);
+  shell->rotate_angle = fmod(shell->rotate_angle+10, 360);
+  gtk_widget_queue_draw(GTK_WIDGET(shell));
 }
