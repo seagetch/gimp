@@ -95,21 +95,11 @@ gimp_display_shell_get_device_bouding_box_for_image_coords
   cairo_user_to_device(cr, user_coord[2], user_coord[2] + 1);
   cairo_user_to_device(cr, user_coord[3], user_coord[3] + 1);
 
-  *x1 = MIN(user_coord[0][0], user_coord[1][0]);
-  *x1 = MIN(*x1,              user_coord[2][0]);
-  *x1 = MIN(*x1,              user_coord[3][0]);
-
-  *y1 = MIN(user_coord[0][1], user_coord[1][1]);
-  *y1 = MIN(*y1,              user_coord[2][1]);
-  *y1 = MIN(*y1,              user_coord[3][1]);
-  
-  *x2 = MAX(user_coord[0][0], user_coord[1][0]);
-  *x2 = MAX(*x2,              user_coord[2][0]);
-  *x2 = MAX(*x2,              user_coord[3][0]);
-
-  *y2 = MAX(user_coord[0][1], user_coord[1][1]);
-  *y2 = MAX(*y2,              user_coord[2][1]);
-  *y2 = MAX(*y2,              user_coord[3][1]);
+  gimp_display_shell_get_extents(user_coord[0][0], user_coord[0][1],
+                                 user_coord[1][0], user_coord[1][1],
+                                 user_coord[2][0], user_coord[2][1],
+                                 user_coord[3][0], user_coord[3][1],
+                                 x1, y1, x2, y2);
 
   cairo_restore(cr);
 }
@@ -151,21 +141,11 @@ gimp_display_shell_get_image_bouding_box_for_device_coords
   cairo_device_to_user(cr, user_coord[2], user_coord[2] + 1);
   cairo_device_to_user(cr, user_coord[3], user_coord[3] + 1);
 
-  *x1 = MIN(user_coord[0][0], user_coord[1][0]);
-  *x1 = MIN(*x1,              user_coord[2][0]);
-  *x1 = MIN(*x1,              user_coord[3][0]);
-
-  *y1 = MIN(user_coord[0][1], user_coord[1][1]);
-  *y1 = MIN(*y1,              user_coord[2][1]);
-  *y1 = MIN(*y1,              user_coord[3][1]);
-  
-  *x2 = MAX(user_coord[0][0], user_coord[1][0]);
-  *x2 = MAX(*x2,              user_coord[2][0]);
-  *x2 = MAX(*x2,              user_coord[3][0]);
-
-  *y2 = MAX(user_coord[0][1], user_coord[1][1]);
-  *y2 = MAX(*y2,              user_coord[2][1]);
-  *y2 = MAX(*y2,              user_coord[3][1]);
+  gimp_display_shell_get_extents(user_coord[0][0], user_coord[0][1],
+                                 user_coord[1][0], user_coord[1][1],
+                                 user_coord[2][0], user_coord[2][1],
+                                 user_coord[3][0], user_coord[3][1],
+                                 x1, y1, x2, y2);
 
   cairo_restore(cr);
 }
@@ -199,19 +179,22 @@ gimp_display_shell_transform_region (const GimpDisplayShell *shell,
                                       &user_coord[i][0],
                                       &user_coord[i][1]);
 
-  *x1 = MIN(user_coord[0][0], user_coord[1][0]);
-  *x1 = MIN(*x1,              user_coord[2][0]);
-  *x1 = MIN(*x1,              user_coord[3][0]);
+  gimp_display_shell_get_extents(user_coord[0][0], user_coord[0][1],
+                                 user_coord[1][0], user_coord[1][1],
+                                 user_coord[2][0], user_coord[2][1],
+                                 user_coord[3][0], user_coord[3][1],
+                                 x1, y1, x2, y2);
+}
 
-  *y1 = MIN(user_coord[0][1], user_coord[1][1]);
-  *y1 = MIN(*y1,              user_coord[2][1]);
-  *y1 = MIN(*y1,              user_coord[3][1]);
-  
-  *x2 = MAX(user_coord[0][0], user_coord[1][0]);
-  *x2 = MAX(*x2,              user_coord[2][0]);
-  *x2 = MAX(*x2,              user_coord[3][0]);
-
-  *y2 = MAX(user_coord[0][1], user_coord[1][1]);
-  *y2 = MAX(*y2,              user_coord[2][1]);
-  *y2 = MAX(*y2,              user_coord[3][1]);
+void gimp_display_shell_get_extents (gdouble x1,    gdouble y1,
+                                     gdouble x2,    gdouble y2,
+                                     gdouble x3,    gdouble y3,
+                                     gdouble x4,    gdouble y4,
+                                     gdouble *minx, gdouble *miny,
+                                     gdouble *maxx, gdouble *maxy)
+{
+  *minx = floor(MIN(MIN(MIN(x1, x2), x3),x4));
+  *miny = floor(MIN(MIN(MIN(y1, y2), y3),y4));
+  *maxx = ceil(MAX(MAX(MAX(x1, x2), x3),x4));
+  *maxy = ceil(MAX(MAX(MAX(y1, y2), y3),y4));
 }

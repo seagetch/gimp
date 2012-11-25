@@ -45,4 +45,17 @@ void gimp_display_shell_transform_region
                                             gdouble                *x2,
                                             gdouble                *y2);
 
+void gimp_display_shell_get_extents (gdouble x1, 
+                                     gdouble y1,
+                                     gdouble x2,
+                                     gdouble y2,
+                                     gdouble x3,
+                                     gdouble y3,
+                                     gdouble x4,
+                                     gdouble y4,
+                                     gdouble *minx,
+                                     gdouble *miny,
+                                     gdouble *maxx,
+                                     gdouble *maxy);
+
 #endif  /*  __GIMP_DISPLAY_SHELL_ROTATE_H__  */

@@ -31,6 +31,7 @@
 #include "gimpcanvasrectangle.h"
 #include "gimpdisplayshell.h"
 #include "gimpdisplayshell-transform.h"
+#include "gimpdisplayshell-rotate.h"
 
 
 enum
@@ -200,32 +201,47 @@ gimp_canvas_rectangle_get_property (GObject    *object,
 static void
 gimp_canvas_rectangle_transform (GimpCanvasItem   *item,
                                  GimpDisplayShell *shell,
-                                 gdouble          *x,
-                                 gdouble          *y,
-                                 gdouble          *w,
-                                 gdouble          *h)
+                                 gdouble          *x1,
+                                 gdouble          *y1,
+                                 gdouble          *x2,
+                                 gdouble          *y2,
+                                 gdouble          *x3,
+                                 gdouble          *y3,
+                                 gdouble          *x4,
+                                 gdouble          *y4)
 {
   GimpCanvasRectanglePrivate *private = GET_PRIVATE (item);
-  gdouble                     x1, y1;
-  gdouble                     x2, y2;
 
   gimp_display_shell_transform_xy_f (shell,
                                      MIN (private->x,
                                           private->x + private->width),
                                      MIN (private->y,
                                           private->y + private->height),
-                                     &x1, &y1);
+                                     x1, y1);
+  gimp_display_shell_transform_xy_f (shell,
+                                     MAX (private->x,
+                                          private->x + private->width),
+                                     MIN (private->y,
+                                          private->y + private->height),
+                                     x2, y2);
+  gimp_display_shell_transform_xy_f (shell,
+                                     MIN (private->x,
+                                          private->x + private->width),
+                                     MAX (private->y,
+                                          private->y + private->height),
+                                     x3, y3);
   gimp_display_shell_transform_xy_f (shell,
                                      MAX (private->x,
                                           private->x + private->width),
                                      MAX (private->y,
                                           private->y + private->height),
-                                     &x2, &y2);
+                                     x4, y4);
 
-  x1 = floor (x1);
-  y1 = floor (y1);
-  x2 = ceil (x2);
-  y2 = ceil (y2);
+#if 0
+  *x1 = floor (*x1);
+  *y1 = floor (*y1);
+  *x2 = ceil (*x2);
+  *y2 = ceil (*y2);
 
   if (private->filled)
     {
@@ -244,6 +260,7 @@ gimp_canvas_rectangle_transform (GimpCanvasItem   *item,
       *w = MAX (0.0, *w);
       *h = MAX (0.0, *h);
     }
+#endif
 }
 
 static void
@@ -252,12 +269,19 @@ gimp_canvas_rectangle_draw (GimpCanvasItem   *item,
                             cairo_t          *cr)
 {
   GimpCanvasRectanglePrivate *private = GET_PRIVATE (item);
-  gdouble                     x, y;
-  gdouble                     w, h;
+  gdouble x1, y1;
+  gdouble x2, y2;
+  gdouble x3, y3;
+  gdouble x4, y4;
 
-  gimp_canvas_rectangle_transform (item, shell, &x, &y, &w, &h);
+  gimp_canvas_rectangle_transform (item, shell, &x1, &y1, &x2, &y2, &x3, &y3, &x4, &y4);
 
-  cairo_rectangle (cr, x, y, w, h);
+//  cairo_rectangle (cr, x, y, w, h);
+  cairo_move_to(cr, x1, y1);
+  cairo_line_to(cr, x2, y2);
+  cairo_line_to(cr, x4, y4);
+  cairo_line_to(cr, x3, y3);
+  cairo_close_path(cr);
 
   if (private->filled)
     _gimp_canvas_item_fill (item, cr);
@@ -273,8 +297,12 @@ gimp_canvas_rectangle_get_extents (GimpCanvasItem   *item,
   cairo_rectangle_int_t       rectangle;
   gdouble                     x, y;
   gdouble                     w, h;
+  gdouble x1, y1, x2, y2, x3, y3, x4, y4;
 
-  gimp_canvas_rectangle_transform (item, shell, &x, &y, &w, &h);
+  gimp_canvas_rectangle_transform (item, shell, &x1, &y1, &x2, &y2, &x3, &y3, &x4, &y4);
+  gimp_display_shell_get_extents(x1, y1, x2, y2, x3, y3, x4, y4, &x, &y, &w, &h);
+  w -= x;
+  h -= y;
 
   if (private->filled)
     {

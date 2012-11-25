@@ -138,6 +138,7 @@ gimp_display_shell_render (GimpDisplayShell *shell,
   GimpImageType   type;
   gint            level;
   gboolean        premult;
+  gint            t_w, t_h;
 
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
   g_return_if_fail (cr != NULL);
@@ -151,6 +152,12 @@ gimp_display_shell_render (GimpDisplayShell *shell,
                                      shell->scale_x, shell->scale_y);
 
   tiles = gimp_projection_get_tiles_at_level (projection, level, &premult);
+
+  t_w = tile_manager_width(tiles);
+  t_h = tile_manager_height(tiles);
+
+  w = CLAMP(w, 0, t_w);
+  h = CLAMP(h, 0, t_h);
 
   gimp_display_shell_render_info_init (&info,
                                        shell, x, y, w, h,
@@ -633,6 +640,8 @@ render_image_tile_fault (RenderInfo *info)
 
   guint         source_width;
   guint         source_height;
+
+//  g_print("render_image_tile_fault@ %d, %d\n", info->src_x, info->src_y);
 
   source_width  = tile_manager_width (info->src_tiles);
   source_height = tile_manager_height (info->src_tiles);

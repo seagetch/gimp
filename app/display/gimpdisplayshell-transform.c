@@ -126,23 +126,32 @@ gimp_display_shell_transform_xy (const GimpDisplayShell *shell,
                                  gint                   *nx,
                                  gint                   *ny)
 {
-  gint64 tx;
-  gint64 ty;
+  gdouble r_tx, r_ty;
 
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
   g_return_if_fail (nx != NULL);
   g_return_if_fail (ny != NULL);
 
-  tx = ((gint64) x * shell->x_src_dec) / shell->x_dest_inc;
-  ty = ((gint64) y * shell->y_src_dec) / shell->y_dest_inc;
+  r_tx = (x * shell->x_src_dec) / shell->x_dest_inc;
+  r_ty = (y * shell->y_src_dec) / shell->y_dest_inc;
 
-  tx -= shell->offset_x;
-  ty -= shell->offset_y;
+  r_tx -= shell->offset_x;
+  r_ty -= shell->offset_y;
 
+  if (shell->rotate_angle != 0.0) {
+    cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
+    g_return_if_fail (cr != NULL);
+    g_print("Transform xy:%4.1f,%4.1f->", r_tx, r_ty);
+    gimp_display_shell_set_cairo_rotate (shell, cr);
+    cairo_user_to_device(cr, &r_tx, &r_ty);
+    cairo_destroy(cr);
+    g_print("%4.1f,%4.1f\n", r_tx, r_ty);
+  }
+  
   /* The projected coordinates might overflow a gint in the case of big
      images at high zoom levels, so we clamp them here to avoid problems.  */
-  *nx = CLAMP (tx, G_MININT, G_MAXINT);
-  *ny = CLAMP (ty, G_MININT, G_MAXINT);
+  *nx = CLAMP (r_tx, G_MININT, G_MAXINT);
+  *ny = CLAMP (r_ty, G_MININT, G_MAXINT);
 }
 
 /**

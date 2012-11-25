@@ -174,15 +174,19 @@ gimp_display_shell_draw_image (GimpDisplayShell *shell,
   x2 = ceil(x2 + 0.5);
   y2 = ceil(y2 + 0.5);
 
-  x  = CLAMP(x,  disp_xoffset, shell->disp_width + disp_xoffset + 1);
-  y  = CLAMP(y,  disp_yoffset, shell->disp_height + disp_yoffset + 1);
-  x2 = CLAMP(x2, disp_xoffset, shell->disp_width + disp_xoffset + 1);
-  y2 = CLAMP(y2, disp_yoffset, shell->disp_height + disp_yoffset + 1);
+//  x  = CLAMP(x,  -shell->offset_x, shell->disp_width  + 1);
+//  y  = CLAMP(y,  -shell->offset_y, shell->disp_height + 1);
+//  x2 = CLAMP(x2, -shell->offset_x, shell->disp_width  + 1);
+//  y2 = CLAMP(y2, -shell->offset_y, shell->disp_height + 1);
+  x = MAX(x, -shell->offset_x);
+  y = MAX(y, -shell->offset_y);
+  x2 = MAX(x2, -shell->offset_x);
+  y2 = MAX(y2, -shell->offset_y);
 
-  w = x2 - x1;
-  h = y2 - y1;
+  w = x2 - x;
+  h = y2 - y;
 
-  g_print("draw: %d,%d,%d,%d\n", x, y, x + w, y + h);
+  g_print("draw: %d,%d,%d,%d: ofs=%d,%d: bound=%d,%d\n", x, y, x + w, y + h, disp_xoffset, disp_yoffset, shell->disp_width, shell->disp_height);
 
   /*  display the image in RENDER_BUF_WIDTH x RENDER_BUF_HEIGHT
    *  sized chunks
