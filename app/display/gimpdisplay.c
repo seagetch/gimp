@@ -881,14 +881,21 @@ gimp_display_paint_area (GimpDisplay *display,
   x2 = CLAMP (x + w, 0, image_width);
   y2 = CLAMP (y + h, 0, image_height);
 
+  x1_f = x1;
+  y1_f = y1;
+  x2_f = x2;
+  y2_f = y2;
+
+  /*  display the area  */
+  gimp_display_shell_transform_region (shell, &x1_f, &y1_f, &x2_f, &y2_f);
+
+#if 0
   x = x1;
   y = y1;
   w = (x2 - x1);
   h = (y2 - y1);
+#endif
 
-  /*  display the area  */
-  gimp_display_shell_transform_xy_f (shell, x,     y,     &x1_f, &y1_f);
-  gimp_display_shell_transform_xy_f (shell, x + w, y + h, &x2_f, &y2_f);
 
   /*  make sure to expose a superset of the transformed sub-pixel expose
    *  area, not a subset. bug #126942. --mitch
@@ -900,6 +907,7 @@ gimp_display_paint_area (GimpDisplay *display,
   y1 = floor (y1_f - 0.5);
   x2 = ceil (x2_f + 0.5);
   y2 = ceil (y2_f + 0.5);
+  g_print("expose_area: %d,%d,%d,%d\n", x1, y1, x2, y2);
 
   gimp_display_shell_expose_area (shell, x1, y1, x2 - x1, y2 - y1);
 }

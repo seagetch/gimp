@@ -290,6 +290,7 @@ gimp_display_shell_init (GimpDisplayShell *shell)
   shell->y_dest_inc  = 1;
   shell->x_src_dec   = 1;
   shell->y_src_dec   = 1;
+  shell->rotate_angle = 30;
 
   shell->render_surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
                                                       GIMP_DISPLAY_RENDER_BUF_WIDTH,

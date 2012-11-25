@@ -142,7 +142,9 @@ libappdisplay_a_sources = \
 	gimpstatusbar.c				\
 	gimpstatusbar.h				\
 	gimptooldialog.c			\
-	gimptooldialog.h
+	gimptooldialog.h			\
+	gimpdisplayshell-rotate.c			\
+	gimpdisplayshell-rotate.h
 
 libappdisplay_a_built_sources = display-enums.c
 

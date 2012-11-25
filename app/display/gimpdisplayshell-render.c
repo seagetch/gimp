@@ -39,6 +39,7 @@
 #include "gimpdisplayshell.h"
 #include "gimpdisplayshell-filter.h"
 #include "gimpdisplayshell-render.h"
+#include "gimpdisplayshell-rotate.h"
 #include "gimpdisplayshell-scroll.h"
 
 
@@ -211,11 +212,14 @@ gimp_display_shell_render (GimpDisplayShell *shell,
     gimp_display_shell_scroll_get_disp_offset (shell,
                                                &disp_xoffset, &disp_yoffset);
 
+
+    gimp_display_shell_set_cairo_rotate (shell, cr);
+
     cairo_rectangle (cr, x + disp_xoffset, y + disp_yoffset, w, h);
     cairo_clip (cr);
-
     cairo_set_source_surface (cr, shell->render_surface,
                               x + disp_xoffset, y + disp_yoffset);
+
     cairo_paint (cr);
 
     if (shell->mask)

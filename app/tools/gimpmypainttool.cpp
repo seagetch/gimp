@@ -373,11 +373,11 @@ gimp_mypaint_tool_motion (GimpTool         *tool,
 
 static void
 gimp_mypaint_tool_motion_internal (GimpTool         *tool,
-                        const GimpCoords *coords,
-                        guint32           time,
-                        GdkModifierType   state,
-                        GimpDisplay      *display,
-                        gboolean          button1_pressed)
+                                   const GimpCoords *coords,
+                                   guint32           time,
+                                   GdkModifierType   state,
+                                   GimpDisplay      *display,
+                                   gboolean          button1_pressed)
 {
   GimpMypaintTool    *paint_tool    = GIMP_MYPAINT_TOOL (tool);
   GimpMypaintOptions *paint_options = GIMP_MYPAINT_TOOL_GET_OPTIONS (tool);

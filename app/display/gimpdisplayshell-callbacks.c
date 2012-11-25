@@ -497,10 +497,11 @@ gimp_display_shell_canvas_expose_image (GimpDisplayShell *shell,
 
   image_region = gdk_region_copy (eevent->region);
 
-  gdk_region_subtract (image_region, clear_region);
-  gdk_region_destroy (clear_region);
+//  gdk_region_subtract (image_region, clear_region);
+//  gdk_region_destroy (clear_region);
 
-  if (! gdk_region_empty (image_region))
+  g_print("hit test\n");
+//  if (! gdk_region_empty (image_region))
     {
       cairo_save (cr);
       gimp_display_shell_draw_checkerboard (shell, cr,
@@ -512,6 +513,7 @@ gimp_display_shell_canvas_expose_image (GimpDisplayShell *shell,
 
 
       cairo_save (cr);
+      g_print("draw_image_iter\n");
       gdk_region_get_rectangles (image_region, &rects, &n_rects);
 
       for (i = 0; i < n_rects; i++)

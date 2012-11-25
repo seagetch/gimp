@@ -41,6 +41,7 @@
 #include "gimpdisplayshell.h"
 #include "gimpdisplayshell-draw.h"
 #include "gimpdisplayshell-render.h"
+#include "gimpdisplayshell-rotate.h"
 #include "gimpdisplayshell-scale.h"
 #include "gimpdisplayshell-scroll.h"
 #include "gimpdisplayshell-style.h"
@@ -117,6 +118,7 @@ gimp_display_shell_draw_selection_out (GimpDisplayShell *shell,
   g_return_if_fail (cr != NULL);
   g_return_if_fail (segs != NULL && n_segs > 0);
 
+  gimp_display_shell_set_cairo_rotate(shell, cr);
   gimp_display_shell_set_selection_out_style (shell, cr);
 
   gimp_cairo_add_segments (cr, segs, n_segs);
@@ -133,6 +135,7 @@ gimp_display_shell_draw_selection_in (GimpDisplayShell   *shell,
   g_return_if_fail (cr != NULL);
   g_return_if_fail (mask != NULL);
 
+  gimp_display_shell_set_cairo_rotate(shell, cr);
   gimp_display_shell_set_selection_in_style (shell, cr, index);
 
   cairo_mask (cr, mask);
@@ -146,15 +149,40 @@ gimp_display_shell_draw_image (GimpDisplayShell *shell,
                                gint              w,
                                gint              h)
 {
-  gint x2, y2;
+  gdouble x1, y1, x2, y2;
+  gdouble user_coord[4][2];
+  gint disp_xoffset, disp_yoffset;
   gint i, j;
 
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
   g_return_if_fail (gimp_display_get_image (shell->display));
   g_return_if_fail (cr != NULL);
 
+  gimp_display_shell_scroll_get_disp_offset (shell,
+                                             &disp_xoffset,
+                                             &disp_yoffset);
+
+  x1 = x;
+  y1 = y;
   x2 = x + w;
   y2 = y + h;
+
+  gimp_display_shell_get_image_bouding_box_for_device_coords(shell, cr, &x1, &y1, &x2, &y2);
+
+  x = floor(x1 - 0.5);
+  y = floor(y1 - 0.5);
+  x2 = ceil(x2 + 0.5);
+  y2 = ceil(y2 + 0.5);
+
+  x  = CLAMP(x,  disp_xoffset, shell->disp_width + disp_xoffset + 1);
+  y  = CLAMP(y,  disp_yoffset, shell->disp_height + disp_yoffset + 1);
+  x2 = CLAMP(x2, disp_xoffset, shell->disp_width + disp_xoffset + 1);
+  y2 = CLAMP(y2, disp_yoffset, shell->disp_height + disp_yoffset + 1);
+
+  w = x2 - x1;
+  h = y2 - y1;
+
+  g_print("draw: %d,%d,%d,%d\n", x, y, x + w, y + h);
 
   /*  display the image in RENDER_BUF_WIDTH x RENDER_BUF_HEIGHT
    *  sized chunks
@@ -163,15 +191,10 @@ gimp_display_shell_draw_image (GimpDisplayShell *shell,
     {
       for (j = x; j < x2; j += GIMP_DISPLAY_RENDER_BUF_WIDTH)
         {
-          gint disp_xoffset, disp_yoffset;
           gint dx, dy;
 
           dx = MIN (x2 - j, GIMP_DISPLAY_RENDER_BUF_WIDTH);
           dy = MIN (y2 - i, GIMP_DISPLAY_RENDER_BUF_HEIGHT);
-
-          gimp_display_shell_scroll_get_disp_offset (shell,
-                                                     &disp_xoffset,
-                                                     &disp_yoffset);
 
           gimp_display_shell_render (shell, cr,
                                      j - disp_xoffset,
@@ -213,16 +236,23 @@ gimp_display_shell_draw_checkerboard (GimpDisplayShell *shell,
                                       gint              w,
                                       gint              h)
 {
+  gint disp_xoffset, disp_yoffset;
+  
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
   g_return_if_fail (cr != NULL);
+
+  gimp_display_shell_scroll_get_disp_offset (shell,
+                                             &disp_xoffset, &disp_yoffset);
 
   if (G_UNLIKELY (! shell->checkerboard))
     shell->checkerboard = gimp_display_shell_create_checkerboard (shell, cr);
 
+  gimp_display_shell_set_cairo_rotate(shell, cr);
+
   cairo_rectangle (cr, x, y, w, h);
   cairo_clip (cr);
 
-  cairo_translate (cr, - shell->offset_x, - shell->offset_y);
+//  cairo_translate (cr, - shell->offset_x, - shell->offset_y);
   cairo_set_source (cr, shell->checkerboard);
   cairo_paint (cr);
 }

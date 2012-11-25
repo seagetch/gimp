@@ -32,6 +32,7 @@
 #include "gimpdisplay.h"
 #include "gimpdisplayshell.h"
 #include "gimpdisplayshell-scroll.h"
+#include "gimpdisplayshell-rotate.h"
 #include "gimpdisplayshell-transform.h"
 
 
@@ -60,6 +61,16 @@ gimp_display_shell_transform_coords (const GimpDisplayShell *shell,
 
   display_coords->x -= shell->offset_x;
   display_coords->y -= shell->offset_y;
+
+  if (shell->rotate_angle != 0.0) {
+    cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
+    g_return_if_fail (cr != NULL);
+    g_print("Transform:%4.1f,%4.1f->", display_coords->x, display_coords->y);
+    gimp_display_shell_set_cairo_rotate (shell, cr);
+    cairo_user_to_device(cr, &display_coords->x, &display_coords->y);
+    cairo_destroy(cr);
+    g_print("%4.1f,%4.1f\n", display_coords->x, display_coords->y);
+  }
 }
 
 /**
@@ -82,11 +93,20 @@ gimp_display_shell_untransform_coords (const GimpDisplayShell *shell,
 
   *image_coords = *display_coords;
 
-  image_coords->x = display_coords->x + shell->offset_x;
-  image_coords->y = display_coords->y + shell->offset_y;
+  if (shell->rotate_angle != 0.0) {
+    cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
+    g_return_if_fail (cr != NULL);
+    gimp_display_shell_set_cairo_rotate (shell, cr);
+    cairo_device_to_user(cr, &image_coords->x, &image_coords->y);
+    cairo_destroy(cr);
+  }
+
+  image_coords->x = image_coords->x + shell->offset_x;
+  image_coords->y = image_coords->y + shell->offset_y;
 
   image_coords->x /= shell->scale_x;
   image_coords->y /= shell->scale_y;
+
 }
 
 /**
@@ -154,6 +174,19 @@ gimp_display_shell_untransform_xy (const GimpDisplayShell *shell,
   g_return_if_fail (nx != NULL);
   g_return_if_fail (ny != NULL);
 
+  if (shell->rotate_angle != 0.0) {
+    gdouble xx, yy;
+    cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
+    g_return_if_fail (cr != NULL);
+    xx = x;
+    yy = y;
+    gimp_display_shell_set_cairo_rotate (shell, cr);
+    cairo_device_to_user(cr, &xx, &yy);
+    cairo_destroy(cr);
+    x = (gint)xx;
+    y = (gint)yy;
+  }
+
   tx = (gint64) x + shell->offset_x;
   ty = (gint64) y + shell->offset_y;
 
@@ -194,6 +227,17 @@ gimp_display_shell_transform_xy_f  (const GimpDisplayShell *shell,
 
   *nx = SCALEX (shell, x) - shell->offset_x;
   *ny = SCALEY (shell, y) - shell->offset_y;
+
+  if (shell->rotate_angle != 0.0) {
+    cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
+    g_return_if_fail (cr != NULL);
+    g_print("Transform xy_f:%4.1f,%4.1f->", *nx, *ny);
+    gimp_display_shell_set_cairo_rotate (shell, cr);
+    cairo_user_to_device(cr, nx, ny);
+    cairo_destroy(cr);
+    g_print("%4.1f,%4.1f\n", *nx, *ny);
+  }
+  
 }
 
 /**
@@ -218,6 +262,13 @@ gimp_display_shell_untransform_xy_f (const GimpDisplayShell *shell,
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
   g_return_if_fail (nx != NULL);
   g_return_if_fail (ny != NULL);
+
+  if (shell->rotate_angle != 0.0) {
+    cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
+    gimp_display_shell_set_cairo_rotate (shell, cr);
+    cairo_device_to_user(cr, &x, &y);
+    cairo_destroy(cr);
+  }
 
   *nx = (x + shell->offset_x) / shell->scale_x;
   *ny = (y + shell->offset_y) / shell->scale_y;
