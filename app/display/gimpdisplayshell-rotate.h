@@ -45,6 +45,14 @@ void gimp_display_shell_transform_region
                                             gdouble                *x2,
                                             gdouble                *y2);
 
+void gimp_display_shell_device_to_image_coords (const GimpDisplayShell *shell,
+                                                gdouble                 *x,
+                                                gdouble                 *y);
+
+void gimp_display_shell_image_to_device_coords (const GimpDisplayShell *shell,
+                                                gdouble                 *x,
+                                                gdouble                 *y);
+
 void gimp_display_shell_get_extents (gdouble x1, 
                                      gdouble y1,
                                      gdouble x2,

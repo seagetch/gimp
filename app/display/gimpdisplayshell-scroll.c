@@ -40,6 +40,7 @@
 #include "gimpdisplayshell-draw.h"
 #include "gimpdisplayshell-expose.h"
 #include "gimpdisplayshell-scale.h"
+#include "gimpdisplayshell-rotate.h"
 #include "gimpdisplayshell-scroll.h"
 
 
@@ -92,6 +93,7 @@ gimp_display_shell_scroll (GimpDisplayShell *shell,
 {
   gint old_x;
   gint old_y;
+  g_print("scroll\n");
 
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
 
@@ -112,6 +114,8 @@ gimp_display_shell_scroll (GimpDisplayShell *shell,
 
   if (x_offset || y_offset)
     {
+      gdouble cx, cy;
+      gdouble rx_offset, ry_offset;
       /*  reset the old values so that the tool can accurately redraw  */
       shell->offset_x = old_x;
       shell->offset_y = old_y;
@@ -122,8 +126,18 @@ gimp_display_shell_scroll (GimpDisplayShell *shell,
       shell->offset_x += x_offset;
       shell->offset_y += y_offset;
 
+      cx = shell->disp_width / 2;
+      cy = shell->disp_height / 2;
+      rx_offset = x_offset + cx;
+      ry_offset = y_offset + cy;
+
+      gimp_display_shell_image_to_device_coords (shell, &rx_offset, &ry_offset);
+
+      rx_offset -= cx;
+      ry_offset -= cy;
+
       gimp_overlay_box_scroll (GIMP_OVERLAY_BOX (shell->canvas),
-                               -x_offset, -y_offset);
+                               -rx_offset, -ry_offset);
 
       /*  Update scrollbars and rulers  */
       gimp_display_shell_update_scrollbars_and_rulers (shell);

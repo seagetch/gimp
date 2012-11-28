@@ -198,3 +198,33 @@ void gimp_display_shell_get_extents (gdouble x1,    gdouble y1,
   *maxx = ceil(MAX(MAX(MAX(x1, x2), x3),x4));
   *maxy = ceil(MAX(MAX(MAX(y1, y2), y3),y4));
 }
+
+void
+gimp_display_shell_image_to_device_coords (const GimpDisplayShell *shell,
+                                           gdouble          *x,
+                                           gdouble          *y)
+{
+  if (shell->rotate_angle != 0.0) {
+    cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
+    g_return_if_fail (cr != NULL);
+    gimp_display_shell_set_cairo_rotate (shell, cr);
+    cairo_user_to_device(cr, x, y);
+    cairo_destroy(cr);
+  }
+  
+}
+
+void
+gimp_display_shell_device_to_image_coords (const GimpDisplayShell *shell,
+                                           gdouble          *x,
+                                           gdouble          *y)
+{
+  if (shell->rotate_angle != 0.0) {
+    cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
+    g_return_if_fail (cr != NULL);
+    gimp_display_shell_set_cairo_rotate (shell, cr);
+    cairo_device_to_user(cr, x, y);
+    cairo_destroy(cr);
+  }
+  
+}

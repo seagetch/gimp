@@ -55,6 +55,7 @@
 #include "gimpdisplayshell-cursor.h"
 #include "gimpdisplayshell-grab.h"
 #include "gimpdisplayshell-layer-select.h"
+#include "gimpdisplayshell-rotate.h"
 #include "gimpdisplayshell-scale.h"
 #include "gimpdisplayshell-scroll.h"
 #include "gimpdisplayshell-tool-events.h"
@@ -816,18 +817,29 @@ gimp_display_shell_canvas_tool_events (GtkWidget        *canvas,
 
         if (shell->scrolling)
           {
-            const gint x = (compressed_motion
+            gdouble x  = (compressed_motion
                             ? ((GdkEventMotion *) compressed_motion)->x
                             : mevent->x);
-            const gint y = (compressed_motion
+            gdouble y  = (compressed_motion
                             ? ((GdkEventMotion *) compressed_motion)->y
                             : mevent->y);
+            gdouble cx = shell->disp_width / 2;
+            gdouble cy = shell->disp_height / 2;
 
+            x = shell->scroll_start_x - x + cx;
+            y = shell->scroll_start_y - y + cy;
+
+            g_print("%f, %f->", x - cx, y - cy);
+            
+            gimp_display_shell_device_to_image_coords(shell, &x, &y);
+
+            x -= cx;
+            y -= cy;
+            g_print("%f, %f->", x, y);
+            
             gimp_display_shell_scroll (shell,
-                                       (shell->scroll_start_x - x -
-                                        shell->offset_x),
-                                       (shell->scroll_start_y - y -
-                                        shell->offset_y));
+                                       (x - shell->offset_x),
+                                       (y - shell->offset_y));
           }
         else if (state & GDK_BUTTON1_MASK || 
                  (active_tool && active_tool->want_full_motion_tracking))

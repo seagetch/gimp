@@ -20,6 +20,7 @@
 #include <gegl.h>
 #include <gtk/gtk.h>
 
+#include "libgimpmath/gimpmath.h"
 #include "libgimpcolor/gimpcolor.h"
 #include "libgimpwidgets/gimpwidgets.h"
 
@@ -138,7 +139,8 @@ gimp_display_shell_render (GimpDisplayShell *shell,
   GimpImageType   type;
   gint            level;
   gboolean        premult;
-  gint            t_w, t_h;
+  gint            image_w, image_h;
+  gint            render_start_x, render_start_y;
 
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
   g_return_if_fail (cr != NULL);
@@ -153,11 +155,18 @@ gimp_display_shell_render (GimpDisplayShell *shell,
 
   tiles = gimp_projection_get_tiles_at_level (projection, level, &premult);
 
-  t_w = tile_manager_width(tiles);
-  t_h = tile_manager_height(tiles);
+  gimp_display_shell_scroll_get_render_start_offset (shell, 
+                                                     &render_start_x,
+                                                     &render_start_y);
+  
+  image_w = SCALEX(shell, gimp_image_get_width(image)) - render_start_x;
+  image_h = SCALEY(shell, gimp_image_get_height(image)) - render_start_y;
 
-  w = CLAMP(w, 0, t_w);
-  h = CLAMP(h, 0, t_h);
+  if (x > image_w || y > image_h)
+    return;
+
+  w = CLAMP(w, 0, image_w - x);
+  h = CLAMP(h, 0, image_h - y);
 
   gimp_display_shell_render_info_init (&info,
                                        shell, x, y, w, h,
@@ -213,12 +222,10 @@ gimp_display_shell_render (GimpDisplayShell *shell,
   /*  put it to the screen  */
   {
     gint disp_xoffset, disp_yoffset;
-
-    cairo_save (cr);
-
     gimp_display_shell_scroll_get_disp_offset (shell,
                                                &disp_xoffset, &disp_yoffset);
 
+    cairo_save (cr);
 
     gimp_display_shell_set_cairo_rotate (shell, cr);
 
