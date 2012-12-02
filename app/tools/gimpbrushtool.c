@@ -41,6 +41,7 @@
 #include "display/gimpcanvaspath.h"
 #include "display/gimpdisplay.h"
 #include "display/gimpdisplayshell.h"
+#include "display/gimpdisplayshell-rotate.h"
 
 #include "gimpbrushtool.h"
 #include "gimptoolcontrol.h"

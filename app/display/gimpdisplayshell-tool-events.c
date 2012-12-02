@@ -456,7 +456,7 @@ gimp_display_shell_canvas_tool_events (GtkWidget        *canvas,
         GdkEventButton *bevent = (GdkEventButton *) event;
 
         /*  ignore new mouse events  */
-        if (gimp->busy || shell->scrolling || shell->pointer_grabbed)
+        if (gimp->busy || shell->scrolling || shell->rotating || shell->pointer_grabbed)
           return TRUE;
 
         state |= gimp_display_shell_button_to_state (bevent->button);
