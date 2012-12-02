@@ -188,6 +188,9 @@ struct _GimpDisplayShell
   gdouble            accum_error_x;
   gdouble            accum_error_y;
 
+  gboolean           rotating;
+  gdouble            rotate_start_angle;
+
   GimpDrawable      *mask;
   GimpRGB            mask_color;
 

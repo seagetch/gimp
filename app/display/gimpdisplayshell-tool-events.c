@@ -88,6 +88,16 @@ static void       gimp_display_shell_start_scrolling          (GimpDisplayShell 
 static void       gimp_display_shell_stop_scrolling           (GimpDisplayShell  *shell,
                                                                const GdkEvent    *event);
 
+static void       gimp_display_shell_start_rotating          (GimpDisplayShell  *shell,
+                                                               const GdkEvent    *event,
+                                                               gint               x,
+                                                               gint               y);
+static void       gimp_display_shell_rotate                  (GimpDisplayShell *shell,
+                                                               gint              x,
+                                                               gint              y);
+static void       gimp_display_shell_stop_rotating           (GimpDisplayShell  *shell,
+                                                               const GdkEvent    *event);
+
 static void       gimp_display_shell_space_pressed            (GimpDisplayShell  *shell,
                                                                const GdkEvent    *event);
 static void       gimp_display_shell_space_released           (GimpDisplayShell  *shell,
@@ -547,12 +557,17 @@ gimp_display_shell_canvas_tool_events (GtkWidget        *canvas,
           }
         else if (bevent->button == 2)
           {
-            gdouble start_x = bevent->x;
-            gdouble start_y = bevent->y;
-            gimp_display_shell_device_to_image_coords (shell, &start_x, &start_y);
+            if (bevent->state & GDK_SHIFT_MASK) {
+              gimp_display_shell_start_rotating (shell, NULL, bevent->x, bevent->y);
+            }
+            else {
+              gdouble start_x = bevent->x;
+              gdouble start_y = bevent->y;
+              gimp_display_shell_device_to_image_coords (shell, &start_x, &start_y);
 
-            gimp_display_shell_start_scrolling (shell, NULL,
-                                                start_x, start_y);
+              gimp_display_shell_start_scrolling (shell, NULL,
+                                                  start_x, start_y);
+            }
           }
 
         return_val = TRUE;
@@ -669,6 +684,8 @@ gimp_display_shell_canvas_tool_events (GtkWidget        *canvas,
           {
             if (shell->scrolling)
               gimp_display_shell_stop_scrolling (shell, NULL);
+            else if (shell->rotating)
+              gimp_display_shell_stop_rotating (shell, NULL);
           }
         else if (bevent->button == 3)
           {
@@ -835,21 +852,22 @@ gimp_display_shell_canvas_tool_events (GtkWidget        *canvas,
             gdouble start_x  = shell->scroll_start_x;
             gdouble start_y  = shell->scroll_start_y;
 
-            g_print("tool_events: %4.1f-%4.1f-%4.1f=[%4.1f], %4.1f-%4.1f-%4.1f=[%4.1f] ->", 
-                    start_x, x, offset_x, start_x - x - offset_x, 
-                    start_y, y, offset_y, start_y - y - offset_y);
-
             gimp_display_shell_device_to_image_coords(shell, &x, &y);
-//          gimp_display_shell_device_to_image_coords(shell, &start_x, &start_y);
-//            gimp_display_shell_device_to_image_coords(shell, &offset_x, &offset_y);
 
-            g_print(" %4.1f-%4.1f-%4.1f=[%4.1f], %4.1f-%4.1f-%4.1f=[%4.1f]\n", 
-                    start_x, x, offset_x, start_x - x - offset_x, 
-                    start_y, y, offset_y, start_y - y - offset_y);
-            
             gimp_display_shell_scroll (shell,
                                        start_x - x - offset_x,
                                        start_y - y - offset_y);
+          }
+        else if (shell->rotating)
+          {
+            gdouble x  = (compressed_motion
+                            ? ((GdkEventMotion *) compressed_motion)->x
+                            : mevent->x);
+            gdouble y  = (compressed_motion
+                            ? ((GdkEventMotion *) compressed_motion)->y
+                            : mevent->y);
+
+            gimp_display_shell_rotate (shell, x, y);
           }
         else if (state & GDK_BUTTON1_MASK || 
                  (active_tool && active_tool->want_full_motion_tracking))
@@ -1433,6 +1451,67 @@ gimp_display_shell_stop_scrolling (GimpDisplayShell *shell,
 
   gimp_display_shell_pointer_ungrab (shell, event);
   gimp_display_shell_expose_full (shell);
+}
+
+static void
+gimp_display_shell_start_rotating (GimpDisplayShell *shell,
+                                    const GdkEvent   *event,
+                                    gint              x,
+                                    gint              y)
+{
+  gdouble cx, cy;
+  gdouble rx, ry;
+  g_return_if_fail (! shell->rotating);
+
+  gimp_display_shell_pointer_grab (shell, event, GDK_POINTER_MOTION_MASK);
+
+  shell->rotating      = TRUE;
+
+  cx = shell->disp_width  / 2;
+  cy = shell->disp_height / 2;
+  rx = x - cx;
+  ry = y - cy;
+
+  shell->rotate_start_angle = shell->rotate_angle + 
+    fmod(atan2(rx, ry) / M_PI * 180.0 + 360.0, 360.0); 
+
+  gimp_display_shell_set_override_cursor (shell, GDK_EXCHANGE);
+}
+
+
+static void
+gimp_display_shell_rotate        (GimpDisplayShell *shell,
+                                  gint              x,
+                                  gint              y)
+{
+  gdouble cx, cy;
+  gdouble rx, ry;
+  gdouble angle;
+  g_return_if_fail (shell->rotating);
+
+  cx = shell->disp_width  / 2;
+  cy = shell->disp_height / 2;
+  rx = x - cx;
+  ry = y - cy;
+
+  angle               = shell->rotate_start_angle - 
+                        fmod(atan2(rx, ry) / M_PI * 180.0 + 360.0, 360.0);
+  shell->rotate_angle = fmod(angle + 360.0, 360.0);
+  gimp_display_shell_expose_full(shell);
+}
+
+static void
+gimp_display_shell_stop_rotating (GimpDisplayShell *shell,
+                                   const GdkEvent   *event)
+{
+  g_return_if_fail (shell->rotating);
+
+  gimp_display_shell_unset_override_cursor (shell);
+
+  shell->rotating           = FALSE;
+  shell->rotate_start_angle = 0;
+
+  gimp_display_shell_pointer_ungrab (shell, event);
 }
 
 static void
