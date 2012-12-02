@@ -95,7 +95,6 @@ gimp_display_shell_scroll (GimpDisplayShell *shell,
   gdouble old_y;
 
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
-  g_print("scroll(%4.1f, %4.1f)\n", shell->offset_x, shell->offset_y);
 
   if (x_offset == 0 && y_offset == 0)
     return;
@@ -135,8 +134,6 @@ gimp_display_shell_scroll (GimpDisplayShell *shell,
       rx_offset -= old_x;
       ry_offset -= old_y;
 
-      g_print(" scroll: %4.1f,%4.1f: error=%4.1f,%4.1f ->\n", x_offset, y_offset,
-              shell->accum_error_x, shell->accum_error_y);
       rx_offset += shell->accum_error_x;
       ry_offset += shell->accum_error_y;
 
@@ -145,9 +142,6 @@ gimp_display_shell_scroll (GimpDisplayShell *shell,
 
       shell->accum_error_x = rx_offset - ROUND(rx_offset);
       shell->accum_error_y = ry_offset - ROUND(ry_offset);
-
-      g_print(" scroll: %4.1f,%4.1f:error=%4.1f, %4.1f\n", rx_offset, ry_offset, 
-              shell->accum_error_x, shell->accum_error_y);
 
       /*  Update scrollbars and rulers  */
       gimp_display_shell_update_scrollbars_and_rulers (shell);

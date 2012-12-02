@@ -144,7 +144,9 @@ gimp_display_shell_render (GimpDisplayShell *shell,
 
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
   g_return_if_fail (cr != NULL);
-  g_return_if_fail (w > 0 && h > 0);
+
+  if (w <= 0 || h <= 0)
+    return;
 
   image = gimp_display_get_image (shell->display);
   projection = gimp_image_get_projection (image);
