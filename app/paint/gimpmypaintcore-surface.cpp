@@ -845,7 +845,10 @@ public:
                          TRUE);
      }
 
-    TempBuf* pattern  = gimp_pattern_get_mask (texture);
+    TempBuf* pattern = NULL;
+    if (texture) {
+      pattern = gimp_pattern_get_mask (texture);
+    }
 
     if (dab_mask)
       pixel_region_init_temp_buf(&brushPR, dab_mask, 
