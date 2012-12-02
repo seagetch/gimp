@@ -23,8 +23,8 @@ void   gimp_display_shell_scroll_center_image_coordinate    (GimpDisplayShell   
                                                              gdouble                 image_x,
                                                              gdouble                 image_y);
 void   gimp_display_shell_scroll                            (GimpDisplayShell       *shell,
-                                                             gint                    x_offset,
-                                                             gint                    y_offset);
+                                                             gdouble                 x_offset,
+                                                             gdouble                 y_offset);
 void   gimp_display_shell_scroll_set_offset                 (GimpDisplayShell       *shell,
                                                              gint                    offset_x,
                                                              gint                    offset_y);

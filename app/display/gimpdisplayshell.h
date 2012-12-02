@@ -64,8 +64,8 @@ struct _GimpDisplayShell
 
   GimpUnit           unit;
 
-  gint               offset_x;         /*  offset of display image            */
-  gint               offset_y;
+  gdouble            offset_x;         /*  offset of display image            */
+  gdouble            offset_y;
 
   gdouble            scale_x;          /*  horizontal scale factor            */
   gdouble            scale_y;          /*  vertical scale factor              */
@@ -182,9 +182,11 @@ struct _GimpDisplayShell
   const gchar       *space_shaded_tool;
 
   gboolean           scrolling;
-  gint               scroll_start_x;
-  gint               scroll_start_y;
+  gdouble            scroll_start_x;
+  gdouble            scroll_start_y;
   gpointer           scroll_info;
+  gdouble            accum_error_x;
+  gdouble            accum_error_y;
 
   GimpDrawable      *mask;
   GimpRGB            mask_color;

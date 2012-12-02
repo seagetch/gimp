@@ -907,7 +907,7 @@ gimp_display_paint_area (GimpDisplay *display,
   y1 = floor (y1_f - 0.5);
   x2 = ceil (x2_f + 0.5);
   y2 = ceil (y2_f + 0.5);
-  g_print("expose_area: %d,%d,%d,%d\n", x1, y1, x2, y2);
+//  g_print("expose_area: %d,%d,%d,%d\n", x1, y1, x2, y2);
 
   gimp_display_shell_expose_area (shell, x1, y1, x2 - x1, y2 - y1);
 }

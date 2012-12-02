@@ -74,4 +74,6 @@ gimp_display_shell_expose_full (GimpDisplayShell *shell)
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
 
   gtk_widget_queue_draw (shell->canvas);
+  shell->accum_error_x = 0;
+  shell->accum_error_y = 0;
 }

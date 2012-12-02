@@ -21,6 +21,8 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 
+#include "libgimpmath/gimpmath.h"
+
 #include "libgimpwidgets/gimpwidgets.h"
 
 #include "display-types.h"
@@ -53,6 +55,7 @@
 #include "gimpdisplayshell.h"
 #include "gimpdisplayshell-autoscroll.h"
 #include "gimpdisplayshell-cursor.h"
+#include "gimpdisplayshell-expose.h"
 #include "gimpdisplayshell-grab.h"
 #include "gimpdisplayshell-layer-select.h"
 #include "gimpdisplayshell-rotate.h"
@@ -544,8 +547,12 @@ gimp_display_shell_canvas_tool_events (GtkWidget        *canvas,
           }
         else if (bevent->button == 2)
           {
+            gdouble start_x = bevent->x;
+            gdouble start_y = bevent->y;
+            gimp_display_shell_device_to_image_coords (shell, &start_x, &start_y);
+
             gimp_display_shell_start_scrolling (shell, NULL,
-                                                bevent->x, bevent->y);
+                                                start_x, start_y);
           }
 
         return_val = TRUE;
@@ -823,23 +830,26 @@ gimp_display_shell_canvas_tool_events (GtkWidget        *canvas,
             gdouble y  = (compressed_motion
                             ? ((GdkEventMotion *) compressed_motion)->y
                             : mevent->y);
-            gdouble cx = shell->disp_width / 2;
-            gdouble cy = shell->disp_height / 2;
+            gdouble offset_x = shell->offset_x;
+            gdouble offset_y = shell->offset_y;
+            gdouble start_x  = shell->scroll_start_x;
+            gdouble start_y  = shell->scroll_start_y;
 
-            x = shell->scroll_start_x - x + cx;
-            y = shell->scroll_start_y - y + cy;
+            g_print("tool_events: %4.1f-%4.1f-%4.1f=[%4.1f], %4.1f-%4.1f-%4.1f=[%4.1f] ->", 
+                    start_x, x, offset_x, start_x - x - offset_x, 
+                    start_y, y, offset_y, start_y - y - offset_y);
 
-            g_print("%f, %f->", x - cx, y - cy);
-            
             gimp_display_shell_device_to_image_coords(shell, &x, &y);
+//          gimp_display_shell_device_to_image_coords(shell, &start_x, &start_y);
+//            gimp_display_shell_device_to_image_coords(shell, &offset_x, &offset_y);
 
-            x -= cx;
-            y -= cy;
-            g_print("%f, %f->", x, y);
+            g_print(" %4.1f-%4.1f-%4.1f=[%4.1f], %4.1f-%4.1f-%4.1f=[%4.1f]\n", 
+                    start_x, x, offset_x, start_x - x - offset_x, 
+                    start_y, y, offset_y, start_y - y - offset_y);
             
             gimp_display_shell_scroll (shell,
-                                       (x - shell->offset_x),
-                                       (y - shell->offset_y));
+                                       start_x - x - offset_x,
+                                       start_y - y - offset_y);
           }
         else if (state & GDK_BUTTON1_MASK || 
                  (active_tool && active_tool->want_full_motion_tracking))
@@ -1400,8 +1410,11 @@ gimp_display_shell_start_scrolling (GimpDisplayShell *shell,
   gimp_display_shell_pointer_grab (shell, event, GDK_POINTER_MOTION_MASK);
 
   shell->scrolling      = TRUE;
-  shell->scroll_start_x = x + shell->offset_x;
-  shell->scroll_start_y = y + shell->offset_y;
+  shell->scroll_start_x = x;
+  shell->scroll_start_y = y;
+
+  shell->scroll_start_x += shell->offset_x;
+  shell->scroll_start_y += shell->offset_y;
 
   gimp_display_shell_set_override_cursor (shell, GDK_FLEUR);
 }
@@ -1419,6 +1432,7 @@ gimp_display_shell_stop_scrolling (GimpDisplayShell *shell,
   shell->scroll_start_y = 0;
 
   gimp_display_shell_pointer_ungrab (shell, event);
+  gimp_display_shell_expose_full (shell);
 }
 
 static void
@@ -1443,6 +1457,8 @@ gimp_display_shell_space_pressed (GimpDisplayShell *shell,
         GimpDeviceManager *manager;
         GimpDeviceInfo    *current_device;
         GimpCoords         coords;
+        gdouble start_x;
+        gdouble start_y;
 
         manager = gimp_devices_get_manager (gimp);
         current_device = gimp_device_manager_get_current_device (manager);
@@ -1450,9 +1466,12 @@ gimp_display_shell_space_pressed (GimpDisplayShell *shell,
         gimp_device_info_get_device_coords (current_device,
                                             gtk_widget_get_window (shell->canvas),
                                             &coords);
-
+        start_x = coords.x;
+        start_y = coords.y;
+        gimp_display_shell_device_to_image_coords (shell, &start_x, &start_y);
+        
         gimp_display_shell_start_scrolling (shell, event,
-                                            coords.x, coords.y);
+                                            start_x, start_y);
       }
       break;
 

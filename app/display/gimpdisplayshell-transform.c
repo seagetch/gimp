@@ -65,11 +65,11 @@ gimp_display_shell_transform_coords (const GimpDisplayShell *shell,
   if (shell->rotate_angle != 0.0) {
     cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
     g_return_if_fail (cr != NULL);
-    g_print("Transform:%4.1f,%4.1f->", display_coords->x, display_coords->y);
+//    g_print("Transform:%4.1f,%4.1f->", display_coords->x, display_coords->y);
     gimp_display_shell_set_cairo_rotate (shell, cr);
     cairo_user_to_device(cr, &display_coords->x, &display_coords->y);
     cairo_destroy(cr);
-    g_print("%4.1f,%4.1f\n", display_coords->x, display_coords->y);
+//    g_print("%4.1f,%4.1f\n", display_coords->x, display_coords->y);
   }
 }
 
@@ -141,11 +141,11 @@ gimp_display_shell_transform_xy (const GimpDisplayShell *shell,
   if (shell->rotate_angle != 0.0) {
     cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
     g_return_if_fail (cr != NULL);
-    g_print("Transform xy:%4.1f,%4.1f->", r_tx, r_ty);
+//    g_print("Transform xy:%4.1f,%4.1f->", r_tx, r_ty);
     gimp_display_shell_set_cairo_rotate (shell, cr);
     cairo_user_to_device(cr, &r_tx, &r_ty);
     cairo_destroy(cr);
-    g_print("%4.1f,%4.1f\n", r_tx, r_ty);
+//    g_print("%4.1f,%4.1f\n", r_tx, r_ty);
   }
   
   /* The projected coordinates might overflow a gint in the case of big
@@ -240,11 +240,11 @@ gimp_display_shell_transform_xy_f  (const GimpDisplayShell *shell,
   if (shell->rotate_angle != 0.0) {
     cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
     g_return_if_fail (cr != NULL);
-    g_print("Transform xy_f:%4.1f,%4.1f->", *nx, *ny);
+//    g_print("Transform xy_f:%4.1f,%4.1f->", *nx, *ny);
     gimp_display_shell_set_cairo_rotate (shell, cr);
     cairo_user_to_device(cr, nx, ny);
     cairo_destroy(cr);
-    g_print("%4.1f,%4.1f\n", *nx, *ny);
+//    g_print("%4.1f,%4.1f\n", *nx, *ny);
   }
   
 }

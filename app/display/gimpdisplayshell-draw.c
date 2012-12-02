@@ -186,7 +186,7 @@ gimp_display_shell_draw_image (GimpDisplayShell *shell,
   w = x2 - x;
   h = y2 - y;
 
-  g_print("draw: %d,%d,%d,%d: ofs=%d,%d: bound=%d,%d\n", x, y, x + w, y + h, disp_xoffset, disp_yoffset, shell->disp_width, shell->disp_height);
+//  g_print("draw: %d,%d,%d,%d: ofs=%d,%d: bound=%d,%d\n", x, y, x + w, y + h, disp_xoffset, disp_yoffset, shell->disp_width, shell->disp_height);
 
   /*  display the image in RENDER_BUF_WIDTH x RENDER_BUF_HEIGHT
    *  sized chunks
