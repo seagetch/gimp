@@ -31,6 +31,7 @@ extern "C" {
 #include "gimpmypaintbrush.h"
 #include "gimpmypaintbrush-private.hpp"
 #include "gimpmypaintbrush-load.h"
+#include "gimpmypaintbrush-save.h"
 #include "gimpmarshal.h"
 #include "gimptagged.h"
 
@@ -118,6 +119,7 @@ gimp_mypaint_brush_class_init (GimpMypaintBrushClass *klass)
 
   data_class->dirty                = gimp_mypaint_brush_dirty;
   data_class->get_extension        = gimp_mypaint_brush_get_extension;
+  data_class->save                 = gimp_mypaint_brush_save;
 
   klass->begin_use                 = gimp_mypaint_brush_real_begin_use;
   klass->end_use                   = gimp_mypaint_brush_real_end_use;
