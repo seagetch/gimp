@@ -191,6 +191,7 @@ file_save_dialog_response (GtkWidget *save_dialog,
                                        save_proc,
                                        GIMP_RUN_INTERACTIVE,
                                        ! dialog->save_a_copy && ! dialog->export,
+                                       FALSE,
                                        dialog->export,
                                        FALSE))
         {
@@ -214,28 +215,15 @@ file_save_dialog_response (GtkWidget *save_dialog,
           /*  make sure the menus are updated with the keys we've just set  */
           gimp_image_flush (dialog->image);
 
-          /* Handle close-after-saing */
-          if (dialog)
+          /* Handle close-after-saving */
+          if (dialog->close_after_saving && dialog->display_to_close)
             {
-              GtkWindow *parent;
-
-              parent = gtk_window_get_transient_for (GTK_WINDOW (dialog));
-
-              if (dialog->close_after_saving)
-                {
-                  if (GIMP_IS_DISPLAY_SHELL (parent))
-                    {
-                      GimpDisplay *display;
-
-                      display = GIMP_DISPLAY_SHELL (parent)->display;
-
-                      if (! gimp_image_is_dirty (gimp_display_get_image (display)))
-                        gimp_display_close (display);
-                    }
-                }
-
-              gtk_widget_destroy (save_dialog);
+              GimpDisplay *display = GIMP_DISPLAY (dialog->display_to_close);
+              if (display && ! gimp_image_is_dirty (gimp_display_get_image (display)))
+                gimp_display_close (display);
             }
+
+          gtk_widget_destroy (save_dialog);
         }
 
       g_free (uri);
@@ -304,11 +292,11 @@ file_save_dialog_check_uri (GtkWidget            *save_dialog,
 
           GIMP_LOG (SAVE_DIALOG, "basename has no '.', trying to add extension");
 
-          if (! save_proc)
+          if (! save_proc && ! dialog->export)
             {
               ext = "xcf";
             }
-          else if (save_proc->extensions_list)
+          else if (save_proc && save_proc->extensions_list)
             {
               ext = save_proc->extensions_list->data;
             }
@@ -629,7 +617,8 @@ file_save_dialog_save_image (GimpProgress        *progress,
                              GimpPlugInProcedure *save_proc,
                              GimpRunMode          run_mode,
                              gboolean             change_saved_state,
-                             gboolean             export,
+                             gboolean             export_backward,
+                             gboolean             export_forward,
                              gboolean             verbose_cancel)
 {
   GimpPDBStatusType  status;
@@ -645,7 +634,9 @@ file_save_dialog_save_image (GimpProgress        *progress,
     }
 
   status = file_save (gimp, image, progress, uri,
-                      save_proc, run_mode, change_saved_state, export, &error);
+                      save_proc, run_mode,
+                      change_saved_state, export_backward, export_forward,
+                      &error);
 
   switch (status)
     {

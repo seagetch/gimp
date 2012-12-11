@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include <gtk/gtk.h>
+#include <gdk/gdkkeysyms.h>
 
 #include "libgimpbase/gimpbase.h"
 #include "libgimpwidgets/gimpwidgets.h"
@@ -760,7 +761,17 @@ gimp_action_view_accel_edited (GtkCellRendererAccel *accel,
   if (! accel_path)
     return;
 
-  if (! accel_key)
+  if (! accel_key ||
+
+      /* Don't allow arrow keys, they are all swallowed by the canvas
+       * and cannot be invoked anyway, the same applies to space.
+       */
+      accel_key == GDK_KEY_Left  ||
+      accel_key == GDK_KEY_Right ||
+      accel_key == GDK_KEY_Up    ||
+      accel_key == GDK_KEY_Down  ||
+      accel_key == GDK_KEY_space ||
+      accel_key == GDK_KEY_KP_Space)
     {
       gimp_message_literal (view->manager->gimp,
 			    G_OBJECT (view), GIMP_MESSAGE_ERROR,

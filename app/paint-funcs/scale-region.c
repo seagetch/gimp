@@ -62,7 +62,9 @@ static void           scale                    (TileManager           *srcTM,
                                                 GimpProgressFunc       progress_callback,
                                                 gpointer               progress_data,
                                                 gint                  *progress,
-                                                gint                   max_progress);
+                                                gint                   max_progress,
+                                                const gdouble          scalex,
+                                                const gdouble          scaley);
 static void           decimate_xy              (TileManager           *srcTM,
                                                 TileManager           *dstTM,
                                                 GimpInterpolationType  interpolation,
@@ -212,14 +214,14 @@ scale_determine_levels (PixelRegion *srcPR,
   while (scalex < 0.5 && width > 1)
     {
       scalex  *= 2;
-      width   /= 2;
+      width    = (width + 1) / 2;
       *levelx += 1;
     }
 
   while (scaley < 0.5 && height > 1)
     {
       scaley  *= 2;
-      height  *= 2;
+      height   = (height + 1) / 2;
       *levely += 1;
     }
 }
@@ -240,36 +242,10 @@ scale_determine_progress (PixelRegion *srcPR,
 
   /*  The logic here should be kept in sync with scale_region_tile().  */
 
-  while (levelx < 0 && levely < 0)
-    {
-      width  <<= 1;
-      height <<= 1;
-      levelx++;
-      levely++;
-
-      tiles += NUM_TILES (width, height);
-    }
-
-  while (levelx < 0)
-    {
-      width <<= 1;
-      levelx++;
-
-      tiles += NUM_TILES (width, height);
-    }
-
-  while (levely < 0)
-    {
-      height <<= 1;
-      levely++;
-
-      tiles += NUM_TILES (width, height);
-    }
-
   while (levelx > 0 && levely > 0)
     {
-      width  >>= 1;
-      height >>= 1;
+      width  = (width + 1) >> 1;
+      height = (height + 1) >> 1;
       levelx--;
       levely--;
 
@@ -278,7 +254,7 @@ scale_determine_progress (PixelRegion *srcPR,
 
   while (levelx > 0)
     {
-      width >>= 1;
+      width  = (width + 1) >> 1;
       levelx--;
 
       tiles += NUM_TILES (width, height);
@@ -286,7 +262,7 @@ scale_determine_progress (PixelRegion *srcPR,
 
   while (levely > 0)
     {
-      height >>= 1;
+      height = (height + 1) >> 1;
       levely--;
 
       tiles += NUM_TILES (width, height);
@@ -314,6 +290,8 @@ scale_region_tile (PixelRegion           *srcPR,
   gint         progress     = 0;
   gint         levelx       = 0;
   gint         levely       = 0;
+  gdouble      scalex       = (gdouble) width / dstPR->w;
+  gdouble      scaley       = (gdouble) height / dstPR->h;
 
   /* determine scaling levels */
   if (interpolation != GIMP_INTERPOLATION_NONE)
@@ -326,60 +304,16 @@ scale_region_tile (PixelRegion           *srcPR,
   if (levelx == 0 && levely == 0)
     {
       scale (srcTM, dstTM, interpolation,
-             progress_callback, progress_data, &progress, max_progress);
-    }
-
-  while (levelx < 0 && levely < 0)
-    {
-      width  <<= 1;
-      height <<= 1;
-
-      tmpTM = tile_manager_new (width, height, bytes);
-      scale (srcTM, tmpTM, interpolation,
-             progress_callback, progress_data, &progress, max_progress);
-
-      if (srcTM != srcPR->tiles)
-        tile_manager_unref (srcTM);
-
-      srcTM = tmpTM;
-      levelx++;
-      levely++;
-    }
-
-  while (levelx < 0)
-    {
-      width <<= 1;
-
-      tmpTM = tile_manager_new (width, height, bytes);
-      scale (srcTM, tmpTM, interpolation,
-             progress_callback, progress_data, &progress, max_progress);
-
-      if (srcTM != srcPR->tiles)
-        tile_manager_unref (srcTM);
-
-      srcTM = tmpTM;
-      levelx++;
-    }
-
-  while (levely < 0)
-    {
-      height <<= 1;
-
-      tmpTM = tile_manager_new (width, height, bytes);
-      scale (srcTM, tmpTM, interpolation,
-             progress_callback, progress_data, &progress, max_progress);
-
-      if (srcTM != srcPR->tiles)
-        tile_manager_unref (srcTM);
-
-      srcTM = tmpTM;
-      levely++;
+             progress_callback, progress_data, &progress, max_progress,
+             scalex, scaley);
     }
 
   while (levelx > 0 && levely > 0)
     {
-      width  >>= 1;
-      height >>= 1;
+      width  = (width + 1) >> 1;
+      height = (height + 1) >> 1;
+      scalex *= .5;
+      scaley *= .5;
 
       tmpTM = tile_manager_new (width, height, bytes);
       decimate_xy (srcTM, tmpTM, interpolation,
@@ -395,7 +329,8 @@ scale_region_tile (PixelRegion           *srcPR,
 
   while (levelx > 0)
     {
-      width >>= 1;
+      width = (width + 1) >> 1;
+      scalex *= .5;
 
       tmpTM = tile_manager_new (width, height, bytes);
       decimate_x (srcTM, tmpTM, interpolation,
@@ -410,7 +345,8 @@ scale_region_tile (PixelRegion           *srcPR,
 
   while (levely > 0)
     {
-      height >>= 1;
+      height = (height + 1) >> 1;
+      scaley *= .5;
 
       tmpTM = tile_manager_new (width, height, bytes);
       decimate_y (srcTM, tmpTM, interpolation,
@@ -426,7 +362,8 @@ scale_region_tile (PixelRegion           *srcPR,
   if (tmpTM != NULL)
     {
       scale (tmpTM, dstTM, interpolation,
-             progress_callback, progress_data, &progress, max_progress);
+             progress_callback, progress_data, &progress, max_progress,
+             scalex, scaley);
       tile_manager_unref (tmpTM);
     }
 
@@ -443,7 +380,9 @@ scale (TileManager           *srcTM,
        GimpProgressFunc       progress_callback,
        gpointer               progress_data,
        gint                  *progress,
-       gint                   max_progress)
+       gint                   max_progress,
+       const gdouble          scalex,
+       const gdouble          scaley)
 {
   PixelRegion     region;
   PixelSurround  *surround   = NULL;
@@ -452,8 +391,6 @@ scale (TileManager           *srcTM,
   const guint     bytes      = tile_manager_bpp    (dstTM);
   const guint     dst_width  = tile_manager_width  (dstTM);
   const guint     dst_height = tile_manager_height (dstTM);
-  const gdouble   scaley     = (gdouble) src_height / (gdouble) dst_height;
-  const gdouble   scalex     = (gdouble) src_width  / (gdouble) dst_width;
   gpointer        pr;
   gfloat         *kernel_lookup = NULL;
 
@@ -509,7 +446,7 @@ scale (TileManager           *srcTM,
         {
           guchar  *pixel = row;
           gdouble  yfrac = (y + 0.5) * scaley - 0.5;
-          gint     sy    = (gint) yfrac;
+          gint     sy    = floor (yfrac);
           gint     x;
 
           yfrac = yfrac - sy;
@@ -517,7 +454,7 @@ scale (TileManager           *srcTM,
           for (x = region.x; x < x1; x++)
             {
               gdouble xfrac = (x + 0.5) * scalex - 0.5;
-              gint    sx    = (gint) xfrac;
+              gint    sx    = floor (xfrac);
 
               xfrac = xfrac - sx;
 
@@ -965,7 +902,7 @@ sinc (const gdouble x)
 gfloat *
 create_lanczos_lookup (void)
 {
-  const gdouble dx = LANCZOS_WIDTH / (gdouble) (LANCZOS_SAMPLES - 1);
+  const gdouble dx = LANCZOS_MIN;
 
   gfloat  *lookup = g_new (gfloat, LANCZOS_SAMPLES);
   gdouble  x      = 0.0;
@@ -984,7 +921,7 @@ create_lanczos_lookup (void)
 static gfloat *
 create_lanczos3_lookup (void)
 {
-  const gdouble dx = 3.0 / (gdouble) (LANCZOS_SAMPLES - 1);
+  const gdouble dx = LANCZOS_MIN;
 
   gfloat  *lookup = g_new (gfloat, LANCZOS_SAMPLES);
   gdouble  x      = 0.0;
@@ -1051,7 +988,7 @@ interpolate_bilinear (PixelSurround *surround,
   switch (bytes)
     {
     case 1:
-      sum = weighted_sum (xfrac, yfrac, p1[0], p2[0], p3[0], p4[0]);
+      sum = RINT (weighted_sum (xfrac, yfrac, p1[0], p2[0], p3[0], p4[0]));
 
       pixel[0] = CLAMP (sum, 0, 255);
       break;
@@ -1063,7 +1000,8 @@ interpolate_bilinear (PixelSurround *surround,
           sum = weighted_sum (xfrac, yfrac,
                               p1[0] * p1[1], p2[0] * p2[1],
                               p3[0] * p3[1], p4[0] * p4[1]);
-          sum /= alphasum;
+          sum = RINT (sum / alphasum);
+          alphasum = RINT (alphasum);
 
           pixel[0] = CLAMP (sum, 0, 255);
           pixel[1] = CLAMP (alphasum, 0, 255);
@@ -1077,7 +1015,7 @@ interpolate_bilinear (PixelSurround *surround,
     case 3:
       for (b = 0; b < 3; b++)
         {
-          sum = weighted_sum (xfrac, yfrac, p1[b], p2[b], p3[b], p4[b]);
+          sum = RINT (weighted_sum (xfrac, yfrac, p1[b], p2[b], p3[b], p4[b]));
 
           pixel[b] = CLAMP (sum, 0, 255);
         }
@@ -1092,11 +1030,12 @@ interpolate_bilinear (PixelSurround *surround,
               sum = weighted_sum (xfrac, yfrac,
                                   p1[b] * p1[3], p2[b] * p2[3],
                                   p3[b] * p3[3], p4[b] * p4[3]);
-              sum /= alphasum;
+              sum = RINT (sum / alphasum);
 
               pixel[b] = CLAMP (sum, 0, 255);
             }
 
+          alphasum = RINT (alphasum);
           pixel[3] = CLAMP (alphasum, 0, 255);
         }
       else
@@ -1152,7 +1091,7 @@ interpolate_cubic (PixelSurround *surround,
       p2 = cubic_spline_fit (xfrac, s2[0], s2[1], s2[2], s2[3]);
       p3 = cubic_spline_fit (xfrac, s3[0], s3[1], s3[2], s3[3]);
 
-      sum = cubic_spline_fit (yfrac, p0, p1, p2, p3);
+      sum = RINT (cubic_spline_fit (yfrac, p0, p1, p2, p3));
 
       pixel[0]= CLAMP (sum, 0, 255);
       break;
@@ -1180,10 +1119,11 @@ interpolate_cubic (PixelSurround *surround,
                                  s3[0] * s3[1], s3[2] * s3[3],
                                  s3[4] * s3[5], s3[6] * s3[7]);
 
-          sum  = cubic_spline_fit (yfrac, p0, p1, p2, p3);
-          sum /= alphasum;
-
+          sum = cubic_spline_fit (yfrac, p0, p1, p2, p3);
+          sum = RINT (sum / alphasum);
           pixel[0] = CLAMP (sum, 0, 255);
+
+          alphasum = RINT (alphasum);
           pixel[1] = CLAMP (alphasum, 0, 255);
         }
       else
@@ -1200,7 +1140,7 @@ interpolate_cubic (PixelSurround *surround,
           p2 = cubic_spline_fit (xfrac, s2[b], s2[3 + b], s2[6 + b], s2[9 + b]);
           p3 = cubic_spline_fit (xfrac, s3[b], s3[3 + b], s3[6 + b], s3[9 + b]);
 
-          sum = cubic_spline_fit (yfrac, p0, p1, p2, p3);
+          sum = RINT (cubic_spline_fit (yfrac, p0, p1, p2, p3));
 
           pixel[b] = CLAMP (sum, 0, 255);
         }
@@ -1231,12 +1171,13 @@ interpolate_cubic (PixelSurround *surround,
                                      s3[0 + b] * s3[ 3], s3[ 4 + b] * s3[7],
                                      s3[8 + b] * s3[11], s3[12 + b] * s3[15]);
 
-              sum  = cubic_spline_fit (yfrac, p0, p1, p2, p3);
-              sum /= alphasum;
+              sum = cubic_spline_fit (yfrac, p0, p1, p2, p3);
+              sum = RINT (sum / alphasum);
 
               pixel[b] = CLAMP (sum, 0, 255);
             }
 
+          alphasum = RINT (alphasum);
           pixel[3] = CLAMP (alphasum, 0, 255);
         }
       else
@@ -1346,7 +1287,7 @@ interpolate_lanczos3 (PixelSurround *surround,
   switch (bytes)
     {
     case 1:
-      sum = lanczos3_mul (src, x_kernel, y_kernel, stride, 1, 0);
+      sum = RINT (lanczos3_mul (src, x_kernel, y_kernel, stride, 1, 0));
 
       pixel[0] = CLAMP (sum, 0, 255);
       break;
@@ -1356,9 +1297,10 @@ interpolate_lanczos3 (PixelSurround *surround,
       if (alphasum > 0)
         {
           sum = lanczos3_mul_alpha (src, x_kernel, y_kernel, stride, 2, 0);
-          sum /= alphasum;
-
+          sum = RINT (sum / alphasum);
           pixel[0] = CLAMP (sum, 0, 255);
+
+          alphasum = RINT (alphasum);
           pixel[1] = CLAMP (alphasum, 0, 255);
         }
       else
@@ -1370,7 +1312,7 @@ interpolate_lanczos3 (PixelSurround *surround,
     case 3:
       for (b = 0; b < 3; b++)
         {
-          sum = lanczos3_mul (src, x_kernel, y_kernel, stride, 3, b);
+          sum = RINT (lanczos3_mul (src, x_kernel, y_kernel, stride, 3, b));
 
           pixel[b] = CLAMP (sum, 0, 255);
         }
@@ -1383,11 +1325,12 @@ interpolate_lanczos3 (PixelSurround *surround,
           for (b = 0; b < 3; b++)
             {
               sum = lanczos3_mul_alpha (src, x_kernel, y_kernel, stride, 4, b);
-              sum /= alphasum;
+              sum = RINT (sum / alphasum);
 
               pixel[b] = CLAMP (sum, 0, 255);
             }
 
+          alphasum = RINT (alphasum);
           pixel[3] = CLAMP (alphasum, 0, 255);
         }
       else

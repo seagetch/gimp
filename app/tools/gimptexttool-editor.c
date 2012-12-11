@@ -415,18 +415,38 @@ gboolean
 gimp_text_tool_editor_key_press (GimpTextTool *text_tool,
                                  GdkEventKey  *kevent)
 {
-  GtkTextBuffer *buffer = GTK_TEXT_BUFFER (text_tool->buffer);
-  GtkTextIter    cursor;
-  GtkTextIter    selection;
-  gint           x_pos  = -1;
-  gboolean       retval = TRUE;
+  GimpTool         *tool   = GIMP_TOOL (text_tool);
+  GimpDisplayShell *shell  = gimp_display_get_shell (tool->display);
+  GtkTextBuffer    *buffer = GTK_TEXT_BUFFER (text_tool->buffer);
+  GtkTextIter       cursor;
+  GtkTextIter       selection;
+  gboolean          retval = TRUE;
+
+  if (! gtk_widget_has_focus (shell->canvas))
+    {
+      /*  The focus is in the floating style editor, and the event
+       *  was not handled there, focus the canvas.
+       */
+      switch (kevent->keyval)
+        {
+        case GDK_KEY_Tab:
+        case GDK_KEY_KP_Tab:
+        case GDK_KEY_ISO_Left_Tab:
+        case GDK_KEY_Escape:
+          gtk_widget_grab_focus (shell->canvas);
+          return TRUE;
+
+        default:
+          break;
+        }
+    }
 
   if (gtk_im_context_filter_keypress (text_tool->im_context, kevent))
     {
       text_tool->needs_im_reset = TRUE;
       text_tool->x_pos          = -1;
 
-     return TRUE;
+      return TRUE;
     }
 
   gimp_text_tool_ensure_proxy (text_tool);
@@ -470,7 +490,7 @@ gimp_text_tool_editor_key_press (GimpTextTool *text_tool,
       retval = FALSE;
     }
 
-  text_tool->x_pos = x_pos;
+  text_tool->x_pos = -1;
 
   return retval;
 }
@@ -698,23 +718,31 @@ gimp_text_tool_move_cursor (GimpTextTool    *text_tool,
               if (count > 0)
                 {
                   if (g_utf8_get_char (text + index) == word_joiner)
-                    pango_layout_move_cursor_visually (layout, TRUE, index, 0, 1,
+                    pango_layout_move_cursor_visually (layout, TRUE,
+                                                       index, 0, 1,
                                                        &new_index, &trailing);
                   else
                     new_index = index;
 
-                  pango_layout_move_cursor_visually (layout, TRUE, new_index, trailing, 1,
+                  pango_layout_move_cursor_visually (layout, TRUE,
+                                                     new_index, trailing, 1,
                                                      &new_index, &trailing);
                   count--;
                 }
               else
                 {
-                  pango_layout_move_cursor_visually (layout, TRUE, index, 0, -1,
+                  pango_layout_move_cursor_visually (layout, TRUE,
+                                                     index, 0, -1,
                                                      &new_index, &trailing);
 
-                  if (new_index != -1 && g_utf8_get_char (text + new_index) == word_joiner)
-                    pango_layout_move_cursor_visually (layout, TRUE, new_index, trailing, -1,
-                                                       &new_index, &trailing);
+                  if (new_index != -1 && new_index != G_MAXINT &&
+                      g_utf8_get_char (text + new_index) == word_joiner)
+                    {
+                      pango_layout_move_cursor_visually (layout, TRUE,
+                                                         new_index, trailing, -1,
+                                                         &new_index, &trailing);
+                    }
+
                   count++;
                 }
 
@@ -1127,8 +1155,7 @@ gimp_text_tool_options_notify (GimpTextOptions *options,
     {
       if (options->use_editor)
         {
-          if (text_tool->text)
-            gimp_text_tool_editor_dialog (text_tool);
+          gimp_text_tool_editor_dialog (text_tool);
         }
       else
         {

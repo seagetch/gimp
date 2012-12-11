@@ -192,6 +192,9 @@ static void      tiff_warning  (const gchar  *module,
 static void      tiff_error    (const gchar  *module,
                                 const gchar  *fmt,
                                 va_list       ap);
+static TIFF     *tiff_open     (const gchar  *filename,
+                                const gchar  *mode,
+                                GError      **error);
 
 
 const GimpPlugInInfo PLUG_IN_INFO =
@@ -280,23 +283,7 @@ run (const gchar      *name,
   if (strcmp (name, LOAD_PROC) == 0)
     {
       const gchar *filename = param[1].data.d_string;
-      TIFF        *tif      = NULL;
-      gint         fd;
-
-      fd = g_open (filename, O_RDONLY | _O_BINARY, 0);
-
-      if (fd == -1)
-        {
-          g_set_error (&error, G_FILE_ERROR, g_file_error_from_errno (errno),
-                       _("Could not open '%s' for reading: %s"),
-                       gimp_filename_to_utf8 (filename), g_strerror (errno));
-
-          status = GIMP_PDB_EXECUTION_ERROR;
-        }
-      else
-        {
-          tif = TIFFFdOpen (fd, filename, "r");
-        }
+      TIFF        *tif      = tiff_open (filename, "r", &error);
 
       if (tif)
         {
@@ -365,11 +352,9 @@ run (const gchar      *name,
             }
 
           TIFFClose (tif);
-          close (fd);
         }
       else
         {
-          close (fd);
           status = GIMP_PDB_EXECUTION_ERROR;
         }
     }
@@ -445,6 +430,29 @@ tiff_error (const gchar *module,
     return;
 
   g_logv (G_LOG_DOMAIN, G_LOG_LEVEL_MESSAGE, fmt, ap);
+}
+
+static TIFF *
+tiff_open (const gchar  *filename,
+           const gchar  *mode,
+           GError      **error)
+{
+#ifdef G_OS_WIN32
+  gunichar2 *utf16_filename = g_utf8_to_utf16 (filename, -1, NULL, NULL, error);
+
+  if (utf16_filename)
+    {
+      TIFF *tif = TIFFOpenW (utf16_filename, mode);
+
+      g_free (utf16_filename);
+
+      return tif;
+    }
+
+  return NULL;
+#else
+  return TIFFOpen (filename, mode);
+#endif
 }
 
 /* returns a pointer into the TIFF */
@@ -740,6 +748,36 @@ load_image (const gchar        *filename,
           break;
         }
 
+      /* attach a parasite containing the compression */
+      if (!TIFFGetField (tif, TIFFTAG_COMPRESSION, &tmp))
+        {
+          save_vals.compression = COMPRESSION_NONE;
+        }
+      else
+        {
+          switch (tmp)
+            {
+            case COMPRESSION_NONE:
+            case COMPRESSION_LZW:
+            case COMPRESSION_PACKBITS:
+            case COMPRESSION_DEFLATE:
+            case COMPRESSION_JPEG:
+            case COMPRESSION_CCITTFAX3:
+            case COMPRESSION_CCITTFAX4:
+              save_vals.compression = tmp;
+              break;
+
+            case COMPRESSION_OJPEG:
+              worst_case = TRUE;
+              save_vals.compression = COMPRESSION_JPEG;
+              break;
+
+            default:
+              save_vals.compression = COMPRESSION_NONE;
+              break;
+            }
+        }
+
       if (worst_case)
         {
           image_type = GIMP_RGB;
@@ -805,31 +843,6 @@ load_image (const gchar        *filename,
           gimp_parasite_free (parasite);
         }
 #endif
-
-      /* attach a parasite containing the compression */
-      if (!TIFFGetField (tif, TIFFTAG_COMPRESSION, &tmp))
-        {
-          save_vals.compression = COMPRESSION_NONE;
-        }
-      else
-        {
-          switch (tmp)
-            {
-            case COMPRESSION_NONE:
-            case COMPRESSION_LZW:
-            case COMPRESSION_PACKBITS:
-            case COMPRESSION_DEFLATE:
-            case COMPRESSION_JPEG:
-            case COMPRESSION_CCITTFAX3:
-            case COMPRESSION_CCITTFAX4:
-              save_vals.compression = tmp;
-              break;
-
-            default:
-              save_vals.compression = COMPRESSION_NONE;
-              break;
-            }
-        }
 
       parasite = gimp_parasite_new ("tiff-save-options", 0,
                                     sizeof (save_vals), &save_vals);

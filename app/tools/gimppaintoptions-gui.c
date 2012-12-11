@@ -222,7 +222,7 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 
       scale = gimp_prop_spin_scale_new (config, "brush-size",
                                         _("Size"),
-                                        0.01, 1.0, 2);
+                                        1.0, 10.0, 2);
       gimp_spin_scale_set_scale_limits (GIMP_SPIN_SCALE (scale), 1.0, 1000.0);
       gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
       gtk_widget_show (scale);
@@ -243,71 +243,50 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 
       if (!horizontal)
         {
-#if 0
-          scale = gimp_prop_spin_scale_new (config, "brush-aspect-ratio",
-                                            _("Aspect Ratio"),
-                                            0.01, 0.1, 2);
-          gtk_box_pack_start (GTK_BOX (vbox), scale, FALSE, FALSE, 0);
-          gtk_widget_show (scale);
+      hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
+      gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
+      gtk_widget_show (hbox);
 
-          scale = gimp_prop_spin_scale_new (config, "brush-angle",
-                                            _("Angle"),
-                                            1.0, 5.0, 2);
-          gtk_box_pack_start (GTK_BOX (vbox), scale, FALSE, FALSE, 0);
-          gtk_widget_show (scale);
+      scale = gimp_prop_spin_scale_new (config, "brush-aspect-ratio",
+                                        _("Aspect Ratio"),
+                                        0.1, 1.0, 2);
+      gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
+      gtk_widget_show (scale);
 
-          button = gimp_prop_dynamics_box_new (NULL, GIMP_CONTEXT (tool_options),
-                                               _("Dynamics"), 2,
-                                               "dynamics-view-type",
-                                               "dynamics-view-size");
-          gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, FALSE, 0);
-          gtk_widget_show (button);
-#endif
+      button = gimp_stock_button_new (GIMP_STOCK_RESET, NULL);
+      gtk_button_set_relief (GTK_BUTTON (button), GTK_RELIEF_NONE);
+      gtk_image_set_from_stock (GTK_IMAGE (gtk_bin_get_child (GTK_BIN (button))),
+                                GIMP_STOCK_RESET, GTK_ICON_SIZE_MENU);
+      gtk_box_pack_start (GTK_BOX (hbox), button, FALSE, FALSE, 0);
+      gtk_widget_show (button);
 
-          hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
-          gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
-          gtk_widget_show (hbox);
+      g_signal_connect (button, "clicked",
+                        G_CALLBACK (gimp_paint_options_gui_reset_aspect_ratio),
+                        options);
 
-          scale = gimp_prop_spin_scale_new (config, "brush-aspect-ratio",
-                                            _("Aspect Ratio"),
-                                            0.01, 0.1, 2);
-          gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
-          gtk_widget_show (scale);
+      gimp_help_set_help_data (button,
+                               _("Reset aspect ratio to brush's native"), NULL);
 
-          button = gimp_stock_button_new (GIMP_STOCK_RESET, NULL);
-          gtk_button_set_relief (GTK_BUTTON (button), GTK_RELIEF_NONE);
-          gtk_image_set_from_stock (GTK_IMAGE (gtk_bin_get_child (GTK_BIN (button))),
-                                    GIMP_STOCK_RESET, GTK_ICON_SIZE_MENU);
-          gtk_box_pack_start (GTK_BOX (hbox), button, FALSE, FALSE, 0);
-          gtk_widget_show (button);
+      hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
+      gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
+      gtk_widget_show (hbox);
 
-          g_signal_connect (button, "clicked",
-                            G_CALLBACK (gimp_paint_options_gui_reset_aspect_ratio),
-                            options);
+      scale = gimp_prop_spin_scale_new (config, "brush-angle",
+                                        _("Angle"),
+                                        1.0, 5.0, 2);
+      gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
+      gtk_widget_show (scale);
 
-          gimp_help_set_help_data (button,
-                                   _("Reset aspect ratio to brush's native"), NULL);
+      button = gimp_stock_button_new (GIMP_STOCK_RESET, NULL);
+      gtk_button_set_relief (GTK_BUTTON (button), GTK_RELIEF_NONE);
+      gtk_image_set_from_stock (GTK_IMAGE (gtk_bin_get_child (GTK_BIN (button))),
+                                GIMP_STOCK_RESET, GTK_ICON_SIZE_MENU);
+      gtk_box_pack_start (GTK_BOX (hbox), button, FALSE, FALSE, 0);
+      gtk_widget_show (button);
 
-          hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 2);
-          gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, FALSE, 0);
-          gtk_widget_show (hbox);
-
-          scale = gimp_prop_spin_scale_new (config, "brush-angle",
-                                            _("Angle"),
-                                            1.0, 5.0, 2);
-          gtk_box_pack_start (GTK_BOX (hbox), scale, TRUE, TRUE, 0);
-          gtk_widget_show (scale);
-
-          button = gimp_stock_button_new (GIMP_STOCK_RESET, NULL);
-          gtk_button_set_relief (GTK_BUTTON (button), GTK_RELIEF_NONE);
-          gtk_image_set_from_stock (GTK_IMAGE (gtk_bin_get_child (GTK_BIN (button))),
-                                    GIMP_STOCK_RESET, GTK_ICON_SIZE_MENU);
-          gtk_box_pack_start (GTK_BOX (hbox), button, FALSE, FALSE, 0);
-          gtk_widget_show (button);
-
-          g_signal_connect (button, "clicked",
-                            G_CALLBACK (gimp_paint_options_gui_reset_angle),
-                            options);
+      g_signal_connect (button, "clicked",
+                        G_CALLBACK (gimp_paint_options_gui_reset_angle),
+                        options);
 
           gimp_help_set_help_data (button,
                                    _("Reset angle to zero"), NULL);

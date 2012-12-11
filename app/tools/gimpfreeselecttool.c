@@ -1386,8 +1386,8 @@ gimp_free_select_tool_modifier_key (GimpTool        *tool,
     {
       gimp_draw_tool_pause (draw_tool);
 
-      priv->constrain_angle = state & (gimp_get_constrain_behavior_mask () ?
-                                       TRUE : FALSE);
+      priv->constrain_angle = ((state & gimp_get_constrain_behavior_mask ()) ?
+                               TRUE : FALSE);
 
       priv->supress_handles = state & GDK_SHIFT_MASK ? TRUE : FALSE;
 
@@ -1416,8 +1416,8 @@ gimp_free_select_tool_active_modifier_key (GimpTool        *tool,
 
   gimp_draw_tool_pause (draw_tool);
 
-  priv->constrain_angle = state & (gimp_get_constrain_behavior_mask () ?
-                                   TRUE : FALSE);
+  priv->constrain_angle = ((state & gimp_get_constrain_behavior_mask ()) ?
+                           TRUE : FALSE);
 
   /* If we didn't came here due to a mouse release, immediately update
    * the position of the thing we move.

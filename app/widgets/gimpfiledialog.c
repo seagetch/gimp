@@ -94,12 +94,15 @@ static void     gimp_file_dialog_add_preview            (GimpFileDialog   *dialo
                                                          Gimp             *gimp);
 static void     gimp_file_dialog_add_filters            (GimpFileDialog   *dialog,
                                                          Gimp             *gimp,
+                                                         GimpFileChooserAction
+                                                                           action,
                                                          GSList           *file_procs,
                                                          GSList           *file_procs_all_images);
 static void     gimp_file_dialog_process_procedure      (GimpPlugInProcedure
                                                                           *file_proc,
-                                                         GtkFileFilter    **filter_out,
-                                                         GtkFileFilter    *all);
+                                                         GtkFileFilter   **filter_out,
+                                                         GtkFileFilter    *all,
+                                                         GtkFileFilter    *all_savable);
 static void     gimp_file_dialog_add_proc_selection     (GimpFileDialog   *dialog,
                                                          Gimp             *gimp,
                                                          GSList           *file_procs,
@@ -402,8 +405,7 @@ gimp_file_dialog_new (Gimp                  *gimp,
 
   gimp_file_dialog_add_preview (dialog, gimp);
 
-  gimp_file_dialog_add_filters (dialog,
-                                gimp,
+  gimp_file_dialog_add_filters (dialog, gimp, action,
                                 file_procs,
                                 file_procs_all_images);
 
@@ -484,7 +486,8 @@ gimp_file_dialog_set_save_image (GimpFileDialog *dialog,
                                  GimpImage      *image,
                                  gboolean        save_a_copy,
                                  gboolean        export,
-                                 gboolean        close_after_saving)
+                                 gboolean        close_after_saving,
+                                 GimpObject     *display)
 {
   const gchar *dir_uri  = NULL;
   const gchar *name_uri = NULL;
@@ -502,6 +505,7 @@ gimp_file_dialog_set_save_image (GimpFileDialog *dialog,
   dialog->save_a_copy        = save_a_copy;
   dialog->export             = export;
   dialog->close_after_saving = close_after_saving;
+  dialog->display_to_close   = display;
 
   gimp_file_dialog_set_file_proc (dialog, NULL);
 
@@ -634,17 +638,18 @@ gimp_file_dialog_set_save_image (GimpFileDialog *dialog,
       /* Priority of default type/extension for Export:
        *
        *   1. Type of last Export
-       *   2. Type of latest Export of any document
-       *   3. Type of the image Import
+       *   2. Type of the image Import
+       *   3. Type of latest Export of any document
        *   4. .png
        */
       ext_uri = gimp_image_get_exported_uri (image);
 
       if (! ext_uri)
+        ext_uri = gimp_image_get_imported_uri (image);
+
+      if (! ext_uri)
         ext_uri = g_object_get_data (G_OBJECT (gimp),
                                      GIMP_FILE_EXPORT_LAST_URI_KEY);
-      if (! ext_uri)
-        ext_uri = gimp_image_get_imported_uri (image);
 
       if (! ext_uri)
         ext_uri = "file:///we/only/care/about/extension.png";
@@ -774,19 +779,22 @@ gimp_file_dialog_add_preview (GimpFileDialog *dialog,
  * gimp_file_dialog_add_filters:
  * @dialog:
  * @gimp:
+ * @action:
  * @file_procs:            The image types that can be chosen from
- *                         the drop down
+ *                         the file type list
  * @file_procs_all_images: The additional images types shown when
  *                         "All images" is selected
  *
  **/
 static void
-gimp_file_dialog_add_filters (GimpFileDialog *dialog,
-                              Gimp           *gimp,
-                              GSList         *file_procs,
-                              GSList         *file_procs_all_images)
+gimp_file_dialog_add_filters (GimpFileDialog        *dialog,
+                              Gimp                  *gimp,
+                              GimpFileChooserAction  action,
+                              GSList                *file_procs,
+                              GSList                *file_procs_all_images)
 {
   GtkFileFilter *all;
+  GtkFileFilter *all_savable = NULL;
   GSList        *list;
 
   all = gtk_file_filter_new ();
@@ -798,6 +806,16 @@ gimp_file_dialog_add_filters (GimpFileDialog *dialog,
   gtk_file_filter_set_name (all, _("All images"));
   gtk_file_chooser_add_filter (GTK_FILE_CHOOSER (dialog), all);
 
+  if (file_procs_all_images)
+    {
+      all_savable = gtk_file_filter_new ();
+      if (action == GIMP_FILE_CHOOSER_ACTION_SAVE)
+        gtk_file_filter_set_name (all_savable, _("All XCF images"));
+      else
+        gtk_file_filter_set_name (all_savable, _("All export images"));
+      gtk_file_chooser_add_filter (GTK_FILE_CHOOSER (dialog), all_savable);
+    }
+
   /* Add the normal file procs */
   for (list = file_procs; list; list = g_slist_next (list))
     {
@@ -806,7 +824,7 @@ gimp_file_dialog_add_filters (GimpFileDialog *dialog,
 
       gimp_file_dialog_process_procedure (file_proc,
                                           &filter,
-                                          all);
+                                          all, all_savable);
       if (filter)
         {
           gtk_file_chooser_add_filter (GTK_FILE_CHOOSER (dialog),
@@ -824,10 +842,13 @@ gimp_file_dialog_add_filters (GimpFileDialog *dialog,
 
       gimp_file_dialog_process_procedure (file_proc,
                                           NULL,
-                                          all);
+                                          all, NULL);
     }
 
-  gtk_file_chooser_set_filter (GTK_FILE_CHOOSER (dialog), all);
+  if (all_savable)
+    gtk_file_chooser_set_filter (GTK_FILE_CHOOSER (dialog), all_savable);
+  else
+    gtk_file_chooser_set_filter (GTK_FILE_CHOOSER (dialog), all);
 }
 
 
@@ -836,6 +857,7 @@ gimp_file_dialog_add_filters (GimpFileDialog *dialog,
  * @file_proc:
  * @filter_out:
  * @all:
+ * @all_savable:
  *
  * Creates a #GtkFileFilter of @file_proc and adds the extensions to
  * the @all filter. The returned #GtkFileFilter has a normal ref and
@@ -844,7 +866,8 @@ gimp_file_dialog_add_filters (GimpFileDialog *dialog,
 static void
 gimp_file_dialog_process_procedure (GimpPlugInProcedure  *file_proc,
                                     GtkFileFilter       **filter_out,
-                                    GtkFileFilter        *all)
+                                    GtkFileFilter        *all,
+                                    GtkFileFilter        *all_savable)
 {
   GtkFileFilter *filter = NULL;
   GString       *str    = NULL;
@@ -872,6 +895,8 @@ gimp_file_dialog_process_procedure (GimpPlugInProcedure  *file_proc,
       pattern = gimp_file_dialog_pattern_from_extension (extension);
       gtk_file_filter_add_pattern (filter, pattern);
       gtk_file_filter_add_pattern (all, pattern);
+      if (all_savable)
+        gtk_file_filter_add_pattern (all_savable, pattern);
       g_free (pattern);
 
       if (i == 0)

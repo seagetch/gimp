@@ -8,11 +8,11 @@ AC_PREREQ(2.54)
 
 m4_define([gimp_major_version], [2])
 m4_define([gimp_minor_version], [8])
-m4_define([gimp_micro_version], [1])
+m4_define([gimp_micro_version], [3])
 m4_define([gimp_real_version],
           [gimp_major_version.gimp_minor_version.gimp_micro_version])
 m4_define([gimp_version], [gimp_real_version])
-m4_define([gimp_interface_age], [1])
+m4_define([gimp_interface_age], [3])
 m4_define([gimp_binary_age],
           [m4_eval(100 * gimp_minor_version + gimp_micro_version)])
 
@@ -1158,7 +1158,7 @@ AC_SUBST(Z_LIBS)
 # Check for libbzip2
 ####################
 
-AC_ARG_WITH(gs,  [  --without-bzip2         build without bzip2 support])
+AC_ARG_WITH(bzip2,  [  --without-bzip2         build without bzip2 support])
 
 have_libbzip2=no
 if test "x$with_bzip2" != xno; then
@@ -1843,16 +1843,20 @@ AC_SUBST(SCREENSHOT)
 # Check for Mac OS X
 ####################
 
+platform_osx=no
 AC_MSG_CHECKING([if compiling for Mac OS X])
 case "$target_or_host" in
   *-*-darwin*)
      AC_MSG_RESULT(yes)
      AC_DEFINE(PLATFORM_OSX, 1, [define to 1 if compiling for Mac OS X])
+     platform_osx=yes
      ;;
   *)
      AC_MSG_RESULT(no)
      ;;
 esac
+
+AM_CONDITIONAL(PLATFORM_OSX, test "x$platform_osx" = xyes)
 
 
 ####################################

@@ -1044,6 +1044,9 @@ save_dialog (void)
   g_signal_connect (toggle, "toggled",
                     G_CALLBACK (gimp_toggle_button_update),
                     &jsvals.save_xmp);
+  g_signal_connect (toggle, "toggled",
+                    G_CALLBACK (make_preview),
+                    NULL);
 
   gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (toggle),
                                 jsvals.save_xmp && has_metadata);
@@ -1298,7 +1301,7 @@ load_defaults (void)
 
   tmpvals.subsmp = subsampling;
 
-  if (num_fields == 12)
+  if (num_fields == 13)
     memcpy (&jsvals, &tmpvals, sizeof (tmpvals));
 
   g_free (def_str);

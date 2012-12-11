@@ -329,6 +329,8 @@ gimp_device_manager_device_added (GdkDisplay        *gdk_display,
     {
       device_info = gimp_device_info_new (private->gimp, device, gdk_display);
 
+      gimp_device_info_set_default_tool (device_info);
+
       gimp_container_add (GIMP_CONTAINER (manager), GIMP_OBJECT (device_info));
       g_object_unref (device_info);
     }

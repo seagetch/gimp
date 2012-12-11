@@ -230,6 +230,7 @@ gimp_rectangle_select_tool_init (GimpRectangleSelectTool *rect_sel_tool)
                                      GIMP_CURSOR_PRECISION_PIXEL_BORDER);
   gimp_tool_control_set_tool_cursor (tool->control,
                                      GIMP_TOOL_CURSOR_RECT_SELECT);
+  gimp_tool_control_set_preserve    (tool->control, FALSE);
   gimp_tool_control_set_dirty_mask  (tool->control,
                                      GIMP_DIRTY_IMAGE_SIZE |
                                      GIMP_DIRTY_SELECTION);
@@ -422,11 +423,11 @@ gimp_rectangle_select_tool_button_press (GimpTool            *tool,
       if (undo && priv->undo == undo)
         {
           /* prevent this change from halting the tool */
-          gimp_tool_control_set_preserve (tool->control, TRUE);
+          gimp_tool_control_push_preserve (tool->control, TRUE);
 
           gimp_image_undo (image);
 
-          gimp_tool_control_set_preserve (tool->control, FALSE);
+          gimp_tool_control_pop_preserve (tool->control);
 
           /* we will need to redo if the user cancels or executes */
           priv->redo = gimp_undo_stack_peek (redo_stack);
@@ -478,12 +479,12 @@ gimp_rectangle_select_tool_button_release (GimpTool              *tool,
       if (redo && priv->redo == redo)
         {
           /* prevent this from halting the tool */
-          gimp_tool_control_set_preserve (tool->control, TRUE);
+          gimp_tool_control_push_preserve (tool->control, TRUE);
 
           gimp_image_redo (image);
           priv->redo = NULL;
 
-          gimp_tool_control_set_preserve (tool->control, FALSE);
+          gimp_tool_control_pop_preserve (tool->control);
         }
     }
 
@@ -495,11 +496,11 @@ gimp_rectangle_select_tool_button_release (GimpTool              *tool,
       if (priv->redo)
         {
           /* prevent this from halting the tool */
-          gimp_tool_control_set_preserve (tool->control, TRUE);
+          gimp_tool_control_push_preserve (tool->control, TRUE);
 
           gimp_image_redo (image);
 
-          gimp_tool_control_set_preserve (tool->control, FALSE);
+          gimp_tool_control_pop_preserve (tool->control);
         }
 
       priv->use_saved_op = TRUE;  /* is this correct? */
@@ -785,7 +786,7 @@ gimp_rectangle_select_tool_execute (GimpRectangleTool *rectangle,
           GimpChannelOps  operation;
 
           /* prevent this change from halting the tool */
-          gimp_tool_control_set_preserve (tool->control, TRUE);
+          gimp_tool_control_push_preserve (tool->control, TRUE);
 
           /* We can conceptually think of a click outside of the
            * selection as adding a 0px selection. Behave intuitivly
@@ -807,7 +808,7 @@ gimp_rectangle_select_tool_execute (GimpRectangleTool *rectangle,
               break;
             }
 
-          gimp_tool_control_set_preserve (tool->control, FALSE);
+          gimp_tool_control_pop_preserve (tool->control);
         }
     }
 
@@ -844,12 +845,12 @@ gimp_rectangle_select_tool_cancel (GimpRectangleTool *rectangle)
       if (undo && priv->undo == undo)
         {
           /* prevent this change from halting the tool */
-          gimp_tool_control_set_preserve (tool->control, TRUE);
+          gimp_tool_control_push_preserve (tool->control, TRUE);
 
           gimp_image_undo (image);
           gimp_image_flush (image);
 
-          gimp_tool_control_set_preserve (tool->control, FALSE);
+          gimp_tool_control_pop_preserve (tool->control);
         }
     }
 
@@ -871,7 +872,7 @@ gimp_rectangle_select_tool_rectangle_change_complete (GimpRectangleTool *rectang
   priv          = GIMP_RECTANGLE_SELECT_TOOL_GET_PRIVATE (rect_sel_tool);
 
   /* prevent change in selection from halting the tool */
-  gimp_tool_control_set_preserve (tool->control, TRUE);
+  gimp_tool_control_push_preserve (tool->control, TRUE);
 
   if (tool->display && ! gimp_tool_control_is_active (tool->control))
     {
@@ -920,7 +921,7 @@ gimp_rectangle_select_tool_rectangle_change_complete (GimpRectangleTool *rectang
       gimp_image_flush (image);
     }
 
-  gimp_tool_control_set_preserve (tool->control, FALSE);
+  gimp_tool_control_pop_preserve (tool->control);
 
   gimp_rectangle_select_tool_update_option_defaults (rect_sel_tool, FALSE);
 
