@@ -62,7 +62,7 @@ gimp_display_shell_transform_coords (const GimpDisplayShell *shell,
   display_coords->x -= shell->offset_x;
   display_coords->y -= shell->offset_y;
 
-  if (shell->rotate_angle != 0.0) {
+  if (shell->rotate_angle != 0.0 || shell->mirrored) {
     cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
     g_return_if_fail (cr != NULL);
 //    g_print("Transform:%4.1f,%4.1f->", display_coords->x, display_coords->y);
@@ -93,7 +93,7 @@ gimp_display_shell_untransform_coords (const GimpDisplayShell *shell,
 
   *image_coords = *display_coords;
 
-  if (shell->rotate_angle != 0.0) {
+  if (shell->rotate_angle != 0.0 || shell->mirrored) {
     cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
     g_return_if_fail (cr != NULL);
     gimp_display_shell_set_cairo_rotate (shell, cr);
@@ -138,7 +138,7 @@ gimp_display_shell_transform_xy (const GimpDisplayShell *shell,
   r_tx -= shell->offset_x;
   r_ty -= shell->offset_y;
 
-  if (shell->rotate_angle != 0.0) {
+  if (shell->rotate_angle != 0.0 || shell->mirrored) {
     cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
     g_return_if_fail (cr != NULL);
 //    g_print("Transform xy:%4.1f,%4.1f->", r_tx, r_ty);
@@ -183,7 +183,7 @@ gimp_display_shell_untransform_xy (const GimpDisplayShell *shell,
   g_return_if_fail (nx != NULL);
   g_return_if_fail (ny != NULL);
 
-  if (shell->rotate_angle != 0.0) {
+  if (shell->rotate_angle != 0.0 || shell->mirrored) {
     gdouble xx, yy;
     cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
     g_return_if_fail (cr != NULL);
@@ -237,7 +237,7 @@ gimp_display_shell_transform_xy_f  (const GimpDisplayShell *shell,
   *nx = SCALEX (shell, x) - shell->offset_x;
   *ny = SCALEY (shell, y) - shell->offset_y;
 
-  if (shell->rotate_angle != 0.0) {
+  if (shell->rotate_angle != 0.0 || shell->mirrored) {
     cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
     g_return_if_fail (cr != NULL);
 //    g_print("Transform xy_f:%4.1f,%4.1f->", *nx, *ny);
@@ -272,7 +272,7 @@ gimp_display_shell_untransform_xy_f (const GimpDisplayShell *shell,
   g_return_if_fail (nx != NULL);
   g_return_if_fail (ny != NULL);
 
-  if (shell->rotate_angle != 0.0) {
+  if (shell->rotate_angle != 0.0 || shell->mirrored) {
     cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
     gimp_display_shell_set_cairo_rotate (shell, cr);
     cairo_device_to_user(cr, &x, &y);

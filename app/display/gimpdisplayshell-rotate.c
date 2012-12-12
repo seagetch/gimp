@@ -55,6 +55,8 @@ gimp_display_shell_set_cairo_rotate (const GimpDisplayShell *shell,
 
   cairo_translate (cr, cx, cy);
   cairo_rotate (cr, shell->rotate_angle / 180.0 * M_PI);
+  if (shell->mirrored)
+    cairo_scale(cr, -1, 1);
   cairo_translate (cr, -cx, -cy);
 }
 
@@ -72,7 +74,7 @@ gimp_display_shell_get_device_bouding_box_for_image_coords
   g_return_if_fail (shell != NULL);
   g_return_if_fail (cr != NULL);
   
-  if (shell->rotate_angle == 0.0)
+  if (shell->rotate_angle == 0.0 && !shell->mirrored)
     return;
 
   cairo_save(cr);
@@ -118,7 +120,7 @@ gimp_display_shell_get_image_bouding_box_for_device_coords
   g_return_if_fail (shell != NULL);
   g_return_if_fail (cr != NULL);
   
-  if (shell->rotate_angle == 0.0)
+  if (shell->rotate_angle == 0.0 && !shell->mirrored)
     return;
 
   cairo_save(cr);
@@ -204,7 +206,7 @@ gimp_display_shell_image_to_device_coords (const GimpDisplayShell *shell,
                                            gdouble          *x,
                                            gdouble          *y)
 {
-  if (shell->rotate_angle != 0.0) {
+  if (shell->rotate_angle != 0.0 || shell->mirrored) {
     cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
     g_return_if_fail (cr != NULL);
     gimp_display_shell_set_cairo_rotate (shell, cr);
@@ -219,7 +221,7 @@ gimp_display_shell_device_to_image_coords (const GimpDisplayShell *shell,
                                            gdouble          *x,
                                            gdouble          *y)
 {
-  if (shell->rotate_angle != 0.0) {
+  if (shell->rotate_angle != 0.0 || shell->mirrored) {
     cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
     g_return_if_fail (cr != NULL);
     gimp_display_shell_set_cairo_rotate (shell, cr);

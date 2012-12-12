@@ -224,6 +224,7 @@ static GtkWidget *
 
 static void    gimp_image_window_rotate_left_clicked (GtkWidget* widget, GimpImageWindow *window);
 static void    gimp_image_window_rotate_right_clicked (GtkWidget* widget, GimpImageWindow *window);
+static void    gimp_image_window_flip_side_clicked (GtkWidget* widget, GimpImageWindow *window);
 
 
 G_DEFINE_TYPE_WITH_CODE (GimpImageWindow, gimp_image_window, GIMP_TYPE_WINDOW,
@@ -384,6 +385,13 @@ gimp_image_window_constructed (GObject *object)
   gtk_box_pack_start (GTK_BOX (hbox), private->toolbar,
                       TRUE, TRUE, 0);
   gtk_widget_set_visible (private->toolbar, config->single_window_mode);
+
+  /* Temporary: right side left buttons */
+  widget = gtk_button_new_with_label ("<->");
+  gtk_widget_show (widget);
+  g_signal_connect(widget, "clicked", G_CALLBACK(gimp_image_window_flip_side_clicked), window);
+  gtk_box_pack_end (GTK_BOX (hbox), widget,
+                      FALSE, TRUE, 0);
 
   /* Temporary: rotate buttons */
   widget = gtk_button_new_with_label(">");
@@ -1990,5 +1998,14 @@ gimp_image_window_rotate_right_clicked (GtkWidget* widget,
 {
   GimpDisplayShell *shell  = gimp_image_window_get_active_shell (window);
   shell->rotate_angle = fmod(shell->rotate_angle+10, 360);
+  gtk_widget_queue_draw(GTK_WIDGET(shell));
+}
+
+static void
+gimp_image_window_flip_side_clicked (GtkWidget* widget, 
+                                     GimpImageWindow *window)
+{
+  GimpDisplayShell *shell  = gimp_image_window_get_active_shell (window);
+  shell->mirrored = !shell->mirrored;
   gtk_widget_queue_draw(GTK_WIDGET(shell));
 }

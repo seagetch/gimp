@@ -191,6 +191,8 @@ struct _GimpDisplayShell
   gboolean           rotating;
   gdouble            rotate_start_angle;
 
+  gboolean           mirrored;
+
   GimpDrawable      *mask;
   GimpRGB            mask_color;
 
@@ -206,6 +208,8 @@ struct _GimpDisplayShellClass
   void (* scaled)    (GimpDisplayShell *shell);
   void (* scrolled)  (GimpDisplayShell *shell);
   void (* reconnect) (GimpDisplayShell *shell);
+  void (* rotated)   (GimpDisplayShell *shell);
+  void (* mirrored)  (GimpDisplayShell *shell);
 };
 
 
@@ -248,6 +252,8 @@ void              gimp_display_shell_scale_changed (GimpDisplayShell   *shell);
 
 void              gimp_display_shell_scaled        (GimpDisplayShell   *shell);
 void              gimp_display_shell_scrolled      (GimpDisplayShell   *shell);
+void              gimp_display_shell_rotated       (GimpDisplayShell   *shell);
+void              gimp_display_shell_mirrored      (GimpDisplayShell   *shell);
 
 void              gimp_display_shell_set_unit      (GimpDisplayShell   *shell,
                                                     GimpUnit            unit);

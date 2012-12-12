@@ -98,6 +98,8 @@ enum
   SCALED,
   SCROLLED,
   RECONNECT,
+  ROTATED,
+  MIRRORED,
   LAST_SIGNAL
 };
 
@@ -214,6 +216,24 @@ gimp_display_shell_class_init (GimpDisplayShellClass *klass)
                   gimp_marshal_VOID__VOID,
                   G_TYPE_NONE, 0);
 
+  display_shell_signals[ROTATED] =
+    g_signal_new ("rotated",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_FIRST,
+                  G_STRUCT_OFFSET (GimpDisplayShellClass, rotated),
+                  NULL, NULL,
+                  gimp_marshal_VOID__VOID,
+                  G_TYPE_NONE, 0);
+
+  display_shell_signals[MIRRORED] =
+    g_signal_new ("mirrored",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_FIRST,
+                  G_STRUCT_OFFSET (GimpDisplayShellClass, mirrored),
+                  NULL, NULL,
+                  gimp_marshal_VOID__VOID,
+                  G_TYPE_NONE, 0);
+
   object_class->constructed        = gimp_display_shell_constructed;
   object_class->dispose            = gimp_display_shell_dispose;
   object_class->finalize           = gimp_display_shell_finalize;
@@ -227,6 +247,8 @@ gimp_display_shell_class_init (GimpDisplayShellClass *klass)
   klass->scaled                    = gimp_display_shell_real_scaled;
   klass->scrolled                  = NULL;
   klass->reconnect                 = NULL;
+  klass->rotated                   = NULL;
+  klass->mirrored                  = NULL;
 
   g_object_class_install_property (object_class, PROP_POPUP_MANAGER,
                                    g_param_spec_object ("popup-manager",
@@ -291,6 +313,8 @@ gimp_display_shell_init (GimpDisplayShell *shell)
   shell->x_src_dec   = 1;
   shell->y_src_dec   = 1;
   shell->rotate_angle = 0;
+
+  shell->mirrored    = FALSE;
 
   shell->render_surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
                                                       GIMP_DISPLAY_RENDER_BUF_WIDTH,
@@ -1480,6 +1504,48 @@ gimp_display_shell_scrolled (GimpDisplayShell *shell)
     }
 
   g_signal_emit (shell, display_shell_signals[SCROLLED], 0);
+}
+
+void
+gimp_display_shell_rotated (GimpDisplayShell *shell)
+{
+  GList *list;
+
+  g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
+
+  for (list = shell->children; list; list = g_list_next (list))
+    {
+      GtkWidget *child = list->data;
+      gdouble    x, y;
+
+      gimp_display_shell_transform_overlay (shell, child, &x, &y);
+
+      gimp_overlay_box_set_child_position (GIMP_OVERLAY_BOX (shell->canvas),
+                                           child, x, y);
+    }
+
+  g_signal_emit (shell, display_shell_signals[ROTATED], 0);
+}
+
+void
+gimp_display_shell_mirrored (GimpDisplayShell *shell)
+{
+  GList *list;
+
+  g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
+
+  for (list = shell->children; list; list = g_list_next (list))
+    {
+      GtkWidget *child = list->data;
+      gdouble    x, y;
+
+      gimp_display_shell_transform_overlay (shell, child, &x, &y);
+
+      gimp_overlay_box_set_child_position (GIMP_OVERLAY_BOX (shell->canvas),
+                                           child, x, y);
+    }
+
+  g_signal_emit (shell, display_shell_signals[MIRRORED], 0);
 }
 
 void
