@@ -1486,6 +1486,9 @@ gimp_display_shell_start_rotating (GimpDisplayShell *shell,
   rx = x - cx;
   ry = y - cy;
 
+  if (shell->mirrored)
+    rx = -rx;
+
   shell->rotate_start_angle = shell->rotate_angle + 
     fmod(atan2(rx, ry) / M_PI * 180.0 + 360.0, 360.0); 
 
@@ -1507,6 +1510,9 @@ gimp_display_shell_rotate        (GimpDisplayShell *shell,
   cy = shell->disp_height / 2;
   rx = x - cx;
   ry = y - cy;
+
+  if (shell->mirrored)
+    rx = -rx;
 
   angle               = shell->rotate_start_angle - 
                         fmod(atan2(rx, ry) / M_PI * 180.0 + 360.0, 360.0);

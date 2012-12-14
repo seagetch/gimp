@@ -54,9 +54,9 @@ gimp_display_shell_set_cairo_rotate (const GimpDisplayShell *shell,
   cy = shell->disp_height / 2;
 
   cairo_translate (cr, cx, cy);
-  cairo_rotate (cr, shell->rotate_angle / 180.0 * M_PI);
   if (shell->mirrored)
     cairo_scale(cr, -1, 1);
+  cairo_rotate (cr, shell->rotate_angle / 180.0 * M_PI);
   cairo_translate (cr, -cx, -cy);
 }
 
