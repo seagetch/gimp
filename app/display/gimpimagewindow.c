@@ -56,6 +56,7 @@
 #include "gimpdisplayshell-appearance.h"
 #include "gimpdisplayshell-close.h"
 #include "gimpdisplayshell-scroll.h"
+#include "gimpdisplayshell-scale.h"
 #include "gimpdisplayshell-tool-events.h"
 #include "gimpdisplayshell-transform.h"
 #include "gimpimagewindow.h"
@@ -225,6 +226,7 @@ static GtkWidget *
 static void    gimp_image_window_rotate_left_clicked (GtkWidget* widget, GimpImageWindow *window);
 static void    gimp_image_window_rotate_right_clicked (GtkWidget* widget, GimpImageWindow *window);
 static void    gimp_image_window_flip_side_clicked (GtkWidget* widget, GimpImageWindow *window);
+static void    gimp_image_window_reset_view_clicked (GtkWidget* widget, GimpImageWindow *window);
 
 
 G_DEFINE_TYPE_WITH_CODE (GimpImageWindow, gimp_image_window, GIMP_TYPE_WINDOW,
@@ -397,6 +399,13 @@ gimp_image_window_constructed (GObject *object)
   widget = gtk_button_new_with_label(">");
   gtk_widget_show (widget);
   g_signal_connect(widget, "clicked", G_CALLBACK(gimp_image_window_rotate_right_clicked), window);
+  gtk_box_pack_end (GTK_BOX (hbox), widget,
+                      FALSE, TRUE, 0);
+
+  widget = gtk_button_new_from_stock(GTK_STOCK_ZOOM_100);
+  gtk_widget_show (widget);
+  gtk_button_set_relief (GTK_BUTTON (widget), GTK_RELIEF_NONE);
+  g_signal_connect(widget, "clicked", G_CALLBACK(gimp_image_window_reset_view_clicked), window);
   gtk_box_pack_end (GTK_BOX (hbox), widget,
                       FALSE, TRUE, 0);
 
@@ -2007,5 +2016,16 @@ gimp_image_window_flip_side_clicked (GtkWidget* widget,
 {
   GimpDisplayShell *shell  = gimp_image_window_get_active_shell (window);
   shell->mirrored = !shell->mirrored;
+  gtk_widget_queue_draw(GTK_WIDGET(shell));
+}
+
+static void
+gimp_image_window_reset_view_clicked (GtkWidget* widget, 
+                                     GimpImageWindow *window)
+{
+  GimpDisplayShell *shell  = gimp_image_window_get_active_shell (window);
+  shell->mirrored = FALSE;
+  shell->rotate_angle = 0;
+  gimp_display_shell_scale(shell, GIMP_ZOOM_TO, 1.0, GIMP_ZOOM_FOCUS_BEST_GUESS);
   gtk_widget_queue_draw(GTK_WIDGET(shell));
 }

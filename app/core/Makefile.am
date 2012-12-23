@@ -395,9 +395,9 @@ libappcore_a_sources = \
 	gimpundostack.h				\
 	gimpviewable.c				\
 	gimpviewable.h				\
-	gimpmypaintbrush-private.hpp				\
-	gimpmypaintbrush-save.cpp				\
-	gimpmypaintbrush-save.h
+	gimpmypaintbrush-private.hpp		\
+	gimpmypaintbrush-save.cpp		\
+	gimpmypaintbrush-save.h	
 
 libappcore_a_built_sources = \
 	core-enums.c	\

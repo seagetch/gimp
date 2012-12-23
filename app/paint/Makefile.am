@@ -69,6 +69,8 @@ libapppaint_a_sources = \
 	gimppaintoptions.h		\
 	gimpmypaintoptions.cpp		\
 	gimpmypaintoptions.h		\
+	gimpmypaintoptions-history.cpp	\
+	gimpmypaintoptions-history.hpp	\
 	mypaintbrush-brush.hpp		\
 	mypaintbrush-surface.hpp		\
 	mypaintbrush-stroke.hpp		\

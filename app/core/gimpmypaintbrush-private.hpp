@@ -23,6 +23,7 @@ class GimpMypaintBrushPrivate {
   bool   switches[BRUSH_BOOL_COUNT];
   gchar* text[BRUSH_TEXT_COUNT];
   cairo_surface_t *icon_image;
+  bool dirty;
 
   public:
   GimpMypaintBrushPrivate();
@@ -41,10 +42,13 @@ class GimpMypaintBrushPrivate {
   void  set_parent_brush_name(char *name);
   char* get_group();
   void  set_group(char *name);
-	void get_new_preview(guchar* dest, int width, int height, int bytes, int stride);
-	void set_icon_image(cairo_surface_t* image);
-	cairo_surface_t* get_icon_image();
-	GimpMypaintBrushPrivate* duplicate();
+  void get_new_preview(guchar* dest, int width, int height, int bytes, int stride);
+  void set_icon_image(cairo_surface_t* image);
+  cairo_surface_t* get_icon_image();
+  GimpMypaintBrushPrivate* duplicate();
+  void clear_dirty_flag() { dirty = false; g_print("MypaintBrush:clear_dirty_flag\n");};
+  void mark_as_dirty() { dirty = true; g_print("MypaintBrush:mark_as_dirty\n"); }
+  bool is_dirty() { return dirty; };
 };
 
 void destroy_gimp_mypaint_brush_private(gpointer data);

@@ -342,7 +342,7 @@ private:
     inputs[INPUT_SPEED2] = log(speed_mapping_gamma[1] + states[STATE_NORM_SPEED2_SLOW])*speed_mapping_m[1] + speed_mapping_q[1];
     inputs[INPUT_RANDOM] = g_rand_double (rng);
     inputs[INPUT_STROKE] = MIN(states[STATE_STROKE], 1.0);
-    inputs[INPUT_DIRECTION] = fmodf (atan2f (states[STATE_DIRECTION_DY], states[STATE_DIRECTION_DX])/(2*M_PI)*360.0 + 360, 360.0);
+    inputs[INPUT_DIRECTION] = fmodf (atan2f (states[STATE_DIRECTION_DY], states[STATE_DIRECTION_DX])/M_PI*180.0 + 360, 360.0);
     inputs[INPUT_TILT_DECLINATION] = states[STATE_DECLINATION];
     inputs[INPUT_TILT_ASCENSION] = states[STATE_ASCENSION];
     inputs[INPUT_CUSTOM] = states[STATE_CUSTOM_INPUT];

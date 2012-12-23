@@ -73,12 +73,13 @@ extern "C" {
 #include "gimpsmudgetool.h"
 #include "gimptooloptions-gui.h"
 #include "gimpmypaintbrushoptions-gui.h"
-};
+}; // extern "C"
 
 #include "gimptooloptions-gui-cxx.hpp"
 #include "base/delegators.hpp"
 #include "base/scopeguard.hpp"
 #include "base/glib-cxx-utils.hpp"
+#include "paint/gimpmypaintoptions-history.hpp"
 
 #include "gimp-intl.h"
 
@@ -100,8 +101,8 @@ protected:
 
   public:
     MypaintOptionsPropertyGUIPrivate(GimpMypaintOptions* opts,
-				     GHashTable* dict,
-				     const gchar* name) 
+                                     GHashTable* dict,
+                                     const gchar* name) 
     {
       StringHolder name_replaced(mypaint_brush_signal_name_to_internal_name(name));
 
@@ -121,7 +122,7 @@ protected:
         g_free(property_name);
 
       if (internal_name)
-	      g_free(internal_name);
+        g_free(internal_name);
       
 /*
       if (widget && value_changed_closure) {
@@ -155,8 +156,8 @@ protected:
                                           range / 1000.0, range / 100.0, 2);
       g_object_add_weak_pointer(G_OBJECT(widget), (void**)&widget);
       gimp_spin_scale_set_scale_limits (GIMP_SPIN_SCALE (widget), 
-					setting->minimum, 
-					setting->maximum);
+                                        setting->minimum, 
+                                        setting->maximum);
 
 /*      value_changed_closure = 
         g_signal_connect_delegator(G_OBJECT(widget),
@@ -618,7 +619,7 @@ private:
         for (int j = count; j > 0; j --) {
           if (points[j].x < points[j-1].x) {
             tmp = points[j];
-            points[j] = points[j-1];
+            points[j]   = points[j-1];
             points[j-1] = tmp;
           }
         };
@@ -1124,7 +1125,7 @@ MypaintDetailOptionsPopupPrivate::create (GObject* object,
   
 
   brush_changed_handler = 
-		g_signal_connect_delegator (G_OBJECT(context),
+    g_signal_connect_delegator (G_OBJECT(context),
                                 gimp_context_type_to_signal_name (GIMP_TYPE_BRUSH),
                                 Delegator::delegator(this, &MypaintDetailOptionsPopupPrivate::brush_changed));
 

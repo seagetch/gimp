@@ -123,7 +123,7 @@ gimp_mypaint_brush_class_init (GimpMypaintBrushClass *klass)
 
   klass->begin_use                 = gimp_mypaint_brush_real_begin_use;
   klass->end_use                   = gimp_mypaint_brush_real_end_use;
-  klass->select_mypaint_brush              = gimp_mypaint_brush_real_select_mypaint_brush;
+  klass->select_mypaint_brush      = gimp_mypaint_brush_real_select_mypaint_brush;
   klass->want_null_motion          = gimp_mypaint_brush_real_want_null_motion;
 }
 
@@ -223,13 +223,13 @@ gimp_mypaint_brush_get_new_preview (GimpViewable *viewable,
   TempBuf       *return_buf  = NULL;
   guchar transp[4]   = { 0, 0, 0, 0 };
 
-	return_buf = temp_buf_new (width, height, 4, 0, 0, transp);
+  return_buf = temp_buf_new (width, height, 4, 0, 0, transp);
   guchar *dest_buf   = temp_buf_get_data (return_buf);
 
   gimp_mypaint_brush_begin_use (mypaint_brush);
 
   priv->get_new_preview(dest_buf, width, height, 4, 4 * width);
-		
+
   gimp_mypaint_brush_end_use (mypaint_brush);
 
   return return_buf;
@@ -437,7 +437,7 @@ gimp_mypaint_brush_want_null_motion (GimpMypaintBrush        *mypaint_brush,
 GimpMypaintBrushPrivate::GimpMypaintBrushPrivate() {
   parent_brush_name = g_strdup("");
   group = g_strdup("");
-	icon_image = NULL;
+  icon_image = NULL;
   for (int i = 0; i < BRUSH_MAPPING_COUNT; i ++) {
     settings[i].base_value = 0;
     settings[i].mapping    = NULL;
@@ -445,6 +445,7 @@ GimpMypaintBrushPrivate::GimpMypaintBrushPrivate() {
   for (int i = 0; i < BRUSH_BOOL_COUNT; i ++) {
     switches[i] = FALSE;
   }
+  dirty = false;
 }
 
 GimpMypaintBrushPrivate::~GimpMypaintBrushPrivate() {
@@ -475,6 +476,7 @@ GimpMypaintBrushPrivate::set_base_value (int index, float value) {
   if (settings[index].mapping)
     settings[index].mapping->base_value = value;
   */
+  mark_as_dirty();
 }
 
 float
@@ -491,6 +493,7 @@ GimpMypaintBrushPrivate::allocate_mapping (int index) {
   g_assert (index >= 0 && index < BRUSH_MAPPING_COUNT);
   if (!settings[index].mapping) {
     settings[index].mapping = new Mapping(INPUT_COUNT);
+    mark_as_dirty();
   }
 }
 
@@ -499,6 +502,7 @@ GimpMypaintBrushPrivate::deallocate_mapping (int index) {
   g_assert (index >= 0 && index < BRUSH_MAPPING_COUNT);
   if (settings[index].mapping) {
     delete settings[index].mapping;
+    mark_as_dirty();
     settings[index].mapping = NULL;
   }
 }
@@ -514,6 +518,7 @@ GimpMypaintBrushPrivate::set_parent_brush_name(char *name) {
   if (parent_brush_name)
     g_free (parent_brush_name);
   parent_brush_name = g_strdup(name);
+  mark_as_dirty();
 }
 
 char* 
@@ -527,6 +532,7 @@ GimpMypaintBrushPrivate::set_group(char *name) {
   if (group)
     g_free (group);
   group = g_strdup(name);
+  mark_as_dirty();
 }
 
 void 
@@ -534,6 +540,7 @@ GimpMypaintBrushPrivate::set_bool_value (int index, bool value) {
   index -= BRUSH_BOOL_BASE;
   g_assert (index >= 0 && index < BRUSH_BOOL_COUNT);
   switches[index] = value;
+  mark_as_dirty();
 }
 
 bool
@@ -575,7 +582,7 @@ GimpMypaintBrushPrivate::get_new_preview(guchar* dest_buf,
     {
       for (x = 0; x < width; x ++)
         {
-				  // Following code may be dependent on the endian.
+          // Following code may be dependent on the endian.
           dest_buf[x * 4    ] = source_buf[x * 4 + 2];
           dest_buf[x * 4 + 1] = source_buf[x * 4 + 1];
           dest_buf[x * 4 + 2] = source_buf[x * 4 + 0];
@@ -602,6 +609,7 @@ GimpMypaintBrushPrivate::set_icon_image(cairo_surface_t* image) {
     guchar         *data = g_new(guchar, buf_size);
     memcpy(data, src_data, buf_size);
     icon_image = cairo_image_surface_create_for_data(data, format, width, height,stride);
+    mark_as_dirty();
   }
 }
 
@@ -612,9 +620,9 @@ GimpMypaintBrushPrivate::get_icon_image() {
 
 GimpMypaintBrushPrivate*
 GimpMypaintBrushPrivate::duplicate() {
-	GimpMypaintBrushPrivate* priv = new GimpMypaintBrushPrivate();
+  GimpMypaintBrushPrivate* priv = new GimpMypaintBrushPrivate();
   priv->set_parent_brush_name(parent_brush_name);
-	priv->set_group(group);
+  priv->set_group(group);
   for (int i = 0; i < BRUSH_MAPPING_COUNT; i ++) {
     priv->settings[i].base_value = settings[i].base_value;
     if (settings[i].mapping) {
@@ -625,6 +633,6 @@ GimpMypaintBrushPrivate::duplicate() {
   for (int i = 0; i < BRUSH_BOOL_COUNT; i ++) {
     priv->switches[i] = switches[i];
   }
-	priv->set_icon_image(icon_image);
+  priv->set_icon_image(icon_image);
   return priv;
 }

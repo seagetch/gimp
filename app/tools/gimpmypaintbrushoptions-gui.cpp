@@ -51,22 +51,24 @@ extern "C" {
 };
 #include "gimptooloptions-gui-cxx.hpp"
 #include "base/delegators.hpp"
-
+#include "core/gimpmypaintbrush-private.hpp"
+#include "paint/gimpmypaintoptions-history.hpp"
 
 
 class MypaintPopupPrivate {
   static const int MYPAINT_BRUSH_VIEW_SIZE = 256;
+  static const int HISTORY_PREVIEW_SIZE = 24;
 
   GimpContainer*         container;
   GimpContext*           context;
+  GtkListStore*          store;
   Delegator::Connection* brush_changed_handler;
   
 public:
   MypaintPopupPrivate(GimpContainer* ctn, GimpContext* ctx) {
     container = ctn;
     context   = ctx;
-		
-		brush_changed_handler = NULL;
+    brush_changed_handler = NULL;
   }
   
   ~MypaintPopupPrivate();
@@ -74,8 +76,10 @@ public:
               GtkWidget **result);
   void destroy(GObject* object);
   void update_brush (GObject *adjustment);
+  void update_history ();
   void notify_brush (GObject *brush, GParamSpec *pspec);
   void brush_changed (GObject *object, GimpData *brush_data);
+  void history_cursor_changed (GObject *object);
 
 };
 
@@ -112,44 +116,37 @@ MypaintPopupPrivate::notify_brush (GObject* object,
 
   if (! strcmp (pspec->name, "shape"))
     {
-    /*
-      g_signal_handlers_block_by_func (p->shape_group,
-                                       update_brush_shape,
-                                       p);
-
-      gimp_int_radio_group_set_active (GTK_RADIO_BUTTON (p->shape_group),
-                                       brush->shape);
-
-      g_signal_handlers_unblock_by_func (p->shape_group,
-                                         update_brush_shape,
-                                         p);
-    */
-/*
-      adj   = editor->radius_data;
-      value = brush->radius;
-*/
     }
   else
     {
-    /*
-      adj = g_hash_table_lookup (p->adj_hash, pspec->name);
-      g_return_if_fail (adj != NULL);
-
-      if (strcmp (pspec->name , "spikes") == 0)
-        {
-          g_object_get (G_OBJECT (brush), pspec->name, &i_value, NULL);
-          d_value = i_value;
-        }
-      else
-        {
-          g_object_get (G_OBJECT (brush), pspec->name, &d_value, NULL);
-        }
-
-      g_signal_handlers_block_by_func (adj, update_brush, p);
-      gtk_adjustment_set_value (adj, d_value);
-      g_signal_handlers_unblock_by_func (adj, update_brush, p);
-    */
     }
+}
+
+void
+MypaintPopupPrivate::update_history ()
+{
+  GimpMypaintOptionsHistory* history = GimpMypaintOptionsHistory::get_singleton();
+  int history_size = history->get_brush_history_size();
+  gtk_list_store_clear(store);
+  for (int i = 0; i < history_size; i ++) {
+    GtkTreeIter iter;
+    GimpMypaintBrush* brush = history->get_brush(i);
+    if (brush) {
+      gchar* name;
+      g_object_get(G_OBJECT(brush), "name", &name, NULL);
+      g_print("%d: brush %s\n", i, name);
+      GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(brush->p);
+      gtk_list_store_append(store, &iter);
+      if (context) {
+        GdkPixbuf* pixbuf = gimp_viewable_get_new_pixbuf(GIMP_VIEWABLE(brush), 
+                                                         context, 
+                                                         HISTORY_PREVIEW_SIZE, 
+                                                         HISTORY_PREVIEW_SIZE);
+        gtk_list_store_set(store, &iter, 0, pixbuf, -1);
+      }
+      gtk_list_store_set(store, &iter, 1, name, 2, brush, -1);
+    }
+  }
 }
 
 void
@@ -162,52 +159,22 @@ MypaintPopupPrivate::brush_changed (GObject*  object,
   gdouble                  angle        = 0.0;
   gboolean                 editable     = false;
 
+  update_history();
   g_print("brush changed\n");
+}
 
-/*
-  if (brush) // BUG: old brush must be used, but "brush" is new brush object ...
-    g_signal_handlers_disconnect_by_func (brush, notify_brush, p);
-*/
-
-/*
-  if (brush)
-    g_signal_connect (brush, "notify",
-                      G_CALLBACK (notify_brush),
-                      p);
-*/
-/*    
-  if (brush_data && GIMP_IS_BRUSH_GENERATED (brush_data))
-    {
-      GimpBrushGenerated *brush_generated = GIMP_BRUSH_GENERATED (brush);
-
-      shape    = gimp_brush_generated_get_shape        (brush_generated);
-      radius   = gimp_brush_generated_get_radius       (brush_generated);
-      spikes   = gimp_brush_generated_get_spikes       (brush_generated);
-      hardness = gimp_brush_generated_get_hardness     (brush_generated);
-      ratio    = gimp_brush_generated_get_aspect_ratio (brush_generated);
-      angle    = gimp_brush_generated_get_angle        (brush_generated);
-    }
-
-  spacing  = gimp_brush_get_spacing                (GIMP_BRUSH (brush));
-
-  editable = brush_data && gimp_data_is_writable (brush_data);
-  gtk_widget_set_sensitive (p->brush_frame, editable);
-
-  gimp_int_radio_group_set_active (GTK_RADIO_BUTTON (p->shape_group),
-                                   shape);
-  gtk_adjustment_set_value (GTK_ADJUSTMENT (g_hash_table_lookup (p->adj_hash, "radius")), radius);
-  gtk_adjustment_set_value (GTK_ADJUSTMENT (g_hash_table_lookup (p->adj_hash, "spikes")), spikes);
-  gtk_adjustment_set_value (GTK_ADJUSTMENT (g_hash_table_lookup (p->adj_hash, "hardness")), hardness);
-  gtk_adjustment_set_value (GTK_ADJUSTMENT (g_hash_table_lookup (p->adj_hash, "aspect-ratio")), ratio);
-  gtk_adjustment_set_value (GTK_ADJUSTMENT (g_hash_table_lookup (p->adj_hash, "angle")),        angle);
-  gtk_adjustment_set_value (GTK_ADJUSTMENT (g_hash_table_lookup (p->adj_hash, "spacing")),      spacing);
-
-  if (brush && context)
-    {
-      gdouble value = MAX (brush->mask->width, brush->mask->height);
-      g_object_set (context, "brush-size", value, NULL);
-    }
-*/
+void
+MypaintPopupPrivate::history_cursor_changed (GObject*  object)
+{
+  GtkTreeSelection* selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(object));
+  GtkTreeModel* model;
+  GtkTreeIter   iter;
+  if (gtk_tree_selection_get_selected(selection, &model, &iter)) {
+    GimpMypaintBrush* brush = NULL;
+    gtk_tree_model_get(model, &iter, 2, &brush, -1);
+    if (brush)
+      gimp_context_set_mypaint_brush(context, brush);
+  }
 }
 
 MypaintPopupPrivate::~MypaintPopupPrivate ()
@@ -242,6 +209,7 @@ MypaintPopupPrivate::create (GObject* object,
   GtkWidget                     *box;
   GtkWidget                     *table;
   GtkWidget                     *frame2;
+  GtkWidget                     *history;
   GimpViewType                   view_type = GIMP_VIEW_TYPE_GRID;
   GimpViewSize                   view_size = GIMP_VIEW_SIZE_LARGE;
   gint                           view_border_width = 1;
@@ -253,7 +221,7 @@ MypaintPopupPrivate::create (GObject* object,
   container = gimp_data_factory_get_container (context->gimp->mypaint_brush_factory);
   brush     = gimp_context_get_mypaint_brush (context);
 
-	g_object_ref(G_OBJECT(container));
+  g_object_ref(G_OBJECT(container));
   
   g_return_if_fail (GIMP_IS_CONTAINER (container));
   g_return_if_fail (GIMP_IS_CONTEXT (context));
@@ -262,7 +230,7 @@ MypaintPopupPrivate::create (GObject* object,
   g_return_if_fail (view_border_width >= 0 &&
                     view_border_width <= GIMP_VIEW_MAX_BORDER_WIDTH);
 
-  *result    = gtk_hbox_new (FALSE, 1);
+  *result    = gtk_notebook_new ();
   gtk_widget_show (*result);
   
   editor = GIMP_CONTAINER_EDITOR (
@@ -282,12 +250,34 @@ MypaintPopupPrivate::create (GObject* object,
                                        10 * (default_view_size +
                                              2 * view_border_width));
 
-  gtk_box_pack_start (GTK_BOX (*result), GTK_WIDGET (editor), TRUE, TRUE, 0);      
+  gtk_notebook_insert_page (GTK_NOTEBOOK (*result), GTK_WIDGET (editor), 
+                            gtk_label_new(_("Preset")),0);
   gtk_widget_show (GTK_WIDGET (editor));
+
+  // Custom brush history view.
+  GtkTreeViewColumn* column;
+  store   = gtk_list_store_new(3, GDK_TYPE_PIXBUF, G_TYPE_STRING, GIMP_TYPE_MYPAINT_BRUSH);
+  history = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+  GtkCellRenderer* renderer;
+  renderer = gtk_cell_renderer_pixbuf_new();
+  column = gtk_tree_view_column_new_with_attributes("Icon", renderer, "pixbuf", 0, NULL);
+  gtk_tree_view_append_column(GTK_TREE_VIEW(history), column);
+
+  renderer = gtk_cell_renderer_text_new();
+  column = gtk_tree_view_column_new_with_attributes("Name", renderer, "text", 1, NULL);
+  gtk_tree_view_append_column(GTK_TREE_VIEW(history), column);
+
+  g_signal_connect_delegator(G_OBJECT(history), "cursor-changed",
+                             Delegator::delegator(this, &MypaintPopupPrivate::history_cursor_changed));
+
+  gtk_widget_show (GTK_WIDGET (history));
+  gtk_notebook_insert_page (GTK_NOTEBOOK (*result), GTK_WIDGET (history), 
+                            gtk_label_new(_("Custom")),1);
+
   
 
   brush_changed_handler = 
-		g_signal_connect_delegator (G_OBJECT(context),
+    g_signal_connect_delegator (G_OBJECT(context),
                                 gimp_context_type_to_signal_name (GIMP_TYPE_MYPAINT_BRUSH),
                                 Delegator::delegator(this, &MypaintPopupPrivate::brush_changed));
 
