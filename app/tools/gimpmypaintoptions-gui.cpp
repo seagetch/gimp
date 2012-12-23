@@ -321,7 +321,7 @@ MypaintOptionsGUIPrivate::create ()
   gtk_widget_show (table);
 
   /*  the opacity scale  */
-  scale = gimp_prop_opacity_spin_scale_new (config, "opacity",
+  scale = gimp_prop_opacity_spin_scale_new (config, "opaque",
                                             _("Opacity"));
 //  gtk_widget_set_size_request (scale, 200, -1);
   gtk_box_pack_start (GTK_BOX (vbox), scale, FALSE, FALSE, 0);
