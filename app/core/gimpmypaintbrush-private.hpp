@@ -46,8 +46,8 @@ class GimpMypaintBrushPrivate {
   void set_icon_image(cairo_surface_t* image);
   cairo_surface_t* get_icon_image();
   GimpMypaintBrushPrivate* duplicate();
-  void clear_dirty_flag() { dirty = false; g_print("MypaintBrush:clear_dirty_flag\n");};
-  void mark_as_dirty() { dirty = true; g_print("MypaintBrush:mark_as_dirty\n"); }
+  void clear_dirty_flag() { dirty = false; };
+  void mark_as_dirty() { dirty = true; }
   bool is_dirty() { return dirty; };
 };
 

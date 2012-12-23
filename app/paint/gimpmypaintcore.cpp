@@ -255,7 +255,7 @@ void GimpMypaintCore::reset_brush()
 
 void GimpMypaintCore::option_changed(GObject* target, GParamSpec *pspec)
 {
-  g_print("MypaintCore(%lx)::option_changed\n", (gulong)this);
+//  g_print("MypaintCore(%lx)::option_changed\n", (gulong)this);
   split_stroke();
 
   GimpMypaintOptions* options = GIMP_MYPAINT_OPTIONS(target);

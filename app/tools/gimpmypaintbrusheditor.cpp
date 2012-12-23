@@ -75,14 +75,16 @@ extern "C" {
 #include "gimpmypaintbrushoptions-gui.h"
 }; // extern "C"
 
-#include "gimptooloptions-gui-cxx.hpp"
+#include "gimp-intl.h"
+
 #include "base/delegators.hpp"
 #include "base/scopeguard.hpp"
 #include "base/glib-cxx-utils.hpp"
+#include "gimptooloptions-gui-cxx.hpp"
 #include "paint/gimpmypaintoptions-history.hpp"
 #include "gimpmypaint-gui-base.hpp"
+#include "gimpmypaintbrusheditor.hpp"
 
-#include "gimp-intl.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 class CurveViewActions {
@@ -549,7 +551,8 @@ class CurveViewCreator {
   gchar*              brush_setting_name;
   GimpMypaintOptions* options;
 public:
-  CurveViewCreator(GimpMypaintOptions* opts, const gchar* name) {
+  CurveViewCreator(GimpMypaintOptions* opts, const gchar* name) 
+  {
     options = opts;
     brush_setting_name = g_strdup (name);
   };
@@ -559,11 +562,13 @@ public:
       g_free(brush_setting_name);
     }
   };
+  void create_view(GObject* button, GtkWidget** result);
 };
 
 
 void 
-CurveViewCreator::create_view(GObject* button, GtkWidget** result) {
+CurveViewCreator::create_view(GObject* button, GtkWidget** result) 
+{
   GHashTableHolder<const gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict();
   GListHolder      inputs               (mypaint_brush_get_input_settings());
   
@@ -799,6 +804,10 @@ MypaintBrushEditorPrivate::create() {
       gtk_widget_show(editor_container);
       gtk_notebook_append_page(GTK_NOTEBOOK(brushsetting_vbox), editor_container, gtk_label_new(group->display_name));
     }
+  }
+
+  if (type == TAB && page_reminder) {
+    page_reminder->bind_to(GTK_NOTEBOOK(brushsetting_vbox));
   }
   
   g_object_set_cxx_object(G_OBJECT(brushsetting_vbox), "behavior-editor-private", this);

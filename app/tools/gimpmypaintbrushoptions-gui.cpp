@@ -49,8 +49,9 @@ extern "C" {
 #include "gimp-intl.h"
 
 };
-#include "gimptooloptions-gui-cxx.hpp"
 #include "base/delegators.hpp"
+#include "base/glib-cxx-utils.hpp"
+#include "gimptooloptions-gui-cxx.hpp"
 #include "core/gimpmypaintbrush-private.hpp"
 #include "paint/gimpmypaintoptions-history.hpp"
 
@@ -62,10 +63,12 @@ class MypaintPopupPrivate {
   GimpContainer*         container;
   GimpContext*           context;
   GtkListStore*          store;
+  PageRemindAction       page_reminder;
   Delegator::Connection* brush_changed_handler;
   
 public:
-  MypaintPopupPrivate(GimpContainer* ctn, GimpContext* ctx) {
+  MypaintPopupPrivate(GimpContainer* ctn, GimpContext* ctx) : 
+    page_reminder(NULL) {
     container = ctn;
     context   = ctx;
     brush_changed_handler = NULL;
@@ -258,6 +261,7 @@ MypaintPopupPrivate::create (GObject* object,
   GtkTreeViewColumn* column;
   store   = gtk_list_store_new(3, GDK_TYPE_PIXBUF, G_TYPE_STRING, GIMP_TYPE_MYPAINT_BRUSH);
   history = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+  
   GtkCellRenderer* renderer;
   renderer = gtk_cell_renderer_pixbuf_new();
   column = gtk_tree_view_column_new_with_attributes("Icon", renderer, "pixbuf", 0, NULL);
@@ -273,6 +277,8 @@ MypaintPopupPrivate::create (GObject* object,
   gtk_widget_show (GTK_WIDGET (history));
   gtk_notebook_insert_page (GTK_NOTEBOOK (*result), GTK_WIDGET (history), 
                             gtk_label_new(_("Custom")),1);
+
+  page_reminder.bind_to(GTK_NOTEBOOK (*result));
 
   
 

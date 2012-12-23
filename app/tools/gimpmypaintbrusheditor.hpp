@@ -18,6 +18,7 @@
  */
 class MypaintBrushEditorPrivate : public MypaintGUIPrivateBase {
 private:
+  PageRemindAction* page_reminder;
 
 public:
   enum EditorType { EXPANDER, TAB };
@@ -25,10 +26,12 @@ public:
   
 public:
   MypaintBrushEditorPrivate(GimpToolOptions* opts, EditorType _type = EXPANDER) :
-    MypaintGUIPrivateBase(opts), type(_type)
+    MypaintGUIPrivateBase(opts), type(_type), page_reminder(NULL)
   {
   }
   GtkWidget* create();
   GtkWidget* create_input_editor(const gchar* prop_name);
-    
+  void set_page_reminder(PageRemindAction* reminder) {
+    page_reminder = reminder;
+  }
 };

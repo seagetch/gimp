@@ -33,6 +33,7 @@
 #include "widgets/gimppopupbutton.h"
 #include "widgets/gimpspinscale.h"
 
+#include "base/glib-cxx-utils.hpp"
 #include "gimptooloptions-gui-cxx.hpp"
 
 GtkWidget * 

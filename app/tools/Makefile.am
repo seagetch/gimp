@@ -207,7 +207,10 @@ libapptools_a_sources = \
 	gimpmypaintbrushoptions-gui.cpp	\
 	gimpmypaintbrushoptions-gui.h	\
 	gimptooloptions-gui-cxx.cpp	\
-	gimptooloptions-gui-cxx.hpp
+	gimptooloptions-gui-cxx.hpp		\
+	gimpmypaintbrusheditor.cpp		\
+	gimpmypaintbrusheditor.hpp		\
+	gimpmypaint-gui-base.hpp
 
 
 libapptools_a_built_sources = tools-enums.c

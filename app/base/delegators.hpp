@@ -140,7 +140,7 @@ private:
 public:
   ObjectDelegator_arg2(Type* o, Function f) : obj(o), func_ptr(f) {};
   void emit(GObject* t, Arg1 a1, Arg2 a2) {
-    g_print("emit:obj=%ld\n", obj);
+    g_print("emit:obj=%ld\n", (unsigned long)obj);
     if (obj)
       (obj->*func_ptr)(t, a1, a2);
   }
