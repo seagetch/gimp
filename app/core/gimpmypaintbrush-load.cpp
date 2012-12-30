@@ -160,6 +160,8 @@ MyPaintBrushReader::load_brush (GimpContext  *context,
   ScopeGuard<gchar, void(gpointer)> icon_filename(g_strconcat (filename_dup.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION, NULL), g_free);
   g_print ("Read Icon: %s\n", icon_filename.ptr());
   load_icon (icon_filename.ptr());
+  GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
+  priv->clear_dirty_flag();
   return result;
 }
 
