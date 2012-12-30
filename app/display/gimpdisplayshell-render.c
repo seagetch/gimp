@@ -1155,7 +1155,8 @@ render_image_tile_fault_one_row (RenderInfo *info)
   tile[2] = tile_manager_get_tile (info->src_tiles,
                                    info->src_x - 1, info->src_y, TRUE, FALSE);
 
-  g_return_val_if_fail (tile[0] != NULL, tile_buf);
+  if (tile[0] == NULL)
+    goto done;
 
   src[4] = tile_data_pointer (tile[0], info->src_x, info->src_y);
   src[7] = tile_data_pointer (tile[0], info->src_x, info->src_y + 1);
@@ -1406,7 +1407,8 @@ render_image_tile_fault_nearest (RenderInfo *info)
   tile = tile_manager_get_tile (info->src_tiles,
                                 info->src_x, info->src_y, TRUE, FALSE);
 
-  g_return_val_if_fail (tile != NULL, tile_buf);
+  if (tile == NULL)
+    goto done;
 
   src = tile_data_pointer (tile, info->src_x, info->src_y);
 
@@ -1498,8 +1500,9 @@ render_image_tile_fault_nearest (RenderInfo *info)
         }
     }
   while (--width);
-
-  tile_release (tile, FALSE);
+  done:
+  if (tile)
+    tile_release (tile, FALSE);
 
   return tile_buf;
 }
