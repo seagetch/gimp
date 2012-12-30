@@ -752,7 +752,8 @@ render_image_tile_fault (RenderInfo *info)
                                    info->src_x - 1, info->src_y - 1,
                                    TRUE, FALSE);
 
-  g_return_val_if_fail (tile[4] != NULL, tile_buf);
+  if (tile[4] == NULL)
+    goto done;
 
   src[4] = tile_data_pointer (tile[4], info->src_x, info->src_y);
 
