@@ -195,81 +195,6 @@ struct BrushPixelIteratorForPlainData : ParentClass {
 
 };
 
-#if 0
-struct BrushmarkIterator {
-  typedef Pixel::data_t mask_t;
-  typedef Pixel::data_t color_t;
-  mask_t*        mask;
-  gint           width;
-  gint           height;
-  gint           mask_stride;
-  gint           mask_bytes;
-  mask_t*        row_guard;
-  mask_t*        data_guard;
-  Pixel::data_t* src;
-  Pixel::data_t* dest;
-  gint           src_stride;
-  gint           dest_stride;
-  gint           src_bytes;
-  gint           dest_bytes;
-  
-  int x,y;
-    
-  bool is_row_end() { return x >= width; }
-  bool is_data_end() { return y >= height - 1; }
-  
-  void next_pixel() {
-    x ++;
-    src  += src_bytes;
-    dest += dest_bytes;
-//    dest ++;
-    if (dest >= data_guard) {
-      g_print("dest=%lx/%lx, x,y=%d,%d, dest_stride,dest_bytes,width=%d,%d,%d\n", (gulong)dest, (gulong)data_guard, x, y, dest_stride, dest_bytes, width);
-    }
-  };
-
-  void next_row() {
-    y++; x = 0;
-    src  += src_stride  - width * src_bytes;
-    dest += dest_stride - width * dest_bytes;
-  };
-
-  color_t color[3];
-  mask_t   get_brush_alpha() { return 128; };
-  color_t* get_brush_color() { return color; };
-  bool should_skipped() { return false; }
-
-  BrushmarkIterator(mask_t*  mask_,
-                    color_t* colors_,
-                    Pixel::data_t* src_,
-                    Pixel::data_t* dest_,
-                    gint width_, gint height_, 
-                    gint mask_stride_,
-                    gint src_stride_,
-                    gint dest_stride_,
-                    gint mask_bytes_,
-                    gint src_bytes_,
-                    gint dest_bytes_)
-    : mask(mask_),
-      width(width_), height(height_),
-      mask_stride(mask_stride_), mask_bytes(mask_bytes_)
-  {
-    color[0]    = 255;
-    color[1]    = 0.0;
-    color[2]    = 255;
-    src         = src_;
-    dest        = dest_;
-    src_stride  = src_stride_;
-    dest_stride = dest_stride_;
-    src_bytes   = src_bytes_;
-    dest_bytes  = dest_bytes_;
-    data_guard  = dest + (height - 1) * dest_stride + width * dest_bytes;
-    x = y = 0;
-  }
-  
-};
-#endif
-
 // parameters to those methods:
 //
 // rgba: A pointer to 16bit rgba data with premultiplied alpha.
@@ -297,6 +222,19 @@ void draw_dab_pixels_BlendMode_Normal (Iter iter,
                                        Pixel::real   opacity) 
 {
   switch (iter.src_bytes) {
+  case 1:
+    while (1) {
+      for (; !iter.is_row_end(); iter.next_pixel()) {
+        if (iter.should_skipped())
+          continue;
+        pixel_t opa_a = pix( eval( pix(iter.get_brush_alpha()) * pix(opacity) ) ); // topAlpha
+        pixel_t opa_b = pix( eval (pix(1.0f) - opa_a ) ); // bottomAlpha
+        iter.dest[0] = r2d(eval( opa_a*pix(iter.get_brush_color()[0]) + opa_b*pix(iter.src[0]) ));
+      }
+      if (iter.is_data_end()) break;
+      iter.next_row();
+    }
+    break;
   case 3:
     while (1) {
       for (; !iter.is_row_end(); iter.next_pixel()) {
@@ -369,6 +307,24 @@ void draw_dab_pixels_BlendMode_Normal_and_Eraser (Iter iter,
   bg_color[2] = background_b;
 
   switch (iter.src_bytes) {
+  case 1:
+    while (1) {
+      for (; !iter.is_row_end(); iter.next_pixel()) {
+
+        if (iter.should_skipped())
+          continue;
+
+        pixel_t brush_a     = pix( eval( pix(iter.get_brush_alpha()) * pix(opacity) ) ); // topAlpha
+        pixel_t inv_brush_a = pix( eval (f2p(1.0) - brush_a ) ); // bottomAlpha
+
+        iter.dest[0] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(bg_color[0]) 
+                                          + pix(color_a)*pix(iter.get_brush_color()[0])) 
+                                 + inv_brush_a*pix(iter.src[0]) ));
+      }
+      if (iter.is_data_end()) break;
+      iter.next_row();
+    }
+    break;  
   case 3:
     while (1) {
       for (; !iter.is_row_end(); iter.next_pixel()) {
@@ -433,6 +389,7 @@ void draw_dab_pixels_BlendMode_LockAlpha (Iter          iter,
                                           Pixel::real   opacity)
 {
   switch (iter.src_bytes) {
+  case 1:
   case 3:
     draw_dab_pixels_BlendMode_Normal(iter, opacity);
     break;
@@ -493,6 +450,23 @@ void get_color_pixels_accumulate (/*Pixel::real  * mask,
   internal_t a = 0;
 
   switch (iter.src_bytes) {
+  case 1:
+    while (1) {
+      for (; !iter.is_row_end(); iter.next_pixel()) {
+
+        if (iter.should_skipped())
+          continue;
+
+        pixel_t opa = pix (iter.get_brush_alpha());
+        weight += r2i(eval(opa));
+        r      += r2i(eval (opa * pix(iter.src[0]) * pix(1.0f)));
+        a      += r2i(eval(opa));
+      }
+      if (iter.is_data_end()) break;
+      iter.next_row();
+    }
+      g = b = r;
+    break;
   case 3:
     while (1) {
       for (; !iter.is_row_end(); iter.next_pixel()) {
