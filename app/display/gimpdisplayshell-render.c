@@ -167,12 +167,14 @@ gimp_display_shell_render (GimpDisplayShell *shell,
   if (x > image_w || y > image_h)
     return;
 
-  w = CLAMP(w, 0, image_w - x);
-  h = CLAMP(h, 0, image_h - y);
+  w = CLAMP(w, 0, image_w - x + 1);
+  h = CLAMP(h, 0, image_h - y + 1);
 
   if (w == 0 || h == 0)
     return;
 
+//  w += 1;
+//  h += 1;
   gimp_display_shell_render_info_init (&info,
                                        shell, x, y, w, h,
                                        shell->render_surface,
@@ -394,7 +396,8 @@ gimp_display_shell_render_info_init (RenderInfo       *info,
   gint offset_y;
 
   gimp_display_shell_scroll_get_render_start_offset (shell,
-						     &offset_x, &offset_y);
+                                                     &offset_x, 
+                                                     &offset_y);
 
   info->x = x + offset_x;
   info->y = y + offset_y;
