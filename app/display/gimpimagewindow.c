@@ -1998,7 +1998,9 @@ gimp_image_window_rotate_left_clicked (GtkWidget* widget,
                                        GimpImageWindow *window)
 {
   GimpDisplayShell *shell  = gimp_image_window_get_active_shell (window);
-  shell->rotate_angle = fmod(round((shell->rotate_angle-ROTATE_UNIT_ANGLE) / ROTATE_UNIT_ANGLE) * ROTATE_UNIT_ANGLE, 360);
+  gdouble direction = shell->mirrored ? -1: 1;
+  shell->rotate_angle = fmod(round((shell->rotate_angle- direction * ROTATE_UNIT_ANGLE) / 
+                                   ROTATE_UNIT_ANGLE) * ROTATE_UNIT_ANGLE, 360);
   gtk_widget_queue_draw(GTK_WIDGET(shell));
 }
 
@@ -2007,7 +2009,9 @@ gimp_image_window_rotate_right_clicked (GtkWidget* widget,
                                         GimpImageWindow *window)
 {
   GimpDisplayShell *shell  = gimp_image_window_get_active_shell (window);
-  shell->rotate_angle = fmod(round((shell->rotate_angle+ROTATE_UNIT_ANGLE) / ROTATE_UNIT_ANGLE) * ROTATE_UNIT_ANGLE, 360);
+  gdouble direction = shell->mirrored ? -1: 1;
+  shell->rotate_angle = fmod(round((shell->rotate_angle + direction * ROTATE_UNIT_ANGLE) / 
+                                   ROTATE_UNIT_ANGLE) * ROTATE_UNIT_ANGLE, 360);
   gtk_widget_queue_draw(GTK_WIDGET(shell));
 }
 
