@@ -68,6 +68,8 @@
 
 #include "gimp-log.h"
 
+/*  local constant values  */
+#define ZOOM_UNIT_DISTANCE 300.0
 
 /*  local function prototypes  */
 
@@ -96,6 +98,16 @@ static void       gimp_display_shell_rotate                  (GimpDisplayShell *
                                                                gint              x,
                                                                gint              y);
 static void       gimp_display_shell_stop_rotating           (GimpDisplayShell  *shell,
+                                                               const GdkEvent    *event);
+
+static void       gimp_display_shell_start_scaling           (GimpDisplayShell  *shell,
+                                                               const GdkEvent    *event,
+                                                               gint               x,
+                                                               gint               y);
+static void       gimp_display_shell_do_scaling              (GimpDisplayShell *shell,
+                                                               gint              x,
+                                                               gint              y);
+static void       gimp_display_shell_stop_scaling            (GimpDisplayShell  *shell,
                                                                const GdkEvent    *event);
 
 static void       gimp_display_shell_space_pressed            (GimpDisplayShell  *shell,
@@ -563,8 +575,9 @@ gimp_display_shell_canvas_tool_events (GtkWidget        *canvas,
           {
             if (bevent->state & GDK_SHIFT_MASK) {
               gimp_display_shell_start_rotating (shell, NULL, bevent->x, bevent->y);
-            }
-            else {
+            } else if (bevent->state & GDK_CONTROL_MASK) {
+              gimp_display_shell_start_scaling (shell, NULL, bevent->x, bevent->y);
+            } else {
               gdouble start_x = bevent->x;
               gdouble start_y = bevent->y;
               gimp_display_shell_device_to_image_coords (shell, &start_x, &start_y);
@@ -688,6 +701,8 @@ gimp_display_shell_canvas_tool_events (GtkWidget        *canvas,
           {
             if (shell->scrolling)
               gimp_display_shell_stop_scrolling (shell, NULL);
+            else if (shell->scaling)
+              gimp_display_shell_stop_scaling (shell, NULL);
             else if (shell->rotating)
               gimp_display_shell_stop_rotating (shell, NULL);
           }
@@ -872,6 +887,17 @@ gimp_display_shell_canvas_tool_events (GtkWidget        *canvas,
                             : mevent->y);
 
             gimp_display_shell_rotate (shell, x, y);
+          }
+        else if (shell->scaling)
+          {
+            gdouble x  = (compressed_motion
+                            ? ((GdkEventMotion *) compressed_motion)->x
+                            : mevent->x);
+            gdouble y  = (compressed_motion
+                            ? ((GdkEventMotion *) compressed_motion)->y
+                            : mevent->y);
+
+            gimp_display_shell_do_scaling (shell, x, y);
           }
         else if (state & GDK_BUTTON1_MASK || 
                  (active_tool && active_tool->want_full_motion_tracking))
@@ -1530,6 +1556,73 @@ gimp_display_shell_stop_rotating (GimpDisplayShell *shell,
 
   shell->rotating           = FALSE;
   shell->rotate_start_angle = 0;
+
+  gimp_display_shell_pointer_ungrab (shell, event);
+}
+
+static void
+gimp_display_shell_start_scaling   (GimpDisplayShell *shell,
+                                    const GdkEvent   *event,
+                                    gint              x,
+                                    gint              y)
+{
+  gdouble cx, cy;
+  gdouble rx, ry;
+  g_return_if_fail (! shell->scaling);
+
+  gimp_display_shell_pointer_grab (shell, event, GDK_POINTER_MOTION_MASK);
+
+  shell->scaling      = TRUE;
+
+  cx = shell->disp_width  / 2;
+  cy = shell->disp_height / 2;
+  rx = x - cx;
+  ry = y - cy;
+
+  if (shell->mirrored)
+    rx = -rx;
+
+  shell->scaling_start_distance = MAX(shell->scale_x, shell->scale_y) * ZOOM_UNIT_DISTANCE - 
+                                  sqrt(rx * rx + ry * ry); 
+
+  gimp_display_shell_set_override_cursor (shell, GDK_SIZING);
+}
+
+
+static void
+gimp_display_shell_do_scaling    (GimpDisplayShell *shell,
+                                  gint              x,
+                                  gint              y)
+{
+  gdouble cx, cy;
+  gdouble rx, ry;
+  gdouble distance;
+  gdouble distance_diff;
+  g_return_if_fail (shell->scaling);
+
+  cx = shell->disp_width  / 2;
+  cy = shell->disp_height / 2;
+  rx = x - cx;
+  ry = y - cy;
+
+  distance      = sqrt(rx * rx + ry * ry);
+  distance_diff = distance + shell->scaling_start_distance;
+
+  gimp_display_shell_scale(shell, GIMP_ZOOM_TO, distance_diff / ZOOM_UNIT_DISTANCE, 
+                           GIMP_ZOOM_FOCUS_RETAIN_CENTERING_ELSE_BEST_GUESS);
+  gimp_display_shell_expose_full(shell);
+}
+
+static void
+gimp_display_shell_stop_scaling   (GimpDisplayShell *shell,
+                                   const GdkEvent   *event)
+{
+  g_return_if_fail (shell->scaling);
+
+  gimp_display_shell_unset_override_cursor (shell);
+
+  shell->scaling                = FALSE;
+  shell->scaling_start_distance = 0;
 
   gimp_display_shell_pointer_ungrab (shell, event);
 }

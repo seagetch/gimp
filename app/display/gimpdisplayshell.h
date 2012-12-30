@@ -191,6 +191,9 @@ struct _GimpDisplayShell
   gboolean           rotating;
   gdouble            rotate_start_angle;
 
+  gboolean           scaling;
+  gdouble            scaling_start_distance;
+
   gboolean           mirrored;
 
   GimpDrawable      *mask;
