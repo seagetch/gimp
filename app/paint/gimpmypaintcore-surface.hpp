@@ -25,6 +25,7 @@ extern "C" {
 #include "core/gimpmypaintbrush.h"
 #include "core/gimpundo.h"
 #include "core/gimpbrush.h"
+#include "base/tile-manager.h"
 }
 
 extern "C++" {
@@ -48,6 +49,8 @@ public:
   virtual void set_coords(const GimpCoords* coords) = 0;
   virtual void set_texture(GimpPattern* texture) = 0;
   virtual GimpPattern* get_texture() = 0;
+  virtual TileManager* get_undo_tiles() = 0;
+  virtual bool is_dirty() = 0;
 };
 
 GimpMypaintSurface* GimpMypaintSurface_new(GimpDrawable* drawable);

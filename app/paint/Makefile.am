@@ -92,7 +92,11 @@ libapppaint_a_sources = \
 	gimpsourcecore.c		\
 	gimpsourcecore.h		\
 	gimpsourceoptions.c		\
-	gimpsourceoptions.h
+	gimpsourceoptions.h		\
+	gimpmypaintcore-postprocess.hpp		\
+	gimpmypaintcore-postprocess.cpp		\
+	gimpmypaintcore-postprocess-filters.cpp		\
+	gimpmypaintcore-postprocess-filters.hpp
 
 libapppaint_a_built_sources = paint-enums.c
 

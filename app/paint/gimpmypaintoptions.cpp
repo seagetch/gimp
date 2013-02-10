@@ -65,6 +65,7 @@ enum
   PROP_BRUSH_VIEW_SIZE,
 };
 
+using namespace GimpMypaint;
 
 static void    gimp_mypaint_options_dispose          (GObject      *object);
 static void    gimp_mypaint_options_finalize         (GObject      *object);
@@ -195,7 +196,7 @@ gimp_mypaint_options_set_property (GObject      *object,
 
   if (property_id <= PROP_0) {
     if (options->brush) {
-      GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(options->brush->p);
+      BrushPrivate* priv = reinterpret_cast<BrushPrivate*>(options->brush->p);
       gchar* name = mypaint_brush_settings_index_to_internal_name (property_id - 1);
       GType type  = mypaint_brush_get_prop_type (name);
 
@@ -243,7 +244,7 @@ gimp_mypaint_options_get_property (GObject    *object,
 
   if (property_id <= PROP_0) {
     if (options->brush) {
-      GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(options->brush->p);
+      BrushPrivate* priv = reinterpret_cast<BrushPrivate*>(options->brush->p);
       gchar* name = mypaint_brush_settings_index_to_internal_name (property_id - 1);
       GType type  = mypaint_brush_get_prop_type (name);
       switch (type) {
@@ -344,17 +345,17 @@ gimp_mypaint_options_mypaint_brush_changed (GObject *object,
   GimpData* brush_copied = gimp_mypaint_brush_duplicate(GIMP_MYPAINT_BRUSH(data));
 
   if (options->brush) {
-    GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(options->brush->p);
+    BrushPrivate* priv = reinterpret_cast<BrushPrivate*>(options->brush->p);
     if (priv && priv->is_dirty()) {
-      GimpMypaintOptionsHistory* history;
-      history = GimpMypaintOptionsHistory::get_singleton();
+      OptionsHistory* history;
+      history = OptionsHistory::get_singleton();
       history->push_brush(options->brush);
     } else
       g_object_unref(options->brush);
   }
 
   options->brush = GIMP_MYPAINT_BRUSH(brush_copied);
-  GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(options->brush->p);
+  BrushPrivate* priv = reinterpret_cast<BrushPrivate*>(options->brush->p);
   priv->clear_dirty_flag();
   
   GListHolder brush_settings = mypaint_brush_get_brush_settings ();
@@ -387,8 +388,8 @@ gimp_mypaint_options_set_mapping_point(GimpMypaintOptions* options,
   MyPaintBrushSettings* brush_setting = brush_settings_dict[brush_setting_name];
 
   if (options->brush) {
-    GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(options->brush->p);
-    GimpMypaintBrushPrivate::Value* setting = priv->get_setting(brush_setting->index);
+    BrushPrivate* priv = reinterpret_cast<BrushPrivate*>(options->brush->p);
+    BrushPrivate::Value* setting = priv->get_setting(brush_setting->index);
 
     if (setting && setting->mapping) {
       Mapping* mapping = setting->mapping;
@@ -422,8 +423,8 @@ gimp_mypaint_options_get_mapping_point(GimpMypaintOptions* options,
   *size = 0;
   
   if (options->brush) {
-    GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(options->brush->p);
-    GimpMypaintBrushPrivate::Value* setting = priv->get_setting(brush_setting->index);
+    BrushPrivate* priv = reinterpret_cast<BrushPrivate*>(options->brush->p);
+    BrushPrivate::Value* setting = priv->get_setting(brush_setting->index);
     
     if (setting && setting->mapping) {
       Mapping* mapping = setting->mapping;

@@ -136,7 +136,7 @@ gimp_mypaint_brush_tagged_iface_init (GimpTaggedInterface *iface)
 static void
 gimp_mypaint_brush_init (GimpMypaintBrush *mypaint_brush)
 {
-  mypaint_brush->p = (gpointer)(new GimpMypaintBrushPrivate());
+  mypaint_brush->p = (gpointer)(new GimpMypaint::BrushPrivate());
 }
 
 static void
@@ -145,7 +145,7 @@ gimp_mypaint_brush_finalize (GObject *object)
   GimpMypaintBrush *mypaint_brush = GIMP_MYPAINT_BRUSH (object);
 
   if (mypaint_brush->p) {
-    GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(mypaint_brush->p);
+    GimpMypaint::BrushPrivate *priv = reinterpret_cast<GimpMypaint::BrushPrivate*>(mypaint_brush->p);
     delete priv;
     mypaint_brush->p = NULL;
   }
@@ -219,7 +219,7 @@ gimp_mypaint_brush_get_new_preview (GimpViewable *viewable,
                             gint          height)
 {
   GimpMypaintBrush      *mypaint_brush       = GIMP_MYPAINT_BRUSH (viewable);
-  GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(mypaint_brush->p);  
+  GimpMypaint::BrushPrivate *priv = reinterpret_cast<GimpMypaint::BrushPrivate*>(mypaint_brush->p);  
   TempBuf       *return_buf  = NULL;
   guchar transp[4]   = { 0, 0, 0, 0 };
 
@@ -242,7 +242,7 @@ gimp_mypaint_brush_get_description (GimpViewable  *viewable,
   GimpMypaintBrush *mypaint_brush = GIMP_MYPAINT_BRUSH (viewable);
   g_return_val_if_fail (mypaint_brush != NULL, NULL);
 
-  GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(mypaint_brush->p);  
+  GimpMypaint::BrushPrivate *priv = reinterpret_cast<GimpMypaint::BrushPrivate*>(mypaint_brush->p);  
   g_return_val_if_fail (priv != NULL, NULL);
   
   gchar *desc1 = priv->get_parent_brush_name();
@@ -354,8 +354,8 @@ gimp_mypaint_brush_duplicate (GimpMypaintBrush *mypaint_brush)
   g_object_get (G_OBJECT(mypaint_brush), "name", &name, NULL);
 
   GimpMypaintBrush* result = GIMP_MYPAINT_BRUSH(gimp_mypaint_brush_new(NULL, name));
-  delete reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
-  result->p = reinterpret_cast<GimpMypaintBrushPrivate*>(mypaint_brush->p)->duplicate();
+  delete reinterpret_cast<GimpMypaint::BrushPrivate*>(result->p);
+  result->p = reinterpret_cast<GimpMypaint::BrushPrivate*>(mypaint_brush->p)->duplicate();
   return GIMP_DATA(result);
 }
 
@@ -433,8 +433,9 @@ gimp_mypaint_brush_want_null_motion (GimpMypaintBrush        *mypaint_brush,
 } /* extern C */
 
 
+namespace GimpMypaint {
 
-GimpMypaintBrushPrivate::GimpMypaintBrushPrivate() {
+BrushPrivate::BrushPrivate() {
   parent_brush_name = g_strdup("");
   group = g_strdup("");
   icon_image = NULL;
@@ -448,7 +449,7 @@ GimpMypaintBrushPrivate::GimpMypaintBrushPrivate() {
   dirty = false;
 }
 
-GimpMypaintBrushPrivate::~GimpMypaintBrushPrivate() {
+BrushPrivate::~BrushPrivate() {
   if (parent_brush_name) {
     g_free (parent_brush_name);
     parent_brush_name = NULL;
@@ -467,7 +468,7 @@ GimpMypaintBrushPrivate::~GimpMypaintBrushPrivate() {
 }
 
 void 
-GimpMypaintBrushPrivate::set_base_value (int index, float value) {
+BrushPrivate::set_base_value (int index, float value) {
   g_assert (index >= 0 && index < BRUSH_MAPPING_COUNT);
   allocate_mapping(index);
   settings[index].mapping->base_value = value;
@@ -480,7 +481,7 @@ GimpMypaintBrushPrivate::set_base_value (int index, float value) {
 }
 
 float
-GimpMypaintBrushPrivate::get_base_value (int index) {
+BrushPrivate::get_base_value (int index) {
   g_assert (index >= 0 && index < BRUSH_MAPPING_COUNT);
   if (settings[index].mapping) {
     return settings[index].mapping->base_value;
@@ -489,7 +490,7 @@ GimpMypaintBrushPrivate::get_base_value (int index) {
 }
 
 void 
-GimpMypaintBrushPrivate::allocate_mapping (int index) {
+BrushPrivate::allocate_mapping (int index) {
   g_assert (index >= 0 && index < BRUSH_MAPPING_COUNT);
   if (!settings[index].mapping) {
     settings[index].mapping = new Mapping(INPUT_COUNT);
@@ -498,7 +499,7 @@ GimpMypaintBrushPrivate::allocate_mapping (int index) {
 }
 
 void
-GimpMypaintBrushPrivate::deallocate_mapping (int index) {
+BrushPrivate::deallocate_mapping (int index) {
   g_assert (index >= 0 && index < BRUSH_MAPPING_COUNT);
   if (settings[index].mapping) {
     delete settings[index].mapping;
@@ -508,12 +509,12 @@ GimpMypaintBrushPrivate::deallocate_mapping (int index) {
 }
 
 char*
-GimpMypaintBrushPrivate::get_parent_brush_name() {
+BrushPrivate::get_parent_brush_name() {
   return parent_brush_name;
 }
 
 void
-GimpMypaintBrushPrivate::set_parent_brush_name(char *name) {
+BrushPrivate::set_parent_brush_name(char *name) {
   g_assert (name != NULL);
   if (parent_brush_name)
     g_free (parent_brush_name);
@@ -522,12 +523,12 @@ GimpMypaintBrushPrivate::set_parent_brush_name(char *name) {
 }
 
 char* 
-GimpMypaintBrushPrivate::get_group() {
+BrushPrivate::get_group() {
   return group;
 }
 
 void
-GimpMypaintBrushPrivate::set_group(char *name) {
+BrushPrivate::set_group(char *name) {
   g_assert (name != NULL);
   if (group)
     g_free (group);
@@ -536,7 +537,7 @@ GimpMypaintBrushPrivate::set_group(char *name) {
 }
 
 void 
-GimpMypaintBrushPrivate::set_bool_value (int index, bool value) {
+BrushPrivate::set_bool_value (int index, bool value) {
   index -= BRUSH_BOOL_BASE;
   g_assert (index >= 0 && index < BRUSH_BOOL_COUNT);
   switches[index] = value;
@@ -544,7 +545,7 @@ GimpMypaintBrushPrivate::set_bool_value (int index, bool value) {
 }
 
 bool
-GimpMypaintBrushPrivate::get_bool_value (int index) {
+BrushPrivate::get_bool_value (int index) {
   index -= BRUSH_BOOL_BASE;
   g_assert (index >= 0 && index < BRUSH_BOOL_COUNT);
   return switches[index];
@@ -552,7 +553,7 @@ GimpMypaintBrushPrivate::get_bool_value (int index) {
 
 
 void 
-GimpMypaintBrushPrivate::get_new_preview(guchar* dest_buf, 
+BrushPrivate::get_new_preview(guchar* dest_buf, 
                                          int width, 
                                          int height, 
                                          int bytes, 
@@ -594,7 +595,7 @@ GimpMypaintBrushPrivate::get_new_preview(guchar* dest_buf,
 }
 
 void
-GimpMypaintBrushPrivate::set_icon_image(cairo_surface_t* image) {
+BrushPrivate::set_icon_image(cairo_surface_t* image) {
   if (icon_image) {
     cairo_surface_destroy (icon_image);
     icon_image = NULL;
@@ -614,13 +615,13 @@ GimpMypaintBrushPrivate::set_icon_image(cairo_surface_t* image) {
 }
 
 cairo_surface_t*
-GimpMypaintBrushPrivate::get_icon_image() {
+BrushPrivate::get_icon_image() {
   return icon_image;
 }
 
-GimpMypaintBrushPrivate*
-GimpMypaintBrushPrivate::duplicate() {
-  GimpMypaintBrushPrivate* priv = new GimpMypaintBrushPrivate();
+BrushPrivate*
+BrushPrivate::duplicate() {
+  BrushPrivate* priv = new BrushPrivate();
   priv->set_parent_brush_name(parent_brush_name);
   priv->set_group(group);
   for (int i = 0; i < BRUSH_MAPPING_COUNT; i ++) {
@@ -636,3 +637,5 @@ GimpMypaintBrushPrivate::duplicate() {
   priv->set_icon_image(icon_image);
   return priv;
 }
+
+}; // namespace GimpMypaint

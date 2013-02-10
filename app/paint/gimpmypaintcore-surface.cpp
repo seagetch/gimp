@@ -656,6 +656,7 @@ private:
   GimpCoords    current_coords;
   bool          floating_stroke;
   double        stroke_opacity;
+  bool          dirty;
   
   TileManager* undo_tiles;       /*  tiles which have been modified      */
   TileManager* floating_stroke_tiles;
@@ -675,7 +676,7 @@ private:
                                             gint              h);
 
   void start_undo_group();
-  void stop_updo_group();
+  GimpUndo* stop_undo_group();
   
   void start_floating_stroke();
   void stop_floating_stroke();
@@ -683,7 +684,8 @@ public:
   GimpMypaintSurfaceImpl(GimpDrawable* d) 
     : undo_tiles(NULL), floating_stroke_tiles(NULL), 
       session(0), drawable(d), brushmark(NULL), 
-      floating_stroke(false), stroke_opacity(1.0), texture(NULL)
+      floating_stroke(false), stroke_opacity(1.0), texture(NULL),
+      dirty(false)
   {
     g_object_add_weak_pointer(G_OBJECT(d), (gpointer*)&drawable);
   }
@@ -824,6 +826,7 @@ public:
     /*  set undo blocks  */
     start_undo_group();
     validate_undo_tiles (rx1, ry1, width, height);
+    dirty = true;
 
     if (floating_stroke) {
       validate_floating_stroke_tiles(rx1, ry1, width, height);
@@ -934,7 +937,7 @@ public:
                           );
 
   virtual void begin_session();
-  virtual void end_session();
+  virtual void* end_session();
   
   bool is_surface_for (GimpDrawable* drawable) { return drawable == this->drawable; }
   void set_bg_color (GimpRGB* src) 
@@ -1000,6 +1003,10 @@ public:
   }
 
   virtual void set_coords(const GimpCoords* coords) { current_coords = *coords; }
+
+  virtual TileManager* get_undo_tiles() { return undo_tiles; }
+
+  virtual bool is_dirty() { return dirty; }
 };
 
 
@@ -1195,16 +1202,18 @@ GimpMypaintSurfaceImpl::begin_session()
     start_floating_stroke();
 }
 
-void 
+void*
 GimpMypaintSurfaceImpl::end_session()
 {
   if (session <= 0)
-    return;
+    return NULL;
     
-  stop_updo_group();
+  GimpUndo* undo = stop_undo_group();
   if (floating_stroke)
     stop_floating_stroke();
+  dirty = false;
   session = 0;
+  return undo;
 }
 
 void 
@@ -1244,13 +1253,13 @@ GimpMypaintSurfaceImpl::start_undo_group()
   return;
 }
 
-void 
-GimpMypaintSurfaceImpl::stop_updo_group()
+GimpUndo*
+GimpMypaintSurfaceImpl::stop_undo_group()
 {
   GimpImage *image;
 
-  g_return_if_fail (GIMP_IS_DRAWABLE (drawable));
-  g_return_if_fail (gimp_item_is_attached (GIMP_ITEM (drawable)));
+  g_return_val_if_fail (GIMP_IS_DRAWABLE (drawable), NULL);
+  g_return_val_if_fail (gimp_item_is_attached (GIMP_ITEM (drawable)), NULL);
 
   image = gimp_item_get_image (GIMP_ITEM (drawable));
 
@@ -1259,21 +1268,22 @@ GimpMypaintSurfaceImpl::stop_updo_group()
    */
   if (x2 < x1 || y2 < y1) {
     gimp_viewable_preview_thaw (GIMP_VIEWABLE (drawable));
-    return;
+    return NULL;
   }
 
   g_print("Stroke::end_session::push_undo(%d,%d)-(%d,%d)\n",x1,y1,x2,y2);
-  push_undo (image, "Mypaint Brush");
+  GimpUndo* undo = push_undo (image, "Mypaint Brush");
 
   gimp_viewable_preview_thaw (GIMP_VIEWABLE (drawable));
   
-  return;
+  return undo;
 }
 
 GimpUndo *
 GimpMypaintSurfaceImpl::push_undo (GimpImage     *image,
-                                const gchar   *undo_desc)
+                                   const gchar   *undo_desc)
 {
+  GimpUndo* result = NULL;
   gimp_image_undo_group_start (image, GIMP_UNDO_GROUP_MYPAINT,
                                undo_desc);
 
@@ -1282,16 +1292,16 @@ GimpMypaintSurfaceImpl::push_undo (GimpImage     *image,
                                GimpDirtyMask(0),
                                NULL);
   if (undo_tiles) {
-    gimp_image_undo_push_drawable (image, "Mypaint Brush",
-                                   drawable, undo_tiles,
-                                   TRUE, x1, y1, x2 - x1, y2 - y1);
+    result = gimp_image_undo_push_drawable (image, "Mypaint Brush",
+                                            drawable, undo_tiles,
+                                            TRUE, x1, y1, x2 - x1, y2 - y1);
   }
   gimp_image_undo_group_end (image);
 
   tile_manager_unref (undo_tiles);
   undo_tiles = NULL;
 
-  return NULL;
+  return result;
 }
 
 void 

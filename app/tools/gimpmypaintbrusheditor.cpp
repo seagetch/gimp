@@ -85,6 +85,7 @@ extern "C" {
 #include "gimpmypaint-gui-base.hpp"
 #include "gimpmypaintbrusheditor.hpp"
 
+DEFINE_REF_PTR(GtkListStore, GTK_TYPE_LIST_STORE);
 
 ///////////////////////////////////////////////////////////////////////////////
 class CurveViewActions {
@@ -209,7 +210,7 @@ public:
   
   Mapping* get_mapping() {
     GimpMypaintBrush* myb = gimp_mypaint_options_get_current_brush(options);
-    GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(myb->p);
+    GimpMypaint::BrushPrivate* priv = reinterpret_cast<GimpMypaint::BrushPrivate*>(myb->p);
     Mapping* mapping = priv->get_setting(brush_setting->index)->mapping;
     return mapping;
   }
@@ -584,8 +585,9 @@ CurveViewCreator::create_view(GObject* button, GtkWidget** result)
   gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(list_view), FALSE);
 
   {  
-    RefPtr<GtkListStore> list_store = GTK_LIST_STORE(gtk_list_store_new(3, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_STRING));
-    gtk_tree_view_set_model (GTK_TREE_VIEW(list_view), GTK_TREE_MODEL(list_store.as(GTK_TYPE_LIST_STORE)));
+    Ref::GtkListStore list_store;
+    list_store = GTK_LIST_STORE(gtk_list_store_new(3, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_STRING));
+    gtk_tree_view_set_model (GTK_TREE_VIEW(list_view), GTK_TREE_MODEL(&*list_store));
   }
   
   GtkListStore* store = GTK_LIST_STORE( gtk_tree_view_get_model( GTK_TREE_VIEW(list_view) ) );
@@ -598,7 +600,7 @@ CurveViewCreator::create_view(GObject* button, GtkWidget** result)
     gtk_list_store_append(store, &tree_iter);
     
     GimpMypaintBrush* myb         = gimp_mypaint_options_get_current_brush(options);
-    GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(myb->p);
+    GimpMypaint::BrushPrivate* priv = reinterpret_cast<GimpMypaint::BrushPrivate*>(myb->p);
     Mapping* mapping              = priv->get_setting(setting->index)->mapping;
     
     bool is_enabled = (mapping && mapping->get_n(input->index));

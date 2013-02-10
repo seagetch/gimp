@@ -30,7 +30,10 @@ extern "C++" {
 #include "mypaintbrush-stroke.hpp"
 #include "base/delegators.hpp"
 
-class GimpMypaintCore
+namespace GimpMypaint {
+
+class PostProcessManager;
+class Core
 {
   gint         ID;               /*  unique instance ID                  */
 
@@ -39,12 +42,13 @@ class GimpMypaintCore
   Stroke*      stroke;
   GimpMypaintBrush* mypaint_brush;
   GimpMypaintOptions*     options;
+  PostProcessManager*     post_processor;
 
   Delegator::Connection* option_changed_handler;
   
   public:
-  GimpMypaintCore();
-  ~GimpMypaintCore();
+  Core();
+  ~Core();
   void cleanup();
   virtual void stroke_to (GimpDrawable* drawable, 
                             gdouble dtime, 
@@ -54,14 +58,16 @@ class GimpMypaintCore
   virtual void update_resource (GimpMypaintOptions* options);
   void split_stroke();
   void reset_brush();
+  GimpMypaintSurface* get_surface() { return surface; }
   
   void option_changed(GObject* object, GParamSpec *pspec);
   
 };
 
-void      gimp_mypaint_core_round_line                (GimpMypaintCore    *core,
-                                                     GimpMypaintOptions *options,
-                                                     gboolean          constrain_15_degrees);
+}; // namespace GimpMypaint
 
+//void      gimp_mypaint_core_round_line                (GimpMypaint::Core    *core,
+//                                                     GimpMypaintOptions *options,
+//                                                     gboolean          constrain_15_degrees);
 }; // extern C++
 #endif  /*  __GIMP_MYPAINT_CORE_H__  */

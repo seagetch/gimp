@@ -128,7 +128,7 @@ MypaintPopupPrivate::notify_brush (GObject* object,
 void
 MypaintPopupPrivate::update_history ()
 {
-  GimpMypaintOptionsHistory* history = GimpMypaintOptionsHistory::get_singleton();
+  GimpMypaint::OptionsHistory* history = GimpMypaint::OptionsHistory::get_singleton();
   int history_size = history->get_brush_history_size();
   gtk_list_store_clear(store);
   for (int i = 0; i < history_size; i ++) {
@@ -138,7 +138,7 @@ MypaintPopupPrivate::update_history ()
       gchar* name;
       g_object_get(G_OBJECT(brush), "name", &name, NULL);
       g_print("%d: brush %s\n", i, name);
-      GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(brush->p);
+      GimpMypaint::BrushPrivate* priv = reinterpret_cast<GimpMypaint::BrushPrivate*>(brush->p);
       gtk_list_store_append(store, &iter);
       if (context) {
         GdkPixbuf* pixbuf = gimp_viewable_get_new_pixbuf(GIMP_VIEWABLE(brush), 

@@ -140,7 +140,7 @@ bool
 MypaintBrushWriter::is_default(gchar* name)
 {
   GHashTableHolder<gchar*, MyPaintBrushSettings*> settings_dict(mypaint_brush_get_brush_settings_dict ());
-  GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(source->p);
+  GimpMypaint::BrushPrivate *priv = reinterpret_cast<GimpMypaint::BrushPrivate*>(source->p);
 
   MyPaintBrushSettings* setting = settings_dict[name];
 
@@ -167,7 +167,7 @@ MypaintBrushWriter::write_file (GError** error)
   GListHolder inputs(mypaint_brush_get_input_settings ());
   gchar* brush_name;
   g_object_get(source, "name",&brush_name, NULL);
-  GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(source->p);
+  GimpMypaint::BrushPrivate *priv = reinterpret_cast<GimpMypaint::BrushPrivate*>(source->p);
   ScopeGuard<FILE, int(FILE*)> file(g_fopen(filename,"w"), fclose);
 //  FILE* f = file.ptr();
   FILE* f = stdout;
@@ -176,7 +176,7 @@ MypaintBrushWriter::write_file (GError** error)
 
   for (GList* item = settings.ptr(); item; item = item->next) {
     MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(item->data);
-    GimpMypaintBrushPrivate::Value* v = priv->get_setting(setting->index);
+    GimpMypaint::BrushPrivate::Value* v = priv->get_setting(setting->index);
     fprintf(f, "%s %f ", setting->internal_name, v->base_value);
     if (v->mapping) {
       for (GList* input_iter = inputs.ptr(); input_iter; input_iter = input_iter->next) {
@@ -214,7 +214,7 @@ MypaintBrushWriter::quote (const gchar *string)
 void
 MypaintBrushWriter::save_icon (gchar *filename)
 {
-  GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(source->p);
+  GimpMypaint::BrushPrivate *priv = reinterpret_cast<GimpMypaint::BrushPrivate*>(source->p);
 	cairo_surface_t* icon_image = cairo_image_surface_create_from_png(filename);
   priv->set_icon_image(icon_image);
   cairo_surface_destroy (icon_image);

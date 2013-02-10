@@ -18,17 +18,20 @@
 #ifndef __GIMP_MYPAINT_OPTIONS_HISTORY_HPP__
 #define __GIMP_MYPAINT_OPTIONS_HISTORY_HPP__
 
-class GimpMypaintOptionsHistory {
+namespace GimpMypaint {
+
+class OptionsHistory {
 private:
   GList* brushes;
 public:
-  GimpMypaintOptionsHistory();
-  ~GimpMypaintOptionsHistory();
+  OptionsHistory();
+  ~OptionsHistory();
   void push_brush(GimpMypaintBrush* brush);
   GimpMypaintBrush* get_brush(int index);
   int get_brush_history_size();
 
-  static GimpMypaintOptionsHistory* get_singleton();
+  static OptionsHistory* get_singleton();
 };
 
+}; // namespace GimpMypaint
 #endif

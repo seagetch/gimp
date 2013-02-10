@@ -43,6 +43,7 @@ extern "C" {
 #include "core/gimpprojection.h"
 #include "core/gimpmypaintbrush.h"
 #include "core/gimplayer.h"
+#include "core/gimpdrawableundo.h"
 
 #include "gimpmypaintcoreundo.h"
 #include "gimpmypaintoptions.h"
@@ -55,30 +56,34 @@ extern "C" {
 #include "base/delegators.hpp"
 #include "gimpmypaintcore.hpp"
 #include "gimpmypaintcore-surface.hpp"
+#include "gimpmypaintcore-postprocess.hpp"
+#include "gimpmypaintcore-postprocess-filters.hpp"
 #include "core/gimpmypaintbrush-private.hpp"
 
 /*  local function prototypes  */
+namespace GimpMypaint {
 
-GimpMypaintCore::GimpMypaintCore()
+Core::Core()
 {
   ID               = 0; //global_core_ID++;
 
-  surface = NULL;
-  brush   = NULL;
-  stroke  = NULL;
+  surface                = NULL;
+  brush                  = NULL;
+  stroke                 = NULL;
+  post_processor         = NULL;
   option_changed_handler = NULL;
 }
 
 
-GimpMypaintCore::~GimpMypaintCore ()
+Core::~Core ()
 {
-  g_print("GimpMypaintCore(%lx)::destructor\n", (gulong)this);
+  g_print("Core(%lx)::destructor\n", (gulong)this);
   cleanup ();
 }
 
-void GimpMypaintCore::cleanup()
+void Core::cleanup()
 {
-  g_print("GimpMypaintCore(%lx)::cleanup\n", (gulong)this);
+  g_print("Core(%lx)::cleanup\n", (gulong)this);
   if (option_changed_handler)
     delete option_changed_handler;
   option_changed_handler = NULL;
@@ -100,10 +105,11 @@ void GimpMypaintCore::cleanup()
   }
 }
 
-void GimpMypaintCore::stroke_to (GimpDrawable* drawable, 
-                                 gdouble dtime, 
-                                 const GimpCoords* coords,
-                                 GimpMypaintOptions* options)
+void 
+Core::stroke_to (GimpDrawable* drawable, 
+                 gdouble dtime, 
+                 const GimpCoords* coords,
+                 GimpMypaintOptions* options)
 {
   bool split = false;
   
@@ -113,7 +119,7 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
       option_changed_handler = NULL;
     }
     this->options = options;
-    option_changed_handler = g_signal_connect_delegator(G_OBJECT(options), "notify", Delegator::delegator(this, &GimpMypaintCore::option_changed));
+    option_changed_handler = g_signal_connect_delegator(G_OBJECT(options), "notify", Delegator::delegator(this, &Core::option_changed));
   }
   
   // Prepare Brush.
@@ -124,7 +130,18 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
   // Prepare Stroke object
   if (!stroke) {
     stroke = new Stroke();
-    stroke->start(brush);
+
+    // PostProcessor Test.
+    if (!post_processor || post_processor->is_done()) {
+      if (post_processor)
+        delete post_processor;
+      post_processor = new PostProcessManager(this, drawable);
+      PostProcessManager::Task* task;
+      task = new SimulatePressureTask();
+      post_processor->add_task(task);
+      task = new RenderTask();
+      post_processor->add_task(task);
+    }
 
     if (!surface) {
       g_print("MypaintCore(%lx)::create new surface...\n", (gulong)this);
@@ -135,84 +152,78 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
       delete surface;
       g_print("MypaintCore(%lx)::recreate new surface...\n", (gulong)this);
       surface = GimpMypaintSurface_new(drawable);
-     }
+    }
 
     GimpContext* context = GIMP_CONTEXT (options);
 
     // update color values
     // FIXME: Color should be updated when Foreground color is selected
-    GimpRGB rgb;
-    gimp_context_get_foreground(GIMP_CONTEXT(options), &rgb);
-    GimpHSV hsv;
-    gimp_rgb_to_hsv (&rgb, &hsv);
-    brush->set_base_value(BRUSH_COLOR_H, hsv.h);
-    brush->set_base_value(BRUSH_COLOR_S, hsv.s);
-    brush->set_base_value(BRUSH_COLOR_V, hsv.v);
+    GimpRGB fg_color, bg_color;
+    gboolean      use_gimp_brushmark;
+    GimpBrush*    brushmark = NULL;
+    gboolean      use_gimp_texture;
+    GimpPattern*  texture = NULL;
+    gboolean      floating_stroke = FALSE;
+    gdouble       stroke_opacity = 1.0;
+    gboolean      lock_alpha = FALSE;
+    
+    gimp_context_get_foreground(GIMP_CONTEXT(options), &fg_color);
+    gimp_context_get_background(GIMP_CONTEXT(options), &bg_color);
 
-    gimp_context_get_background(GIMP_CONTEXT(options), &rgb);
-    surface->set_bg_color(&rgb);
-
-    // Attach gimp brush to the surface object.
-    gboolean use_gimp_brushmark;
     g_object_get(G_OBJECT(options), "use_gimp_brushmark", &use_gimp_brushmark, NULL);
-    if (use_gimp_brushmark) {
-      GimpBrush* brushmark = gimp_context_get_brush (GIMP_CONTEXT(options));
-      surface->set_brushmark(brushmark);
-    } else {
-      surface->set_brushmark(NULL);
-    }
+    if (use_gimp_brushmark)
+      brushmark = gimp_context_get_brush (GIMP_CONTEXT(options));
 
-    gboolean use_gimp_texture;
     g_object_get(G_OBJECT(options), "use_gimp_texture", &use_gimp_texture, NULL);
-    if (use_gimp_texture) {
-      GimpPattern* pattern = gimp_context_get_pattern(GIMP_CONTEXT(options));
-      surface->set_texture(pattern);
-    } else {
-      surface->set_texture(NULL);
-    }
+    if (use_gimp_texture)
+      texture = gimp_context_get_pattern(GIMP_CONTEXT(options));
 
-    gboolean floating_stroke;
     g_object_get(G_OBJECT(options), "non_incremental", &floating_stroke, NULL);
-    surface->set_floating_stroke(floating_stroke);
-    gdouble stroke_opacity;
     g_object_get(G_OBJECT(options), "stroke_opacity", &stroke_opacity, NULL);
     surface->set_stroke_opacity(stroke_opacity);
-    
-    if (GIMP_IS_LAYER (drawable)) {
-      gboolean lock_alpha = gimp_layer_get_lock_alpha (GIMP_LAYER (drawable));
 
-      if (lock_alpha)
-        brush->set_base_value(BRUSH_LOCK_ALPHA, 1.0);
-      else
-        brush->set_base_value(BRUSH_LOCK_ALPHA, 0.0);
-    }
-    surface->begin_session();
+    if (GIMP_IS_LAYER (drawable))
+      lock_alpha = gimp_layer_get_lock_alpha (GIMP_LAYER (drawable));
+
+    // Setup stroke and reflect parameters to surface.
+    stroke->setup(brush, fg_color, bg_color, 
+                  brushmark, texture,
+                  floating_stroke, stroke_opacity, 
+                  lock_alpha);
+    stroke->start(surface);
   }
   
   surface->set_coords(coords);
-  
   stroke->record(dtime, coords);
 
   /// from Layer#stroke_to
   split = brush->stroke_to(surface, coords->x, coords->y, 
                            coords->pressure, 
                            coords->xtilt, coords->ytilt, dtime);
+
+  if (post_processor && surface->is_dirty())
+    post_processor->cancel();
   
   if (split)
     split_stroke();
 }
 
-void GimpMypaintCore::split_stroke()
+void Core::split_stroke()
 {
 //  g_print("splitting stroke...\n");
   if (!stroke)
     return;
-    
-  stroke->stop();
-  surface->end_session();
+
+  bool dirty = surface->is_dirty();
+  GimpDrawableUndo* undo = GIMP_DRAWABLE_UNDO(stroke->stop(surface));
   // push stroke to undo stack.
 
-  delete stroke;  
+  if (post_processor && undo) {
+    post_processor->add_stroke(stroke, undo);
+    post_processor->start();
+  } else {
+    delete stroke;  
+  }
   stroke = NULL;
   /*
   if (brush) {
@@ -223,12 +234,12 @@ void GimpMypaintCore::split_stroke()
   return;
 }
 
-void GimpMypaintCore::update_resource(GimpMypaintOptions* options)
+void Core::update_resource(GimpMypaintOptions* options)
 {
   GimpContext* context = GIMP_CONTEXT (options);
 //  GimpMypaintBrush* myb = context->mypaint_brush;
-	GimpMypaintBrush* myb = gimp_mypaint_options_get_current_brush (options);
-  GimpMypaintBrushPrivate *myb_priv = NULL;
+  GimpMypaintBrush* myb = gimp_mypaint_options_get_current_brush (options);
+  BrushPrivate *myb_priv = NULL;
 #if 0  
   if (mypaint_brush != myb) {
     g_print("Other brush is selected.\n");
@@ -246,14 +257,14 @@ void GimpMypaintCore::update_resource(GimpMypaintOptions* options)
 
 }
 
-void GimpMypaintCore::reset_brush()
+void Core::reset_brush()
 {
   if (brush) {
     brush->reset();
   }
 }
 
-void GimpMypaintCore::option_changed(GObject* target, GParamSpec *pspec)
+void Core::option_changed(GObject* target, GParamSpec *pspec)
 {
 //  g_print("MypaintCore(%lx)::option_changed\n", (gulong)this);
   split_stroke();
@@ -261,9 +272,9 @@ void GimpMypaintCore::option_changed(GObject* target, GParamSpec *pspec)
   GimpMypaintOptions* options = GIMP_MYPAINT_OPTIONS(target);
 
   GimpMypaintBrush* myb = gimp_mypaint_options_get_current_brush (options);
-  GimpMypaintBrushPrivate *myb_priv = NULL;
+  BrushPrivate *myb_priv = NULL;
   if (myb)
-    myb_priv = reinterpret_cast<GimpMypaintBrushPrivate*>(myb->p);
+    myb_priv = reinterpret_cast<BrushPrivate*>(myb->p);
 
 
   // copy brush setting here.
@@ -280,158 +291,13 @@ void GimpMypaintCore::option_changed(GObject* target, GParamSpec *pspec)
   }
 }
 
+}; // namespace GimpMypaint
+
 
 #if 0
-/*  public functions  */
-
-void
-gimp_mypaint_core_paint (GimpMypaintCore    *core,
-                       GimpDrawable     *drawable,
-                       GimpMypaintOptions *mypaint_options,
-                       GimpMypaintState    mypaint_state,
-                       guint32           time)
-{
-  GimpMypaintCoreClass *core_class;
-
-  g_return_if_fail (GIMP_IS_MYPAINT_CORE (core));
-  g_return_if_fail (GIMP_IS_DRAWABLE (drawable));
-  g_return_if_fail (gimp_item_is_attached (GIMP_ITEM (drawable)));
-  g_return_if_fail (GIMP_IS_MYPAINT_OPTIONS (mypaint_options));
-
-  core_class = GIMP_MYPAINT_CORE_GET_CLASS (core);
-
-  if (core_class->pre_paint (core, drawable,
-                             mypaint_options,
-                             mypaint_state, time))
-    {
-
-      if (mypaint_state == GIMP_MYPAINT_STATE_MOTION)
-        {
-          /* Save coordinates for gimp_mypaint_core_interpolate() */
-          core->last_mypaint.x = core->cur_coords.x;
-          core->last_mypaint.y = core->cur_coords.y;
-        }
-
-      core_class->maint (core, drawable,
-                         mypaint_options,
-                         &core->cur_coords,
-                         mypaint_state, time);
-
-      core_class->post_paint (core, drawable,
-                              mypaint_options,
-                              mypaint_state, time);
-    }
-}
-#endif
-
-#if 0
-void
-gimp_mypaint_core_cancel (GimpMypaintCore *core,
-                        GimpDrawable  *drawable)
-{
-  gint x, y;
-  gint width, height;
-
-  g_return_if_fail (GIMP_IS_MYPAINT_CORE (core));
-  g_return_if_fail (GIMP_IS_DRAWABLE (drawable));
-  g_return_if_fail (gimp_item_is_attached (GIMP_ITEM (drawable)));
-
-  /*  Determine if any part of the image has been altered--
-   *  if nothing has, then just return...
-   */
-  if ((core->x2 == core->x1) || (core->y2 == core->y1))
-    return;
-
-  if (gimp_rectangle_intersect (core->x1, core->y1,
-                                core->x2 - core->x1,
-                                core->y2 - core->y1,
-                                0, 0,
-                                gimp_item_get_width  (GIMP_ITEM (drawable)),
-                                gimp_item_get_height (GIMP_ITEM (drawable)),
-                                &x, &y, &width, &height))
-    {
-      gimp_mypaint_core_copy_valid_tiles (core->undo_tiles,
-                                        gimp_drawable_get_tiles (drawable),
-                                        x, y, width, height);
-    }
-
-  tile_manager_unref (core->undo_tiles);
-  core->undo_tiles = NULL;
-
-  if (core->saved_proj_tiles)
-    {
-      tile_manager_unref (core->saved_proj_tiles);
-      core->saved_proj_tiles = NULL;
-    }
-
-  gimp_drawable_update (drawable, x, y, width, height);
-
-  gimp_viewable_preview_thaw (GIMP_VIEWABLE (drawable));
-}
-
-void
-gimp_mypaint_core_interpolate (GimpMypaintCore    *core,
-                             GimpDrawable     *drawable,
-                             GimpMypaintOptions *mypaint_options,
-                             const GimpCoords *coords,
-                             guint32           time)
-{
-  g_return_if_fail (GIMP_IS_MYPAINT_CORE (core));
-  g_return_if_fail (GIMP_IS_DRAWABLE (drawable));
-  g_return_if_fail (gimp_item_is_attached (GIMP_ITEM (drawable)));
-  g_return_if_fail (GIMP_IS_MYPAINT_OPTIONS (mypaint_options));
-  g_return_if_fail (coords != NULL);
-
-  core->cur_coords = *coords;
-
-  GIMP_MYPAINT_CORE_GET_CLASS (core)->interpolate (core, drawable,
-                                                 mypaint_options, time);
-}
-
-void
-gimp_mypaint_core_set_current_coords (GimpMypaintCore    *core,
-                                    const GimpCoords *coords)
-{
-  g_return_if_fail (GIMP_IS_MYPAINT_CORE (core));
-  g_return_if_fail (coords != NULL);
-
-  core->cur_coords = *coords;
-}
-
-void
-gimp_mypaint_core_get_current_coords (GimpMypaintCore    *core,
-                                    GimpCoords       *coords)
-{
-  g_return_if_fail (GIMP_IS_MYPAINT_CORE (core));
-  g_return_if_fail (coords != NULL);
-
-  *coords = core->cur_coords;
-
-}
-
-void
-gimp_mypaint_core_set_last_coords (GimpMypaintCore    *core,
-                                 const GimpCoords *coords)
-{
-  g_return_if_fail (GIMP_IS_MYPAINT_CORE (core));
-  g_return_if_fail (coords != NULL);
-
-  core->last_coords = *coords;
-}
-
-void
-gimp_mypaint_core_get_last_coords (GimpMypaintCore *core,
-                                 GimpCoords    *coords)
-{
-  g_return_if_fail (GIMP_IS_MYPAINT_CORE (core));
-  g_return_if_fail (coords != NULL);
-
-  *coords = core->last_coords;
-}
-
 /**
  * gimp_mypaint_core_round_line:
- * @core:                 the #GimpMypaintCore
+ * @core:                 the #Core
  * @options:              the #GimpMypaintOptions to use
  * @constrain_15_degrees: the modifier state
  *
@@ -444,7 +310,7 @@ gimp_mypaint_core_get_last_coords (GimpMypaintCore *core,
  * the center of pixels.
  **/
 void
-gimp_mypaint_core_round_line (GimpMypaintCore    *core,
+gimp_mypaint_core_round_line (Core    *core,
                             GimpMypaintOptions *mypaint_options,
                             gboolean          constrain_15_degrees)
 {

@@ -160,7 +160,7 @@ MyPaintBrushReader::load_brush (GimpContext  *context,
   ScopeGuard<gchar, void(gpointer)> icon_filename(g_strconcat (filename_dup.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION, NULL), g_free);
   g_print ("Read Icon: %s\n", icon_filename.ptr());
   load_icon (icon_filename.ptr());
-  GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
+  GimpMypaint::BrushPrivate* priv = reinterpret_cast<GimpMypaint::BrushPrivate*>(result->p);
   priv->clear_dirty_flag();
   return result;
 }
@@ -169,7 +169,7 @@ void
 MyPaintBrushReader::load_defaults ()
 {
   ScopeGuard<GList, void(GList*)> settings(mypaint_brush_get_brush_settings (), g_list_free);
-  GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
+  GimpMypaint::BrushPrivate *priv = reinterpret_cast<GimpMypaint::BrushPrivate*>(result->p);
 
   for (GList* item = settings.ptr(); item; item = item->next) {
     MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(item->data);
@@ -177,7 +177,7 @@ MyPaintBrushReader::load_defaults ()
 //    priv->deallocate_mapping(setting->index);
     if (g_strcmp0(setting->internal_name, "opaque_multiply") == 0) {
       priv->allocate_mapping(setting->index);
-      GimpMypaintBrushPrivate::Value* v = priv->get_setting(setting->index);
+      GimpMypaint::BrushPrivate::Value* v = priv->get_setting(setting->index);
       v->mapping->set_n(INPUT_PRESSURE, 2);
       v->mapping->set_point(INPUT_PRESSURE, 0, 0.0, 0.0);
       v->mapping->set_point(INPUT_PRESSURE, 1, 1.0, 1.0);      
@@ -190,11 +190,11 @@ MyPaintBrushReader::dump ()
 {
   ScopeGuard<GList, void(GList*)> settings(mypaint_brush_get_brush_settings (), g_list_free);
   ScopeGuard<GList, void(GList*)> inputs(mypaint_brush_get_input_settings (), g_list_free);
-  GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
+  GimpMypaint::BrushPrivate *priv = reinterpret_cast<GimpMypaint::BrushPrivate*>(result->p);
 
   for (GList* item = settings.ptr(); item; item = item->next) {
     MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(item->data);
-    GimpMypaintBrushPrivate::Value* v = priv->get_setting(setting->index);
+    GimpMypaint::BrushPrivate::Value* v = priv->get_setting(setting->index);
     if (v->mapping) {
       g_print("mapping: %s=%f\n", setting->internal_name, v->mapping->base_value);
       for (GList* input_iter = inputs.ptr(); input_iter; input_iter = input_iter->next) {
@@ -379,7 +379,7 @@ MyPaintBrushReader::parse_raw (
   ScopeGuard<GHashTable, void(GHashTable*)> migrate_dict(mypaint_brush_get_setting_migrate_dict (), g_hash_table_unref);
   GHashTableIter    raw_pair_iter;
   gpointer          raw_key, raw_value;
-  GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
+  GimpMypaint::BrushPrivate *priv = reinterpret_cast<GimpMypaint::BrushPrivate*>(result->p);
 
   g_hash_table_iter_init (&raw_pair_iter, raw_pair);
   
@@ -487,7 +487,7 @@ MyPaintBrushReader::parse_raw (
             {
               priv->allocate_mapping(setting->index);
             }
-          GimpMypaintBrushPrivate::Value* v = priv->get_setting(setting->index);
+          GimpMypaint::BrushPrivate::Value* v = priv->get_setting(setting->index);
           while (*values_pos)
             {
               //      inputname, rawpoints = part.strip().split(' ', 1)
@@ -523,7 +523,7 @@ MyPaintBrushReader::parse_raw (
 void
 MyPaintBrushReader::load_icon (gchar *filename)
 {
-  GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
+  GimpMypaint::BrushPrivate *priv = reinterpret_cast<GimpMypaint::BrushPrivate*>(result->p);
 	cairo_surface_t* icon_image = cairo_image_surface_create_from_png(filename);
   priv->set_icon_image(icon_image);
   cairo_surface_destroy (icon_image);

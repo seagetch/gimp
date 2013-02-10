@@ -295,8 +295,8 @@ tile_manager_get (TileManager *tm,
               tm->tiles[tile_num] = tile;
             }
 
-	  /* must lock before marking dirty */
-	  tile_lock (tile);
+          /* must lock before marking dirty */
+          tile_lock (tile);
           tile->write_count++;
           tile->dirty = TRUE;
         }
@@ -696,6 +696,60 @@ tile_manager_map_over_tile (TileManager *tm,
     }
 
   tile_manager_map (tm, tl->tile_num, srctile);
+}
+
+void
+tile_manager_merge_under     (TileManager  *tm,
+                              TileManager  *src)
+{
+  gint         n_tiles;
+  gint         i;
+
+  g_return_if_fail (tm != NULL);
+  g_return_if_fail (src != NULL);
+  g_return_if_fail (tm->width == src->width);
+  g_return_if_fail (tm->height == src->height);
+
+  n_tiles = tm->ntile_rows * tm->ntile_cols;
+
+  for (i = 0; i < n_tiles; i++)
+    {
+      Tile *tile1, *tile2;
+
+      tile1 = tile_manager_get (tm,  i, FALSE, FALSE);
+      tile2 = tile_manager_get (src, i, FALSE, FALSE);
+      if (!tile_is_valid(tile1)) {
+        if (tile_is_valid(tile2)) {
+          tile_lock (tile2);
+          tile_manager_map (tm, i, tile2);
+          tile_release (tile2, FALSE);
+        }
+      }
+    }
+}
+
+void
+tile_manager_merge_over      (TileManager  *tm,
+                              TileManager  *src)
+{
+  gint         n_tiles;
+  gint         i;
+
+  g_return_if_fail (tm != NULL);
+  g_return_if_fail (src != NULL);
+  g_return_if_fail (tm->width == src->width);
+  g_return_if_fail (tm->height == src->height);
+
+  n_tiles = tm->ntile_rows * tm->ntile_cols;
+
+  for (i = 0; i < n_tiles; i++)
+    {
+      Tile *tile;
+      tile = tile_manager_get (src, i, FALSE, FALSE);
+      if (tile_is_valid(tile))
+        tile_manager_map (tm, i, tile);
+//      tile_release (tile, FALSE);
+    }
 }
 
 void

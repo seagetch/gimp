@@ -44,22 +44,24 @@ extern "C++" {
 #include "base/glib-cxx-utils.hpp"
 #include "gimpmypaintoptions-history.hpp"
 
-static GimpMypaintOptionsHistory* instance = NULL;
+namespace GimpMypaint {
+
+static OptionsHistory* instance = NULL;
 static void free_brush(GimpMypaintBrush* brush);
 
   
-GimpMypaintOptionsHistory::GimpMypaintOptionsHistory() : brushes(NULL)
+OptionsHistory::OptionsHistory() : brushes(NULL)
 {
 }
 
-GimpMypaintOptionsHistory::~GimpMypaintOptionsHistory()
+OptionsHistory::~OptionsHistory()
 {
   if (brushes)
     g_list_free_full(brushes, GDestroyNotify(free_brush));
 }
 
 void
-GimpMypaintOptionsHistory::push_brush(GimpMypaintBrush* brush)
+OptionsHistory::push_brush(GimpMypaintBrush* brush)
 {
   brushes = g_list_append(brushes, brush);
   g_print("Add custom brush to the history: %s\n", gimp_data_get_filename(GIMP_DATA(brush)) );
@@ -67,23 +69,23 @@ GimpMypaintOptionsHistory::push_brush(GimpMypaintBrush* brush)
 }
 
 GimpMypaintBrush* 
-GimpMypaintOptionsHistory::get_brush(int index)
+OptionsHistory::get_brush(int index)
 {
   GList* item = g_list_nth(brushes, index);
   return item? GIMP_MYPAINT_BRUSH(item->data) : NULL;
 }
 
 int 
-GimpMypaintOptionsHistory::get_brush_history_size()
+OptionsHistory::get_brush_history_size()
 {
   return g_list_length(brushes);
 }
 
-GimpMypaintOptionsHistory* 
-GimpMypaintOptionsHistory::get_singleton()
+OptionsHistory* 
+OptionsHistory::get_singleton()
 {
   if (!instance) {
-    instance = new GimpMypaintOptionsHistory();
+    instance = new OptionsHistory();
   }
   return instance;
 }
@@ -93,5 +95,7 @@ free_brush (GimpMypaintBrush* brush)
 {
   g_object_unref (brush);
 }
+
+}; // namespace GimpMypaint
 
 }; // extern "C++"

@@ -41,7 +41,7 @@ public:
 
   virtual void begin_session() = 0;
 
-  virtual void end_session() = 0;
+  virtual void* end_session() = 0;
 
 };
 

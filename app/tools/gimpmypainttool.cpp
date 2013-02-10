@@ -160,30 +160,18 @@ gimp_mypaint_tool_init (GimpMypaintTool *paint_tool)
 static void
 gimp_mypaint_tool_constructed (GObject *object)
 {
-  GimpTool         *tool       = GIMP_TOOL (object);
-  GimpMypaintTool    *paint_tool = GIMP_MYPAINT_TOOL (object);
-  GimpMypaintOptions *options    = GIMP_MYPAINT_TOOL_GET_OPTIONS (tool);
-//  GimpMypaintInfo    *paint_info;
-  GimpMypaintCore    *core;
+  GimpTool             *tool       = GIMP_TOOL (object);
+  GimpMypaintTool      *paint_tool = GIMP_MYPAINT_TOOL (object);
+  GimpMypaintOptions   *options    = GIMP_MYPAINT_TOOL_GET_OPTIONS (tool);
+  GimpMypaint::Core    *core;
 
   if (G_OBJECT_CLASS (parent_class)->constructed)
     G_OBJECT_CLASS (parent_class)->constructed (object);
 
   g_assert (GIMP_IS_TOOL_INFO (tool->tool_info));
-//  g_assert (GIMP_IS_MYPAINT_INFO (tool->tool_info->paint_info));
 
-//  paint_info = tool->tool_info->paint_info;
-
-//  g_assert (g_type_is_a (paint_info->mypaint_type, GIMP_TYPE_MYPAINT_CORE));
-
-  paint_tool->core = core = new GimpMypaintCore();
+  paint_tool->core = core = new GimpMypaint::Core();
   g_object_set_cxx_object(object, "paint-core", core);
-/*
-  g_signal_connect_object (options, "notify::hard",
-                           G_CALLBACK (gimp_mypaint_tool_hard_notify),
-                           tool, 0);
-  gimp_mypaint_tool_hard_notify (options, NULL, tool);
-*/
 }
 
 static void
@@ -226,8 +214,8 @@ gimp_mypaint_tool_control (GimpTool       *tool,
                          GimpToolAction  action,
                          GimpDisplay    *display)
 {
-  GimpMypaintTool *paint_tool = GIMP_MYPAINT_TOOL (tool);
-  GimpMypaintCore* core = NULL;
+  GimpMypaintTool   *paint_tool = GIMP_MYPAINT_TOOL (tool);
+  GimpMypaint::Core *core = NULL;
 
   switch (action) {
     case GIMP_TOOL_ACTION_PAUSE:
@@ -235,7 +223,7 @@ gimp_mypaint_tool_control (GimpTool       *tool,
       break;
 
     case GIMP_TOOL_ACTION_HALT:
-      core = reinterpret_cast<GimpMypaintCore*>(paint_tool->core);
+      core = reinterpret_cast<GimpMypaint::Core*>(paint_tool->core);
       core->cleanup();
       break;
   }
@@ -381,12 +369,12 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
 {
   GimpMypaintTool    *paint_tool    = GIMP_MYPAINT_TOOL (tool);
   GimpMypaintOptions *paint_options = GIMP_MYPAINT_TOOL_GET_OPTIONS (tool);
-  GimpMypaintCore    *core = reinterpret_cast<GimpMypaintCore*>(paint_tool->core);
-  GimpImage        *image         = gimp_display_get_image (display);
-  GimpDrawable     *drawable      = gimp_image_get_active_drawable (image);
-  GimpCoords        curr_coords;
-  gint              off_x, off_y;
-  gdouble           dtime;
+  GimpMypaint::Core  *core          = reinterpret_cast<GimpMypaint::Core*>(paint_tool->core);
+  GimpImage          *image         = gimp_display_get_image (display);
+  GimpDrawable       *drawable      = gimp_image_get_active_drawable (image);
+  GimpCoords          curr_coords;
+  gint                off_x, off_y;
+  gdouble             dtime;
 
   if (button1_pressed)
     GIMP_TOOL_CLASS (parent_class)->motion (tool, coords, time, state, display);
@@ -597,12 +585,12 @@ gimp_mypaint_tool_oper_update (GimpTool         *tool,
                              GimpDisplay      *display)
 {
   GimpMypaintTool    *paint_tool    = GIMP_MYPAINT_TOOL (tool);
-  GimpDrawTool     *draw_tool     = GIMP_DRAW_TOOL (tool);
+  GimpDrawTool       *draw_tool     = GIMP_DRAW_TOOL (tool);
   GimpMypaintOptions *paint_options = GIMP_MYPAINT_TOOL_GET_OPTIONS (tool);
-  GimpMypaintCore    *core          = reinterpret_cast<GimpMypaintCore*>(paint_tool->core);
-  GimpDisplayShell *shell         = gimp_display_get_shell (display);
-  GimpImage        *image         = gimp_display_get_image (display);
-  GimpDrawable     *drawable      = gimp_image_get_active_drawable (image);
+  GimpMypaint::Core  *core          = reinterpret_cast<GimpMypaint::Core*>(paint_tool->core);
+  GimpDisplayShell   *shell         = gimp_display_get_shell (display);
+  GimpImage          *image         = gimp_display_get_image (display);
+  GimpDrawable       *drawable      = gimp_image_get_active_drawable (image);
 
   if (gimp_color_tool_is_enabled (GIMP_COLOR_TOOL (tool)))
     {
@@ -758,10 +746,10 @@ gimp_mypaint_tool_draw (GimpDrawTool *draw_tool)
       if (paint_tool->draw_line &&
           ! gimp_tool_control_is_active (GIMP_TOOL (draw_tool)->control))
         {
-          GimpMypaintCore *core     = reinterpret_cast<GimpMypaintCore*>(paint_tool->core);
-          GimpImage     *image      = gimp_display_get_image (draw_tool->display);
-          GimpDrawable  *drawable   = gimp_image_get_active_drawable (image);
-          gint           off_x, off_y;
+          GimpMypaint::Core *core       = reinterpret_cast<GimpMypaint::Core*>(paint_tool->core);
+          GimpImage         *image      = gimp_display_get_image (draw_tool->display);
+          GimpDrawable      *drawable   = gimp_image_get_active_drawable (image);
+          gint               off_x, off_y;
 
           gimp_item_get_offset (GIMP_ITEM (drawable), &off_x, &off_y);
 

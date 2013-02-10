@@ -10,7 +10,10 @@ extern "C" {
 
 extern "C++" {
 #include "base/scopeguard.hpp"
-class GimpMypaintBrushPrivate {
+
+namespace GimpMypaint {
+
+class BrushPrivate {
   public:
   struct Value {
     float base_value;
@@ -26,8 +29,8 @@ class GimpMypaintBrushPrivate {
   bool dirty;
 
   public:
-  GimpMypaintBrushPrivate();
-  ~GimpMypaintBrushPrivate();
+  BrushPrivate();
+  ~BrushPrivate();
   Value* get_setting(int index) {
     g_assert (0 <= index && index < BRUSH_MAPPING_COUNT);
     return &settings[index];
@@ -45,13 +48,15 @@ class GimpMypaintBrushPrivate {
   void get_new_preview(guchar* dest, int width, int height, int bytes, int stride);
   void set_icon_image(cairo_surface_t* image);
   cairo_surface_t* get_icon_image();
-  GimpMypaintBrushPrivate* duplicate();
+  BrushPrivate* duplicate();
   void clear_dirty_flag() { dirty = false; };
   void mark_as_dirty() { dirty = true; }
   bool is_dirty() { return dirty; };
 };
 
 void destroy_gimp_mypaint_brush_private(gpointer data);
+
+}; // namespace GimpMypaint
 
 }
 #endif

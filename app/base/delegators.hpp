@@ -3,6 +3,7 @@
 
 
 #include <glib-object.h>
+#include "base/glib-cxx-utils.hpp"
 
 namespace Delegator {
 
@@ -140,7 +141,6 @@ private:
 public:
   ObjectDelegator_arg2(Type* o, Function f) : obj(o), func_ptr(f) {};
   void emit(GObject* t, Arg1 a1, Arg2 a2) {
-    g_print("emit:obj=%ld\n", (unsigned long)obj);
     if (obj)
       (obj->*func_ptr)(t, a1, a2);
   }
@@ -300,29 +300,31 @@ delegator(void (*f)(GObject*, Arg1, Arg2, Arg3))
 }
 ///////////////////////////////////////////////////////////////////////////////
 class Connection {
-  GObject*  target;
-  gchar*    signal;
-  GClosure* closure;
+  GObject*     target;
+  StringHolder signal;
+  GClosure*    closure;
 public:
   Connection(GObject* target_,
              const gchar*   signal_,
-             GClosure* closure_)
+             GClosure* closure_) 
+    : signal(g_strdup(signal_))
   {
     target  = target_;
-    signal  = g_strdup(signal_);
     closure = closure_;
   };
 
   ~Connection()
   {
-      disconnect();
+    disconnect();
   }
   
   void disconnect() {
     if (target && closure) {
       gulong handler_id = g_signal_handler_find(gpointer(target), G_SIGNAL_MATCH_CLOSURE, 0, 0, closure, NULL, NULL);
+      g_print("handler_id=%lx", handler_id);
       g_signal_handler_disconnect(gpointer(target), handler_id);
     }
+    g_print("\n");
     target  = NULL;
     closure = NULL;
   };

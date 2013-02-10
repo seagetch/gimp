@@ -6,11 +6,15 @@ class ScopeGuard {
 protected:
   T* obj;
   F* func;
+  virtual void dispose() {
+    if (func && obj)
+      func(obj);
+    obj = NULL;
+  }
 public:
   ScopeGuard(T* ptr, F* f) : obj(ptr), func(f) {};
   ~ScopeGuard() {
-    if (func && obj)
-      func(obj);
+    dispose();
   }
   T& operator *() { return *obj; }
   T* operator ->() { return obj; }
