@@ -118,6 +118,7 @@ gimp_tool_palette_class_init (GimpToolPaletteClass *klass)
 static void
 gimp_tool_palette_init (GimpToolPalette *palette)
 {
+  gtk_tool_palette_set_style (GTK_TOOL_PALETTE (palette), GTK_TOOLBAR_ICONS);
 }
 
 static void
@@ -208,6 +209,8 @@ gimp_tool_palette_style_set (GtkWidget *widget,
           gtk_button_set_relief (GTK_BUTTON (button), relief);
         }
     }
+
+  gimp_dock_invalidate_geometry (GIMP_DOCK (private->toolbox));
 }
 
 GtkWidget *

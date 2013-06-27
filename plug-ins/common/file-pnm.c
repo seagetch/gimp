@@ -428,7 +428,9 @@ run (const gchar      *name,
           else
             {
               psvals.raw = (param[5].data.d_int32) ? TRUE : FALSE;
+              pbm = (strcmp (name, PBM_SAVE_PROC) == 0);
             }
+          break;
 
         case GIMP_RUN_WITH_LAST_VALS:
           /*  Possibly retrieve data  */
@@ -480,7 +482,7 @@ load_image (const gchar  *filename,
   gint32          layer_ID;
   GimpDrawable   *drawable;
   int             fd;           /* File descriptor */
-  char            buf[BUFLEN];  /* buffer for random things like scanning */
+  char            buf[BUFLEN + 4];  /* buffer for random things like scanning */
   PNMInfo        *pnminfo;
   PNMScanner * volatile scan;
   int             ctr;

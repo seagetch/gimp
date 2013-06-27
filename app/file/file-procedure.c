@@ -223,23 +223,24 @@ file_procedure_in_group (GimpPlugInProcedure *file_proc,
   const gchar *name        = gimp_object_get_name (file_proc);
   gboolean     is_xcf_save = FALSE;
   gboolean     is_filter   = FALSE;
+  gboolean     is_uri      = FALSE;
 
   is_xcf_save = (strcmp (name, "gimp-xcf-save") == 0);
 
   is_filter   = (strcmp (name, "file-gz-save")  == 0 ||
                  strcmp (name, "file-bz2-save") == 0);
 
+  is_uri      = (strcmp (name, "file-uri-save") == 0);
+
   switch (group)
     {
     case FILE_PROCEDURE_GROUP_SAVE:
       /* Only .xcf shall pass */
-      /* FIXME: Handle .gz and .bz2 properly */
-      return is_xcf_save || is_filter;
+      return is_xcf_save || is_filter || is_uri;
 
     case FILE_PROCEDURE_GROUP_EXPORT:
       /* Anything but .xcf shall pass */
-      /* FIXME: Handle .gz and .bz2 properly */
-      return ! is_xcf_save || is_filter;
+      return ! is_xcf_save || is_uri;
 
     case FILE_PROCEDURE_GROUP_OPEN:
       /* No filter applied for Open */
@@ -289,15 +290,20 @@ file_proc_find_by_extension (GSList      *procs,
   GSList      *p;
   const gchar *ext;
 
-  ext = strrchr (uri, '.');
+  ext = file_utils_uri_get_ext (uri);
 
-  if (ext)
-    ext++;
+  if (! (ext && *ext == '.'))
+    return NULL;
+
+  ext++;
 
   for (p = procs; p; p = g_slist_next (p))
     {
       GimpPlugInProcedure *proc = p->data;
       GSList              *extensions;
+
+      if (skip_magic && proc->magics_list)
+        continue;
 
       for (extensions = proc->extensions_list;
            ext && extensions;
@@ -305,9 +311,6 @@ file_proc_find_by_extension (GSList      *procs,
         {
           const gchar *p1 = ext;
           const gchar *p2 = extensions->data;
-
-          if (skip_magic && proc->magics_list)
-            continue;
 
           while (*p1 && *p2)
             {

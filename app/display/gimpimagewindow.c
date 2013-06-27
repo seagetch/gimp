@@ -69,12 +69,11 @@
 #define GIMP_EMPTY_IMAGE_WINDOW_ENTRY_ID   "gimp-empty-image-window"
 #define GIMP_SINGLE_IMAGE_WINDOW_ENTRY_ID  "gimp-single-image-window"
 
-/* GtkPaned position of the image area, i.e. the width of the left
- * docks area
- */
-#define GIMP_IMAGE_WINDOW_LEFT_DOCKS_WIDTH "left-docks-width"
+/* The width of the left and right dock areas */
+#define GIMP_IMAGE_WINDOW_LEFT_DOCKS_WIDTH  "left-docks-width"
+#define GIMP_IMAGE_WINDOW_RIGHT_DOCKS_WIDTH "right-docks-width"
 
-/* GtkPaned position of the right docks area */
+/* deprecated property: GtkPaned position of the right docks area */
 #define GIMP_IMAGE_WINDOW_RIGHT_DOCKS_POS  "right-docks-position"
 
 /* Whether the window's maximized or not */
@@ -434,7 +433,7 @@ gimp_image_window_constructed (GObject *object)
                            private->dialog_factory,
                            private->menubar_manager);
   gtk_paned_pack1 (GTK_PANED (private->left_hpane), private->left_docks,
-                   FALSE, TRUE);
+                   FALSE, FALSE);
   gtk_widget_set_visible (private->left_docks, config->single_window_mode);
 
   /* Create the right pane */
@@ -579,23 +578,21 @@ static gboolean
 gimp_image_window_delete_event (GtkWidget   *widget,
                                 GdkEventAny *event)
 {
-  GimpImageWindow  *window = GIMP_IMAGE_WINDOW (widget);
-  GimpDisplayShell *shell  = gimp_image_window_get_active_shell (window);
+  GimpImageWindow        *window  = GIMP_IMAGE_WINDOW (widget);
+  GimpDisplayShell       *shell   = gimp_image_window_get_active_shell (window);
   GimpImageWindowPrivate *private = GIMP_IMAGE_WINDOW_GET_PRIVATE (window);
   GimpGuiConfig          *config;
 
-  config = GIMP_GUI_CONFIG (private->gimp->config);
+  config = GIMP_GUI_CONFIG (gimp_dialog_factory_get_context (private->dialog_factory)->gimp->config);
 
   if (config->single_window_mode)
-    {
-      gimp_exit (private->gimp, FALSE);
-    }
-  else
-    {
-      /* FIXME multiple shells */
-      if (shell)
-        gimp_display_shell_close (shell, FALSE);
-    }
+    gimp_exit (private->gimp, FALSE);
+#if 0
+    gimp_ui_manager_activate_action (gimp_image_window_get_ui_manager (window),
+                                     "file", "file-quit");
+#endif
+  else if (shell)
+    gimp_display_shell_close (shell, FALSE);
 
   return TRUE;
 }
@@ -871,16 +868,22 @@ gimp_image_window_get_aux_info (GimpSessionManaged *session_managed)
   if (config->single_window_mode)
     {
       GimpSessionInfoAux *aux;
+      GtkAllocation       allocation;
       gchar               widthbuf[128];
 
       g_snprintf (widthbuf, sizeof (widthbuf), "%d",
                   gtk_paned_get_position (GTK_PANED (private->left_hpane)));
-      aux = gimp_session_info_aux_new (GIMP_IMAGE_WINDOW_LEFT_DOCKS_WIDTH, widthbuf);
+      aux = gimp_session_info_aux_new (GIMP_IMAGE_WINDOW_LEFT_DOCKS_WIDTH,
+                                       widthbuf);
       aux_info = g_list_append (aux_info, aux);
 
+      gtk_widget_get_allocation (private->right_hpane, &allocation);
+
       g_snprintf (widthbuf, sizeof (widthbuf), "%d",
+                  allocation.width -
                   gtk_paned_get_position (GTK_PANED (private->right_hpane)));
-      aux = gimp_session_info_aux_new (GIMP_IMAGE_WINDOW_RIGHT_DOCKS_POS, widthbuf);
+      aux = gimp_session_info_aux_new (GIMP_IMAGE_WINDOW_RIGHT_DOCKS_WIDTH,
+                                       widthbuf);
       aux_info = g_list_append (aux_info, aux);
 
       aux = gimp_session_info_aux_new (GIMP_IMAGE_WINDOW_MAXIMIZED,
@@ -893,18 +896,21 @@ gimp_image_window_get_aux_info (GimpSessionManaged *session_managed)
 }
 
 static void
-gimp_image_window_set_right_hpane_position (GtkPaned      *paned,
-                                            GtkAllocation *allocation,
-                                            void          *data)
+gimp_image_window_set_right_docks_width (GtkPaned      *paned,
+                                         GtkAllocation *allocation,
+                                         void          *data)
 {
-  gint position = GPOINTER_TO_INT (data);
+  gint width = GPOINTER_TO_INT (data);
 
   g_return_if_fail (GTK_IS_PANED (paned));
 
-  gtk_paned_set_position (paned, position);
+  if (width > 0)
+    gtk_paned_set_position (paned, allocation->width - width);
+  else
+    gtk_paned_set_position (paned, - width);
 
   g_signal_handlers_disconnect_by_func (paned,
-                                        gimp_image_window_set_right_hpane_position,
+                                        gimp_image_window_set_right_docks_width,
                                         data);
 }
 
@@ -914,8 +920,8 @@ gimp_image_window_set_aux_info (GimpSessionManaged *session_managed,
 {
   GimpImageWindowPrivate *private;
   GList                  *iter;
-  gint                    left_docks_width      = -1;
-  gint                    right_docks_pos       = -1;
+  gint                    left_docks_width      = G_MININT;
+  gint                    right_docks_width     = G_MININT;
   gboolean                wait_with_right_docks = FALSE;
   gboolean                maximized             = FALSE;
 
@@ -930,18 +936,30 @@ gimp_image_window_set_aux_info (GimpSessionManaged *session_managed,
 
       if (! strcmp (aux->name, GIMP_IMAGE_WINDOW_LEFT_DOCKS_WIDTH))
         width = &left_docks_width;
+      else if (! strcmp (aux->name, GIMP_IMAGE_WINDOW_RIGHT_DOCKS_WIDTH))
+        width = &right_docks_width;
       else if (! strcmp (aux->name, GIMP_IMAGE_WINDOW_RIGHT_DOCKS_POS))
-        width = &right_docks_pos;
+        width = &right_docks_width;
       else if (! strcmp (aux->name, GIMP_IMAGE_WINDOW_MAXIMIZED))
         if (! g_ascii_strcasecmp (aux->value, "yes"))
           maximized = TRUE;
 
       if (width)
         sscanf (aux->value, "%d", width);
+
+      /* compat handling for right docks */
+      if (! strcmp (aux->name, GIMP_IMAGE_WINDOW_RIGHT_DOCKS_POS))
+        {
+          /* negate the value because negative docks pos means docks width,
+           * also use the negativenes of a real docks pos as condition below.
+           */
+          *width = - *width;
+        }
     }
 
-  if (left_docks_width > 0 &&
-      gtk_paned_get_position (GTK_PANED (private->left_hpane)) != left_docks_width)
+  if (left_docks_width != G_MININT &&
+      gtk_paned_get_position (GTK_PANED (private->left_hpane)) !=
+      left_docks_width)
     {
       gtk_paned_set_position (GTK_PANED (private->left_hpane), left_docks_width);
 
@@ -952,26 +970,28 @@ gimp_image_window_set_aux_info (GimpSessionManaged *session_managed,
       wait_with_right_docks = TRUE;
     }
 
-  if (right_docks_pos > 0 &&
-      gtk_paned_get_position (GTK_PANED (private->right_hpane)) != right_docks_pos)
+  if (right_docks_width != G_MININT &&
+      gtk_paned_get_position (GTK_PANED (private->right_hpane)) !=
+      right_docks_width)
     {
-      if (wait_with_right_docks)
+      if (wait_with_right_docks || right_docks_width > 0)
         {
-          /* We must wait on a size allocation before we can set the
+          /* We must wait for a size allocation before we can set the
            * position
            */
           g_signal_connect_data (private->right_hpane, "size-allocate",
-                                 G_CALLBACK (gimp_image_window_set_right_hpane_position),
-                                 GINT_TO_POINTER (right_docks_pos), NULL,
+                                 G_CALLBACK (gimp_image_window_set_right_docks_width),
+                                 GINT_TO_POINTER (right_docks_width), NULL,
                                  G_CONNECT_AFTER);
         }
       else
         {
           /* We can set the position directly, because we didn't
-           * change the left hpane position
+           * change the left hpane position, and we got the old compat
+           * dock pos property.
            */
           gtk_paned_set_position (GTK_PANED (private->right_hpane),
-                                  right_docks_pos);
+                                  - right_docks_width);
         }
     }
 
@@ -1673,6 +1693,9 @@ gimp_image_window_switch_page (GtkNotebook     *notebook,
   GIMP_LOG (WM, "GimpImageWindow %p, private->active_shell = %p; \n",
             window, shell);
   private->active_shell = shell;
+
+  gimp_window_set_primary_focus_widget (GIMP_WINDOW (window),
+                                        shell->canvas);
 
   active_display = private->active_shell->display;
 
