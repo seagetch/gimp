@@ -321,6 +321,8 @@ STOCK_TOOL_IMAGES = \
 	tools/stock-tool-measure-22.png			\
 	tools/stock-tool-move-16.png			\
 	tools/stock-tool-move-22.png			\
+	tools/stock-tool-n-point-deformation-16.png	\
+	tools/stock-tool-n-point-deformation-22.png	\
 	tools/stock-tool-paintbrush-16.png		\
 	tools/stock-tool-paintbrush-22.png		\
 	tools/stock-tool-path-16.png			\
