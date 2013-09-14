@@ -400,6 +400,7 @@ gimp_display_new (Gimp              *gimp,
   GimpImageWindow    *window = NULL;
   GimpDisplayShell   *shell;
 
+  g_print("gimp_display_new:image=%lx\n", image);
   g_return_val_if_fail (GIMP_IS_GIMP (gimp), NULL);
   g_return_val_if_fail (image == NULL || GIMP_IS_IMAGE (image), NULL);
 
@@ -466,6 +467,8 @@ gimp_display_new (Gimp              *gimp,
 
   /* add the display to the list */
   gimp_container_add (gimp->displays, GIMP_OBJECT (display));
+
+  g_print("gimp_display_new:return %lx\n", display);
 
   return display;
 }
@@ -549,15 +552,18 @@ void
 gimp_display_close (GimpDisplay *display)
 {
   g_return_if_fail (GIMP_IS_DISPLAY (display));
-
+#if 0
   if (gimp_container_get_n_children (display->gimp->displays) > 1)
     {
+#endif
       gimp_display_delete (display);
+#if 0
     }
   else
     {
       gimp_display_empty (display);
     }
+#endif
 }
 
 gint

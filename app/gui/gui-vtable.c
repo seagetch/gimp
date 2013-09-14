@@ -67,6 +67,7 @@
 #include "display/gimpdisplay.h"
 #include "display/gimpdisplay-foreach.h"
 #include "display/gimpdisplayshell.h"
+#include "display/gimpimagewindow.h" /* gimp-painter-2.7 */
 #include "display/gimpsinglewindowstrategy.h"
 #include "display/gimpmultiwindowstrategy.h"
 
@@ -307,6 +308,12 @@ gui_get_empty_display (Gimp *gimp)
           /* The display was not empty */
           display = NULL;
         }
+      {
+	    GimpDisplayShell *shell = gimp_display_get_shell (GIMP_DISPLAY(display));
+	    GimpImageWindow  *window = gimp_display_shell_get_window (shell);
+            if (window && gimp_image_window_is_toolbar_window(window))
+              display = NULL;
+      }
     }
 
   return display;
@@ -351,7 +358,7 @@ gui_display_create (Gimp      *gimp,
   GimpContext *context = gimp_get_user_context (gimp);
   GimpDisplay *display = GIMP_DISPLAY (gui_get_empty_display (gimp));
 
-  if (display)
+  if (display && image)
     {
       gimp_display_fill (display, image, unit, scale);
     }

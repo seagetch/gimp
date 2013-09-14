@@ -1791,6 +1791,19 @@ gimp_display_shell_tab_pressed (GimpDisplayShell  *shell,
   return FALSE;
 }
 
+static GimpImageWindow *
+gimp_display_shell_get_toolbar_window (Gimp *gimp)
+{
+  GList* iter = gimp_get_image_windows (gimp);
+
+  for (; iter; iter = g_list_next (iter)) {
+    GimpImageWindow *image_window = GIMP_IMAGE_WINDOW (iter->data);
+    if (image_window && gimp_image_window_is_toolbar_window (image_window) )
+      return image_window;
+  }
+  return NULL;
+}
+
 static void
 gimp_display_shell_update_focus (GimpDisplayShell *shell,
                                  gboolean          focus_in,
@@ -1801,6 +1814,12 @@ gimp_display_shell_update_focus (GimpDisplayShell *shell,
 
   if (focus_in)
     {
+      GimpImageWindow *toolbar_window;
+      g_print("update focus\n");
+      toolbar_window = GIMP_IMAGE_WINDOW (gimp_display_shell_get_toolbar_window (gimp) );
+      if (toolbar_window) {
+        gimp_image_window_link_foreign_active_shell (toolbar_window, shell);
+      }
       tool_manager_focus_display_active (gimp, shell->display);
       tool_manager_modifier_state_active (gimp, state, shell->display);
     }

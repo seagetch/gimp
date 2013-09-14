@@ -545,6 +545,11 @@ gui_restore_after_callback (Gimp               *gimp,
 
       shell = gimp_display_get_shell (display);
 
+      if (!gui_config->single_window_mode) {
+        GObject* w = G_OBJECT(gimp_display_shell_get_window (shell));
+	g_object_set (w, "toolbar-window", TRUE, NULL);
+      }
+
       if (gui_config->restore_session)
         session_restore (gimp);
 

@@ -92,4 +92,9 @@ GtkWidget        * gimp_image_window_get_default_dockbook (GimpImageWindow  *win
 
 void               gimp_image_window_keep_canvas_pos      (GimpImageWindow  *window);
 
+gboolean           gimp_image_window_is_toolbar_window    (GimpImageWindow  *window);
+
+void               gimp_image_window_link_foreign_active_shell (GimpImageWindow *window, 
+                                                                GimpDisplayShell *shell);
+
 #endif /* __GIMP_IMAGE_WINDOW_H__ */
