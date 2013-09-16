@@ -242,7 +242,6 @@ static void    gimp_image_window_configure_for_toolbar_window_mode(GimpImageWind
 static void    gimp_image_window_configure_for_non_toolbar_window_mode(GimpImageWindow* window);
 static void    gimp_image_window_switch_active_shell (GimpImageWindow* window,
                                                       GimpDisplayShell* shell);
-static GimpImageWindow* gimp_image_window_get_toolbar_window  (GimpImageWindow* window);
 
 G_DEFINE_TYPE_WITH_CODE (GimpImageWindow, gimp_image_window, GIMP_TYPE_WINDOW,
                          G_IMPLEMENT_INTERFACE (GIMP_TYPE_DOCK_CONTAINER,
@@ -526,6 +525,48 @@ gimp_image_window_configure_for_toolbar_window_mode(GimpImageWindow* window)
   gtk_widget_set_visible (private->menubar, TRUE);
 
   gtk_widget_show (GTK_WIDGET(window));
+#if 0
+  {
+    GdkWindow              *gdk_window;
+    GdkScreen              *gdk_screen;
+    unsigned long           params[12] = {0};
+	gint                    monitor = 0;
+	GdkRectangle            boundary;
+	gint                    x, y, width, height;
+
+	gtk_window_set_type_hint (GTK_WINDOW(window), GDK_WINDOW_TYPE_HINT_DOCK);
+
+	gdk_window = gtk_widget_get_window (GTK_WIDGET(window));
+    gdk_screen = gdk_screen_get_default ();
+	monitor    = gdk_screen_get_monitor_at_window (gdk_screen, gdk_window);
+	gdk_screen_get_monitor_geometry (gdk_screen, monitor, &boundary);
+
+	gtk_window_move (GTK_WINDOW(window), boundary.x, boundary.y);
+	gtk_window_set_keep_above (GTK_WINDOW(window), TRUE);
+
+	gtk_window_get_size (GTK_WINDOW(window), &width, &height);
+	gtk_window_get_position (GTK_WINDOW(window), &x, &y);
+//	gtk_window_set_decorated (GTK_WINDOW(window), FALSE);
+//	gtk_window_resize (GTK_WINDOW(window), boundary.width, height);
+
+
+	params[2] = y + height;
+    params[8] = x;                      /* top_start_x */
+    params[9] = x + width - 1; /* top_end_x */
+
+	g_print("_NET_WM_STRUT_PARTIAL, %ld, Monitor(%d)=%d,%d,%d,%d, (%ld-%ld)\n", params[2], monitor,
+									  boundary.x, boundary.y,
+									  boundary.x + boundary.width,
+									  boundary.y + boundary.height, params[8], params[9]);
+
+	gdk_property_change (gdk_window,
+                         gdk_atom_intern("_NET_WM_STRUT_PARTIAL", TRUE),
+                         gdk_atom_intern("CARDINAL", TRUE),
+                         32, GDK_PROP_MODE_REPLACE, (guchar*)params, 12);
+
+
+  }
+#endif
 }
 
 static void
@@ -542,6 +583,18 @@ gimp_image_window_configure_for_non_toolbar_window_mode(GimpImageWindow* window)
   gtk_widget_set_visible (private->notebook, TRUE);
   gtk_widget_set_visible (private->toolbar, show_docks);
   gtk_widget_set_visible (private->menubar, config->single_window_mode);
+
+#if 0
+  {
+    GdkWindow              *gdk_window;
+
+	gtk_window_set_decorated (GTK_WINDOW(window), TRUE);
+    gdk_window = gtk_widget_get_window (GTK_WIDGET(window));
+
+    gdk_property_delete (gdk_window,
+                         gdk_atom_intern("_NET_WM_STRUT_PARTIAL", TRUE));
+  }
+#endif
 }
 
 
@@ -2194,29 +2247,29 @@ gimp_image_window_create_tab_label (GimpImageWindow  *window,
   return hbox;
 }
 static void
-gimp_image_window_rotate_left_clicked (GtkWidget* widget, 
+gimp_image_window_rotate_left_clicked (GtkWidget* widget,
                                        GimpImageWindow *window)
 {
   GimpDisplayShell *shell  = gimp_image_window_get_active_shell (window);
   gdouble direction = shell->mirrored ? -1: 1;
-  shell->rotate_angle = fmod(round((shell->rotate_angle- direction * ROTATE_UNIT_ANGLE) / 
+  shell->rotate_angle = fmod(round((shell->rotate_angle- direction * ROTATE_UNIT_ANGLE) /
                                    ROTATE_UNIT_ANGLE) * ROTATE_UNIT_ANGLE, 360);
   gtk_widget_queue_draw(GTK_WIDGET(shell));
 }
 
 static void
-gimp_image_window_rotate_right_clicked (GtkWidget* widget, 
+gimp_image_window_rotate_right_clicked (GtkWidget* widget,
                                         GimpImageWindow *window)
 {
   GimpDisplayShell *shell  = gimp_image_window_get_active_shell (window);
   gdouble direction = shell->mirrored ? -1: 1;
-  shell->rotate_angle = fmod(round((shell->rotate_angle + direction * ROTATE_UNIT_ANGLE) / 
+  shell->rotate_angle = fmod(round((shell->rotate_angle + direction * ROTATE_UNIT_ANGLE) /
                                    ROTATE_UNIT_ANGLE) * ROTATE_UNIT_ANGLE, 360);
   gtk_widget_queue_draw(GTK_WIDGET(shell));
 }
 
 static void
-gimp_image_window_flip_side_clicked (GtkWidget* widget, 
+gimp_image_window_flip_side_clicked (GtkWidget* widget,
                                      GimpImageWindow *window)
 {
   GimpDisplayShell *shell  = gimp_image_window_get_active_shell (window);
@@ -2225,7 +2278,7 @@ gimp_image_window_flip_side_clicked (GtkWidget* widget,
 }
 
 static void
-gimp_image_window_reset_view_clicked (GtkWidget* widget, 
+gimp_image_window_reset_view_clicked (GtkWidget* widget,
                                      GimpImageWindow *window)
 {
   GimpDisplayShell *shell  = gimp_image_window_get_active_shell (window);
@@ -2262,29 +2315,4 @@ gimp_image_window_link_foreign_active_shell (GimpImageWindow* window,
   gimp_context_set_display (gimp_get_user_context (private->gimp),
                             active_display);
   gimp_ui_manager_update (private->menubar_manager, active_display);
-}
-
-static GimpImageWindow*
-gimp_image_window_get_toolbar_window  (GimpImageWindow* window)
-{
-  GimpImageWindowPrivate *private;
-  Gimp                   *gimp;
-  GList                  *iter, *windows;
-
-  g_return_val_if_fail (GIMP_IS_IMAGE_WINDOW (window), FALSE);
-
-  private = GIMP_IMAGE_WINDOW_GET_PRIVATE (window);
-  gimp    = private->gimp;
-
-  windows = gimp_get_image_windows (gimp);
-
-  for (iter = windows; iter; iter = g_list_next(iter)) {
-    GimpImageWindow* w = GIMP_IMAGE_WINDOW(iter->data);
-    if (w && gimp_image_window_is_toolbar_window (w))
-      return w;
-  }
-
-  g_list_free (windows);
-
-  return NULL;
 }
