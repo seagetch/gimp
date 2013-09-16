@@ -91,7 +91,9 @@ typedef enum
   GIMP_COLOR_ERASE_MODE,     /*< desc="Color erase"          >*/
   GIMP_ERASE_MODE,           /*< pdb-skip, desc="Erase"      >*/
   GIMP_REPLACE_MODE,         /*< pdb-skip, desc="Replace"    >*/
-  GIMP_ANTI_ERASE_MODE       /*< pdb-skip, desc="Anti erase" >*/
+  GIMP_ANTI_ERASE_MODE,      /*< pdb-skip, desc="Anti erase" >*/
+  GIMP_SRC_IN_MODE,          /*< desc="svg:src-in"           >*/
+  GIMP_DST_IN_MODE,          /*< desc="svg:dst-in"           >*/
 } GimpLayerModeEffects;
 
 

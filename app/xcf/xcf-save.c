@@ -187,7 +187,7 @@ xcf_save_choose_format (XcfInfo   *info,
     save_version = 1;
 
   for (list = gimp_image_get_layer_iter (image);
-       list && save_version < 3;
+       list && save_version < 4;
        list = g_list_next (list))
     {
       GimpLayer *layer = GIMP_LAYER (list->data);
@@ -200,6 +200,11 @@ xcf_save_choose_format (XcfInfo   *info,
         case GIMP_GRAIN_MERGE_MODE:
         case GIMP_COLOR_ERASE_MODE:
           save_version = MAX (2, save_version);
+          break;
+
+        case GIMP_SRC_IN_MODE:
+        case GIMP_DST_IN_MODE:
+          save_version = MAX (4, save_version);
           break;
 
         default:

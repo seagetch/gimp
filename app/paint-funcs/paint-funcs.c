@@ -54,6 +54,7 @@ struct _LayerMode
                                           alpha channel  */
   const guint   increase_opacity : 1; /*  layer mode can increase opacity */
   const guint   decrease_opacity : 1; /*  layer mode can decrease opacity */
+  const guint   reverse_source   : 1; /*  if true, src1 and src2 is swapped */
 };
 
 static const LayerMode layer_modes[] =
@@ -61,32 +62,34 @@ static const LayerMode layer_modes[] =
    * corresponding values in GimpLayerModeEffects.
    */
 {
-  { TRUE,  TRUE,  FALSE, },  /*  GIMP_NORMAL_MODE        */
-  { TRUE,  TRUE,  FALSE, },  /*  GIMP_DISSOLVE_MODE      */
-  { TRUE,  TRUE,  FALSE, },  /*  GIMP_BEHIND_MODE        */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_MULTIPLY_MODE      */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_SCREEN_MODE        */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_OVERLAY_MODE       */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_DIFFERENCE_MODE    */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_ADDITION_MODE      */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_SUBTRACT_MODE      */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_DARKEN_ONLY_MODE   */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_LIGHTEN_ONLY_MODE  */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_HUE_MODE           */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_SATURATION_MODE    */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_COLOR_MODE         */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_VALUE_MODE         */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_DIVIDE_MODE        */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_DODGE_MODE         */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_BURN_MODE          */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_HARDLIGHT_MODE     */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_SOFTLIGHT_MODE     */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_GRAIN_EXTRACT_MODE */
-  { FALSE, FALSE, FALSE, },  /*  GIMP_GRAIN_MERGE_MODE   */
-  { TRUE,  FALSE, TRUE,  },  /*  GIMP_COLOR_ERASE_MODE   */
-  { TRUE,  FALSE, TRUE,  },  /*  GIMP_ERASE_MODE         */
-  { TRUE,  TRUE,  TRUE,  },  /*  GIMP_REPLACE_MODE       */
-  { TRUE,  TRUE,  FALSE, }   /*  GIMP_ANTI_ERASE_MODE    */
+  { TRUE,  TRUE,  FALSE, FALSE, },  /*  GIMP_NORMAL_MODE        */
+  { TRUE,  TRUE,  FALSE, FALSE, },  /*  GIMP_DISSOLVE_MODE      */
+  { TRUE,  TRUE,  FALSE, FALSE, },  /*  GIMP_BEHIND_MODE        */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_MULTIPLY_MODE      */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_SCREEN_MODE        */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_OVERLAY_MODE       */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_DIFFERENCE_MODE    */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_ADDITION_MODE      */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_SUBTRACT_MODE      */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_DARKEN_ONLY_MODE   */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_LIGHTEN_ONLY_MODE  */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_HUE_MODE           */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_SATURATION_MODE    */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_COLOR_MODE         */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_VALUE_MODE         */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_DIVIDE_MODE        */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_DODGE_MODE         */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_BURN_MODE          */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_HARDLIGHT_MODE     */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_SOFTLIGHT_MODE     */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_GRAIN_EXTRACT_MODE */
+  { FALSE, FALSE, FALSE, FALSE, },  /*  GIMP_GRAIN_MERGE_MODE   */
+  { TRUE,  FALSE, TRUE,  FALSE, },  /*  GIMP_COLOR_ERASE_MODE   */
+  { TRUE,  FALSE, TRUE,  FALSE, },  /*  GIMP_ERASE_MODE         */
+  { TRUE,  TRUE,  TRUE,  FALSE, },  /*  GIMP_REPLACE_MODE       */
+  { TRUE,  TRUE,  FALSE, FALSE, },  /*  GIMP_ANTI_ERASE_MODE    */
+  { TRUE,  TRUE,  TRUE,  FALSE, },  /*  GIMP_SRC_IN_MODE        */
+  { TRUE,  TRUE,  TRUE,  TRUE,  }   /*  GIMP_DST_IN_MODE        */
 };
 
 
@@ -1948,7 +1951,7 @@ shade_region (PixelRegion *src,
               guchar       blend)
 {
   gpointer pr;
-  
+
   for (pr = pixel_regions_register (2, src, dest);
        pr != NULL;
        pr = pixel_regions_process (pr))
@@ -4115,16 +4118,23 @@ combine_sub_region (struct combine_regions_struct *st,
   gboolean              transparency_quickskip_possible;
   TileRowHint           hint;
 
-  /* use src2->bytes + 1 since DISSOLVE always needs a buffer with alpha */
-  buf = g_alloca (MAX (MAX (src1->w * src1->bytes,
-                            src2->w * (src2->bytes + 1)),
-                       dest->w * dest->bytes));
-
   opacity    = st->opacity;
   mode       = st->mode;
   affect     = st->affect;
   type       = st->type;
   data       = st->data;
+
+  if (layer_modes[mode].reverse_source) {
+	PixelRegion* tmp;
+	tmp  = src1;
+	src1 = src2;
+	src2 = tmp;
+  }
+
+  /* use src2->bytes + 1 since DISSOLVE always needs a buffer with alpha */
+  buf = g_alloca (MAX (MAX (src1->w * src1->bytes,
+                            src2->w * (src2->bytes + 1)),
+                       dest->w * dest->bytes));
 
   opacity_quickskip_possible = (st->opacity_quickskip_possible &&
                                 src2->tiles);

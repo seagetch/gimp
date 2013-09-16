@@ -145,6 +145,8 @@ struct GimpCompositeOperationEffects gimp_composite_operation_effects[] =
     { TRUE,  FALSE, TRUE,  },     /*  GIMP_ERASE_MODE         */
     { TRUE,  TRUE,  TRUE,  },     /*  GIMP_REPLACE_MODE       */
     { TRUE,  TRUE,  FALSE, },     /*  GIMP_ANTI_ERASE_MODE    */
+    { TRUE,  FALSE, TRUE   },     /*  GIMP_SRC_IN_MODE */
+    { TRUE,  FALSE, TRUE   },     /*  GIMP_DST_IN_MODE */
 
     { FALSE, FALSE, FALSE },      /*  GIMP_SWAP */
     { FALSE, FALSE, FALSE },      /*  GIMP_SCALE */
@@ -268,6 +270,7 @@ gimp_composite_mode_astext (GimpCompositeOperation op)
     case GIMP_COMPOSITE_SCALE:         return ("GIMP_COMPOSITE_SCALE");
     case GIMP_COMPOSITE_CONVERT:       return ("GIMP_COMPOSITE_CONVERT");
     case GIMP_COMPOSITE_XOR:           return ("GIMP_COMPOSITE_XOR");
+	case GIMP_COMPOSITE_SRC_IN:        return ("GIMP_COMPOSITE_SRC_IN");
     default:
       break;
     }
@@ -380,6 +383,24 @@ gimp_composite_init (gboolean  be_verbose,
                     can_use_altivec ? '+' : '-',
                     can_use_vis     ? '+' : '-');
     }
+  {
+	// FIXME: dump table for debugging
+	int i, j, k, l;
+  for (i = 0; i < GIMP_COMPOSITE_N; i ++) {
+    g_print("CompositeOp:%s \n", gimp_composite_mode_astext (i));
+	for (j = 0; j < GIMP_PIXELFORMAT_N; j ++) {
+	  for (k = 0; k < GIMP_PIXELFORMAT_N; k ++) {
+	    for (l = 0; l < GIMP_PIXELFORMAT_N; l ++) {
+		  if (gimp_composite_function[i][j][k][l])
+			g_print ("  %s %s %s\n",
+					  gimp_composite_pixelformat_astext (j),
+					  gimp_composite_pixelformat_astext (k),
+					  gimp_composite_pixelformat_astext (l));
+	    }
+	  }
+	}
+  }
+  }
 }
 
 gboolean

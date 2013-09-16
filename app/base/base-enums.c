@@ -105,6 +105,8 @@ gimp_layer_mode_effects_get_type (void)
     { GIMP_ERASE_MODE, "GIMP_ERASE_MODE", "erase-mode" },
     { GIMP_REPLACE_MODE, "GIMP_REPLACE_MODE", "replace-mode" },
     { GIMP_ANTI_ERASE_MODE, "GIMP_ANTI_ERASE_MODE", "anti-erase-mode" },
+    { GIMP_SRC_IN_MODE, "GIMP_SRC_IN_MODE", "src-in-mode" },
+    { GIMP_DST_IN_MODE, "GIMP_DST_IN_MODE", "dst-in-mode" },
     { 0, NULL, NULL }
   };
 
@@ -136,6 +138,8 @@ gimp_layer_mode_effects_get_type (void)
     { GIMP_ERASE_MODE, NC_("layer-mode-effects", "Erase"), NULL },
     { GIMP_REPLACE_MODE, NC_("layer-mode-effects", "Replace"), NULL },
     { GIMP_ANTI_ERASE_MODE, NC_("layer-mode-effects", "Anti erase"), NULL },
+    { GIMP_SRC_IN_MODE, NC_("layer-mode-effects", "svg:src-in"), NULL },
+    { GIMP_DST_IN_MODE, NC_("layer-mode-effects", "svg:dst-in"), NULL },
     { 0, NULL, NULL }
   };
 

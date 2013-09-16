@@ -71,7 +71,9 @@ static const GimpLayerModeEffects paint_modes[] =
   GIMP_HUE_MODE,
   GIMP_SATURATION_MODE,
   GIMP_COLOR_MODE,
-  GIMP_VALUE_MODE
+  GIMP_VALUE_MODE,
+  GIMP_SRC_IN_MODE,
+  GIMP_DST_IN_MODE,
 };
 
 
