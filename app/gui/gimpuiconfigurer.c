@@ -414,6 +414,9 @@ static void
 gimp_ui_configurer_separate_shells (GimpUIConfigurer *ui_configurer,
                                     GimpImageWindow  *source_image_window)
 {
+  GimpDisplayShell *active_shell  = gimp_image_window_get_active_shell (source_image_window);
+  GimpImageWindow  *active_window = NULL;
+
   /* The last display shell remains in its window */
   while (gimp_image_window_get_n_shells (source_image_window) >= 1)
     {
@@ -444,12 +447,21 @@ gimp_ui_configurer_separate_shells (GimpUIConfigurer *ui_configurer,
         /* Show after we have added the shell */
         gtk_widget_show (GTK_WIDGET (new_image_window));
       } else {
-		g_print("Close empty display\n");
-		gimp_display_close (shell->display);
-		g_print("/Close empty display\n");
-	  }
-	}
-	g_print("Separate done\n");
+        g_print("Close empty display\n");
+        gimp_display_close (shell->display);
+        g_print("/Close empty display\n");
+      }
+    }
+  g_print("Separate done\n");
+#if 0
+  // FIXME: We should call gtk_window_present for active_window.
+  /* If none of the shells were active, I assume the first one is. */
+  if (active_window == NULL)
+    active_window = source_image_window;
+
+  /* The active tab must stay at the top of the windows stack. */
+  gtk_window_present (GTK_WINDOW (active_window));
+#endif
 }
 
 /**
@@ -461,10 +473,12 @@ gimp_ui_configurer_separate_shells (GimpUIConfigurer *ui_configurer,
 static void
 gimp_ui_configurer_configure_for_single_window (GimpUIConfigurer *ui_configurer)
 {
-  Gimp            *gimp              = ui_configurer->p->gimp;
-  GList           *windows           = gimp_get_image_windows (gimp);
-  GList           *iter              = NULL;
-  GimpImageWindow *uber_image_window = NULL;
+  Gimp            *gimp               = ui_configurer->p->gimp;
+  GList           *windows            = gimp_get_image_windows (gimp);
+  GList           *iter               = NULL;
+  GimpImageWindow *uber_image_window  = NULL;
+  GimpDisplay      *active_display    = gimp_context_get_display (gimp_get_user_context (gimp));
+  GimpDisplayShell *active_shell      = gimp_display_get_shell (active_display);
   int              i;
 
   /* Get and setup the window to put everything in */
@@ -494,7 +508,6 @@ gimp_ui_configurer_configure_for_single_window (GimpUIConfigurer *ui_configurer)
       gimp_ui_configurer_move_shells (ui_configurer,
                                       image_window,
                                       uber_image_window);
-
       /* Destroy the window */
       gimp_image_window_destroy (image_window);
     }
@@ -509,6 +522,11 @@ gimp_ui_configurer_configure_for_single_window (GimpUIConfigurer *ui_configurer)
 	  }
     }
   }
+#if 0
+  // FIXME: Handling active window differs from original source code.
+  /* Ensure the context shell remains active after mode switch. */
+  gimp_image_window_set_active_shell (uber_image_window, active_shell);
+#endif
 
   g_list_free (windows);
 }
