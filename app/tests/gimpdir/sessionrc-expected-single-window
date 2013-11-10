@@ -69,6 +69,11 @@
 (hide-docks no)
 (single-window-mode yes)
 (tabs-position 0)
+(search-dialog-position-x -1)
+(search-dialog-position-y -1)
+(search-dialog-width -1)
+(search-dialog-height 200)
+(search-dialog-opacity 100)
 (last-tip-shown 0)
 
 # end of sessionrc
