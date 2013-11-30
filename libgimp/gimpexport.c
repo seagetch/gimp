@@ -694,6 +694,7 @@ gimp_export_image (gint32                 *image_ID,
   gint32             i;
   gint32             n_layers;
   gint32            *layers;
+  gboolean           interactive          = FALSE;
   gboolean           added_flatten        = FALSE;
   gboolean           has_layer_masks      = FALSE;
   gboolean           background_has_alpha = TRUE;
@@ -714,8 +715,11 @@ gimp_export_image (gint32                 *image_ID,
   if (capabilities & GIMP_EXPORT_CAN_HANDLE_LAYERS)
     capabilities |= GIMP_EXPORT_CAN_HANDLE_ALPHA;
 
+  if (format_name && g_getenv ("GIMP_INTERACTIVE_EXPORT"))
+    interactive = TRUE;
+
   /* ask for confirmation if the user is not saving a layer (see bug #51114) */
-  if (format_name &&
+  if (interactive &&
       ! gimp_item_is_layer (*drawable_ID) &&
       ! (capabilities & GIMP_EXPORT_CAN_HANDLE_LAYERS))
     {
@@ -782,12 +786,16 @@ gimp_export_image (gint32                 *image_ID,
         }
     }
 
-  g_free (layers);
-
   if (! added_flatten)
     {
+      gint32  n_children;
+      gint32 *children;
+
+      children = gimp_item_get_children (layers[0], &n_children);
+
       /* check if layer size != canvas size, opacity != 100%, or offsets != 0 */
       if (n_layers == 1                     &&
+          ! children                        &&
           gimp_item_is_layer (*drawable_ID) &&
           ! (capabilities & GIMP_EXPORT_CAN_HANDLE_LAYERS))
         {
@@ -838,12 +846,29 @@ gimp_export_image (gint32                 *image_ID,
                                            &export_action_merge_or_flatten);
             }
         }
+      /* check for a single toplevel layer group */
+      else if (children)
+        {
+          if (! (capabilities & GIMP_EXPORT_CAN_HANDLE_LAYERS))
+            {
+              if (capabilities & GIMP_EXPORT_NEEDS_ALPHA)
+                actions = g_slist_prepend (actions,
+                                           &export_action_merge);
+              else
+                actions = g_slist_prepend (actions,
+                                           &export_action_merge_or_flatten);
+            }
+        }
+
+      g_free (children);
 
       /* check layer masks */
       if (has_layer_masks &&
           ! (capabilities & GIMP_EXPORT_CAN_HANDLE_LAYER_MASKS))
         actions = g_slist_prepend (actions, &export_action_apply_masks);
     }
+
+  g_free (layers);
 
   /* check the image type */
   type = gimp_image_base_type (*image_ID);
@@ -918,7 +943,7 @@ gimp_export_image (gint32                 *image_ID,
     {
       actions = g_slist_reverse (actions);
 
-      if (format_name)
+      if (interactive)
         retval = export_dialog (actions, format_name);
       else
         retval = GIMP_EXPORT_EXPORT;

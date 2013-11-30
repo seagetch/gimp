@@ -26,8 +26,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gimp\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2013-08-24 02:18+0200\n"
-"PO-Revision-Date: 2013-08-24 02:19+0200\n"
+"POT-Creation-Date: 2013-11-21 01:04+0100\n"
+"PO-Revision-Date: 2013-11-21 01:05+0100\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <gnomepl@aviary.pl>\n"
 "Language: pl\n"
@@ -2388,8 +2388,8 @@ msgstr "Zapisuje ten obraz i zamyka jego okno"
 
 #: ../app/actions/file-actions.c:146
 msgctxt "file-action"
-msgid "Export to"
-msgstr "Eksportuj do"
+msgid "Export"
+msgstr "Wyeksportuj"
 
 #: ../app/actions/file-actions.c:147
 msgctxt "file-action"
@@ -2409,8 +2409,8 @@ msgstr ""
 
 #: ../app/actions/file-actions.c:158
 msgctxt "file-action"
-msgid "Export..."
-msgstr "Wyeksportuj..."
+msgid "Export As..."
+msgstr "Wyeksportuj jako..."
 
 #: ../app/actions/file-actions.c:159
 msgctxt "file-action"
@@ -2420,7 +2420,7 @@ msgstr "Eksportuje obraz do różnych formatów plików, takich jak PNG i JPEG"
 #: ../app/actions/file-actions.c:292
 #, c-format
 msgid "Export to %s"
-msgstr "Eksportowanie do %s"
+msgstr "Wyeksportuj do %s"
 
 #: ../app/actions/file-actions.c:298
 #, c-format
@@ -2428,8 +2428,8 @@ msgid "Over_write %s"
 msgstr "_Zastąp %s"
 
 #: ../app/actions/file-actions.c:306
-msgid "Export to"
-msgstr "Wyeksportuj do"
+msgid "Export"
+msgstr "Wyeksportuj"
 
 #: ../app/actions/file-commands.c:119 ../app/actions/file-commands.c:496
 #: ../app/dialogs/file-open-dialog.c:77
@@ -3268,7 +3268,7 @@ msgstr "Skalowanie obrazu"
 #: ../app/pdb/drawable-transform-cmds.c:783
 #: ../app/pdb/drawable-transform-cmds.c:872 ../app/pdb/image-cmds.c:406
 #: ../app/pdb/image-cmds.c:442 ../app/pdb/item-transform-cmds.c:524
-#: ../app/pdb/layer-cmds.c:333 ../app/pdb/layer-cmds.c:378
+#: ../app/pdb/layer-cmds.c:330 ../app/pdb/layer-cmds.c:375
 #: ../app/pdb/transform-tools-cmds.c:334 ../app/tools/gimpscaletool.c:118
 msgid "Scaling"
 msgstr "Skalowanie"
@@ -4615,7 +4615,7 @@ msgstr "Otwiera plik tekstowy (UTF-8)"
 
 #: ../app/actions/text-editor-commands.c:143
 #: ../app/actions/text-tool-commands.c:226 ../app/config/gimpconfig-file.c:58
-#: ../app/core/gimpbrush-load.c:142 ../app/core/gimpbrush-load.c:426
+#: ../app/core/gimpbrush-load.c:142 ../app/core/gimpbrush-load.c:443
 #: ../app/core/gimpbrushgenerated-load.c:73
 #: ../app/core/gimpbrushpipe-load.c:81 ../app/core/gimpcurve-load.c:54
 #: ../app/core/gimpgradient-load.c:63 ../app/core/gimppalette-load.c:77
@@ -7528,8 +7528,8 @@ msgstr ""
 "Krytyczny błąd podczas przetwarzania pliku \"%s\" z pędzlami: nieznana "
 "wersja %d."
 
-#: ../app/core/gimpbrush-load.c:273 ../app/core/gimpbrush-load.c:393
-#: ../app/core/gimpbrush-load.c:727
+#: ../app/core/gimpbrush-load.c:273 ../app/core/gimpbrush-load.c:410
+#: ../app/core/gimpbrush-load.c:744
 #, c-format
 msgid "Fatal parse error in brush file '%s': File appears truncated."
 msgstr ""
@@ -7548,7 +7548,22 @@ msgstr "Nieprawidłowy ciąg UTF-8 w pliku z pędzlami \"%s\"."
 msgid "Unnamed"
 msgstr "Bez nazwy"
 
-#: ../app/core/gimpbrush-load.c:382
+#: ../app/core/gimpbrush-load.c:354
+#, c-format
+msgid ""
+"Fatal parse error in brush file '%s': Unsupported brush depth %d\n"
+"GIMP brushes must be GRAY or RGBA.\n"
+"This might be an obsolete GIMP brush file, try loading it as image and save "
+"it again."
+msgstr ""
+"Krytyczny błąd podczas przetwarzania pliku \"%s\" z pędzlami: nieobsługiwana "
+"głębia pędzla %d\n"
+"Pędzle programu GIMP muszą być zapisane albo w odcieniach szarości lub w "
+"formacie RGBA.\n"
+"Może to być przestarzały plik z pędzlami programu GIMP, proszę spróbować "
+"wczytać go jako obraz i zapisać ponownie."
+
+#: ../app/core/gimpbrush-load.c:399
 #, c-format
 msgid ""
 "Fatal parse error in brush file '%s': Unsupported brush depth %d\n"
@@ -7559,7 +7574,7 @@ msgstr ""
 "Pędzle programu GIMP muszą być zapisane albo w odcieniach szarości lub w "
 "formacie RGBA."
 
-#: ../app/core/gimpbrush-load.c:454 ../app/core/gimpbrush-load.c:854
+#: ../app/core/gimpbrush-load.c:471 ../app/core/gimpbrush-load.c:871
 #, c-format
 msgid ""
 "Fatal parse error in brush file '%s': unable to decode abr format version %d."
@@ -7567,7 +7582,7 @@ msgstr ""
 "Krytyczny błąd podczas przetwarzania pliku \"%s\" z pędzlami: nie można "
 "dekodować wersji formatu abr %d."
 
-#: ../app/core/gimpbrush-load.c:621
+#: ../app/core/gimpbrush-load.c:638
 #, c-format
 msgid "Fatal parse error in brush file '%s': Wide brushes are not supported."
 msgstr ""
@@ -7641,7 +7656,6 @@ msgid "Brush Angle"
 msgstr "Nachylenie pędzla"
 
 #: ../app/core/gimpbrushpipe-load.c:113 ../app/core/gimpbrushpipe-load.c:133
-#: ../app/core/gimpbrushpipe-load.c:224
 #, c-format
 msgid "Fatal parse error in brush file '%s': File is corrupt."
 msgstr ""
@@ -8929,7 +8943,7 @@ msgctxt "plural"
 msgid "percent"
 msgstr "procent"
 
-#: ../app/dialogs/about-dialog.c:114 ../app/gui/gui.c:493
+#: ../app/dialogs/about-dialog.c:114
 msgid "About GIMP"
 msgstr "Informacje o programie GIMP"
 
@@ -10392,23 +10406,23 @@ msgstr "Rozdzielczość _Y:"
 msgid "pixels/%a"
 msgstr "pikseli/%a"
 
-#: ../app/dialogs/quit-dialog.c:104
+#: ../app/dialogs/quit-dialog.c:144
 msgid "Quit GIMP"
 msgstr "Zakończenie działania programu GIMP"
 
-#: ../app/dialogs/quit-dialog.c:104
+#: ../app/dialogs/quit-dialog.c:144
 msgid "Close All Images"
 msgstr "Zamknij wszystkie obrazy"
 
-#: ../app/dialogs/quit-dialog.c:163
+#: ../app/dialogs/quit-dialog.c:212
 msgid "If you quit GIMP now, these changes will be lost."
 msgstr "Zakończenie działania programu GIMP spowoduje utracenie tych zmian."
 
-#: ../app/dialogs/quit-dialog.c:166
+#: ../app/dialogs/quit-dialog.c:215
 msgid "If you close these images now, changes will be lost."
 msgstr "Jeśli obrazy zostaną teraz zamknięte, to zostaną utracone zmiany."
 
-#: ../app/dialogs/quit-dialog.c:213
+#: ../app/dialogs/quit-dialog.c:300
 #, c-format
 msgid "There is one image with unsaved changes:"
 msgid_plural "There are %d images with unsaved changes:"
@@ -10416,9 +10430,35 @@ msgstr[0] "Nie zapisano zmian w jednym obrazie:"
 msgstr[1] "Nie zapisano zmian w %d obrazach:"
 msgstr[2] "Nie zapisano zmian w %d obrazach:"
 
-#: ../app/dialogs/quit-dialog.c:235
+#: ../app/dialogs/quit-dialog.c:311
+#, c-format
+msgid "Press %s to quit."
+msgstr "Naciśnięcie %s zakończy działanie."
+
+#: ../app/dialogs/quit-dialog.c:314
+#, c-format
+msgid "Press %s to close all images."
+msgstr "Naciśnięcie %s zamknie wszystkie obrazy."
+
+#: ../app/dialogs/quit-dialog.c:330
+#, c-format
+msgid "Press %s to discard all changes and quit."
+msgstr "Naciśnięcie %s porzuci wszystkie zmiany i zakończy działanie."
+
+#: ../app/dialogs/quit-dialog.c:333
+#, c-format
+msgid "Press %s to discard all changes and close all images."
+msgstr "Naciśnięcie %s porzuci wszystkie zmiany i zamknie wszystkie obrazy."
+
+#: ../app/dialogs/quit-dialog.c:341
+#: ../app/display/gimpdisplayshell-close.c:181
 msgid "_Discard Changes"
 msgstr "_Porzuć zmiany"
+
+#: ../app/dialogs/quit-dialog.c:423
+#, c-format
+msgid "Exported to %s"
+msgstr "Wyeksportowano do %s"
 
 #: ../app/dialogs/resize-dialog.c:119
 msgid "Canvas Size"
@@ -10689,22 +10729,23 @@ msgstr "Kontroluje wyświetlanie obrazu"
 msgid "Drop image files here to open them"
 msgstr "Upuszczenie plików obrazów w tym miejscu otworzy je"
 
-#: ../app/display/gimpdisplayshell-close.c:156
-#: ../app/display/gimpdisplayshell-close.c:229
+#: ../app/display/gimpdisplayshell-close.c:170
+#: ../app/display/gimpdisplayshell-close.c:270
 #, c-format
 msgid "Close %s"
 msgstr "Zamknięcie %s"
 
-#: ../app/display/gimpdisplayshell-close.c:167
-msgid "Close _without Saving"
-msgstr "Zamknij bez zapisy_wania"
+#: ../app/display/gimpdisplayshell-close.c:218
+#, c-format
+msgid "Press %s to discard all changes and close the image."
+msgstr "Naciśnięcie %s porzuci wszystkie zmiany i zamknie obraz."
 
-#: ../app/display/gimpdisplayshell-close.c:237
+#: ../app/display/gimpdisplayshell-close.c:278
 #, c-format
 msgid "Save the changes to image '%s' before closing?"
 msgstr "Zapisać zmiany w obrazie \"%s\" przed zamknięciem?"
 
-#: ../app/display/gimpdisplayshell-close.c:270
+#: ../app/display/gimpdisplayshell-close.c:311
 #, c-format
 msgid "If you don't save the image, changes from the last hour will be lost."
 msgid_plural ""
@@ -10719,7 +10760,7 @@ msgstr[2] ""
 "Jeśli obraz nie zostanie zapisany, to zmiany z %d ostatnich godzin zostaną "
 "utracone."
 
-#: ../app/display/gimpdisplayshell-close.c:281
+#: ../app/display/gimpdisplayshell-close.c:322
 #, c-format
 msgid ""
 "If you don't save the image, changes from the last hour and %d minute will "
@@ -10737,7 +10778,7 @@ msgstr[2] ""
 "Jeśli obraz nie zostanie zapisany, to zmiany z ostatniej godziny i %d minut "
 "zostaną utracone."
 
-#: ../app/display/gimpdisplayshell-close.c:293
+#: ../app/display/gimpdisplayshell-close.c:334
 #, c-format
 msgid "If you don't save the image, changes from the last minute will be lost."
 msgid_plural ""
@@ -10752,7 +10793,7 @@ msgstr[2] ""
 "Jeśli obraz nie zostanie zapisany, to zmiany z ostatnich %d minut zostaną "
 "utracone."
 
-#: ../app/display/gimpdisplayshell-close.c:311
+#: ../app/display/gimpdisplayshell-close.c:355
 #, c-format
 msgid "The image has been exported to '%s'."
 msgstr "Wyeksportowano obraz do \"%s\"."
@@ -10869,12 +10910,12 @@ msgstr "Wtyczka %s nie może otworzyć obrazu"
 msgid "Image doesn't contain any layers"
 msgstr "Obraz nie zawiera żadnych warstw"
 
-#: ../app/file/file-open.c:586
+#: ../app/file/file-open.c:590
 #, c-format
 msgid "Opening '%s' failed: %s"
 msgstr "Otwarcie pliku \"%s\" się nie powiodło: %s"
 
-#: ../app/file/file-open.c:696
+#: ../app/file/file-open.c:700
 msgid ""
 "Color management has been disabled. It can be enabled again in the "
 "Preferences dialog."
@@ -11489,7 +11530,7 @@ msgstr ""
 msgid "Free Select"
 msgstr "Zaznaczenie odręczne"
 
-#: ../app/pdb/layer-cmds.c:478 ../app/pdb/layer-cmds.c:516
+#: ../app/pdb/layer-cmds.c:475 ../app/pdb/layer-cmds.c:513
 msgid "Move Layer"
 msgstr "Przesunięcie warstwy"
 
@@ -11740,13 +11781,21 @@ msgstr "Przekształcenie warstwy tekstowej"
 msgid "Discard Text Information"
 msgstr "Porzucenie informacji o tekście"
 
-#: ../app/text/gimptextlayer.c:581
+#: ../app/text/gimptextlayer.c:582
 msgid "Due to lack of any fonts, text functionality is not available."
 msgstr "Funkcje tekstowe nie są dostępne z powodu braku czcionek."
 
-#: ../app/text/gimptextlayer.c:634
+#: ../app/text/gimptextlayer.c:640
 msgid "Empty Text Layer"
 msgstr "Pusta warstwa tekstowa"
+
+#: ../app/text/gimptextlayer.c:696
+msgid ""
+"Your text cannot be rendered. It is likely too big. Please make it shorter "
+"or use a smaller font."
+msgstr ""
+"Tekst nie może zostać wyświetlony. Prawdopodobnie jest za duży. Proszę go "
+"skrócić lub użyć mniejszej czcionki."
 
 #: ../app/text/gimptextlayer-xcf.c:76
 #, c-format
@@ -11763,6 +11812,14 @@ msgstr ""
 "\n"
 "Niektóre właściwości tekstu mogą być błędne. Jeśli tekst nie będzie "
 "modyfikowany, to nie ma to większego znaczenia."
+
+#: ../app/text/gimptextlayout.c:577
+msgid ""
+"The new text layout cannot be generated. Most likely the font size is too "
+"big."
+msgstr ""
+"Nie można utworzyć nowego układu tekstu. Prawdopodobnie rozmiar czcionki "
+"jest za duży."
 
 #: ../app/text/text-enums.c:23
 msgctxt "text-box-mode"
@@ -12102,27 +12159,27 @@ msgctxt "command"
 msgid "Select by Color"
 msgstr "Zaznaczenie według koloru"
 
-#: ../app/tools/gimpcagetool.c:152 ../app/tools/gimpcagetool.c:1156
+#: ../app/tools/gimpcagetool.c:158 ../app/tools/gimpcagetool.c:1123
 msgid "Cage Transform"
 msgstr "Przekształcenie klatki"
 
-#: ../app/tools/gimpcagetool.c:153
+#: ../app/tools/gimpcagetool.c:159
 msgid "Cage Transform: Deform a selection with a cage"
 msgstr "Przekształcenie klatki: zniekształca zaznaczenie za pomocą klatki"
 
-#: ../app/tools/gimpcagetool.c:154
+#: ../app/tools/gimpcagetool.c:160
 msgid "_Cage Transform"
 msgstr "Przekształcenie _klatki"
 
-#: ../app/tools/gimpcagetool.c:353
+#: ../app/tools/gimpcagetool.c:356
 msgid "Press ENTER to commit the transform"
 msgstr "Naciśnięcie klawisza Enter zatwierdzi przekształcenie"
 
-#: ../app/tools/gimpcagetool.c:1097
+#: ../app/tools/gimpcagetool.c:1064
 msgid "Computing Cage Coefficients"
 msgstr "Obliczanie współrzędnych klatki"
 
-#: ../app/tools/gimpcagetool.c:1274
+#: ../app/tools/gimpcagetool.c:1241
 msgid "Cage transform"
 msgstr "Przekształcenie klatki"
 
@@ -13801,7 +13858,7 @@ msgstr ""
 
 #: ../app/tools/gimptextoptions.c:153
 msgid "The text language may have an effect on the way the text is rendered."
-msgstr "Język tekstu może mieć wpływ na sposób jego renderowania."
+msgstr "Język tekstu może mieć wpływ na sposób jego wyświetlania."
 
 #: ../app/tools/gimptextoptions.c:164
 msgid "Text alignment"
@@ -16088,6 +16145,40 @@ msgstr "zaokrąglony"
 #: ../data/tags/gimp-tags-default.xml.in.h:3
 msgid "fuzzy"
 msgstr "rozmyty"
+
+#: ../desktop/gimp.appdata.xml.in.h:1
+msgid ""
+"GIMP is an acronym for GNU Image Manipulation Program. It is a freely "
+"distributed program for such tasks as photo retouching, image composition "
+"and image authoring."
+msgstr ""
+"GIMP to program do manipulowania obrazami projektu GNU. Jest on wolnym "
+"oprogramowaniem służącym do retuszowania zdjęć i tworzenia obrazów."
+
+#: ../desktop/gimp.appdata.xml.in.h:2
+msgid ""
+"It has many capabilities. It can be used as a simple paint program, an "
+"expert quality photo retouching program, an online batch processing system, "
+"a mass production image renderer, an image format converter, etc."
+msgstr ""
+"Daje on wiele możliwości. Może być używany jako prosty program do rysowania, "
+"narzędzie do retuszowania zdjęć dla ekspertów, system do masowego "
+"przetwarzania plików obrazów przez sieć, program renderujący obrazy, "
+"konwerter formatów obrazów itp."
+
+#: ../desktop/gimp.appdata.xml.in.h:3
+msgid ""
+"GIMP is expandable and extensible. It is designed to be augmented with plug-"
+"ins and extensions to do just about anything. The advanced scripting "
+"interface allows everything from the simplest task to the most complex image "
+"manipulation procedures to be easily scripted. GIMP is also available for "
+"Microsoft Windows and OS X."
+msgstr ""
+"Program GIMP jest wysoce rozszerzalny. Za pomocą wtyczek i rozszerzeń można "
+"osiągnąć niemalże wszystko. Zaawansowany interfejs skryptów umożliwia łatwe "
+"automatyzowanie wszystkich działań, od najprostszych zadań do złożonych "
+"procedur manipulacji obrazami. Program GIMP jest dostępny także dla systemów "
+"Microsoft Windows i OS X."
 
 #: ../desktop/gimp.desktop.in.in.h:2
 msgid "Image Editor"

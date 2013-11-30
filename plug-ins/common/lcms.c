@@ -128,6 +128,12 @@ static void         lcms_image_transform_rgb     (gint32           image,
                                                   cmsHPROFILE      dest_profile,
                                                   GimpColorRenderingIntent intent,
                                                   gboolean          bpc);
+static void         lcms_layers_transform_rgb    (gint            *layers,
+                                                  gint             num_layers,
+                                                  cmsHPROFILE      src_profile,
+                                                  cmsHPROFILE      dest_profile,
+                                                  GimpColorRenderingIntent intent,
+                                                  gboolean          bpc);
 static void         lcms_image_transform_indexed (gint32           image,
                                                   cmsHPROFILE      src_profile,
                                                   cmsHPROFILE      dest_profile,
@@ -357,10 +363,12 @@ run (const gchar      *name,
     goto done;
 
   if (proc != PROC_FILE_INFO)
-    config = gimp_get_color_configuration ();
-
-  if (config)
-    intent = config->display_intent;
+    {
+      config = gimp_get_color_configuration ();
+      /* Later code relies on config != NULL if proc != PROC_FILE_INFO */
+      g_return_if_fail (config != NULL);
+      intent = config->display_intent;
+    }
   else
     intent = GIMP_COLOR_RENDERING_INTENT_PERCEPTUAL;
 
@@ -1016,18 +1024,49 @@ lcms_image_transform_rgb (gint32                    image,
                           GimpColorRenderingIntent  intent,
                           gboolean                  bpc)
 {
-  cmsHTRANSFORM    transform   = NULL;
-  cmsUInt32Number  last_format = 0;
-  gint            *layers;
-  gint             num_layers;
-  gint             i;
+  gint *layers;
+  gint  num_layers;
 
   layers = gimp_image_get_layers (image, &num_layers);
+
+  lcms_layers_transform_rgb (layers, num_layers,
+                             src_profile, dest_profile,
+                             intent, bpc);
+
+  g_free (layers);
+}
+
+static void
+lcms_layers_transform_rgb (gint                     *layers,
+                           gint                      num_layers,
+                           cmsHPROFILE               src_profile,
+                           cmsHPROFILE               dest_profile,
+                           GimpColorRenderingIntent  intent,
+                           gboolean                  bpc)
+{
+  cmsHTRANSFORM    transform   = NULL;
+  cmsUInt32Number  last_format = 0;
+  gint             i;
 
   for (i = 0; i < num_layers; i++)
     {
       GimpDrawable    *drawable = gimp_drawable_get (layers[i]);
       cmsUInt32Number  format;
+      gint            *children;
+      gint             num_children;
+
+      children = gimp_item_get_children (layers[i], &num_children);
+
+      if (children)
+        {
+          lcms_layers_transform_rgb (children, num_children,
+                                     src_profile, dest_profile,
+                                     intent, bpc);
+
+          g_free (children);
+
+          continue;
+        }
 
       switch (drawable->bpp)
         {
@@ -1073,8 +1112,6 @@ lcms_image_transform_rgb (gint32                    image,
 
   if (transform)
     cmsDeleteTransform(transform);
-
-  g_free (layers);
 }
 
 static void
@@ -1351,7 +1388,10 @@ lcms_icc_apply_dialog (gint32       image,
 
   run = (gimp_dialog_run (GIMP_DIALOG (dialog)) == GTK_RESPONSE_OK);
 
-  *dont_ask = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (toggle));
+  if (dont_ask)
+    {
+      *dont_ask = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (toggle));
+    }
 
   gtk_widget_destroy (dialog);
 
@@ -1458,7 +1498,7 @@ lcms_icc_combo_box_new (GimpColorConfig *config,
   gchar       *history;
   gchar       *label;
   gchar       *name;
-  cmsHPROFILE  profile;
+  cmsHPROFILE  profile = NULL;
 
   dialog = lcms_icc_file_chooser_dialog_new ();
   history = gimp_personal_rc_file ("profilerc");
@@ -1473,7 +1513,8 @@ lcms_icc_combo_box_new (GimpColorConfig *config,
 
   if (config->rgb_profile)
     profile = lcms_load_profile (config->rgb_profile, NULL);
-  else
+
+  if (! profile)
     profile = cmsCreate_sRGBProfile ();
 
   name = lcms_icc_profile_get_desc (profile);

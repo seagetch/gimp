@@ -8,16 +8,16 @@ AC_PREREQ(2.54)
 
 m4_define([gimp_major_version], [2])
 m4_define([gimp_minor_version], [8])
-m4_define([gimp_micro_version], [7])
+m4_define([gimp_micro_version], [11])
 m4_define([gimp_real_version],
           [gimp_major_version.gimp_minor_version.gimp_micro_version])
 m4_define([gimp_version], [gimp_real_version])
-m4_define([gimp_interface_age], [7])
+m4_define([gimp_interface_age], [11])
 m4_define([gimp_binary_age],
           [m4_eval(100 * gimp_minor_version + gimp_micro_version)])
 
 # For overriding the version string. Comment out if not needed.
-# m4_define([gimp_version], [2.8.1])
+# m4_define([gimp_version], [2.8.9])
 
 # This is the X.Y used in -lgimp-X.Y
 m4_define([gimp_api_version], [2.0])
@@ -64,6 +64,7 @@ m4_define([exif_required_version], [0.6.15])
 m4_define([lcms1_required_version], [1.16])
 m4_define([lcms2_required_version], [2.2])
 m4_define([libpng_required_version], [1.2.37])
+m4_define([gtk_mac_integration_required_version], [1.0.1])
 
 
 AC_INIT([GIMP], [gimp_version],
@@ -363,9 +364,6 @@ CFLAGS="$CFLAGS $extra_warnings"
 GIMP_DETECT_CFLAGS(extra_warnings, '-Wformat-security')
 CFLAGS="$CFLAGS $extra_warnings"
 
-GIMP_DETECT_CFLAGS(extra_warnings, '-Wformat-non-literal')
-CFLAGS="$CFLAGS $extra_warnings"
-
 GIMP_DETECT_CFLAGS(extra_warnings, '-fno-common')
 CFLAGS="$CFLAGS $extra_warnings"
 
@@ -422,6 +420,7 @@ AC_HEADER_SYS_WAIT
 AC_HEADER_TIME
 
 AC_CHECK_HEADERS(execinfo.h sys/param.h sys/time.h sys/times.h sys/wait.h unistd.h)
+AC_CHECK_FUNCS(backtrace, , AC_CHECK_LIB(execinfo, backtrace))
 
 AC_TYPE_PID_T
 AC_FUNC_VPRINTF
@@ -1896,6 +1895,16 @@ esac
 AM_CONDITIONAL(PLATFORM_OSX, test "x$platform_osx" = xyes)
 
 
+###############################
+# Check for GTK Mac Integration
+###############################
+
+if test "x$platform_osx" != xno &&
+   test "x`$PKG_CONFIG --variable=target gtk+-2.0`" == "xquartz"; then
+  PKG_CHECK_MODULES(GTK_MAC_INTEGRATION, gtk-mac-integration >= gtk_mac_integration_required_version)
+fi
+
+
 ####################################
 # Check for Mac OS X TWAIN framework
 ####################################
@@ -1957,6 +1966,7 @@ if test "x$with_xvfb_run" != "xno"; then
   AC_PATH_PROG(XVFB_RUN, xvfb-run, no)
   if test "x$XVFB_RUN" != "xno"; then
     have_xvfb_run="yes"
+    AC_DEFINE(HAVE_XVFB_RUN, 1, [Define to 1 if xvfb-run is available])
   else
     have_xvfb_run="no (not found)"
   fi

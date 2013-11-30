@@ -293,6 +293,8 @@ gimp_motion_buffer_motion_event (GimpMotionBuffer *buffer,
       gdouble    filter;
       gdouble    dist;
       gdouble    delta_dir;
+      gdouble    dir_delta_x = 0.0;
+      gdouble    dir_delta_y = 0.0;
 
       delta_x = last_dir_event.x - coords->x;
       delta_y = last_dir_event.y - coords->y;
