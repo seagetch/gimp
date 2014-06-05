@@ -31,7 +31,6 @@
 #include "config/gimpcoreconfig.h"
 
 #include "gimp.h"
-#include "gimpbrush.h"
 #include "gimpcontext.h"
 #include "gimpdashpattern.h"
 #include "gimpmarshal.h"
@@ -545,12 +544,14 @@ gimp_stroke_options_take_dash_pattern (GimpStrokeOptions *options,
 void
 gimp_stroke_options_prepare (GimpStrokeOptions *options,
                              GimpContext       *context,
-                             gboolean           use_default_values)
+                             GimpPaintOptions  *paint_options)
 {
   GimpStrokeOptionsPrivate *private;
 
   g_return_if_fail (GIMP_IS_STROKE_OPTIONS (options));
   g_return_if_fail (GIMP_IS_CONTEXT (context));
+  g_return_if_fail (paint_options == NULL ||
+                    GIMP_IS_PAINT_OPTIONS (paint_options));
 
   private = GET_PRIVATE (options);
 
@@ -561,29 +562,11 @@ gimp_stroke_options_prepare (GimpStrokeOptions *options,
 
     case GIMP_STROKE_METHOD_PAINT_CORE:
       {
-        GimpPaintInfo    *paint_info = GIMP_CONTEXT (options)->paint_info;
-        GimpPaintOptions *paint_options;
+        GimpPaintInfo *paint_info = GIMP_CONTEXT (options)->paint_info;
 
-        if (use_default_values)
+        if (paint_options)
           {
-            GimpBrush *brush;
-            gdouble    brush_size;
-            gint       height;
-            gint       width;
-
-            paint_options = gimp_paint_options_new (paint_info);
-
-            brush = gimp_context_get_brush (context);
-
-            if (GIMP_IS_BRUSH (brush))
-              {
-                gimp_brush_transform_size (brush, 1.0, 1.0, 0.0, &height, &width);
-                brush_size = MAX (height, width);
-
-                g_object_set (paint_options,
-                              "brush-size", brush_size,
-                              NULL);
-              }
+            g_return_if_fail (paint_info == paint_options->paint_info);
 
             /*  undefine the paint-relevant context properties and get them
              *  from the passed context

@@ -23,9 +23,6 @@
 
 #include "tools-types.h"
 
-#include "base/temp-buf.h"
-
-#include "core/gimpbrush.h"
 #include "core/gimptoolinfo.h"
 
 #include "paint/gimppaintoptions.h"
@@ -165,6 +162,7 @@ gimp_paint_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   if (tool_type == GIMP_TYPE_ERASER_TOOL     ||
       tool_type == GIMP_TYPE_CONVOLVE_TOOL   ||
       tool_type == GIMP_TYPE_DODGE_BURN_TOOL ||
+      tool_type == GIMP_TYPE_HEAL_TOOL       ||
       tool_type == GIMP_TYPE_SMUDGE_TOOL)
     {
       gtk_widget_set_sensitive (menu, FALSE);
@@ -542,7 +540,7 @@ gimp_paint_options_gui_reset_size (GtkWidget        *button,
  if (brush)
    {
      g_object_set (paint_options,
-                   "brush-size", (gdouble) MAX (brush->mask->width,
+	   "brush-size", (gdouble) MAX (brush->mask->width,
                                                 brush->mask->height),
                    NULL);
    }
@@ -617,6 +615,8 @@ texture_options_create_view (GtkWidget *button, GtkWidget **result, GObject *con
   gimp_tool_options_setup_popup_layout (children, FALSE);
 
   *result = vbox;
+ if (brush)
+   gimp_paint_options_set_default_brush_size (paint_options, brush);
 }
 
 static void

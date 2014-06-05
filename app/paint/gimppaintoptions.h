@@ -161,6 +161,9 @@ GimpCoords gimp_paint_options_get_smoothed_coords (GimpPaintOptions  *paint_opti
 GimpBrushApplicationMode
              gimp_paint_options_get_brush_mode (GimpPaintOptions *paint_options);
 
+void gimp_paint_options_set_default_brush_size (GimpPaintOptions *paint_options,
+                                                GimpBrush        *brush);
+
 void    gimp_paint_options_copy_brush_props    (GimpPaintOptions *src,
                                                 GimpPaintOptions *dest);
 void    gimp_paint_options_copy_dynamics_props (GimpPaintOptions *src,
