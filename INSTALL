@@ -57,6 +57,12 @@ header files installed.
      and fontconfig 2.2.0 or newer. Older versions are known to have
      bugs that seriously affect the stability of GIMP.
 
+     On Windows platforms in particular, we recommend fontconfig 2.11.1
+     or newer. Older versions may end up in broken font handling, due to
+     inadequate font configuration: font aliases not configured,
+     synthetic bold/italic variants unavailable, cache folder in temp
+     directory resulting in slow startups, etc.
+
   7. We use dbus-glib if available. Grab it from
      http://dbus.freedesktop.org/releases/dbus-glib/
 
@@ -71,10 +77,12 @@ header files installed.
   9. You may want to install other third party libraries or programs
      that are needed for some of the available plug-ins. We recommend
      to check that the following libraries are installed: lcms,
-     libpng, libjpeg, libpoppler, libtiff, webkit, libmng, librsvg,
-     libwmf, libz, libbzip2, libgs (Ghostscript), libaa and libjasper.
+     libpng, libjpeg, libpoppler (and poppler-data, optional encoding
+     package, necessary to import PDF with CJK and cyrillic text),
+     libtiff, webkit, libmng, librsvg, libwmf, libz, libbzip2, libgs
+     (Ghostscript), libaa and libjasper.
 
- 10. The Python extension requires Python development headers to be
+ 10. The Python extension requires Python 2 development headers to be
      present. You will also need PyGTK and the respective development
      headers.
 

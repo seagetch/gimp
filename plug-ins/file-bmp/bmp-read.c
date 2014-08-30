@@ -326,6 +326,10 @@ ReadBMP (const gchar  *name,
 
       if (Bitmap_Head.biCompr == BI_BITFIELDS)
         {
+#ifdef DEBUG
+          g_print ("Got BI_BITFIELDS compression\n");
+#endif
+
           if (!ReadOK (fd, buffer, 3 * sizeof (guint32)))
             {
               g_set_error (error, G_FILE_ERROR, G_FILE_ERROR_FAILED,
@@ -341,6 +345,10 @@ ReadBMP (const gchar  *name,
         }
       else if (Bitmap_Head.biCompr == BI_RGB)
         {
+#ifdef DEBUG
+          g_print ("Got BI_RGB compression\n");
+#endif
+
           setMasksDefault (Bitmap_Head.biBitCnt, masks);
         }
       else if ((Bitmap_Head.biCompr != BI_RLE4) && (Bitmap_Head.biCompr != BI_RLE8))
@@ -351,6 +359,10 @@ ReadBMP (const gchar  *name,
                        Bitmap_Head.biCompr,
                        gimp_filename_to_utf8 (filename));
         }
+
+#ifdef DEBUG
+      g_print ("Got BI_RLE4 or BI_RLE8 compression\n");
+#endif
     }
   else if (Bitmap_File_Head.biSize >= 56 && Bitmap_File_Head.biSize <= 64)
     /* enhanced Windows format with bit masks */
@@ -412,10 +424,18 @@ ReadBMP (const gchar  *name,
 
       if (Bitmap_Head.biCompr == BI_BITFIELDS)
         {
+#ifdef DEBUG
+          g_print ("Got BI_BITFIELDS compression\n");
+#endif
+
           ReadChannelMasks (&Bitmap_Head.masks[0], masks, 4);
         }
       else if (Bitmap_Head.biCompr == BI_RGB)
         {
+#ifdef DEBUG
+          g_print ("Got BI_RGB compression\n");
+#endif
+
           setMasksDefault (Bitmap_Head.biBitCnt, masks);
         }
     }
@@ -514,8 +534,8 @@ ReadBMP (const gchar  *name,
   rowbytes= ((Bitmap_Head.biWidth * Bitmap_Head.biBitCnt - 1) / 32) * 4 + 4;
 
 #ifdef DEBUG
-  printf ("\nSize: %u, Colors: %u, Bits: %u, Width: %u, Height: %u, "
-          "Comp: %u, Zeile: %u\n",
+  printf ("\nSize: %lu, Colors: %lu, Bits: %hu, Width: %ld, Height: %ld, "
+          "Comp: %lu, Zeile: %d\n",
           Bitmap_File_Head.bfSize,
           Bitmap_Head.biClrUsed,
           Bitmap_Head.biBitCnt,
@@ -707,11 +727,11 @@ ReadImage (FILE                  *fd,
             for (xpos= 0; xpos < width; ++xpos)
               {
                 px32 = ToL(&buffer[xpos*4]);
-                *(temp++)= (guchar)((px32 & masks[0].mask) >> masks[0].shiftin);
-                *(temp++)= (guchar)((px32 & masks[1].mask) >> masks[1].shiftin);
-                *(temp++)= (guchar)((px32 & masks[2].mask) >> masks[2].shiftin);
+                *(temp++) = ((px32 & masks[0].mask) >> masks[0].shiftin) * 255.0 / masks[0].max_value + 0.5;
+                *(temp++) = ((px32 & masks[1].mask) >> masks[1].shiftin) * 255.0 / masks[1].max_value + 0.5;
+                *(temp++) = ((px32 & masks[2].mask) >> masks[2].shiftin) * 255.0 / masks[2].max_value + 0.5;
                 if (channels > 3)
-                  *(temp++)= (guchar)((px32 & masks[3].mask) >> masks[3].shiftin);
+                  *(temp++) = ((px32 & masks[3].mask) >> masks[3].shiftin) * 255.0 / masks[3].max_value + 0.5;
               }
             if (ypos == 0)
               break;

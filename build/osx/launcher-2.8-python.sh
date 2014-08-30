@@ -54,9 +54,7 @@ export FONTCONFIG_FILE="$bundle_etc/fonts/fonts.conf"
 export GEGL_PATH="$bundle_lib/gegl-0.2"
 
 # Set up Python
-
 echo "Enabling internal Python..."
-
 export PYTHONHOME="$bundle_res"
 
 # Add bundled Python modules
@@ -67,26 +65,8 @@ PYTHONPATH="$bundle_lib/pygtk/2.0:$PYTHONPATH"
 
 # Include gimp python modules
 PYTHONPATH="$bundle_lib/gimp/2.0/python:$PYTHONPATH"
+
 export PYTHONPATH
-
-# Activate D-Bus
-
-#echo "Activating dbus..."
-
-# Launch dbus if needed
-#dbusenv="$TMPDIR/gimp-$USER.dbus"
-
-#if [ -f "$dbusenv" ]; then
-#    source "$dbusenv"
-#fi
-
-#if [ -z "$DBUS_SESSION_BUS_PID" ] || ! ps -p "$DBUS_SESSION_BUS_PID" >/dev/null; then
-#    "$bundle_bin/dbus-launch" --config-file "$bundle_etc/dbus-1/session.conf" > "$dbusenv"
-#    source "$dbusenv"
-#fi
-
-#export DBUS_SESSION_BUS_PID
-#export DBUS_SESSION_BUS_ADDRESS
 
 # Specify Ghostscript directories
 # export GS_RESOURCE_DIR="$bundle_res/share/ghostscript/9.06/Resource"
@@ -96,24 +76,19 @@ export PYTHONPATH
 
 # set up character encoding aliases
 if test -f "$bundle_lib/charset.alias"; then
-export CHARSETALIASDIR="$bundle_lib"
+ export CHARSETALIASDIR="$bundle_lib"
 fi
 
 # Extra arguments can be added in environment.sh.
 EXTRA_ARGS=
 if test -f "$bundle_res/environment.sh"; then
-source "$bundle_res/environment.sh"
+ source "$bundle_res/environment.sh"
 fi
 
 # Strip out the argument added by the OS.
 if /bin/expr "x$1" : '^x-psn_' > /dev/null; then
-shift 1
+ shift 1
 fi
 
 echo "Launching GIMP..."
 $EXEC "$bundle_contents/MacOS/$name-bin" "$@" $EXTRA_ARGS
-
-#"$bundle_contents/MacOS/$name-bin" "$@" $EXTRA_ARGS
-
-#echo "Cleaning up..."
-#killall dbus-daemon
