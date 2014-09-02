@@ -74,6 +74,8 @@ static const GimpLayerModeEffects paint_modes[] =
   GIMP_VALUE_MODE,
   GIMP_SRC_IN_MODE,
   GIMP_DST_IN_MODE,
+  GIMP_SRC_OUT_MODE,
+  GIMP_DST_OUT_MODE,
 };
 
 

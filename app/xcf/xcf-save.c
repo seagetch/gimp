@@ -229,6 +229,8 @@ xcf_save_choose_format (XcfInfo   *info,
 
         case GIMP_SRC_IN_MODE:
         case GIMP_DST_IN_MODE:
+        case GIMP_SRC_OUT_MODE:
+        case GIMP_DST_OUT_MODE:
           save_version = MAX (4, save_version);
           break;
 

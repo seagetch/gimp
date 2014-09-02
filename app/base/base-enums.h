@@ -94,6 +94,8 @@ typedef enum
   GIMP_ANTI_ERASE_MODE,      /*< pdb-skip, desc="Anti erase" >*/
   GIMP_SRC_IN_MODE,          /*< desc="svg:src-in"           >*/
   GIMP_DST_IN_MODE,          /*< desc="svg:dst-in"           >*/
+  GIMP_SRC_OUT_MODE,         /*< desc="svg:src-out"          >*/
+  GIMP_DST_OUT_MODE,         /*< desc="svg:dst-out"          >*/
 } GimpLayerModeEffects;
 
 

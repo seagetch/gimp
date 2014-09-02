@@ -1121,6 +1121,8 @@ gimp_layer_sync_mode_node (GimpLayer *layer)
         case GIMP_ANTI_ERASE_MODE:
         case GIMP_SRC_IN_MODE:
         case GIMP_DST_IN_MODE:
+        case GIMP_SRC_OUT_MODE:
+        case GIMP_DST_OUT_MODE:
           gegl_node_set (mode_node,
                          "operation",  "gimp:point-layer-mode",
                          "blend-mode", layer->mode,

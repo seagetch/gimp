@@ -44,4 +44,5 @@ void gimp_composite_swap_any_any_any_generic (GimpCompositeContext *ctx);
 void gimp_composite_value_any_any_any_generic (GimpCompositeContext *ctx);
 void gimp_composite_behind_any_any_any_generic (GimpCompositeContext *ctx);
 void gimp_composite_src_in_any_any_any_generic (GimpCompositeContext *ctx);
+void gimp_composite_src_out_any_any_any_generic (GimpCompositeContext *ctx);
 #endif

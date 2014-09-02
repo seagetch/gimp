@@ -147,6 +147,8 @@ struct GimpCompositeOperationEffects gimp_composite_operation_effects[] =
     { TRUE,  TRUE,  FALSE, },     /*  GIMP_ANTI_ERASE_MODE    */
     { TRUE,  FALSE, TRUE   },     /*  GIMP_SRC_IN_MODE */
     { TRUE,  FALSE, TRUE   },     /*  GIMP_DST_IN_MODE */
+    { TRUE,  FALSE, TRUE   },     /*  GIMP_SRC_OUT_MODE */
+    { TRUE,  FALSE, TRUE   },     /*  GIMP_DST_OUT_MODE */
 
     { FALSE, FALSE, FALSE },      /*  GIMP_SWAP */
     { FALSE, FALSE, FALSE },      /*  GIMP_SCALE */
@@ -270,7 +272,10 @@ gimp_composite_mode_astext (GimpCompositeOperation op)
     case GIMP_COMPOSITE_SCALE:         return ("GIMP_COMPOSITE_SCALE");
     case GIMP_COMPOSITE_CONVERT:       return ("GIMP_COMPOSITE_CONVERT");
     case GIMP_COMPOSITE_XOR:           return ("GIMP_COMPOSITE_XOR");
-	case GIMP_COMPOSITE_SRC_IN:        return ("GIMP_COMPOSITE_SRC_IN");
+    case GIMP_COMPOSITE_SRC_IN:        return ("GIMP_COMPOSITE_SRC_IN");
+    case GIMP_COMPOSITE_DST_IN:        return ("GIMP_COMPOSITE_DST_IN");
+    case GIMP_COMPOSITE_SRC_OUT:       return ("GIMP_COMPOSITE_SRC_OUT");
+    case GIMP_COMPOSITE_DST_OUT:       return ("GIMP_COMPOSITE_DST_OUT");
     default:
       break;
     }

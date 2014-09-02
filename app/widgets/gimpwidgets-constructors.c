@@ -102,7 +102,7 @@ gimp_paint_mode_menu_new (gboolean with_behind_mode,
   GtkWidget    *combo;
 
   store = gimp_enum_store_new_with_values (GIMP_TYPE_LAYER_MODE_EFFECTS,
-                                           23,
+                                           25,
                                            GIMP_NORMAL_MODE,
                                            GIMP_DISSOLVE_MODE,
 
@@ -131,7 +131,9 @@ gimp_paint_mode_menu_new (gboolean with_behind_mode,
                                            GIMP_VALUE_MODE,
 
                                            GIMP_SRC_IN_MODE,
-                                           GIMP_DST_IN_MODE);
+                                           GIMP_DST_IN_MODE,
+                                           GIMP_SRC_OUT_MODE,
+                                           GIMP_DST_OUT_MODE);
 
   gimp_int_store_insert_separator_after (GIMP_INT_STORE (store),
                                          GIMP_DISSOLVE_MODE, -1);

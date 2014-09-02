@@ -1468,6 +1468,59 @@ gimp_composite_src_in_any_any_any_generic (GimpCompositeContext *ctx)
 }
 
 /**
+ * gimp_composite_src_out_any_any_any_generic:
+ * @ctx: The compositing context.
+ *
+ * Perform a dst-out operation between sources ctx->A and ctx->B, using
+ * the generalised algorithm: D = A * (255 - &beta;) + B * &beta;
+ *
+ * The result is left in ctx->D
+ **/
+void
+gimp_composite_src_out_any_any_any_generic (GimpCompositeContext *ctx)
+{
+  const guchar *src1 = ctx->A;
+  const guchar *src2 = ctx->B;
+  guchar *dest = ctx->D;
+  guint length = ctx->n_pixels;
+  guint bytes1 = gimp_composite_pixel_bpp[ctx->pixelformat_A];
+  guint bytes2 = gimp_composite_pixel_bpp[ctx->pixelformat_B];
+  const guint has_alpha1 = HAS_ALPHA(bytes1);
+  const guint has_alpha2 = HAS_ALPHA(bytes2);
+  const guint alpha = (has_alpha1 || has_alpha2) ? MAX(bytes1, bytes2) - 1 : bytes1;
+  guint b, tmp;
+
+  if (has_alpha1 && has_alpha2) {
+    while (length--)
+      {
+        for (b = 0; b < alpha; b++)
+          dest[b] = src2[b];
+
+        dest[alpha] = INT_MULT(255 - src1[alpha], src2[alpha], tmp);
+
+        src1 += bytes1;
+        src2 += bytes2;
+        dest += bytes2;
+      }
+  } else if (has_alpha1) {
+    while (length--)
+      {
+        for (b = 0; b < alpha; b++)
+          dest[b] = src2[b];
+
+        dest[alpha] = src1[alpha];
+
+        src1 += bytes1;
+        src2 += bytes2;
+        dest += bytes2;
+      }
+  } else {
+    ctx->D = ctx->B;
+  }
+  ctx->combine = REPLACE_INTEN;
+}
+
+/**
  * gimp_composite_generic_init:
  *
  * Initialise the generic set of compositing functions.

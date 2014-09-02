@@ -149,6 +149,8 @@ static const NamedConstant const old_constants[] =
   { "DIVIDE",               GIMP_DIVIDE_MODE       },
   { "SRC-IN",               GIMP_SRC_IN_MODE       },
   { "DST-IN",               GIMP_DST_IN_MODE       },
+  { "SRC-OUT",              GIMP_SRC_OUT_MODE      },
+  { "DST-OUT",              GIMP_DST_OUT_MODE      },
 
   { "BLUR",                 GIMP_BLUR_CONVOLVE     },
   { "SHARPEN",              GIMP_SHARPEN_CONVOLVE  },
