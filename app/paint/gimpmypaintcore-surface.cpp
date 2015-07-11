@@ -655,7 +655,7 @@ private:
   GimpCoords    last_coords;
   GimpCoords    current_coords;
   bool          floating_stroke;
-  double        stroke_opacity;
+  float         stroke_opacity;
   
   TileManager* undo_tiles;       /*  tiles which have been modified      */
   TileManager* floating_stroke_tiles;
@@ -996,7 +996,7 @@ public:
   }
 
   void set_stroke_opacity(double value) {
-    stroke_opacity = CLAMP(value, 0.0, 1.0);
+    stroke_opacity = (float)CLAMP(value, 0.0, 1.0);
   }
 
   virtual void set_coords(const GimpCoords* coords) { current_coords = *coords; }

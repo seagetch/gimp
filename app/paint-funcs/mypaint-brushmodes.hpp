@@ -242,9 +242,13 @@ void draw_dab_pixels_BlendMode_Normal (Iter iter,
           continue;
         pixel_t opa_a = pix( eval( pix(iter.get_brush_alpha()) * pix(opacity) ) ); // topAlpha
         pixel_t opa_b = pix( eval (pix(1.0f) - opa_a ) ); // bottomAlpha
-        iter.dest[0] = r2d(eval( opa_a*pix(iter.get_brush_color()[0]) + opa_b*pix(iter.src[0]) ));
-        iter.dest[1] = r2d(eval( opa_a*pix(iter.get_brush_color()[1]) + opa_b*pix(iter.src[1]) ));
-        iter.dest[2] = r2d(eval( opa_a*pix(iter.get_brush_color()[2]) + opa_b*pix(iter.src[2]) ));
+	result_t internal[3];
+	internal[0] = eval( opa_a*pix(iter.get_brush_color()[0]) + opa_b*pix(iter.src[0]) );
+	internal[1] = eval( opa_a*pix(iter.get_brush_color()[1]) + opa_b*pix(iter.src[1]) );
+	internal[2] = eval( opa_a*pix(iter.get_brush_color()[2]) + opa_b*pix(iter.src[2]) );
+        iter.dest[0] = r2d(internal[0]);
+        iter.dest[1] = r2d(internal[1]);
+        iter.dest[2] = r2d(internal[2]);
       }
       if (iter.is_data_end()) break;
       iter.next_row();
@@ -258,19 +262,23 @@ void draw_dab_pixels_BlendMode_Normal (Iter iter,
 
         pixel_t brush_a = pix( eval( pix(iter.get_brush_alpha()) * pix(opacity) ) );
         pixel_t base_a  = pix(iter.src[3]);
-	      result_t alpha  = eval( brush_a + (pix(1.0f) - brush_a) * base_a );
+	result_t alpha  = eval( brush_a + (pix(1.0f) - brush_a) * base_a );
         iter.dest[3] = r2d(alpha);
         if (alpha) {
           pixel_t dest_a = pix(alpha);
-          iter.dest[0] = r2d(eval( (brush_a * pix(iter.get_brush_color()[0]) + 
-                                   (pix(1.0f) - brush_a) * base_a * pix(iter.src[0])) 
-                                   / dest_a ));
-          iter.dest[1] = r2d(eval( (brush_a * pix(iter.get_brush_color()[1]) + 
-                                   (pix(1.0f) - brush_a) * base_a * pix(iter.src[1])) 
-                                   / dest_a ));
-          iter.dest[2] = r2d(eval( (brush_a * pix(iter.get_brush_color()[2]) + 
-                                   (pix(1.0f) - brush_a) * base_a * pix(iter.src[2])) 
-                                   / dest_a ));
+	  result_t internal[3];
+	  internal[0] = eval( (brush_a * pix(iter.get_brush_color()[0]) + 
+                              (pix(1.0f) - brush_a) * base_a * pix(iter.src[0])) 
+                              / dest_a );
+	  internal[1] = eval( (brush_a * pix(iter.get_brush_color()[1]) + 
+                              (pix(1.0f) - brush_a) * base_a * pix(iter.src[1])) 
+                              / dest_a );
+	  internal[2] = eval( (brush_a * pix(iter.get_brush_color()[2]) + 
+                              (pix(1.0f) - brush_a) * base_a * pix(iter.src[2])) 
+                              / dest_a );
+          iter.dest[0] = r2d(internal[0]);
+          iter.dest[1] = r2d(internal[1]);
+          iter.dest[2] = r2d(internal[2]);
         } else {
           iter.dest[0] = iter.get_brush_color()[0];
           iter.dest[1] = iter.get_brush_color()[1];
@@ -334,16 +342,21 @@ void draw_dab_pixels_BlendMode_Normal_and_Eraser (Iter iter,
 
         pixel_t brush_a     = pix( eval( pix(iter.get_brush_alpha()) * pix(opacity) ) ); // topAlpha
         pixel_t inv_brush_a = pix( eval (f2p(1.0) - brush_a ) ); // bottomAlpha
+	result_t internal[3];
 
-        iter.dest[0] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(bg_color[0]) 
-                                          + pix(color_a)*pix(iter.get_brush_color()[0])) 
-                                 + inv_brush_a*pix(iter.src[0]) ));
-        iter.dest[1] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(bg_color[1]) 
-                                          + pix(color_a)*pix(iter.get_brush_color()[1])) 
-                                 + inv_brush_a*pix(iter.src[1]) ));
-        iter.dest[2] = r2d(eval( brush_a*((pix(1.0f) - pix(color_a))*pix(bg_color[2]) 
-                                          + pix(color_a)*pix(iter.get_brush_color()[2])) 
-                                 + inv_brush_a*pix(iter.src[2]) ));
+	internal[0] = eval( brush_a*((pix(1.0f) - pix(color_a))*pix(bg_color[0]) 
+                            + pix(color_a)*pix(iter.get_brush_color()[0])) 
+                            + inv_brush_a*pix(iter.src[0]) );
+	internal[1] = eval( brush_a*((pix(1.0f) - pix(color_a))*pix(bg_color[1]) 
+                            + pix(color_a)*pix(iter.get_brush_color()[1])) 
+                            + inv_brush_a*pix(iter.src[1]) );
+	internal[2] = eval( brush_a*((pix(1.0f) - pix(color_a))*pix(bg_color[2]) 
+                            + pix(color_a)*pix(iter.get_brush_color()[2])) 
+                            + inv_brush_a*pix(iter.src[2]) );
+
+        iter.dest[0] = r2d(internal[0]);
+        iter.dest[1] = r2d(internal[1]);
+        iter.dest[2] = r2d(internal[2]);
       }
       if (iter.is_data_end()) break;
       iter.next_row();
@@ -364,9 +377,15 @@ void draw_dab_pixels_BlendMode_Normal_and_Eraser (Iter iter,
         if (alpha) {
           pixel_t inv_brush_a = pix( eval(pix(1.0f) - brush_a));
           pixel_t dest_a = pix(alpha);
-          iter.dest[0] = r2d(eval( (inv_brush_a*base_a*pix(iter.src[0]) + brush_a*pix(color_a)*pix(iter.get_brush_color()[0])) / dest_a ));
-          iter.dest[1] = r2d(eval( (inv_brush_a*base_a*pix(iter.src[1]) + brush_a*pix(color_a)*pix(iter.get_brush_color()[1])) / dest_a ));
-          iter.dest[2] = r2d(eval( (inv_brush_a*base_a*pix(iter.src[2]) + brush_a*pix(color_a)*pix(iter.get_brush_color()[2])) / dest_a ));
+	  result_t internal[3];
+
+	  internal[0] = eval( (inv_brush_a*base_a*pix(iter.src[0]) + brush_a*pix(color_a)*pix(iter.get_brush_color()[0])) / dest_a );
+	  internal[1] = eval( (inv_brush_a*base_a*pix(iter.src[1]) + brush_a*pix(color_a)*pix(iter.get_brush_color()[1])) / dest_a );
+	  internal[2] = eval( (inv_brush_a*base_a*pix(iter.src[2]) + brush_a*pix(color_a)*pix(iter.get_brush_color()[2])) / dest_a );
+
+          iter.dest[0] = r2d(internal[0]);
+          iter.dest[1] = r2d(internal[1]);
+          iter.dest[2] = r2d(internal[2]);
         } else {
           iter.dest[0] = iter.get_brush_color()[0];
           iter.dest[1] = iter.get_brush_color()[1];
@@ -406,10 +425,15 @@ void draw_dab_pixels_BlendMode_LockAlpha (Iter          iter,
         pixel_t alpha = pix( iter.src[3] );
         pixel_t dest_a = pix( iter.src[3] );
         pixel_t base_a = dest_a;
+	result_t internal[3];
+	
+	internal[0] = eval( (brush_a*alpha*pix(iter.get_brush_color()[0]) + inv_brush_a*base_a*pix(iter.src[0])) / dest_a);
+	internal[1] = eval( (brush_a*alpha*pix(iter.get_brush_color()[1]) + inv_brush_a*base_a*pix(iter.src[1])) / dest_a);
+	internal[2] = eval( (brush_a*alpha*pix(iter.get_brush_color()[2]) + inv_brush_a*base_a*pix(iter.src[2])) / dest_a);
         
-        iter.dest[0] = r2d(eval( (brush_a*alpha*pix(iter.get_brush_color()[0]) + inv_brush_a*base_a*pix(iter.src[0])) / dest_a));
-        iter.dest[1] = r2d(eval( (brush_a*alpha*pix(iter.get_brush_color()[1]) + inv_brush_a*base_a*pix(iter.src[1])) / dest_a));
-        iter.dest[2] = r2d(eval( (brush_a*alpha*pix(iter.get_brush_color()[2]) + inv_brush_a*base_a*pix(iter.src[2])) / dest_a));
+        iter.dest[0] = r2d(internal[0]);
+        iter.dest[1] = r2d(internal[1]);
+        iter.dest[2] = r2d(internal[2]);
       }
       if (iter.is_data_end()) break;
       iter.next_row();
@@ -475,10 +499,16 @@ void get_color_pixels_accumulate (/*Pixel::real  * mask,
           continue;
 
         pixel_t opa = pix (iter.get_brush_alpha());
+	result_t internal[3];
+
+	internal[0] = eval (opa * pix(iter.src[0]) * pix(1.0f));
+	internal[1] = eval (opa * pix(iter.src[1]) * pix(1.0f));
+	internal[2] = eval (opa * pix(iter.src[2]) * pix(1.0f));
+
         weight += r2i(eval(opa));
-        r      += r2i(eval (opa * pix(iter.src[0]) * pix(1.0f)));
-        g      += r2i(eval (opa * pix(iter.src[1]) * pix(1.0f)));
-        b      += r2i(eval (opa * pix(iter.src[2]) * pix(1.0f)));
+        r      += r2i(internal[0]);
+        g      += r2i(internal[1]);
+        b      += r2i(internal[2]);
         a      += r2i(eval(opa));
       }
       if (iter.is_data_end()) break;
@@ -493,11 +523,18 @@ void get_color_pixels_accumulate (/*Pixel::real  * mask,
           continue;
 
         pixel_t opa = pix (iter.get_brush_alpha());
+	pixel_t alpha = pix(iter.src[3]);
+	result_t internal[3];
+
+	internal[0] = eval (opa * pix(iter.src[0]) * alpha);
+	internal[1] = eval (opa * pix(iter.src[1]) * alpha);
+	internal[2] = eval (opa * pix(iter.src[2]) * alpha);
+
         weight += r2i(eval(opa));
-        r      += r2i(eval (opa * pix(iter.src[0]) * pix(iter.src[3])));
-        g      += r2i(eval (opa * pix(iter.src[1]) * pix(iter.src[3])));
-        b      += r2i(eval (opa * pix(iter.src[2]) * pix(iter.src[3])));
-        a      += r2i(eval (opa * pix(iter.src[3])));
+        r      += r2i(internal[0]);
+        g      += r2i(internal[1]);
+        b      += r2i(internal[2]);
+        a      += r2i(eval (opa * alpha));
       }
       if (iter.is_data_end()) break;
       iter.next_row();
