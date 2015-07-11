@@ -485,14 +485,10 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
 
   core->stroke_to(drawable, dtime, &curr_coords, paint_options);
 
-  if (time - paint_tool->last_flush_time > 100) {
-    gimp_projection_finish_draw (gimp_image_get_projection (image)); 
-    gimp_display_flush_now (display);
-    paint_tool->last_flush_time = time;
-  } else {
-    gimp_projection_flush (gimp_image_get_projection (image));
-    gimp_display_flush (display);
-  }
+  gimp_projection_finish_draw (gimp_image_get_projection (image)); 
+  gimp_projection_flush (gimp_image_get_projection (image));
+  gimp_display_flush_now (display);
+  paint_tool->last_flush_time = time;
 
   gimp_draw_tool_resume (GIMP_DRAW_TOOL (tool));
 }
