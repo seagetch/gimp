@@ -116,6 +116,7 @@ INCLUDES = \
 	$(GTK_CFLAGS)		\
 	$(PANGOCAIRO_CFLAGS)	\
 	$(GEGL_CFLAGS)		\
+	$(JANSSON_CFLAGS)	\
 	-I$(includedir)
 
 # FIXME: core should not depend on xcf
@@ -181,6 +182,7 @@ gimpconsoleldadd = \
 	$(GEGL_LIBS)			\
 	$(GLIB_LIBS)			\
 	$(INTLLIBS)			\
+	$(JANSSON_LIBS)			\
 	$(RT_LIBS)
 
 gimp_2_8_LDFLAGS = \

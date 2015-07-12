@@ -5,4 +5,5 @@ SUBDIRS = \
 	deevad	\
 	ramon			\
 	tanda			\
-	experimental
+	experimental		\
+	kaerhon

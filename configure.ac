@@ -67,6 +67,7 @@ m4_define([lcms2_required_version], [2.2])
 m4_define([libpng_required_version], [1.2.37])
 m4_define([gtk_mac_integration_required_version], [2.0.0])
 m4_define([python2_required_version], [2.5.0])
+m4_define([jansson_required_version],[2.7])
 
 # Current test considers only 2 version numbers. If we update the recommended
 # version of gettext with more version numbers, please update the tests.
@@ -542,6 +543,7 @@ else
 fi
 AC_MSG_RESULT($have_glib_2_31)
 
+PKG_CHECK_MODULES(JANSSON, jansson >= jansson_required_version)
 
 # Check for bind_textdomain_codeset, including -lintl if GLib brings it in.
 gimp_save_LIBS=$LIBS
@@ -2419,6 +2421,7 @@ data/mypaint-brushes/deevad/Makefile
 data/mypaint-brushes/tanda/Makefile
 data/mypaint-brushes/ramon/Makefile
 data/mypaint-brushes/experimental/Makefile
+data/mypaint-brushes/kaerhon/Makefile
 desktop/Makefile
 desktop/gimp.desktop.in
 etc/Makefile
