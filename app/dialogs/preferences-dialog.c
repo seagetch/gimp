@@ -2794,7 +2794,11 @@ prefs_dialog_new (Gimp       *gimp,
       { N_("Themes"), N_("Theme Folders"), "folders-themes",
         GIMP_HELP_PREFS_FOLDERS_THEMES,
         N_("Select Theme Folders"),
-        "theme-path", NULL }
+        "theme-path", NULL },
+      { N_("Mypaint"), N_("Mypaint Brush Folders"), "folders-mypaint-brushes",
+        GIMP_HELP_PREFS_FOLDERS_MYPAINT_BRUSHES,
+        N_("Select Mypaint Brush Folders"),
+        "mypaint-brush-path", "mypaint-brush-path-writable", NULL }
     };
 
     for (i = 0; i < G_N_ELEMENTS (paths); i++)
