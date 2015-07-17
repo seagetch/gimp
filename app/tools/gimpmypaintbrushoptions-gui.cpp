@@ -65,6 +65,7 @@ class MypaintPopupPrivate {
   GtkListStore*          store;
   PageRemindAction       page_reminder;
   Delegator::Connection* brush_changed_handler;
+  Delegator::Connection* history_name_edited_handler;
   
 public:
   MypaintPopupPrivate(GimpContainer* ctn, GimpContext* ctx) : 
@@ -83,6 +84,7 @@ public:
   void notify_brush (GObject *brush, GParamSpec *pspec);
   void brush_changed (GObject *object, GimpData *brush_data);
   void history_cursor_changed (GObject *object);
+  void history_name_edited (GObject* renderer, gchar* path, gchar* new_text);
 
 };
 
@@ -180,6 +182,13 @@ MypaintPopupPrivate::history_cursor_changed (GObject*  object)
   }
 }
 
+void
+MypaintPopupPrivate::history_name_edited (GObject* renderer, 
+                                          gchar* path, gchar* new_text)
+{
+}
+
+
 MypaintPopupPrivate::~MypaintPopupPrivate ()
 {
 }
@@ -269,7 +278,11 @@ MypaintPopupPrivate::create (GObject* object,
 
   renderer = gtk_cell_renderer_text_new();
   column = gtk_tree_view_column_new_with_attributes("Name", renderer, "text", 1, NULL);
+  g_object_set(G_OBJECT(renderer), "editable", TRUE, NULL);
   gtk_tree_view_append_column(GTK_TREE_VIEW(history), column);
+
+  g_signal_connect_delegator(G_OBJECT(renderer), "edited",
+                             Delegator::delegator(this, &MypaintPopupPrivate::history_name_edited));
 
   g_signal_connect_delegator(G_OBJECT(history), "cursor-changed",
                              Delegator::delegator(this, &MypaintPopupPrivate::history_cursor_changed));
@@ -278,9 +291,8 @@ MypaintPopupPrivate::create (GObject* object,
   gtk_notebook_insert_page (GTK_NOTEBOOK (*result), GTK_WIDGET (history), 
                             gtk_label_new(_("Custom")),1);
 
-  page_reminder.bind_to(GTK_NOTEBOOK (*result));
 
-  
+  page_reminder.bind_to(GTK_NOTEBOOK (*result));
 
   brush_changed_handler = 
     g_signal_connect_delegator (G_OBJECT(context),

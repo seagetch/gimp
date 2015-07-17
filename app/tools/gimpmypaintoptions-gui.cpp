@@ -112,7 +112,8 @@ public:
   void update_brush (GObject *adjustment);
   void notify_brush (GObject *brush, GParamSpec *pspec);
   void brush_changed (GObject *object, GimpData *brush_data);
-
+  void brush_name_edited (GObject *object);
+  void brush_save_clicked (GObject* object);
 };
 
 
@@ -168,6 +169,28 @@ MypaintDetailOptionsPopupPrivate::brush_changed (GObject*  object,
 
 }
 
+void
+MypaintDetailOptionsPopupPrivate::brush_name_edited (GObject*  object)
+{
+  GimpMypaintBrush* mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
+  const gchar* name = gtk_entry_get_text(GTK_ENTRY(object));
+  gchar* actual_name;
+  g_object_get(G_OBJECT(mypaint_brush), "name", &actual_name, NULL);
+  if (strcmp(name, actual_name) == 0)
+    return;
+  g_object_set(G_OBJECT(mypaint_brush), "name", name, NULL);
+  g_object_get(G_OBJECT(mypaint_brush), "name", &actual_name, NULL);
+  gtk_entry_set_text(GTK_ENTRY(object), actual_name);
+}
+
+void
+MypaintDetailOptionsPopupPrivate::brush_save_clicked (GObject*  object)
+{
+  GimpDataFactory*  factory       = context->gimp->mypaint_brush_factory;
+  GimpMypaintBrush* mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
+  gimp_data_factory_data_save_single (factory, GIMP_DATA(mypaint_brush), NULL);
+}
+
 MypaintDetailOptionsPopupPrivate::~MypaintDetailOptionsPopupPrivate ()
 {
 }
@@ -195,11 +218,14 @@ MypaintDetailOptionsPopupPrivate::create (GObject* object,
   GtkButton*                     button = GTK_BUTTON(object);
   GimpContainerEditor           *editor;
   GimpBrush                     *brush;
+  GtkWidget                     *hbox;
   GtkWidget                     *vbox;
   GtkWidget                     *frame;
   GtkWidget                     *box;
   GtkWidget                     *table;
   GtkWidget                     *frame2;
+  GtkWidget                     *action_button;
+  GtkWidget                     *brush_name_entry;
   GimpViewType                   view_type = GIMP_VIEW_TYPE_GRID;
   GimpViewSize                   view_size = GIMP_VIEW_SIZE_MEDIUM;
   gint                           view_border_width = 1;
@@ -223,8 +249,39 @@ MypaintDetailOptionsPopupPrivate::create (GObject* object,
   g_return_if_fail (view_border_width >= 0 &&
                     view_border_width <= GIMP_VIEW_MAX_BORDER_WIDTH);
 
-  *result    = gtk_hbox_new (FALSE, 1);
+  *result    = gtk_vbox_new (FALSE, 3);
   gtk_widget_show (*result);
+
+  hbox = gtk_hbox_new (FALSE, 2);
+  gtk_box_pack_start(GTK_BOX(*result), GTK_WIDGET(hbox), FALSE, TRUE, 0);
+  gtk_widget_show (hbox);
+
+  brush_name_entry = gtk_entry_new();
+  gtk_widget_show (brush_name_entry);
+  gtk_box_pack_start(GTK_BOX(hbox), GTK_WIDGET(brush_name_entry), TRUE, TRUE, 0);
+  GimpMypaintBrush* mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
+  gchar* name;
+  g_object_get(G_OBJECT(mypaint_brush), "name", &name, NULL);
+  gtk_entry_set_text(GTK_ENTRY(brush_name_entry), name);
+
+  g_signal_connect_delegator (G_OBJECT (brush_name_entry), "activate", 
+                              Delegator::delegator(this, &MypaintDetailOptionsPopupPrivate::brush_name_edited));
+
+  action_button = gimp_stock_button_new (GTK_STOCK_SAVE, NULL);
+  gtk_button_set_relief (GTK_BUTTON (action_button), GTK_RELIEF_NONE);
+//  gtk_image_set_from_stock (GTK_IMAGE (gtk_bin_get_child (GTK_BIN (action_button))),
+//                            GTK_STOCK_SAVE, GTK_ICON_SIZE_MENU);
+  gtk_widget_show(action_button);
+  gtk_box_pack_end (GTK_BOX (hbox), action_button, FALSE, FALSE, 0);
+
+  g_signal_connect_delegator (G_OBJECT (action_button), "clicked", 
+                              Delegator::delegator(this, &MypaintDetailOptionsPopupPrivate::brush_save_clicked));
+
+
+
+  hbox       = gtk_hbox_new (FALSE, 1);
+  gtk_widget_show (hbox);
+  gtk_box_pack_start(GTK_BOX(*result), GTK_WIDGET(hbox), TRUE, TRUE, 0);
   
   editor = GIMP_CONTAINER_EDITOR (
     g_object_new (GIMP_TYPE_CONTAINER_EDITOR,
@@ -243,7 +300,7 @@ MypaintDetailOptionsPopupPrivate::create (GObject* object,
                                        10 * (default_view_size +
                                              2 * view_border_width));
 
-  gtk_box_pack_start (GTK_BOX (*result), GTK_WIDGET (editor), TRUE, TRUE, 0);      
+  gtk_box_pack_start (GTK_BOX (hbox), GTK_WIDGET (editor), TRUE, TRUE, 0);      
   gtk_widget_show (GTK_WIDGET (editor));
   
 
@@ -271,7 +328,7 @@ MypaintDetailOptionsPopupPrivate::create (GObject* object,
   GtkWidget* dynamics_editor = editor_priv->create();
   gtk_widget_show(dynamics_editor);
   
-  gtk_box_pack_start (GTK_BOX (*result), GTK_WIDGET (dynamics_editor), TRUE, TRUE, 0);      
+  gtk_box_pack_start (GTK_BOX (hbox), GTK_WIDGET (dynamics_editor), TRUE, TRUE, 0);      
 }
 
 

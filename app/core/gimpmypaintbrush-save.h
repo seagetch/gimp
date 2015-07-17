@@ -20,9 +20,6 @@
 
 #include "gimpmypaintbrush.h"
 
-#define GIMP_MYPAINT_BRUSH_FILE_EXTENSION        ".myb"
-#define GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION "_prev.png"
-
 gboolean gimp_mypaint_brush_save       (GimpData  *brush,
                                         GError      **error);
 

@@ -58,6 +58,7 @@ extern "C" {
 #include "gimpmypaintbrush.h"
 #include "gimpmypaintbrush-load.h"
 #include "mypaintbrush-brushsettings.h"
+#include "gimpmypaintbrush-save.h"
 
 #include "gimp-intl.h"
 
@@ -65,6 +66,7 @@ extern "C" {
 
 }
 #include "gimpmypaintbrush-private.hpp"
+#include "base/glib-cxx-utils.hpp"
 
 #define BRUSHFILE_JSON_VERSION 3
 #define CURRENT_BRUSHFILE_VERSION 3
@@ -149,7 +151,7 @@ MyPaintBrushReader::load_brush (GimpContext  *context,
                        GError      **error)
 {
 //  ScopeGuard<gchar, void(gpointer)> unescaped_path(unquote (filename), g_free);
-  ScopeGuard<gchar, void(gpointer)> basename(g_path_get_basename (filename), g_free);
+  StringHolder basename(g_path_get_basename (filename));
   gchar *brushname = g_strndup(basename.ptr(), strlen(basename.ptr()) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION));
   version = 0;  
 
@@ -197,6 +199,7 @@ MyPaintBrushReader::load_defaults ()
 void
 MyPaintBrushReader::dump ()
 {
+#if 1
   ScopeGuard<GList, void(GList*)> settings(mypaint_brush_get_brush_settings (), g_list_free);
   ScopeGuard<GList, void(GList*)> inputs(mypaint_brush_get_input_settings (), g_list_free);
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
@@ -228,6 +231,9 @@ MyPaintBrushReader::dump ()
       g_print("base only: %s=%f\n", setting->internal_name, v->base_value);
     }
   }
+#else
+  gimp_mypaint_brush_save(GIMP_DATA(result), NULL);
+#endif
 }
 
 bool
@@ -279,15 +285,14 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
   //settings
   element = json_object_get(root, "settings");
   if (element) {
-    ScopeGuard<GHashTable, void(GHashTable*)> settings_dict(mypaint_brush_get_brush_settings_dict (), g_hash_table_unref);
-    ScopeGuard<GHashTable, void(GHashTable*)> inputs_dict(mypaint_brush_get_input_settings_dict (), g_hash_table_unref);
-    ScopeGuard<GHashTable, void(GHashTable*)> migrate_dict(mypaint_brush_get_setting_migrate_dict (), g_hash_table_unref);
+    GHashTableHolder<const gchar*, MyPaintBrushSettings*> settings_dict(mypaint_brush_get_brush_settings_dict ());
+    GHashTableHolder<const gchar*, MyPaintBrushInputSettings*> inputs_dict(mypaint_brush_get_input_settings_dict ());
 
     json_t* value;
     const char* key;
     json_object_foreach(element, key, value) {
       MyPaintBrushSettings             *setting;
-      setting = (MyPaintBrushSettings*)g_hash_table_lookup (settings_dict.ptr(), key);
+      setting = settings_dict[key];
       if (setting) {
         json_t* prop;
 	prop = json_object_get(value, "base_value");
@@ -304,7 +309,7 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
 	  const char* input_key;
 	  json_object_foreach(prop, input_key, input_values) {
             MyPaintBrushInputSettings *input_setting;
-            input_setting = (MyPaintBrushInputSettings*)g_hash_table_lookup (inputs_dict.ptr(), input_key);
+            input_setting = inputs_dict[input_key];
 	    if (input_setting) {
               size_t num_seq = json_array_size(input_values);
               v->mapping->set_n(input_setting->index, num_seq);
@@ -321,11 +326,29 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
 	  }
 	}
       } else {
-          g_print ("unknown key '%s'\n", key);
+        g_print ("unknown key '%s'\n", key);
       }
 
     }
   }
+  //switches
+  element = json_object_get(root, "switches");
+  if (element) {
+    GHashTableHolder<const gchar*, MyPaintBrushSwitchSettings*> switches_dict(mypaint_brush_get_brush_switch_settings_dict ());
+    json_t* value;
+    const char* key;
+    json_object_foreach(element, key, value) {
+      MyPaintBrushSwitchSettings             *setting;
+      setting = switches_dict[key];
+      if (setting) {
+        g_print("SWITCH:%s=%s\n", setting->internal_name, json_boolean_value(value)? "t":"f");
+        priv->set_bool_value(setting->index, json_boolean_value(value));
+      } else {
+        g_print ("unknown key '%s'\n", key);
+      }
+    }
+  }
+
   json_decref(root);
   return true;
 }
