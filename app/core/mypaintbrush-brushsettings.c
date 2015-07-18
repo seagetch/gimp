@@ -105,11 +105,14 @@ static MyPaintBrushSwitchSettings switches_list[] = {
   {"non_incremental", BRUSH_NON_INCREMENTAL, _("Non-incremental painting mode."), FALSE },
   {"use_gimp_brushmark", BRUSH_USE_GIMP_BRUSHMARK, _("Use GIMP brush for brushmark."), TRUE },
   {"use_gimp_texture", BRUSH_USE_GIMP_TEXTURE, _("Use GIMP pattern for texture."), FALSE },
+  {"brushmark_specified", BRUSH_BRUSHMARK_SPECIFIED, _("Remember brushmark name as a preset."), FALSE },
+  {"texture_specified", BRUSH_TEXTURE_SPECIFIED, _("Remember texture name as a preset."), FALSE },
   {NULL}
 };
 
 static MyPaintBrushTextSettings text_list[] = {
-  {"brushmark", BRUSH_BRUSHMARK_NAME, _("Brushmark name"), NULL},
+  {"brushmark_name", BRUSH_BRUSHMARK_NAME, _("Brushmark name"), NULL},
+  {"texture_name", BRUSH_TEXTURE_NAME, _("Texture name"), NULL},
   {NULL}
 };
 
@@ -143,6 +146,8 @@ static gchar* dabs_group_list[] = {
     "dabs_per_actual_radius",
     "dabs_per_second",
     "use_gimp_brushmark",
+    "brushmark_specified",
+    "brushmark_name",
     NULL};
 static gchar* smudge_group_list[] = {
     "smudge", 
@@ -169,7 +174,9 @@ static gchar* stroke_group_list[] = {
     "stroke_opacity",
     NULL};
 static gchar* texture_group_list[] = {
-    "use_gimp_texture", 
+    "use_gimp_texture",
+    "texture_specified",
+    "texture_name",
     "texture_grain",
     "texture_contrast",
     NULL};
