@@ -559,12 +559,11 @@ GimpMypaintBrushPrivate::get_bool_value (int index) {
 
 void 
 GimpMypaintBrushPrivate::set_text_value (int index, const char* value) {
-  g_assert (value != NULL);
   index -= BRUSH_TEXT_BASE;
   g_assert (index >= 0 && index < BRUSH_TEXT_COUNT);
   if (text[index])
     g_free (text[index]);
-  text[index] = g_strdup(value);
+  text[index] = value ? g_strdup(value) : NULL;
   mark_as_dirty();
 }
 
@@ -657,6 +656,9 @@ GimpMypaintBrushPrivate::duplicate() {
   }
   for (int i = 0; i < BRUSH_BOOL_COUNT; i ++) {
     priv->switches[i] = switches[i];
+  }
+  for (int i = 0; i < BRUSH_TEXT_COUNT; i ++) {
+    priv->text[i] = text[i] ? g_strdup(text[i]): NULL;
   }
   priv->set_icon_image(icon_image);
   return priv;
