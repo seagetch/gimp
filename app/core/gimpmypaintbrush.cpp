@@ -445,6 +445,9 @@ GimpMypaintBrushPrivate::GimpMypaintBrushPrivate() {
   for (int i = 0; i < BRUSH_BOOL_COUNT; i ++) {
     switches[i] = FALSE;
   }
+  for (int i = 0; i < BRUSH_TEXT_COUNT; i ++) {
+    text[i] = NULL;
+  }
   dirty = false;
 }
 
@@ -459,6 +462,10 @@ GimpMypaintBrushPrivate::~GimpMypaintBrushPrivate() {
   }
   for (int i = 0; i < BRUSH_MAPPING_COUNT; i ++) {
     deallocate_mapping(i);
+  }
+  for (int i = 0; i < BRUSH_TEXT_COUNT; i ++) {
+    if (text[i])
+      g_free(text[i]);
   }
   if (icon_image) {
     cairo_surface_destroy (icon_image);
@@ -548,6 +555,24 @@ GimpMypaintBrushPrivate::get_bool_value (int index) {
   index -= BRUSH_BOOL_BASE;
   g_assert (index >= 0 && index < BRUSH_BOOL_COUNT);
   return switches[index];
+}
+
+void 
+GimpMypaintBrushPrivate::set_text_value (int index, const char* value) {
+  g_assert (value != NULL);
+  index -= BRUSH_TEXT_BASE;
+  g_assert (index >= 0 && index < BRUSH_TEXT_COUNT);
+  if (text[index])
+    g_free (text[index]);
+  text[index] = g_strdup(value);
+  mark_as_dirty();
+}
+
+char*
+GimpMypaintBrushPrivate::get_text_value (int index) {
+  index -= BRUSH_TEXT_BASE;
+  g_assert (index >= 0 && index < BRUSH_TEXT_COUNT);
+  return text[index];
 }
 
 
