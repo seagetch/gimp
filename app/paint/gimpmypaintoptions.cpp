@@ -207,7 +207,7 @@ gimp_mypaint_options_set_property (GObject      *object,
         priv->set_bool_value (property_id - 1, g_value_get_boolean (value));
         break;
       case G_TYPE_STRING:
-//        priv->set_text_value (property_id - 1, g_value_get_string (value));
+        priv->set_text_value (property_id - 1, g_value_get_string (value));
         break;
       }
     }
@@ -258,6 +258,8 @@ gimp_mypaint_options_get_property (GObject    *object,
         break;
       }
       case G_TYPE_STRING:
+        char* text = priv->get_text_value (property_id - 1);
+        g_value_set_string (value, g_strdup(text));
         break;
       }
     }
