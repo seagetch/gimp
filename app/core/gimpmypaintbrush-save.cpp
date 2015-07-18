@@ -225,6 +225,7 @@ MypaintBrushWriter::build_json()
       }
     }
   }
+
   // switches
   json_t* result_switches = json_object();
   json_object_set_new(result, "switches", result_switches);
@@ -234,7 +235,16 @@ MypaintBrushWriter::build_json()
     bool value = priv->get_bool_value(setting->index);
     json_object_set_new(result_switches, setting->internal_name, json_boolean(value));
   }
+
   // text
+  json_t* result_texts = json_object();
+  json_object_set_new(result, "texts", result_texts);
+
+  for (GList* item = texts.ptr(); item; item = item->next) {
+    MyPaintBrushTextSettings* setting = reinterpret_cast<MyPaintBrushTextSettings*>(item->data);
+    char* value = priv->get_text_value(setting->index);
+    json_object_set_new(result_texts, setting->internal_name, json_string(value));
+  }
 
   return result;
 }

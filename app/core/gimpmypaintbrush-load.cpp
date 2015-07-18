@@ -331,10 +331,29 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
 
     }
   }
+
   //switches
   element = json_object_get(root, "switches");
   if (element) {
     GHashTableHolder<const gchar*, MyPaintBrushSwitchSettings*> switches_dict(mypaint_brush_get_brush_switch_settings_dict ());
+    json_t* value;
+    const char* key;
+    json_object_foreach(element, key, value) {
+      MyPaintBrushSwitchSettings             *setting;
+      setting = switches_dict[key];
+      if (setting) {
+        g_print("SWITCH:%s=%s\n", setting->internal_name, json_boolean_value(value)? "t":"f");
+        priv->set_bool_value(setting->index, json_boolean_value(value));
+      } else {
+        g_print ("unknown key '%s'\n", key);
+      }
+    }
+  }
+
+  //texts
+  element = json_object_get(root, "texts");
+  if (element) {
+    GHashTableHolder<const gchar*, MyPaintBrushSwitchSettings*> switches_dict(mypaint_brush_get_brush_text_settings_dict ());
     json_t* value;
     const char* key;
     json_object_foreach(element, key, value) {
