@@ -270,17 +270,11 @@ for line in states_list.split("\n"):
 #endif
 
 
-static GList*      brush_input_settings_list    = NULL;
 static GHashTable* brush_input_settings_dict    = NULL;
-static GList*      brush_settings_list          = NULL;
 static GHashTable* brush_settings_dict          = NULL;
-static GList*      brush_setting_migrate_list   = NULL;
 static GHashTable* brush_setting_migrate_dict   = NULL;
 static GHashTable* brush_setting_group_dict     = NULL;
-static GList*      brush_setting_group_list     = NULL;
-static GList*      brush_switch_settings_list   = NULL;
 static GHashTable* brush_switch_settings_dict   = NULL;
-static GList*      brush_text_settings_list     = NULL;
 static GHashTable* brush_text_settings_dict     = NULL;
 
 static GHashTable* index_to_name_dict           = NULL;
