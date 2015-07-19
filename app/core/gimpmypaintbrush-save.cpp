@@ -75,8 +75,8 @@ extern "C" {
 /*  local function prototypes  */
 
 class MypaintBrushWriter {
-  private:
-  GimpMypaintBrush* source;
+private:
+  GWrapper<GimpMypaintBrush> source;
   gint64            version;
   
   void write_file (GError **error);
@@ -115,30 +115,31 @@ gimp_mypaint_brush_save (GimpData* data,
 MypaintBrushWriter::MypaintBrushWriter(GimpMypaintBrush* brush)
   : source(brush), version(CURRENT_BRUSHFILE_VERSION)
 {
-  g_object_ref(source);
 }
 
 MypaintBrushWriter::~MypaintBrushWriter()
 {
-  if (source)
-    g_object_unref (source);
+}
+
+void json_decref_(json_t* json) {
+  json_decref(json);
 }
 
 bool
 MypaintBrushWriter::save_brush (GError      **error)
 {
-  const gchar* filename = gimp_data_get_filename(GIMP_DATA(source));
+  const gchar* filename = gimp_data_get_filename(GIMP_DATA(source.ptr()));
   if (!filename)
     return false;
 
-  StringHolder dirname(g_path_get_dirname (filename));
-  StringHolder basename(g_path_get_basename (filename));
+  StringHolder dirname       = g_path_get_dirname (filename);
+  StringHolder basename      = g_path_get_basename (filename);
   StringHolder brushname(g_strndup(basename.ptr(), strlen(basename.ptr()) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION)));
   StringHolder icon_filename(g_strconcat(brushname.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION, NULL));
   StringHolder icon_fullpath(g_build_filename(dirname.ptr(), icon_filename.ptr(), NULL));
 
-  ScopeGuard<FILE, int(FILE*)> file(g_fopen (filename, "wb"), fclose);
-  ScopeGuard<json_t, void(json_t*)> result(build_json(), json_decref);
+  ScopedPointer<FILE, int(FILE*), fclose> file(g_fopen (filename, "wb"));
+  ScopedPointer<json_t, void(json_t*), json_decref_> result(build_json());
 
   json_dumpf(result.ptr(), file.ptr(), 0);
 
@@ -168,16 +169,15 @@ MypaintBrushWriter::is_default(gchar* name)
 json_t*
 MypaintBrushWriter::build_json()
 {
-  g_return_val_if_fail(source != NULL, NULL);
+  g_return_val_if_fail(source.ptr() != NULL, NULL);
   
-  const gchar* filename = gimp_data_get_filename (GIMP_DATA(source));
+  const gchar* filename = gimp_data_get_filename (GIMP_DATA(source.ptr()));
   
-  GListHolder settings(mypaint_brush_get_brush_settings ());
-  GListHolder switches(mypaint_brush_get_brush_switch_settings ());
-  GListHolder texts(mypaint_brush_get_brush_text_settings ());
-  GListHolder inputs(mypaint_brush_get_input_settings ());
-  gchar* brush_name;
-  g_object_get(source, "name",&brush_name, NULL);
+  GListHolder settings = mypaint_brush_get_brush_settings ();
+  GListHolder switches = mypaint_brush_get_brush_switch_settings ();
+  GListHolder texts    = mypaint_brush_get_brush_text_settings ();
+  GListHolder inputs   = mypaint_brush_get_input_settings ();
+  StringHolder brush_name = g_strdup(source.get("name"));
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(source->p);
 
   json_t* result = json_object();
@@ -253,20 +253,17 @@ MypaintBrushWriter::build_json()
 void
 MypaintBrushWriter::write_file (GError** error)
 {
-  g_return_if_fail(source != NULL);
+  g_return_if_fail(source.ptr() != NULL);
   
-  const gchar* filename = gimp_data_get_filename (GIMP_DATA(source));
+  const gchar* filename = gimp_data_get_filename (GIMP_DATA(source.ptr()));
   
-  GListHolder settings(mypaint_brush_get_brush_settings ());
-  GListHolder switches(mypaint_brush_get_brush_switch_settings ());
-  GListHolder texts(mypaint_brush_get_brush_text_settings ());
-  GListHolder inputs(mypaint_brush_get_input_settings ());
-  gchar* brush_name;
-  g_object_get(source, "name",&brush_name, NULL);
+  GListHolder settings          = mypaint_brush_get_brush_settings ();
+  GListHolder switches          = mypaint_brush_get_brush_switch_settings ();
+  GListHolder texts             = mypaint_brush_get_brush_text_settings ();
+  GListHolder inputs            = mypaint_brush_get_input_settings ();
+  StringHolder name             = g_strdup(source.get("name"));
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(source->p);
-  ScopeGuard<FILE, int(FILE*)> file(g_fopen(filename,"w"), fclose);
-//  FILE* f = file.ptr();
-  FILE* f = stdout;
+  ScopedPointer<FILE, int(FILE*), fclose> f = g_fopen(filename,"w");
 
   fprintf(f, "version %ld\n", version);
 

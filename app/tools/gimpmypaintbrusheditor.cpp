@@ -96,11 +96,11 @@ class CurveViewActions {
   GtkAdjustment*             x_min_adj;
   GtkAdjustment*             x_max_adj;
   GtkAdjustment*             y_scale_adj;
-  Delegator::Connection*     options_notify_handler;
-  Delegator::Connection*     curve_notify_handler;
-  Delegator::Connection*     x_min_adj_changed_handler;
-  Delegator::Connection*     x_max_adj_changed_handler;
-  Delegator::Connection*     y_scale_adj_changed_handler;
+  CXXPointer<Delegator::Connection>     options_notify_handler;
+  CXXPointer<Delegator::Connection>     curve_notify_handler;
+  CXXPointer<Delegator::Connection>     x_min_adj_changed_handler;
+  CXXPointer<Delegator::Connection>     x_max_adj_changed_handler;
+  CXXPointer<Delegator::Connection>     y_scale_adj_changed_handler;
   static const int         MAXIMUM_NUM_POINTS = 8;
 
 public:
@@ -139,26 +139,6 @@ public:
   };
   
   ~CurveViewActions() {
-    if (options_notify_handler) {
-      delete options_notify_handler;
-      options_notify_handler = NULL;
-    }
-    if (curve_notify_handler) {
-      delete curve_notify_handler;
-      curve_notify_handler = NULL;
-    }
-    if (x_min_adj_changed_handler) {
-      delete x_min_adj_changed_handler;
-      x_min_adj_changed_handler = NULL;
-    }
-    if (x_max_adj_changed_handler) {
-      delete x_max_adj_changed_handler;
-      x_max_adj_changed_handler = NULL;
-    }
-    if (y_scale_adj_changed_handler) {
-      delete y_scale_adj_changed_handler;
-      y_scale_adj_changed_handler = NULL;
-    }
   }
   
   void get_mapping_range(Mapping* mapping, int index, float* xmin, float* xmax, float* ymin, float* ymax) {
@@ -228,10 +208,8 @@ public:
 
     GimpCurve* old_curve = GIMP_CURVE(gimp_curve_view_get_curve(curve_view));
 
-    if (curve_notify_handler) {
-      delete curve_notify_handler;
-      curve_notify_handler = NULL;
-    }
+    curve_notify_handler = NULL;
+
     gimp_curve_view_set_curve (curve_view, NULL, NULL);
     gimp_curve_view_remove_all_backgrounds (curve_view);
     
@@ -584,8 +562,8 @@ CurveViewCreator::create_view(GObject* button, GtkWidget** result)
   gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(list_view), FALSE);
 
   {  
-    RefPtr<GtkListStore> list_store = GTK_LIST_STORE(gtk_list_store_new(3, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_STRING));
-    gtk_tree_view_set_model (GTK_TREE_VIEW(list_view), GTK_TREE_MODEL(list_store.as(GTK_TYPE_LIST_STORE)));
+    GObjectHolder<GObject> list_store = G_OBJECT(gtk_list_store_new(3, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_STRING));
+    gtk_tree_view_set_model (GTK_TREE_VIEW(list_view), GTK_TREE_MODEL(list_store.as_object()));
   }
   
   GtkListStore* store = GTK_LIST_STORE( gtk_tree_view_get_model( GTK_TREE_VIEW(list_view) ) );

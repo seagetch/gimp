@@ -48,6 +48,7 @@ extern "C" {
 
 extern "C++" {
 #include "base/scopeguard.hpp"
+#include "base/glib-cxx-utils.hpp"
 #include "base/delegators.hpp"
 }
 
@@ -169,8 +170,7 @@ gimp_mypaint_brush_editor_constructed (GObject *object)
       (MypaintBrushSettingGroup*)iter->data;
 //    self.visible_settings = self.visible_settings + group['settings']
 
-    ScopeGuard<gchar, void(gpointer)> bold_title(
-      g_strdup_printf("<b>%s</b>", group->display_name), g_free);    
+    StringHolder bold_title(g_strdup_printf("<b>%s</b>", group->display_name));    
     GtkWidget* group_expander = gtk_expander_new(bold_title.ptr());
     gtk_expander_set_use_markup(GTK_EXPANDER(group_expander), TRUE);
 

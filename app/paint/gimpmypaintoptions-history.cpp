@@ -63,7 +63,6 @@ GimpMypaintOptionsHistory::push_brush(GimpMypaintBrush* brush)
 {
   brushes = g_list_append(brushes, brush);
   g_print("Add custom brush to the history: %s\n", gimp_data_get_filename(GIMP_DATA(brush)) );
-  gimp_data_save(GIMP_DATA(brush), NULL);
 }
 
 GimpMypaintBrush* 

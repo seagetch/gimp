@@ -137,9 +137,9 @@ MypaintPopupPrivate::update_history ()
     GtkTreeIter iter;
     GimpMypaintBrush* brush = history->get_brush(i);
     if (brush) {
-      gchar* name;
-      g_object_get(G_OBJECT(brush), "name", &name, NULL);
-      g_print("%d: brush %s\n", i, name);
+      GWrapper<GimpMypaintBrush> brush_obj = brush;
+      StringHolder name = g_strdup(brush_obj.get("name"));
+      g_print("%d: brush %s\n", i, name.ptr());
       GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(brush->p);
       gtk_list_store_append(store, &iter);
       if (context) {
@@ -149,7 +149,7 @@ MypaintPopupPrivate::update_history ()
                                                          HISTORY_PREVIEW_SIZE);
         gtk_list_store_set(store, &iter, 0, pixbuf, -1);
       }
-      gtk_list_store_set(store, &iter, 1, name, 2, brush, -1);
+      gtk_list_store_set(store, &iter, 1, name.ptr(), 2, brush, -1);
     }
   }
 }

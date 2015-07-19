@@ -520,7 +520,7 @@ GimpMypaintBrushPrivate::get_parent_brush_name() {
 }
 
 void
-GimpMypaintBrushPrivate::set_parent_brush_name(char *name) {
+GimpMypaintBrushPrivate::set_parent_brush_name(const char *name) {
   g_assert (name != NULL);
   if (parent_brush_name)
     g_free (parent_brush_name);
@@ -534,7 +534,7 @@ GimpMypaintBrushPrivate::get_group() {
 }
 
 void
-GimpMypaintBrushPrivate::set_group(char *name) {
+GimpMypaintBrushPrivate::set_group(const char *name) {
   g_assert (name != NULL);
   if (group)
     g_free (group);
@@ -581,14 +581,14 @@ GimpMypaintBrushPrivate::get_new_preview(guchar* dest_buf,
                                          int height, 
                                          int bytes, 
                                          int dest_stride) {
-  ScopeGuard<cairo_surface_t, void(cairo_surface_t*)> scaled_icon(cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height), cairo_surface_destroy);
+  ScopedPointer<cairo_surface_t, void(cairo_surface_t*), cairo_surface_destroy> scaled_icon = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height);
   
   gint           icon_width = cairo_image_surface_get_width (icon_image);
   gint           icon_height = cairo_image_surface_get_height (icon_image);
   gint           x, y;
   gdouble        scale = 1.0;
 
-  ScopeGuard<cairo_t, void(cairo_t*)> cr(cairo_create(scaled_icon.ptr()), cairo_destroy);
+  ScopedPointer<cairo_t, void(cairo_t*), cairo_destroy> cr = cairo_create(scaled_icon.ptr());
   if (icon_width > width || icon_height > height)
     {
       gdouble ratio_x = (gdouble) width  / (gdouble) icon_width;

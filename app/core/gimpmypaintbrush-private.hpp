@@ -41,9 +41,9 @@ class GimpMypaintBrushPrivate {
   void allocate_mapping (int index);
   void deallocate_mapping (int index);
   char* get_parent_brush_name();
-  void  set_parent_brush_name(char *name);
+  void  set_parent_brush_name(const char *name);
   char* get_group();
-  void  set_group(char *name);
+  void  set_group(const char *name);
   void get_new_preview(guchar* dest, int width, int height, int bytes, int stride);
   void set_icon_image(cairo_surface_t* image);
   cairo_surface_t* get_icon_image();

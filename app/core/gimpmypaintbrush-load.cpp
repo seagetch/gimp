@@ -75,7 +75,7 @@ extern "C" {
 
 class MyPaintBrushReader {
   private:
-  GimpMypaintBrush *result;
+  GWrapper<GimpMypaintBrush> result;
   GHashTable       *raw_pair;
   gint64            version;
   
@@ -133,7 +133,7 @@ gimp_mypaint_brush_load (GimpContext  *context,
 /*  private functions  */
 
 
-MyPaintBrushReader::MyPaintBrushReader() : result(NULL), raw_pair(NULL), version(0)
+MyPaintBrushReader::MyPaintBrushReader() : result(), raw_pair(NULL), version(0)
 {
 }
 
@@ -141,8 +141,6 @@ MyPaintBrushReader::~MyPaintBrushReader()
 {
   if (raw_pair)
     g_hash_table_unref (raw_pair);
-  if (result)
-    g_object_unref (result);
 }
 
 GimpMypaintBrush*
@@ -150,14 +148,13 @@ MyPaintBrushReader::load_brush (GimpContext  *context,
                        const gchar  *filename,
                        GError      **error)
 {
-//  ScopeGuard<gchar, void(gpointer)> unescaped_path(unquote (filename), g_free);
-  StringHolder basename(g_path_get_basename (filename));
-  gchar *brushname = g_strndup(basename.ptr(), strlen(basename.ptr()) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION));
+//  ScopedPointer<gchar, void(gpointer)> unescaped_path(unquote (filename), g_free);
+  StringHolder basename  = g_path_get_basename (filename);
+  StringHolder brushname = g_strndup(basename.ptr(), strlen(basename.ptr()) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION));
   version = 0;  
 
-  result = GIMP_MYPAINT_BRUSH (gimp_mypaint_brush_new (context, brushname));
+  result = GIMP_MYPAINT_BRUSH(gimp_mypaint_brush_new (context, brushname));
   load_defaults();
-  g_object_ref (result);
   
   if (!parse_v3(filename, error)) {
     g_print("Failed to read `%s': fallback to v2.\n", filename);
@@ -167,8 +164,8 @@ MyPaintBrushReader::load_brush (GimpContext  *context,
   }
   dump();
   
-  ScopeGuard<gchar, void(gpointer)> filename_dup(g_strndup(filename, strlen(filename) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION)), g_free);
-  ScopeGuard<gchar, void(gpointer)> icon_filename(g_strconcat (filename_dup.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION, NULL), g_free);
+  StringHolder filename_dup  = g_strndup(filename, strlen(filename) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION));
+  StringHolder icon_filename = g_strconcat (filename_dup.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION, NULL);
   g_print ("Read Icon: %s\n", icon_filename.ptr());
   load_icon (icon_filename.ptr());
   GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
@@ -179,7 +176,7 @@ MyPaintBrushReader::load_brush (GimpContext  *context,
 void
 MyPaintBrushReader::load_defaults ()
 {
-  ScopeGuard<GList, void(GList*)> settings(mypaint_brush_get_brush_settings (), g_list_free);
+  GListHolder settings = mypaint_brush_get_brush_settings ();
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
 
   for (GList* item = settings.ptr(); item; item = item->next) {
@@ -199,15 +196,12 @@ MyPaintBrushReader::load_defaults ()
 void
 MyPaintBrushReader::dump ()
 {
-#if 1
-  ScopeGuard<GList, void(GList*)> settings(mypaint_brush_get_brush_settings (), g_list_free);
-  ScopeGuard<GList, void(GList*)> inputs(mypaint_brush_get_input_settings (), g_list_free);
+  GListHolder settings = mypaint_brush_get_brush_settings ();
+  GListHolder inputs   = mypaint_brush_get_input_settings ();
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
-
-  gchar* name;
-  g_object_get (G_OBJECT(result), "name", &name, NULL);
-
-  g_print("BRUSH: %s\n", name);
+  
+  StringHolder name = g_strdup(result.get("name"));
+  g_print("BRUSH: %s\n", name.ptr());
 
   for (GList* item = settings.ptr(); item; item = item->next) {
     MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(item->data);
@@ -231,9 +225,6 @@ MyPaintBrushReader::dump ()
       g_print("base only: %s=%f\n", setting->internal_name, v->base_value);
     }
   }
-#else
-  gimp_mypaint_brush_save(GIMP_DATA(result), NULL);
-#endif
 }
 
 bool
@@ -264,29 +255,28 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
   element = json_object_get(root, "parent_brush_name");
   if (element) {
     if (strlen(json_string_value(element)) > 0) {
-      gchar *uq_value = g_strdup(json_string_value(element));
+      StringHolder uq_value = g_strdup(json_string_value(element));
       priv->set_parent_brush_name(uq_value);
-      uq_value = g_strdup(uq_value);
-      g_object_set (G_OBJECT (result), "name", uq_value, NULL);
+      result.set("name", uq_value.ptr());
     } else {
-      gchar* name;
-      g_object_get (G_OBJECT(result), "name", &name, NULL);
-      priv->set_parent_brush_name(name);
+      StringHolder name = g_strdup(result.get("name"));
+      priv->set_parent_brush_name(name.ptr());
     }
   }
   //group
   element = json_object_get(root, "group");
   if (element) {
-    gchar *uq_value = unquote (json_string_value(element));
+    const gchar *uq_value = json_string_value(element);
     priv->set_group(uq_value);
-    g_free (uq_value);
   }
   //comment
   //settings
   element = json_object_get(root, "settings");
   if (element) {
-    GHashTableHolder<const gchar*, MyPaintBrushSettings*> settings_dict(mypaint_brush_get_brush_settings_dict ());
-    GHashTableHolder<const gchar*, MyPaintBrushInputSettings*> inputs_dict(mypaint_brush_get_input_settings_dict ());
+    GHashTableHolder<const gchar*, MyPaintBrushSettings*> settings_dict = 
+      mypaint_brush_get_brush_settings_dict ();
+    GHashTableHolder<const gchar*, MyPaintBrushInputSettings*> inputs_dict =
+      mypaint_brush_get_input_settings_dict ();
 
     json_t* value;
     const char* key;
@@ -335,7 +325,8 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
   //switches
   element = json_object_get(root, "switches");
   if (element) {
-    GHashTableHolder<const gchar*, MyPaintBrushSwitchSettings*> switches_dict(mypaint_brush_get_brush_switch_settings_dict ());
+    GHashTableHolder<const gchar*, MyPaintBrushSwitchSettings*> switches_dict =
+      mypaint_brush_get_brush_switch_settings_dict ();
     json_t* value;
     const char* key;
     json_object_foreach(element, key, value) {
@@ -380,10 +371,10 @@ MyPaintBrushReader::read_file_v2 (const gchar *filename, GError **error)
   gsize             line_len;
   gsize             line_term_pos;
 
-  g_return_val_if_fail ( GIMP_IS_MYPAINT_BRUSH (result), NULL);
+  g_return_val_if_fail ( GIMP_IS_MYPAINT_BRUSH (result.ptr()), NULL);
 
   config_stream = g_io_channel_new_file (filename, "r", error);
-  ScopeGuard<GIOChannel, void(GIOChannel*)> config_stream_holder(config_stream, g_io_channel_unref);
+  ScopedPointer<GIOChannel, void(GIOChannel*), g_io_channel_unref> config_stream_holder(config_stream);
     
   if (! config_stream)
     {
@@ -395,7 +386,7 @@ MyPaintBrushReader::read_file_v2 (const gchar *filename, GError **error)
   
   while (g_io_channel_read_line (config_stream, &line, &line_len, &line_term_pos, error) != G_IO_STATUS_EOF)
     {
-      ScopeGuard<gchar, void(gpointer)> line_holder(line, g_free);
+      StringHolder line_holder(line);
       if (!line)
         break;
       
@@ -403,7 +394,7 @@ MyPaintBrushReader::read_file_v2 (const gchar *filename, GError **error)
       if (line[0] != '#')
         {
           gchar **tokens = g_strsplit (line, " ", 2);
-          ScopeGuard<gchar*, void(gchar**)> token_holder(tokens, g_strfreev);
+          ScopedPointer<gchar*, void(gchar**), g_strfreev> token_holder(tokens);
           if (g_strcmp0(tokens[0], "version") == 0) 
             {
               version = g_ascii_strtoll (tokens[1], NULL, 0);
@@ -443,7 +434,7 @@ MyPaintBrushReader::parse_points_v1 (
   
   g_print ("Parse v1 params : %s\n", string);
 
-  ScopeGuard<gchar*, void(gchar**)> seq(g_strsplit (string, " ", 0), g_strfreev); 
+  ScopedPointer<gchar*, void(gchar**), g_strfreev> seq(g_strsplit (string, " ", 0)); 
   
   for (iter = seq.ptr(); *iter; iter++)
     num_seq ++;
@@ -530,9 +521,12 @@ void
 MyPaintBrushReader::parse_raw_v2 (
                   gint64            version)
 {
-  ScopeGuard<GHashTable, void(GHashTable*)> settings_dict(mypaint_brush_get_brush_settings_dict (), g_hash_table_unref);
-  ScopeGuard<GHashTable, void(GHashTable*)> inputs_dict(mypaint_brush_get_input_settings_dict (), g_hash_table_unref);
-  ScopeGuard<GHashTable, void(GHashTable*)> migrate_dict(mypaint_brush_get_setting_migrate_dict (), g_hash_table_unref);
+  GHashTableHolder<const gchar*, MyPaintBrushSettings*> settings_dict = 
+    mypaint_brush_get_brush_settings_dict ();
+  GHashTableHolder<const gchar*, MyPaintBrushInputSettings*> inputs_dict = 
+    mypaint_brush_get_input_settings_dict ();
+  GHashTableHolder<const gchar*, MyPaintBrushSettingMigrate*> migrate_dict = 
+    mypaint_brush_get_setting_migrate_dict ();
   GHashTableIter    raw_pair_iter;
   gpointer          raw_key, raw_value;
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
@@ -548,7 +542,7 @@ MyPaintBrushReader::parse_raw_v2 (
         {
           gchar *uq_value = unquote (value);
           priv->set_parent_brush_name(uq_value);
-          g_object_set (G_OBJECT (result), "name", uq_value, NULL);
+          result.set("name", uq_value);
 //          g_free (uq_value);
           goto next_pair;
         }
@@ -561,7 +555,7 @@ MyPaintBrushReader::parse_raw_v2 (
         }
       else if (version <= 1 && strcmp (key, "color") == 0) 
         {
-          ScopeGuard<gchar*, void(gchar**)>  tokens(g_strsplit(value, " ", 0), g_strfreev);
+          ScopedPointer<gchar*, void(gchar**), g_strfreev>  tokens(g_strsplit(value, " ", 0));
           MyPaintBrushSettings               *setting;
           gint64 r, g, b;
           r = g_ascii_strtoll(tokens.ptr()[0], NULL, 10);
@@ -575,13 +569,13 @@ MyPaintBrushReader::parse_raw_v2 (
           GimpHSV hsv;
           gimp_rgb_to_hsv (&rgb, &hsv);
 
-          setting = (MyPaintBrushSettings*)g_hash_table_lookup (settings_dict.ptr(), "color_h");
+          setting = settings_dict["color_h"];
           priv->set_base_value (setting->index, hsv.h);
 
-          setting = (MyPaintBrushSettings*)g_hash_table_lookup (settings_dict.ptr(), "color_s");
+          setting = settings_dict["color_s"];
           priv->set_base_value (setting->index, hsv.s);
 
-          setting = (MyPaintBrushSettings*)g_hash_table_lookup (settings_dict.ptr(), "color_v");
+          setting = settings_dict["color_v"];
           priv->set_base_value (setting->index, hsv.v);
 
           goto next_pair;
@@ -616,7 +610,7 @@ MyPaintBrushReader::parse_raw_v2 (
           key = (gchar*)"speed1";
         }
       {
-      MyPaintBrushSettingMigrate *migrate = (MyPaintBrushSettingMigrate*)g_hash_table_lookup (migrate_dict.ptr(), key);
+      MyPaintBrushSettingMigrate *migrate = migrate_dict[key];
       if (migrate)
         {
           if (migrate->new_name)
@@ -625,10 +619,10 @@ MyPaintBrushReader::parse_raw_v2 (
       
       
       MyPaintBrushSettings             *setting;
-      setting = (MyPaintBrushSettings*)g_hash_table_lookup (settings_dict.ptr(), key);
+      setting = settings_dict[key];
       if (setting)
         {
-          ScopeGuard<gchar*, void(gchar**)>   split_values(g_strsplit (value, "|", 0), g_strfreev);
+          ScopedPointer<gchar*, void(gchar**), g_strfreev>   split_values(g_strsplit (value, "|", 0));
           gchar                          **values_pos;
           values_pos = split_values.ptr();
           
@@ -649,9 +643,9 @@ MyPaintBrushReader::parse_raw_v2 (
               //      inputname, rawpoints = part.strip().split(' ', 1)
               gchar *str_pos = *values_pos;
               str_pos = g_strstrip (str_pos);
-              ScopeGuard<gchar *, void(gchar**)> tokens(g_strsplit (str_pos, " ", 2), g_strfreev);
+              ScopedPointer<gchar *, void(gchar**), g_strfreev> tokens(g_strsplit (str_pos, " ", 2));
               MyPaintBrushInputSettings *input_setting;
-              input_setting = (MyPaintBrushInputSettings*)g_hash_table_lookup (inputs_dict.ptr(), tokens.ptr()[0]);
+              input_setting = inputs_dict[tokens.ptr()[0]];
               if (tokens.ptr()[1] && input_setting)
                 {
                   if (version <= 1)
@@ -679,6 +673,7 @@ MyPaintBrushReader::parse_raw_v2 (
 void
 MyPaintBrushReader::load_icon (gchar *filename)
 {
+  g_print("ICON_IMAGE=%s\n", filename);
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
 	cairo_surface_t* icon_image = cairo_image_surface_create_from_png(filename);
   priv->set_icon_image(icon_image);
