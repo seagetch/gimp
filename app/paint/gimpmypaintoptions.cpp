@@ -78,6 +78,8 @@ static void    gimp_mypaint_options_get_property     (GObject      *object,
                                                     GParamSpec   *pspec);
 static void    gimp_mypaint_options_mypaint_brush_changed (GObject *object,
                                                            GimpData *data);
+static void    gimp_mypaint_options_brush_changed (GObject* object, GimpData* data);
+static void    gimp_mypaint_options_prop_brushmark_updated (GObject* object);
 
 
 G_DEFINE_TYPE (GimpMypaintOptions, gimp_mypaint_options, GIMP_TYPE_TOOL_OPTIONS)
@@ -99,8 +101,6 @@ gimp_mypaint_options_class_init (GimpMypaintOptionsClass *klass)
   for (GList* i = brush_settings.ptr(); i; i = i->next) {
     MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(i->data);
     gchar* signal_name = mypaint_brush_internal_name_to_signal_name (setting->internal_name);
-    g_print("install double parameter %d:%s:(%f-%f),default=%f\n",
-      setting->index + 1, signal_name, setting->minimum, setting->maximum, setting->default_value);
       
     GIMP_CONFIG_INSTALL_PROP_DOUBLE (object_class, setting->index + 1,
       signal_name, _(setting->displayed_name),
@@ -112,8 +112,6 @@ gimp_mypaint_options_class_init (GimpMypaintOptionsClass *klass)
   for (GList* i = switch_settings.ptr(); i; i = i->next) {
     MyPaintBrushSwitchSettings* setting = reinterpret_cast<MyPaintBrushSwitchSettings*>(i->data);
     gchar* signal_name = mypaint_brush_internal_name_to_signal_name (setting->internal_name);
-    g_print("install boolean parameter %d:%s,default=%d\n",
-      setting->index + 1, signal_name, setting->default_value);
       
     GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, setting->index + 1,
       signal_name, _(setting->displayed_name),
@@ -124,8 +122,6 @@ gimp_mypaint_options_class_init (GimpMypaintOptionsClass *klass)
   for (GList* i = text_settings.ptr(); i; i = i->next) {
     MyPaintBrushTextSettings* setting = reinterpret_cast<MyPaintBrushTextSettings*>(i->data);
     gchar* signal_name = mypaint_brush_internal_name_to_signal_name (setting->internal_name);
-    g_print("install string parameter %d:%s,default=%s\n",
-      setting->index + 1, signal_name, setting->default_value);
       
     GIMP_CONFIG_INSTALL_PROP_STRING (object_class, setting->index + 1,
       signal_name, _(setting->displayed_name),
@@ -359,13 +355,25 @@ gimp_mypaint_options_mypaint_brush_changed (GObject *object,
   GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(options->brush->p);
   priv->clear_dirty_flag();
   
-  GListHolder brush_settings = mypaint_brush_get_brush_settings ();
-  
+  GListHolder brush_settings = mypaint_brush_get_brush_settings ();  
   for (GList* i = brush_settings.ptr(); i; i = i->next) {
     MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(i->data);
-    gchar* signal = mypaint_brush_internal_name_to_signal_name(setting->internal_name);
-    g_object_notify(object, signal);
-    g_free(signal);
+    StringHolder signal(mypaint_brush_internal_name_to_signal_name(setting->internal_name));
+    g_object_notify(object, signal.ptr());
+  }
+
+  GListHolder switch_settings = mypaint_brush_get_brush_switch_settings ();  
+  for (GList* i = switch_settings.ptr(); i; i = i->next) {
+    MyPaintBrushSwitchSettings* setting = reinterpret_cast<MyPaintBrushSwitchSettings*>(i->data);
+    StringHolder signal(mypaint_brush_internal_name_to_signal_name(setting->internal_name));
+    g_object_notify(object, signal.ptr());
+  }
+
+  GListHolder text_settings = mypaint_brush_get_brush_text_settings ();  
+  for (GList* i = brush_settings.ptr(); i; i = i->next) {
+    MyPaintBrushTextSettings* setting = reinterpret_cast<MyPaintBrushTextSettings*>(i->data);
+    StringHolder signal (mypaint_brush_internal_name_to_signal_name(setting->internal_name));
+    g_object_notify(object, signal.ptr());
   }
 }
 
