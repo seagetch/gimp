@@ -138,16 +138,15 @@ public:
   void thaw()   { g_object_thaw_notify(as_object()); };
 
   struct InvalidIndex { const gchar* name; InvalidIndex(const gchar* n) : name(n) {;}; };
+  
   GValueWrapper get(const gchar* prop_name) {
     GObject* object = as_object();
     GObjectClass* class_obj = G_OBJECT_GET_CLASS(object);
     GParamSpec *pspec = g_object_class_find_property (class_obj, prop_name);
     if (!pspec) throw InvalidIndex(prop_name);
     GValue result = G_VALUE_INIT;
-    g_print("brush:value:init=%s\n", g_type_name(pspec->value_type));
     g_value_init(&result, pspec->value_type);
     g_object_get_property(object, prop_name, &result);
-    g_print("brush::name=%s\n", g_value_get_string(&result));
     return result;
   };
 
@@ -185,6 +184,7 @@ public:
   operator GObject* () { return super::as_object(); };
   operator T* () { return super::ptr(); };
   T* operator ->() { return super::ptr(); };
+  operator bool() { return super::ptr(); };
 
   void operator = (T* src) {
     if (!is_null(super::obj))
