@@ -31,10 +31,13 @@ extern "C" {
 #include "core/gimp.h"
 #include "core/gimpimage.h"
 #include "core/gimptoolinfo.h"
+#include "core/gimpbrush.h"
+#include "core/gimppattern.h"
 #include "core/gimpmypaintbrush.h"
 #include "core/mypaintbrush-enum-settings.h"
 #include "core/mypaintbrush-brushsettings.h"
-
+#include "core/gimpdatafactory.h"
+#include "core/gimpcontainer.h"
 #include "gimpmypaintoptions.h"
 
 #include "gimp-intl.h"
@@ -80,6 +83,9 @@ static void    gimp_mypaint_options_mypaint_brush_changed (GObject *object,
                                                            GimpData *data);
 static void    gimp_mypaint_options_brush_changed (GObject* object, GimpData* data);
 static void    gimp_mypaint_options_prop_brushmark_updated (GObject* object);
+
+static void    gimp_mypaint_options_texture_changed (GObject* object, GimpData* data);
+static void    gimp_mypaint_options_prop_texture_updated (GObject* object);
 
 
 G_DEFINE_TYPE (GimpMypaintOptions, gimp_mypaint_options, GIMP_TYPE_TOOL_OPTIONS)
@@ -159,6 +165,42 @@ gimp_mypaint_options_init (GimpMypaintOptions *options)
     gimp_context_type_to_signal_name (GIMP_TYPE_MYPAINT_BRUSH),
     G_CALLBACK(gimp_mypaint_options_mypaint_brush_changed),
     NULL);
+  g_signal_connect(G_OBJECT(options),
+                   gimp_context_type_to_signal_name (GIMP_TYPE_BRUSH),
+                   G_CALLBACK(gimp_mypaint_options_brush_changed), NULL);
+  g_signal_connect(G_OBJECT(options),
+                   gimp_context_type_to_signal_name (GIMP_TYPE_PATTERN),
+                   G_CALLBACK(gimp_mypaint_options_texture_changed), NULL);
+  {
+    StringHolder notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("brushmark_name"));
+    g_signal_connect(G_OBJECT(options),
+                     notify_name, G_CALLBACK(gimp_mypaint_options_prop_brushmark_updated), NULL);
+  }
+  {
+    StringHolder notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("use_gimp_brushmark"));
+    g_signal_connect(G_OBJECT(options),
+                     notify_name, G_CALLBACK(gimp_mypaint_options_prop_brushmark_updated), NULL);
+  }
+  {
+    StringHolder notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("brushmark_specified"));
+    g_signal_connect(G_OBJECT(options),
+                     notify_name, G_CALLBACK(gimp_mypaint_options_prop_brushmark_updated), NULL);
+  }
+  {
+    StringHolder notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("texture_name"));
+    g_signal_connect(G_OBJECT(options),
+                     notify_name, G_CALLBACK(gimp_mypaint_options_prop_texture_updated), NULL);
+  }
+  {
+    StringHolder notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("use_gimp_texture"));
+    g_signal_connect(G_OBJECT(options),
+                     notify_name, G_CALLBACK(gimp_mypaint_options_prop_texture_updated), NULL);
+  }
+  {
+    StringHolder notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("texture_specified"));
+    g_signal_connect(G_OBJECT(options),
+                     notify_name, G_CALLBACK(gimp_mypaint_options_prop_texture_updated), NULL);
+  }
 }
 
 static void
@@ -377,6 +419,106 @@ gimp_mypaint_options_mypaint_brush_changed (GObject *object,
   }
 }
 
+static void
+gimp_mypaint_options_brush_changed (GObject* object, GimpData* data)
+{
+  GWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
+  GWrapper<GimpData> brush = data;
+  g_print("BRUSH_CHANGED\n");
+
+  if (!options.get("use-gimp-brushmark") || !options.get("brushmark-specified"))
+    return;
+
+  g_print("BRUSH_CHANGED: check consistency\n");
+  options.freeze();
+  StringHolder name = g_strdup(brush.get("name"));
+  StringHolder brushmark_name = g_strdup(options.get("brushmark-name"));
+  if (g_strcmp0(name, brushmark_name) != 0) {
+    g_print("BRUSH_CHANGED: update brushmark-text to %s\n", name.ptr());
+    options.set("brushmark-name", name.ptr());
+  }
+  options.thaw();
+}
+
+static void
+gimp_mypaint_options_prop_brushmark_updated (GObject* object)
+{
+  GWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
+
+  if (!options.get("use-gimp-brushmark") || !options.get("brushmark-specified"))
+    return;
+
+  g_print("Notify::brushmark_name\n");
+  StringHolder brushmark_name = g_strdup(options.get("brushmark-name"));
+
+  GWrapper<GimpBrush> brush = gimp_context_get_brush(GIMP_CONTEXT(options.ptr()));
+  StringHolder name = g_strdup(brush.get("name"));
+
+  options.freeze();
+  if (g_strcmp0(name, brushmark_name) != 0) {
+    g_print("update brush to %s\n", brushmark_name.ptr());
+    GWrapper<GimpContainer> container = gimp_data_factory_get_container(GIMP_CONTEXT(options.ptr())->gimp->brush_factory);
+    GWrapper<GimpBrush> matched_brush = GIMP_BRUSH(gimp_container_get_child_by_name(container, brushmark_name));
+    if (matched_brush) {
+      g_print("found matched brush for %s\n", brushmark_name.ptr());
+      gimp_context_set_brush(GIMP_CONTEXT(options.ptr()), matched_brush);
+    } else {
+      g_print("no matching brush found for %s\n", brushmark_name.ptr());
+    }
+  }
+  options.thaw();
+}
+
+
+static void
+gimp_mypaint_options_texture_changed (GObject* object, GimpData* data)
+{
+  GWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
+  GWrapper<GimpData> texture = data;
+  g_print("TEXTURE_CHANGED\n");
+
+  if (!options.get("use-gimp-texture") || !options.get("texture-specified"))
+    return;
+
+  g_print("TEXTURE_CHANGED: check consistency\n");
+  options.freeze();
+  StringHolder name = g_strdup(texture.get("name"));
+  StringHolder texture_name = g_strdup(options.get("texture-name"));
+  if (g_strcmp0(name, texture_name) != 0) {
+    g_print("TEXTURE_CHANGED: update texture-text to %s\n", name.ptr());
+    options.set("texture-name", name.ptr());
+  }
+  options.thaw();
+}
+
+static void
+gimp_mypaint_options_prop_texture_updated (GObject* object)
+{
+  GWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
+
+  if (!options.get("use-gimp-texture") || !options.get("texture-specified"))
+    return;
+
+  g_print("Notify::texture_name\n");
+  StringHolder texture_name = g_strdup(options.get("texture-name"));
+
+  GWrapper<GimpPattern> texture = gimp_context_get_pattern(GIMP_CONTEXT(options.ptr()));
+  StringHolder name = g_strdup(texture.get("name"));
+
+  options.freeze();
+  if (g_strcmp0(name, texture_name) != 0) {
+    g_print("update texture to %s\n", texture_name.ptr());
+    GWrapper<GimpContainer> container     = gimp_data_factory_get_container(GIMP_CONTEXT(options.ptr())->gimp->pattern_factory);
+    GWrapper<GimpPattern> matched_texture = GIMP_PATTERN(gimp_container_get_child_by_name(container, texture_name));
+    if (matched_texture) {
+      g_print("found matched texture for %s\n", texture_name.ptr());
+      gimp_context_set_pattern(GIMP_CONTEXT(options.ptr()), matched_texture);
+    } else {
+      g_print("no matching texture found for %s\n", texture_name.ptr());
+    }
+  }
+  options.thaw();
+}
 
 GimpMypaintBrush*
 gimp_mypaint_options_get_current_brush (GimpMypaintOptions* options) 

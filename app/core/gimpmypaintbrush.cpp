@@ -545,6 +545,7 @@ GimpMypaintBrushPrivate::set_group(const char *name) {
 void 
 GimpMypaintBrushPrivate::set_bool_value (int index, bool value) {
   index -= BRUSH_BOOL_BASE;
+  g_print("index=%d\n", index);
   g_assert (index >= 0 && index < BRUSH_BOOL_COUNT);
   switches[index] = value;
   mark_as_dirty();

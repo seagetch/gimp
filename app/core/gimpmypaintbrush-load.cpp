@@ -148,9 +148,9 @@ MyPaintBrushReader::load_brush (GimpContext  *context,
                        const gchar  *filename,
                        GError      **error)
 {
-//  ScopedPointer<gchar, void(gpointer)> unescaped_path(unquote (filename), g_free);
   StringHolder basename  = g_path_get_basename (filename);
-  StringHolder brushname = g_strndup(basename.ptr(), strlen(basename.ptr()) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION));
+  StringHolder brushname = g_strndup(basename.ptr(), 
+                                     strlen(basename.ptr()) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION));
   version = 0;  
 
   result = GIMP_MYPAINT_BRUSH(gimp_mypaint_brush_new (context, brushname));
@@ -164,7 +164,8 @@ MyPaintBrushReader::load_brush (GimpContext  *context,
   }
   dump();
   
-  StringHolder filename_dup  = g_strndup(filename, strlen(filename) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION));
+  StringHolder filename_dup  = g_strndup(filename, 
+                                         strlen(filename) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION));
   StringHolder icon_filename = g_strconcat (filename_dup.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION, NULL);
   g_print ("Read Icon: %s\n", icon_filename.ptr());
   load_icon (icon_filename.ptr());
@@ -308,8 +309,6 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
 		json_t* val_pair = json_array_get(input_values, i);
                 x_val = json_real_value(json_array_get(val_pair, 0));
 		y_val = json_real_value(json_array_get(val_pair, 1));
-                //if (trans)
-                //y_val = (*trans)((gfloat)y_val);
                 v->mapping->set_point(input_setting->index, i, (float)x_val, (float)y_val);
               }
 	    }
@@ -333,7 +332,6 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
       MyPaintBrushSwitchSettings             *setting;
       setting = switches_dict[key];
       if (setting) {
-        g_print("SWITCH:%s=%s\n", setting->internal_name, json_boolean_value(value)? "t":"f");
         priv->set_bool_value(setting->index, json_boolean_value(value));
       } else {
         g_print ("unknown key '%s'\n", key);
@@ -344,15 +342,15 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
   //texts
   element = json_object_get(root, "texts");
   if (element) {
-    GHashTableHolder<const gchar*, MyPaintBrushSwitchSettings*> switches_dict(mypaint_brush_get_brush_text_settings_dict ());
+    GHashTableHolder<const gchar*, MyPaintBrushTextSettings*> text_dict = 
+      mypaint_brush_get_brush_text_settings_dict ();
     json_t* value;
     const char* key;
     json_object_foreach(element, key, value) {
-      MyPaintBrushSwitchSettings             *setting;
-      setting = switches_dict[key];
+      MyPaintBrushTextSettings             *setting;
+      setting = text_dict[key];
       if (setting) {
-        g_print("SWITCH:%s=%s\n", setting->internal_name, json_boolean_value(value)? "t":"f");
-        priv->set_bool_value(setting->index, json_boolean_value(value));
+        priv->set_text_value(setting->index, json_string_value(value));
       } else {
         g_print ("unknown key '%s'\n", key);
       }
@@ -540,17 +538,15 @@ MyPaintBrushReader::parse_raw_v2 (
       
       if (strcmp (key, "parent_brush_name") == 0)
         {
-          gchar *uq_value = unquote (value);
+          StringHolder uq_value = unquote (value);
           priv->set_parent_brush_name(uq_value);
-          result.set("name", uq_value);
-//          g_free (uq_value);
+          result.set("name", uq_value.ptr());
           goto next_pair;
         }
       else if (strcmp (key, "group") == 0)
         {
-          gchar *uq_value = unquote (value);
+          StringHolder uq_value = unquote (value);
           priv->set_group(value);
-          g_free (uq_value);
           goto next_pair;
         }
       else if (version <= 1 && strcmp (key, "color") == 0) 
