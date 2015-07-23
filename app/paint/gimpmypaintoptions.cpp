@@ -452,10 +452,10 @@ gimp_mypaint_options_prop_brushmark_updated (GObject* object)
   StringHolder brushmark_name = g_strdup(options.get("brushmark-name"));
 
   GWrapper<GimpBrush> brush = gimp_context_get_brush(GIMP_CONTEXT(options.ptr()));
-  StringHolder name = g_strdup(brush.get("name"));
+  StringHolder name = g_strdup(brush? brush.get("name"): "");
 
   options.freeze();
-  if (g_strcmp0(name, brushmark_name) != 0) {
+  if (brushmark_name.ptr() && g_strcmp0(name, brushmark_name) != 0) {
     g_print("update brush to %s\n", brushmark_name.ptr());
     GWrapper<GimpContainer> container = gimp_data_factory_get_container(GIMP_CONTEXT(options.ptr())->gimp->brush_factory);
     GWrapper<GimpBrush> matched_brush = GIMP_BRUSH(gimp_container_get_child_by_name(container, brushmark_name));
@@ -503,10 +503,10 @@ gimp_mypaint_options_prop_texture_updated (GObject* object)
   StringHolder texture_name = g_strdup(options.get("texture-name"));
 
   GWrapper<GimpPattern> texture = gimp_context_get_pattern(GIMP_CONTEXT(options.ptr()));
-  StringHolder name = g_strdup(texture.get("name"));
+  StringHolder name = g_strdup(texture? texture.get("name"): "");
 
   options.freeze();
-  if (g_strcmp0(name, texture_name) != 0) {
+  if (texture_name.ptr() && g_strcmp0(name, texture_name) != 0) {
     g_print("update texture to %s\n", texture_name.ptr());
     GWrapper<GimpContainer> container     = gimp_data_factory_get_container(GIMP_CONTEXT(options.ptr())->gimp->pattern_factory);
     GWrapper<GimpPattern> matched_texture = GIMP_PATTERN(gimp_container_get_child_by_name(container, texture_name));
