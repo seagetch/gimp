@@ -40,6 +40,7 @@ extern "C" {
 #include "core/gimpdatafactory.h"
 #include "core/gimpcontainer.h"
 #include "core/gimpcontext.h"
+#include "core/gimpviewable.h"
 #include "widgets/gimpview.h"
 #include "widgets/gimpviewrenderer.h"
 #include "widgets/gimppropwidgets.h"
@@ -85,6 +86,9 @@ extern "C" {
 
 #include "gimpmypaint-gui-base.hpp"
 #include "gimpmypaintbrusheditor.hpp"
+
+///////////////////////////////////////////////////////////////////////////////
+static const int PREVIEW_SIZE = 32;
 
 ///////////////////////////////////////////////////////////////////////////////
 class MypaintDetailOptionsPopupPrivate {
@@ -186,9 +190,18 @@ MypaintDetailOptionsPopupPrivate::brush_name_edited (GObject*  object)
 void
 MypaintDetailOptionsPopupPrivate::brush_save_clicked (GObject*  object)
 {
-  GimpDataFactory*  factory       = context->gimp->mypaint_brush_factory;
-  GimpMypaintBrush* mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
-  gimp_data_factory_data_save_single (factory, GIMP_DATA(mypaint_brush), NULL);
+  GWrapper<GimpDataFactory>  factory       = context->gimp->mypaint_brush_factory;
+  GWrapper<GimpMypaintBrush> mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
+
+  StringHolder new_brush_name = g_strdup(mypaint_brush.get("name"));
+
+  GWrapper<GimpContainer> container = gimp_data_factory_get_container(factory);
+  GWrapper<GimpBrush> matched_brush = GIMP_BRUSH(gimp_container_get_child_by_name(container, new_brush_name));
+  if (matched_brush) {
+    gimp_data_factory_data_delete(factory, GIMP_DATA(matched_brush.ptr()),TRUE, NULL);
+  }
+  gimp_container_add(container, GIMP_OBJECT(mypaint_brush.ptr()));
+  gimp_data_factory_data_save_single (factory, GIMP_DATA(mypaint_brush.ptr()), NULL);
 }
 
 MypaintDetailOptionsPopupPrivate::~MypaintDetailOptionsPopupPrivate ()
@@ -259,10 +272,16 @@ MypaintDetailOptionsPopupPrivate::create (GObject* object,
   brush_name_entry = gtk_entry_new();
   gtk_widget_show (brush_name_entry);
   gtk_box_pack_start(GTK_BOX(hbox), GTK_WIDGET(brush_name_entry), TRUE, TRUE, 0);
-  GimpMypaintBrush* mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
-  gchar* name;
-  g_object_get(G_OBJECT(mypaint_brush), "name", &name, NULL);
+
+  GWrapper<GimpMypaintBrush> mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
+  StringHolder name = g_strdup(mypaint_brush.get("name"));
   gtk_entry_set_text(GTK_ENTRY(brush_name_entry), name);
+
+  GdkPixbuf* pixbuf = 
+    gimp_viewable_get_new_pixbuf(GIMP_VIEWABLE(mypaint_brush.ptr()), 
+                                 context, PREVIEW_SIZE, PREVIEW_SIZE);
+  gtk_entry_set_icon_from_pixbuf(GTK_ENTRY(brush_name_entry), 
+                                 GTK_ENTRY_ICON_PRIMARY, pixbuf);
 
   g_signal_connect_delegator (G_OBJECT (brush_name_entry), "activate", 
                               Delegator::delegator(this, &MypaintDetailOptionsPopupPrivate::brush_name_edited));
