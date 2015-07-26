@@ -242,15 +242,7 @@ gimp_mypaint_brush_get_description (GimpViewable  *viewable,
   GimpMypaintBrush *mypaint_brush = GIMP_MYPAINT_BRUSH (viewable);
   g_return_val_if_fail (mypaint_brush != NULL, NULL);
 
-  GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(mypaint_brush->p);  
-  g_return_val_if_fail (priv != NULL, NULL);
-  
-  gchar *desc1 = priv->get_parent_brush_name();
-  
-  if (desc1[0] != '\0')
-    return g_strdup (desc1);
-    
-  g_object_get (G_OBJECT (viewable), "name", &desc1, NULL);
+  const gchar* desc1 = gimp_object_get_name(GIMP_OBJECT(mypaint_brush));  
   return g_strdup (desc1);
 }
 

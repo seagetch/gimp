@@ -159,12 +159,12 @@ MypaintDetailOptionsPopupPrivate::brush_name_edited (GObject*  object)
 {
   GimpMypaintBrush* mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
   const gchar* name = gtk_entry_get_text(GTK_ENTRY(object));
-  gchar* actual_name;
-  g_object_get(G_OBJECT(mypaint_brush), "name", &actual_name, NULL);
+  const gchar* actual_name;
+  actual_name = gimp_object_get_name(GIMP_OBJECT(mypaint_brush));
   if (strcmp(name, actual_name) == 0)
     return;
-  g_object_set(G_OBJECT(mypaint_brush), "name", name, NULL);
-  g_object_get(G_OBJECT(mypaint_brush), "name", &actual_name, NULL);
+  gimp_object_take_name(GIMP_OBJECT(mypaint_brush), g_strdup(name));
+  actual_name = gimp_object_get_name(GIMP_OBJECT(mypaint_brush));
   gtk_entry_set_text(GTK_ENTRY(object), actual_name);
 }
 
@@ -183,6 +183,8 @@ MypaintDetailOptionsPopupPrivate::brush_save_clicked (GObject*  object)
   }
   GimpData* brush_copied = gimp_mypaint_brush_duplicate(GIMP_MYPAINT_BRUSH(mypaint_brush.ptr()));
   gimp_container_add(container, GIMP_OBJECT(brush_copied));
+  const gchar* name = gimp_object_get_name(GIMP_OBJECT(brush_copied));
+  g_print("GimpObject::name = %s  <--> GObject.name = %s\n", name, (const gchar*)GWrapper<GimpData>(brush_copied).get("name"));
   gimp_data_factory_data_save_single (factory, brush_copied, NULL);
   gimp_context_set_mypaint_brush (context, GIMP_MYPAINT_BRUSH(brush_copied));
 }
