@@ -114,7 +114,6 @@ public:
               GtkWidget **result);
   void destroy(GObject* object);
   void update_brush (GObject *adjustment);
-  void notify_brush (GObject *brush, GParamSpec *pspec);
   void brush_changed (GObject *object, GimpData *brush_data);
   void brush_name_edited (GObject *object);
   void brush_save_clicked (GObject* object);
@@ -139,25 +138,6 @@ MypaintDetailOptionsPopupPrivate::update_brush (GObject* object)
 
   brush = gimp_context_get_mypaint_brush (context);
 
-}
-
-void
-MypaintDetailOptionsPopupPrivate::notify_brush (GObject* object,
-                                   GParamSpec         *pspec)
-{
-  GimpMypaintBrush *brush = GIMP_MYPAINT_BRUSH (object);
-  GtkAdjustment *adj     = NULL;
-  gdouble        d_value = 0.0;
-  gint           i_value = 0;
-  
-  g_print ("notify_brush: %s\n", pspec->name);
-
-  if (! strcmp (pspec->name, "shape"))
-    {
-    }
-  else
-    {
-    }
 }
 
 void
@@ -356,9 +336,6 @@ MypaintDetailOptionsPopupPrivate::create (GObject* object,
                                 gimp_context_type_to_signal_name (GIMP_TYPE_BRUSH),
                                 Delegator::delegator(this, &MypaintDetailOptionsPopupPrivate::brush_changed));
 
-/*
-//  g_signal_connect (brush, "notify", G_CALLBACK (notify_brush), p);
-*/
   if (context && brush)
     brush_changed (G_OBJECT(context), GIMP_DATA(brush));
   children = gtk_container_get_children (GTK_CONTAINER (table));  
