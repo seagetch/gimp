@@ -95,12 +95,14 @@ class CurveViewActions {
   GtkTreeModel*              model;
   GtkAdjustment*             x_min_adj;
   GtkAdjustment*             x_max_adj;
-  GtkAdjustment*             y_scale_adj;
+  GtkAdjustment*             y_max_adj;
+  GtkAdjustment*             y_min_adj;
   CXXPointer<Delegator::Connection>     options_notify_handler;
   CXXPointer<Delegator::Connection>     curve_notify_handler;
   CXXPointer<Delegator::Connection>     x_min_adj_changed_handler;
   CXXPointer<Delegator::Connection>     x_max_adj_changed_handler;
-  CXXPointer<Delegator::Connection>     y_scale_adj_changed_handler;
+  CXXPointer<Delegator::Connection>     y_max_adj_changed_handler;
+  CXXPointer<Delegator::Connection>     y_min_adj_changed_handler;
   static const int         MAXIMUM_NUM_POINTS = 8;
 
 public:
@@ -112,7 +114,8 @@ public:
                    GObject* toggle, 
                    GtkAdjustment* x_min_adj_,
                    GtkAdjustment* x_max_adj_,
-                   GtkAdjustment* y_scale_adj_) 
+                   GtkAdjustment* y_min_adj_,
+                   GtkAdjustment* y_max_adj_) 
   {
     GHashTableHolder<gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict();               
     receiver      = receiver_;
@@ -122,7 +125,8 @@ public:
     model         = GTK_TREE_MODEL( gtk_tree_view_get_model( GTK_TREE_VIEW(tree_view) ) );
     x_min_adj     = x_min_adj_;
     x_max_adj     = x_max_adj_;
-    y_scale_adj   = y_scale_adj_; 
+    y_min_adj     = y_min_adj_; 
+    y_max_adj     = y_max_adj_; 
     GtkTreeSelection* tree_sel = gtk_tree_view_get_selection(GTK_TREE_VIEW (tree_view));
     input_setting = NULL;
 
@@ -134,7 +138,8 @@ public:
     options_notify_handler      = g_signal_connect_delegator (G_OBJECT(options), "notify", Delegator::delegator(this, &CurveViewActions::notify_options));
     x_min_adj_changed_handler   = g_signal_connect_delegator (G_OBJECT(x_min_adj), "value-changed", Delegator::delegator(this, &CurveViewActions::value_changed));
     x_max_adj_changed_handler   = g_signal_connect_delegator (G_OBJECT(x_max_adj), "value-changed", Delegator::delegator(this, &CurveViewActions::value_changed));
-    y_scale_adj_changed_handler = g_signal_connect_delegator (G_OBJECT(y_scale_adj), "value-changed", Delegator::delegator(this, &CurveViewActions::value_changed));
+    y_min_adj_changed_handler   = g_signal_connect_delegator (G_OBJECT(y_min_adj), "value-changed", Delegator::delegator(this, &CurveViewActions::value_changed));
+    y_max_adj_changed_handler   = g_signal_connect_delegator (G_OBJECT(y_max_adj), "value-changed", Delegator::delegator(this, &CurveViewActions::value_changed));
     curve_notify_handler        = NULL;
   };
   
@@ -152,7 +157,7 @@ public:
       *xmax = MAX(*xmax, x);
       for (int i = 1; i < n_points; i ++) {
         mapping->get_point(index, i, &x, &y);
-        if (x == -1.0 && y == -1.0)
+        if (x == -FLT_MAX || y == -FLT_MAX || x == FLT_MAX || y == FLT_MAX || y == FLT_MAX)
           continue;
         if (*xmin > x)
           *xmin = x;
@@ -240,8 +245,16 @@ public:
       gtk_adjustment_set_upper(x_max_adj, input_setting->hard_maximum);
     }
 
-    gtk_adjustment_set_upper(y_scale_adj,  MAX(0.1, brush_setting->maximum));
-    gtk_adjustment_set_lower(y_scale_adj,  MIN(0, brush_setting->minimum));
+    float y_minimum = MIN(-brush_setting->maximum, brush_setting->minimum);
+
+    if (brush_setting->maximum > -FLT_MAX && brush_setting->maximum < FLT_MAX) {
+      gtk_adjustment_set_upper(y_max_adj,  brush_setting->maximum);
+      gtk_adjustment_set_upper(y_min_adj,  brush_setting->maximum);
+    }
+    if (y_minimum > -FLT_MAX && y_minimum < FLT_MAX) {
+      gtk_adjustment_set_lower(y_max_adj,  y_minimum);
+      gtk_adjustment_set_lower(y_min_adj,  y_minimum);
+    }
 
     if (is_used) {
       mapping_to_curve(curve);
@@ -331,14 +344,16 @@ public:
         xmax_value = 20;
       }
     }
-    gdouble ymax_value = MAX(ABS(ymax), ABS(ymin));
+//    gdouble ymax_value = MAX(ABS(ymax), ABS(ymin));
+    
     
     gtk_adjustment_set_value(x_min_adj, xmin_value);
     gtk_adjustment_set_value(x_max_adj, xmax_value);
-    gtk_adjustment_set_value(y_scale_adj, ymax_value);
+    gtk_adjustment_set_value(y_min_adj, ymin);
+    gtk_adjustment_set_value(y_max_adj, ymax);
     
     gimp_curve_view_set_range_x(curve_view,  xmin_value, xmax_value);
-    gimp_curve_view_set_range_y(curve_view, -ymax_value, ymax_value);
+    gimp_curve_view_set_range_y(curve_view, ymin, ymax);
   }
   
   
@@ -470,6 +485,7 @@ public:
       points[i].y = points[i].y * yrange + ymin;
       ymin_value = MIN(points[i].y, ymin_value);
       ymax_value = MAX(points[i].y, ymax_value);
+      g_print("curve_to_mapping: %d: %f, %f\n", i, points[i].x, points[i].y);
     }
     
     if (ymin_value == ymax_value) {
@@ -513,10 +529,11 @@ public:
 
     gdouble xmin_value = gtk_adjustment_get_value(x_min_adj);
     gdouble xmax_value = gtk_adjustment_get_value(x_max_adj);
-    gdouble ymax_value = gtk_adjustment_get_value(y_scale_adj);
+    gdouble ymin_value = gtk_adjustment_get_value(y_min_adj);
+    gdouble ymax_value = gtk_adjustment_get_value(y_max_adj);
     
     gimp_curve_view_set_range_x(curve_view, xmin_value, xmax_value);
-    gimp_curve_view_set_range_y(curve_view, -ymax_value, ymax_value);
+    gimp_curve_view_set_range_y(curve_view, ymin_value, ymax_value);
 
     curve_to_mapping(curve);
   };
@@ -621,14 +638,17 @@ CurveViewCreator::create_view(GObject* button, GtkWidget** result)
  
   GtkAdjustment* x_min_adj    = GTK_ADJUSTMENT(gtk_adjustment_new(0.0, 0, 0.1, 0.01, 0.1, 0));
   GtkAdjustment* x_max_adj    = GTK_ADJUSTMENT(gtk_adjustment_new(1.0, 0.9, 1.0, 0.01, 0.1, 0));
-  GtkAdjustment* y_scale_adj  = GTK_ADJUSTMENT(gtk_adjustment_new(1.0/4.0, -1.0, 1.0, 0.01, 0.1, 0)); 
+  GtkAdjustment* y_min_adj  = GTK_ADJUSTMENT(gtk_adjustment_new(0, -1.0, 1.0, 0.01, 0.1, 0)); 
+  GtkAdjustment* y_max_adj  = GTK_ADJUSTMENT(gtk_adjustment_new(1.0/4.0, -1.0, 1.0, 0.01, 0.1, 0)); 
   GtkWidget*     x_min_edit   = gtk_spin_button_new(x_min_adj, 0.01, 2);
   GtkWidget*     x_max_edit   = gtk_spin_button_new(x_max_adj, 0.01, 2);
-  GtkWidget*     y_scale_edit = gtk_spin_button_new(y_scale_adj, 0.01, 2);
+  GtkWidget*     y_min_edit   = gtk_spin_button_new(y_min_adj, 0.01, 2);
+  GtkWidget*     y_max_edit   = gtk_spin_button_new(y_max_adj, 0.01, 2);
 
   gtk_widget_show(x_min_edit);
   gtk_widget_show(x_max_edit);
-  gtk_widget_show(y_scale_edit);
+  gtk_widget_show(y_min_edit);
+  gtk_widget_show(y_max_edit);
 
   gtk_table_attach(GTK_TABLE(table), x_min_edit, 0, 1, 3, 4, 
                    GtkAttachOptions(GTK_FILL), 
@@ -636,7 +656,10 @@ CurveViewCreator::create_view(GObject* button, GtkWidget** result)
   gtk_table_attach(GTK_TABLE(table), x_max_edit, 2, 3, 3, 4, 
                    GtkAttachOptions(GTK_FILL), 
                    GtkAttachOptions(GTK_FILL), 0, 0);
-  gtk_table_attach(GTK_TABLE(table), y_scale_edit, 3, 4, 0, 1, 
+  gtk_table_attach(GTK_TABLE(table), y_min_edit, 3, 4, 2, 3, 
+                   GtkAttachOptions(GTK_FILL), 
+                   GtkAttachOptions(GTK_FILL), 0, 0);
+  gtk_table_attach(GTK_TABLE(table), y_max_edit, 3, 4, 0, 1, 
                    GtkAttachOptions(GTK_FILL), 
                    GtkAttachOptions(GTK_FILL), 0, 0);
  
@@ -652,7 +675,8 @@ CurveViewCreator::create_view(GObject* button, GtkWidget** result)
                                                          G_OBJECT(used),
                                                          x_min_adj,
                                                          x_max_adj,
-                                                         y_scale_adj);
+                                                         y_min_adj,
+                                                         y_max_adj);
 
   *result = result_box;
 }; // class CurveViewCreator
