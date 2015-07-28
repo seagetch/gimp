@@ -17,17 +17,18 @@
 
 #include <glib-object.h>
 #include <cairo.h>
+#include <float.h>
 #include "mypaintbrush-brushsettings.h"
 #include "mypaintbrush-enum-settings.h"
 
-#define None  0
+#define None  FLT_MAX
 #define False FALSE
 #define True  TRUE
 #define _(x)  x
 
 static MyPaintBrushInputSettings inputs_list[] = {
   /* # name, hard minimum, soft minimum, normal[1], soft maximum, hard maximum, displayed name, tooltip */
-  {"pressure", INPUT_PRESSURE, 0.0,  0.0,  0.4,  1.0, 1.0,  _("Pressure"), _("The pressure reported by the tablet, between 0.0 and 1.0. If you use the mouse, it will be 0.5 when a button is pressed and 0.0 otherwise.")},
+  {"pressure", INPUT_PRESSURE, 0.0,  0.0,  0.4,  1.0, None,  _("Pressure"), _("The pressure reported by the tablet, between 0.0 and 1.0. If you use the mouse, it will be 0.5 when a button is pressed and 0.0 otherwise.")},
   {"speed1",  INPUT_SPEED1, None, 0.0,  0.5,  4.0, None, _("Fine speed"), _("How fast you currently move. This can change very quickly. Try \"print input values\" from the \"help\" menu to get a feeling for the range; negative values are rare but possible for very low speed.")},
   {"speed2",  INPUT_SPEED2, None, 0.0,  0.5,  4.0, None, _("Gross speed"), _("Same as fine speed, but changes slower. Also look at the \"gross speed filter\" setting.")},
   {"random",  INPUT_RANDOM, 0.0,  0.0,  0.5,  1.0, 1.0, _("Random"), _("Fast random noise, changing at each evaluation. Evenly distributed between 0 and 1.")},
