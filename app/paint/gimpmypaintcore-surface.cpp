@@ -242,6 +242,7 @@ public:
                          PixelRegion* channelPR,
                          PixelRegion* texturePR) 
   {
+    g_return_if_fail(srcPR->bytes != 0);
     gint stride = srcPR->rowstride / srcPR->bytes;
     hardness = CLAMP(hardness, 0.0, 1.0);
     if (aspect_ratio<1.0) aspect_ratio=1.0;
@@ -256,6 +257,7 @@ public:
 
     r_fringe = radius + 1;
     rr = radius*radius;
+    g_return_if_fail (rr > 0);
     one_over_radius2 = 1.0/rr;
 
     // For a graphical explanation, see:
@@ -278,8 +280,8 @@ public:
     //
     float segment1_offset = 1.0;
     float segment1_slope  = -(1.0/hardness - 1.0);
-    float segment2_offset = hardness/(1.0-hardness);
-    float segment2_slope  = -hardness/(1.0-hardness);
+    float segment2_offset = (hardness != 1.0) ? hardness/(1.0-hardness): 0;
+    float segment2_slope  = (hardness != 1.0) ? -hardness/(1.0-hardness): 0;
     // for hardness == 1.0, segment2 will never be used
 
     float angle_rad=angle/360*2*M_PI;

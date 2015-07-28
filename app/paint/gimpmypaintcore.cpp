@@ -105,6 +105,7 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
                                  const GimpCoords* coords,
                                  GimpMypaintOptions* options)
 {
+  g_return_if_fail (drawable);
   bool split = false;
   
   if (options != this->options) {
