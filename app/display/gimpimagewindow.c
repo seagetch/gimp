@@ -515,9 +515,8 @@ static void
 gimp_image_window_configure_for_toolbar_window_mode(GimpImageWindow* window)
 {
   GimpImageWindowPrivate *private = GIMP_IMAGE_WINDOW_GET_PRIVATE (window);
-  GimpGuiConfig          *config;
-
-  config          = GIMP_GUI_CONFIG (gimp_dialog_factory_get_context (private->dialog_factory)->gimp->config);
+//  GimpGuiConfig          *config;
+//  config          = GIMP_GUI_CONFIG (gimp_dialog_factory_get_context (private->dialog_factory)->gimp->config);
 
   gtk_widget_set_visible (private->notebook, FALSE);
   gtk_widget_set_visible (private->toolbar, TRUE);
@@ -581,7 +580,8 @@ gimp_image_window_configure_for_non_toolbar_window_mode(GimpImageWindow* window)
   g_print("Config: for non-toolbar mode: show_docks=%d\n", show_docks);
   gtk_widget_set_visible (private->notebook, TRUE);
   gtk_widget_set_visible (private->toolbar, show_docks);
-  gtk_widget_set_visible (private->menubar, config->single_window_mode);
+//  gtk_widget_set_visible (private->menubar, config->single_window_mode);
+  gtk_widget_set_visible (private->menubar, TRUE);
 
 #if 0
   {
@@ -1165,12 +1165,9 @@ void
 gimp_image_window_destroy (GimpImageWindow *window)
 {
   GimpImageWindowPrivate *private;
-  GimpGuiConfig          *config;
 
   g_return_if_fail (GIMP_IS_IMAGE_WINDOW (window));
-
   private = GIMP_IMAGE_WINDOW_GET_PRIVATE (window);
-  config  = GIMP_GUI_CONFIG (gimp_dialog_factory_get_context (private->dialog_factory)->gimp->config);
 
   /* Disconnect handlers if the window is toolbar window. */
   if (private->toolbar_window && private->active_shell) {
@@ -1366,14 +1363,14 @@ gimp_image_window_set_show_menubar (GimpImageWindow *window,
 {
   GimpImageWindowPrivate *private;
   GimpGuiConfig          *config;
-
   g_return_if_fail (GIMP_IS_IMAGE_WINDOW (window));
 
   private = GIMP_IMAGE_WINDOW_GET_PRIVATE (window);
   config  = GIMP_GUI_CONFIG (gimp_dialog_factory_get_context (private->dialog_factory)->gimp->config);
 
   if (private->menubar)
-    gtk_widget_set_visible (private->menubar, show && (config->single_window_mode || gimp_image_window_is_toolbar_window(window)));
+//    gtk_widget_set_visible (private->menubar, show && (config->single_window_mode || gimp_image_window_is_toolbar_window(window)));
+    gtk_widget_set_visible (private->menubar, show || !config->hide_docks);
 }
 
 gboolean
@@ -1831,15 +1828,19 @@ gimp_image_window_switch_active_shell (GimpImageWindow* window,
   GimpImageWindowPrivate *private = GIMP_IMAGE_WINDOW_GET_PRIVATE (window);
   GimpDisplay            *active_display;
 
+  g_print ("gimp_image_window_switch_active_shell:toolbar_window=%d\n", private->toolbar_window);
   if (shell == private->active_shell)
     return;
 
+  g_print ("gimp_image_window_switch_active_shell:active_shell=%lx\n",(gulong)private->active_shell);
   gimp_image_window_disconnect_from_active_shell (window);
 
-  g_print ("gimp_image_window_switch_active_shell\n");
   GIMP_LOG (WM, "GimpImageWindow %p, private->active_shell = %p; \n",
             window, shell);
   private->active_shell = shell;
+
+  g_print ("GimpImageWindow %p, private->active_shell = %p; \n",
+           window, shell);
 
   if (shell) {
   gimp_window_set_primary_focus_widget (GIMP_WINDOW (window),
@@ -1850,16 +1851,17 @@ gimp_image_window_switch_active_shell (GimpImageWindow* window,
   g_signal_connect (active_display, "notify::image",
                     G_CALLBACK (gimp_image_window_image_notify),
                     window);
-
-  g_signal_connect (private->active_shell, "scaled",
-                    G_CALLBACK (gimp_image_window_shell_scaled),
-                    window);
-  g_signal_connect (private->active_shell, "notify::title",
-                    G_CALLBACK (gimp_image_window_shell_title_notify),
-                    window);
-  g_signal_connect (private->active_shell, "notify::icon",
-                    G_CALLBACK (gimp_image_window_shell_icon_notify),
-                    window);
+  if (!gimp_image_window_is_toolbar_window(window)) {
+    g_signal_connect (private->active_shell, "scaled",
+                      G_CALLBACK (gimp_image_window_shell_scaled),
+                      window);
+    g_signal_connect (private->active_shell, "notify::title",
+                      G_CALLBACK (gimp_image_window_shell_title_notify),
+                      window);
+    g_signal_connect (private->active_shell, "notify::icon",
+                      G_CALLBACK (gimp_image_window_shell_icon_notify),
+                      window);
+  }
   if (private->toolbar_window)
     g_signal_connect (private->active_shell, "destroy",
                       G_CALLBACK (gimp_image_window_shell_destroy),
@@ -2309,7 +2311,7 @@ gimp_image_window_link_foreign_active_shell (GimpImageWindow* window,
 
   gimp_image_window_session_update (window,
                                     active_display,
-                                    NULL /*new_entry_id*/);
+                                    private->entry_id);
 
   gimp_context_set_display (gimp_get_user_context (private->gimp),
                             active_display);

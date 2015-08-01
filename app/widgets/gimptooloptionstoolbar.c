@@ -62,6 +62,7 @@ struct _GimpToolOptionsToolbarPrivate
   GtkWidget *view;
   GtkWidget *options_hbox;
 
+  gulong tool_changed_handler;
 };
 
 
@@ -78,9 +79,13 @@ static void        gimp_tool_options_toolbar_get_property      (GObject         
                                                                GValue                *value,
                                                                GParamSpec            *pspec);
 
+static void        gimp_tool_options_toolbar_visible_changed (GimpToolOptionsToolbar *toolbar);
+
 static void        gimp_tool_options_toolbar_tool_changed      (GimpContext           *context,
                                                                GimpToolInfo          *tool_info,
                                                                GimpToolOptionsToolbar *toolbar);
+static void        gimp_tool_options_toolbar_hide_toolbar    (GimpToolOptionsToolbar *toolbar);
+static void        gimp_tool_options_toolbar_show_toolbar    (GimpToolOptionsToolbar *toolbar);
 
 
 G_DEFINE_TYPE (GimpToolOptionsToolbar, gimp_tool_options_toolbar, GTK_TYPE_TOOLBAR)
@@ -152,15 +157,16 @@ gimp_tool_options_toolbar_constructor (GType                  type,
   gtk_toolbar_insert (GTK_TOOLBAR (toolbar), item, -1);
   gtk_widget_show (GTK_WIDGET(item));
 
-
-  g_signal_connect_object (user_context, "tool-changed",
-                           G_CALLBACK (gimp_tool_options_toolbar_tool_changed),
-                           toolbar,
+  g_signal_connect_object (G_OBJECT(toolbar), "notify::visible",
+                           G_CALLBACK (gimp_tool_options_toolbar_visible_changed),
+                           NULL,
                            0);
 
-  gimp_tool_options_toolbar_tool_changed (user_context,
-                                         gimp_context_get_tool (user_context),
-                                         toolbar);
+  if (gtk_widget_get_visible(GTK_WIDGET(toolbar))) {
+    gimp_tool_options_toolbar_tool_changed (user_context,
+                                           gimp_context_get_tool (user_context),
+                                           toolbar);
+  }
 
   return object;
 }
@@ -168,26 +174,12 @@ gimp_tool_options_toolbar_constructor (GType                  type,
 static void
 gimp_tool_options_toolbar_dispose (GObject *object)
 {
-  GimpToolOptionsToolbar *toolbar = GIMP_TOOL_OPTIONS_TOOLBAR (object);
-  if (toolbar->p->options_hbox)
-    {
-      GList *options;
-      GList *list;
-
-      options =
-        gtk_container_get_children (GTK_CONTAINER (toolbar->p->options_hbox));
-
-      for (list = options; list; list = g_list_next (list))
-        {
-          g_object_ref (list->data);
-          gtk_container_remove (GTK_CONTAINER (toolbar->p->options_hbox),
-                                GTK_WIDGET (list->data));
-        }
-
-      g_list_free (options);
-      toolbar->p->options_hbox = NULL;
-    }
-
+  GimpToolOptionsToolbar* toolbar = GIMP_TOOL_OPTIONS_TOOLBAR (object);
+  gimp_tool_options_toolbar_hide_toolbar (toolbar);
+  if (toolbar->p->options_hbox) {
+    gimp_tool_options_toolbar_hide_toolbar(toolbar);
+    toolbar->p->options_hbox = NULL;
+  }
 /*
   gimp_tool_options_toolbar_save_presets (toolbar);
 */
@@ -336,6 +328,17 @@ gimp_tool_options_toolbar_menu_popup (GimpToolOptionsToolbar *toolbar,
 #endif
 
 static void
+gimp_tool_options_toolbar_visible_changed (GimpToolOptionsToolbar *toolbar)
+{
+  gimp_tool_options_toolbar_hide_toolbar (toolbar);
+  
+  if (gtk_widget_get_visible(GTK_WIDGET(toolbar))) {
+    gimp_tool_options_toolbar_show_toolbar (toolbar);
+  }
+  
+}
+
+static void
 gimp_tool_options_toolbar_tool_changed (GimpContext           *context,
                                        GimpToolInfo          *tool_info,
                                        GimpToolOptionsToolbar *toolbar)
@@ -365,13 +368,28 @@ gimp_tool_options_toolbar_tool_changed (GimpContext           *context,
                                        "gimp-tool-options-toolbar-gui");
 
 
-      if (! gtk_widget_get_parent (options_gui))
+      if (gtk_widget_get_parent (options_gui) != toolbar->p->options_hbox) {
+
+        GtkWidget* parent = gtk_widget_get_parent(options_gui);
+        g_object_ref(G_OBJECT(options_gui));
+
+        if (parent)
+          gtk_container_remove(GTK_CONTAINER(parent), options_gui);
+        g_print("gimp_tool_options_toolbar_tool_changed: Add %p to toolbar %p.\n", options_gui, toolbar->p->options_hbox);
         gtk_box_pack_start (GTK_BOX (toolbar->p->options_hbox), options_gui,
                             TRUE, FALSE, 0);
 
+        g_object_unref(G_OBJECT(options_gui));
+        
+      } else {
+        g_print("gimp_tool_options_toolbar_tool_changed: options_gui already in use.\n");
+      }
+
       gtk_widget_size_request (options_gui, &req);
+      g_print("size[w,h]=[%d,%d]\n", req.width, req.height);
       gtk_widget_set_size_request (toolbar->p->scrolled_window, -1, req.height);
-      gtk_widget_show (options_gui);
+      gtk_widget_show_all (options_gui);
+      gtk_widget_show (toolbar->p->scrolled_window);
 
       toolbar->p->visible_tool_options = tool_info->tool_options;
     }
@@ -381,3 +399,51 @@ gimp_tool_options_toolbar_tool_changed (GimpContext           *context,
 
 }
 
+static void
+gimp_tool_options_toolbar_hide_toolbar (GimpToolOptionsToolbar *toolbar)
+{
+  GimpContext            *user_context = gimp_get_user_context (toolbar->p->gimp);
+
+  g_print("GimpToolOptionsToolbar::hide(%p)\n", toolbar);
+
+  if (toolbar->p->options_hbox) {
+    GList *options;
+    GList *list;
+
+    options =
+      gtk_container_get_children (GTK_CONTAINER (toolbar->p->options_hbox));
+
+    for (list = options; list; list = g_list_next (list)) {
+        g_object_ref (list->data);
+        gtk_container_remove (GTK_CONTAINER (toolbar->p->options_hbox),
+                              GTK_WIDGET (list->data));
+    }
+
+    g_list_free (options);
+  }
+
+  if (toolbar->p->tool_changed_handler) {
+    g_signal_handler_disconnect(G_OBJECT(user_context), 
+                                toolbar->p->tool_changed_handler);
+    toolbar->p->tool_changed_handler = 0;
+  }
+}
+
+static void
+gimp_tool_options_toolbar_show_toolbar (GimpToolOptionsToolbar *toolbar)
+{
+  GimpContext            *user_context = gimp_get_user_context (toolbar->p->gimp);
+
+  g_print("GimpToolOptionsToolbar::show(%p)\n", toolbar);
+
+  toolbar->p->tool_changed_handler = 
+    g_signal_connect_object (user_context, "tool-changed",
+                             G_CALLBACK (gimp_tool_options_toolbar_tool_changed),
+                             toolbar,
+                             0);
+
+  gimp_tool_options_toolbar_tool_changed (user_context,
+                                          gimp_context_get_tool (user_context),
+                                          toolbar);
+
+}
