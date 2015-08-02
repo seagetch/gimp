@@ -1748,6 +1748,7 @@ gimp_display_shell_flush (GimpDisplayShell *shell,
   else
     {
       GimpImageWindow *window = gimp_display_shell_get_window (shell);
+      GimpImageWindow *toolbar_window;
       GimpContext     *context;
 
       if (window && gimp_image_window_get_active_shell (window) == shell)
@@ -1756,6 +1757,13 @@ gimp_display_shell_flush (GimpDisplayShell *shell,
 
           gimp_ui_manager_update (manager, shell->display);
         }
+
+      toolbar_window = gimp_image_window_get_toolbar_window();
+
+      if (window != toolbar_window) {
+        GimpUIManager* manager = gimp_image_window_get_ui_manager(toolbar_window);
+        gimp_ui_manager_update( manager, shell->display);
+      }
 
       context = gimp_get_user_context (shell->display->gimp);
 

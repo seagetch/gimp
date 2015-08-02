@@ -82,6 +82,8 @@
 
 #define ROTATE_UNIT_ANGLE 30
 
+static GimpImageWindow* toolbar_window = NULL;
+
 enum
 {
   PROP_0,
@@ -616,6 +618,10 @@ gimp_image_window_dispose (GObject *object)
       private->menubar_manager = NULL;
     }
 
+  if (private->toolbar_window && toolbar_window == GIMP_IMAGE_WINDOW(object)) {
+    toolbar_window = NULL;
+  }
+
   G_OBJECT_CLASS (parent_class)->dispose (object);
 }
 
@@ -663,6 +669,14 @@ gimp_image_window_set_property (GObject      *object,
 
 	case PROP_TOOLBAR_WINDOW:
 	  private->toolbar_window = g_value_get_boolean(value);
+          if (private->toolbar_window && toolbar_window != window) {
+            g_object_set(G_OBJECT(toolbar_window), "toolbar-window", FALSE, NULL);
+            toolbar_window = window;
+            
+          } else if (! private->toolbar_window) {
+            toolbar_window = FALSE;
+          }
+      
 	  gimp_image_window_configure_window_mode(window);
 	  break;
 
@@ -2316,4 +2330,10 @@ gimp_image_window_link_foreign_active_shell (GimpImageWindow* window,
   gimp_context_set_display (gimp_get_user_context (private->gimp),
                             active_display);
   gimp_ui_manager_update (private->menubar_manager, active_display);
+}
+
+GimpImageWindow*
+gimp_image_window_get_toolbar_window ()
+{
+  return toolbar_window;
 }

@@ -97,4 +97,6 @@ gboolean           gimp_image_window_is_toolbar_window    (GimpImageWindow  *win
 void               gimp_image_window_link_foreign_active_shell (GimpImageWindow *window, 
                                                                 GimpDisplayShell *shell);
 
+GimpImageWindow*    gimp_image_window_get_toolbar_window (void);
+
 #endif /* __GIMP_IMAGE_WINDOW_H__ */
