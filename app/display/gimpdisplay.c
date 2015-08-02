@@ -46,6 +46,7 @@
 #include "gimpdisplayshell-handlers.h"
 #include "gimpdisplayshell-icon.h"
 #include "gimpdisplayshell-transform.h"
+#include "gimpdisplayshell-rotate.h"
 #include "gimpimagewindow.h"
 
 #include "gimp-intl.h"
@@ -400,7 +401,7 @@ gimp_display_new (Gimp              *gimp,
   GimpImageWindow    *window = NULL;
   GimpDisplayShell   *shell;
 
-  g_print("gimp_display_new:image=%lx\n", image);
+  g_print("gimp_display_new:image=%p\n", image);
   g_return_val_if_fail (GIMP_IS_GIMP (gimp), NULL);
   g_return_val_if_fail (image == NULL || GIMP_IS_IMAGE (image), NULL);
 
@@ -468,7 +469,7 @@ gimp_display_new (Gimp              *gimp,
   /* add the display to the list */
   gimp_container_add (gimp->displays, GIMP_OBJECT (display));
 
-  g_print("gimp_display_new:return %lx\n", display);
+  g_print("gimp_display_new:return %p\n", display);
 
   return display;
 }
