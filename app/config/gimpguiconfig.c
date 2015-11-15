@@ -89,7 +89,8 @@ enum
   PROP_SHOW_TIPS,
   PROP_TOOLBOX_WINDOW_HINT,
   PROP_TRANSIENT_DOCKS,
-  PROP_WEB_BROWSER
+  PROP_WEB_BROWSER,
+  PROP_USE_WEB_VIEW,
 };
 
 
@@ -323,6 +324,11 @@ gimp_gui_config_class_init (GimpGuiConfigClass *klass)
                                  "not used any longer",
                                  GIMP_PARAM_STATIC_STRINGS |
                                  GIMP_CONFIG_PARAM_IGNORE);
+  // for web-view mode
+  GIMP_CONFIG_INSTALL_PROP_BOOLEAN (object_class, PROP_USE_WEB_VIEW,
+                                    "use-web-view", NULL,
+                                    FALSE,
+                                    GIMP_PARAM_STATIC_STRINGS);
 }
 
 static void

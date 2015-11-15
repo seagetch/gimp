@@ -65,6 +65,7 @@
 
 #include "gimp-log.h"
 #include "gimp-intl.h"
+#include "gimpimagewindow-private.h"
 
 
 #define GIMP_EMPTY_IMAGE_WINDOW_ENTRY_ID   "gimp-empty-image-window"
@@ -94,33 +95,6 @@ enum
 };
 
 
-typedef struct _GimpImageWindowPrivate GimpImageWindowPrivate;
-
-struct _GimpImageWindowPrivate
-{
-  Gimp              *gimp;
-  GimpUIManager     *menubar_manager;
-  GimpDialogFactory *dialog_factory;
-  gboolean			 toolbar_window;
-
-  GList             *shells;
-  GimpDisplayShell  *active_shell;
-
-  GtkWidget         *main_vbox;
-  GtkWidget         *menubar;
-  GtkWidget         *hbox;
-  GtkWidget         *left_hpane;
-  GtkWidget         *left_docks;
-  GtkWidget         *right_hpane;
-  GtkWidget         *notebook;
-  GtkWidget         *right_docks;
-  GtkWidget         *toolbar; /* gimp-painter-2.7 */
-
-  GdkWindowState     window_state;
-
-  const gchar       *entry_id;
-};
-
 typedef struct
 {
   gint             x;
@@ -128,10 +102,7 @@ typedef struct
 } PosCorrectionData;
 
 
-#define GIMP_IMAGE_WINDOW_GET_PRIVATE(window) \
-        G_TYPE_INSTANCE_GET_PRIVATE (window, \
-                                     GIMP_TYPE_IMAGE_WINDOW, \
-                                     GimpImageWindowPrivate)
+
 
 
 /*  local function prototypes  */
@@ -2333,7 +2304,7 @@ gimp_image_window_link_foreign_active_shell (GimpImageWindow* window,
 }
 
 GimpImageWindow*
-gimp_image_window_get_toolbar_window ()
+gimp_image_window_get_toolbar_window (void)
 {
   return toolbar_window;
 }

@@ -124,7 +124,7 @@ libgimpbase_sources = \
 	gimpwire.h
 
 libgimpbase_built_sources = \
-	gimpbaseenums.c
+	gimpbaseenums.c		
 
 libgimpbase_2_0_la_SOURCES = $(libgimpbase_sources) $(libgimpbase_built_sources)
 
