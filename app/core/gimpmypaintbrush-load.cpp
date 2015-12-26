@@ -393,7 +393,11 @@ MyPaintBrushReader::read_file_v2 (const gchar *filename, GError **error)
         {
           gchar **tokens = g_strsplit (line, " ", 2);
           ScopedPointer<gchar*, void(gchar**), g_strfreev> token_holder(tokens);
-          if (g_strcmp0(tokens[0], "version") == 0) 
+          if (tokens[0] == 0) 
+            {
+              continue;
+            }
+          else if (g_strcmp0(tokens[0], "version") == 0) 
             {
               version = g_ascii_strtoll (tokens[1], NULL, 0);
               if (version > CURRENT_BRUSHFILE_VERSION)
