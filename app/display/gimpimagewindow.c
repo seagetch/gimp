@@ -66,6 +66,7 @@
 #include "gimp-log.h"
 #include "gimp-intl.h"
 #include "gimpimagewindow-private.h"
+#include "gimpimagewindow-webview.h"
 
 
 #define GIMP_EMPTY_IMAGE_WINDOW_ENTRY_ID   "gimp-empty-image-window"
@@ -311,6 +312,7 @@ gimp_image_window_constructed (GObject *object)
   GimpGuiConfig          *config;
   GtkWidget              *hbox; /* placeholder for disposable widget */
   GtkWidget              *widget; /* placeholder for disposable widget */
+  GtkWidget              *scroll;
 
   g_assert (GIMP_IS_UI_MANAGER (private->menubar_manager));
 
@@ -338,18 +340,29 @@ gimp_image_window_constructed (GObject *object)
   gtk_container_add (GTK_CONTAINER (window), private->main_vbox);
   gtk_widget_show (private->main_vbox);
 
+  scroll = gtk_scrolled_window_new(NULL, NULL);
+  gtk_box_pack_start (GTK_BOX (private->main_vbox),
+                      scroll, TRUE, TRUE, 0);
+  gtk_widget_show(scroll);
+
+  private->webview = gimp_image_window_create_webview(window);
+  gtk_widget_show(private->webview);
+  gtk_container_add(GTK_CONTAINER(scroll), private->webview);
+  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scroll),
+                                  GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+  
   /* Create the menubar */
 #ifndef GDK_WINDOWING_QUARTZ
     {
       private->menubar =
         gtk_ui_manager_get_widget (GTK_UI_MANAGER (private->menubar_manager),
                                "/image-menubar");
-	}
+    }
 #endif /* !GDK_WINDOWING_QUARTZ */
   if (private->menubar)
     {
-      gtk_box_pack_start (GTK_BOX (private->main_vbox),
-                          private->menubar, FALSE, FALSE, 0);
+//      gtk_box_pack_start (GTK_BOX (private->main_vbox),
+//                          private->menubar, FALSE, FALSE, 0);
 
       /*  make sure we can activate accels even if the menubar is invisible
        *  (see http://bugzilla.gnome.org/show_bug.cgi?id=137151)
@@ -369,7 +382,7 @@ gimp_image_window_constructed (GObject *object)
                         G_CALLBACK (gimp_image_window_shell_events),
                         window);
     }
-
+#if 0
   /* Create toolbar */
   hbox           = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
   gtk_box_pack_start (GTK_BOX (private->main_vbox), hbox,
@@ -377,12 +390,13 @@ gimp_image_window_constructed (GObject *object)
   gtk_widget_show (hbox);
 
     {
-	  private->toolbar = gimp_tool_options_toolbar_new (private->gimp,
-													   gimp_dialog_factory_get_menu_factory (private->dialog_factory));
-	  gtk_box_pack_start (GTK_BOX (hbox), private->toolbar,
-						  TRUE, TRUE, 0);
+#endif
+          private->toolbar = gimp_tool_options_toolbar_new (private->gimp,
+            gimp_dialog_factory_get_menu_factory (private->dialog_factory));
+//	  gtk_box_pack_start (GTK_BOX (hbox), private->toolbar,
+//						  TRUE, TRUE, 0);
 	  gtk_widget_show (private->toolbar);
-
+#if 0
 	  /* Temporary: right side left buttons */
 	  widget = gtk_button_new_with_label ("<->");
 	  gtk_widget_show (widget);
@@ -422,30 +436,31 @@ gimp_image_window_constructed (GObject *object)
   gtk_box_pack_start (GTK_BOX (private->hbox), private->left_hpane,
                       TRUE, TRUE, 0);
   gtk_widget_show (private->left_hpane);
-
+#endif
   /* Create the left dock columns widget */
   private->left_docks =
     gimp_dock_columns_new (gimp_get_user_context (private->gimp),
                            private->dialog_factory,
                            private->menubar_manager);
-  gtk_paned_pack1 (GTK_PANED (private->left_hpane), private->left_docks,
-                   FALSE, FALSE);
+//  gtk_paned_pack1 (GTK_PANED (private->left_hpane), private->left_docks,
+//                   FALSE, FALSE);
   gtk_widget_set_visible (private->left_docks, config->single_window_mode);
-
+#if 0
   /* Create the right pane */
   private->right_hpane = gtk_paned_new (GTK_ORIENTATION_HORIZONTAL);
   gtk_paned_pack2 (GTK_PANED (private->left_hpane), private->right_hpane,
                    TRUE, FALSE);
   gtk_widget_show (private->right_hpane);
-
+#endif
   /* Create notebook that contains images */
   private->notebook = gtk_notebook_new ();
   gtk_notebook_set_scrollable (GTK_NOTEBOOK (private->notebook), TRUE);
   gtk_notebook_set_show_border (GTK_NOTEBOOK (private->notebook), FALSE);
   gtk_notebook_set_show_tabs (GTK_NOTEBOOK (private->notebook), FALSE);
   gtk_notebook_set_tab_pos (GTK_NOTEBOOK (private->notebook), GTK_POS_LEFT);
-  gtk_paned_pack1 (GTK_PANED (private->right_hpane), private->notebook,
-                   TRUE, FALSE);
+//  gtk_paned_pack1 (GTK_PANED (private->right_hpane), private->notebook,
+//                   TRUE, FALSE);
+  gtk_widget_show (private->notebook);
   g_signal_connect (private->notebook, "switch-page",
                     G_CALLBACK (gimp_image_window_switch_page),
                     window);
@@ -458,8 +473,8 @@ gimp_image_window_constructed (GObject *object)
     gimp_dock_columns_new (gimp_get_user_context (private->gimp),
                            private->dialog_factory,
                            private->menubar_manager);
-  gtk_paned_pack2 (GTK_PANED (private->right_hpane), private->right_docks,
-                   FALSE, FALSE);
+//  gtk_paned_pack2 (GTK_PANED (private->right_hpane), private->right_docks,
+//                   FALSE, FALSE);
   gtk_widget_set_visible (private->right_docks, config->single_window_mode);
 
   g_signal_connect_object (config, "notify::single-window-mode",
@@ -490,6 +505,7 @@ gimp_image_window_configure_for_toolbar_window_mode(GimpImageWindow* window)
   GimpImageWindowPrivate *private = GIMP_IMAGE_WINDOW_GET_PRIVATE (window);
 //  GimpGuiConfig          *config;
 //  config          = GIMP_GUI_CONFIG (gimp_dialog_factory_get_context (private->dialog_factory)->gimp->config);
+  g_print("Config: for toolbar mode\n");
 
   gtk_widget_set_visible (private->notebook, FALSE);
   gtk_widget_set_visible (private->toolbar, TRUE);
@@ -556,6 +572,7 @@ gimp_image_window_configure_for_non_toolbar_window_mode(GimpImageWindow* window)
 //  gtk_widget_set_visible (private->menubar, config->single_window_mode);
   gtk_widget_set_visible (private->menubar, TRUE);
 
+  gtk_widget_show (GTK_WIDGET(window));
 #if 0
   {
     GdkWindow              *gdk_window;
@@ -906,6 +923,7 @@ gimp_image_window_add_dock (GimpDockContainer   *dock_container,
   GimpDisplayShell       *active_shell;
   GimpImageWindowPrivate *private;
 
+  g_print("GimpImageWindow::add_dock(%lx into %lx)\n", (ulong)dock, (ulong)dock_container);
   g_return_if_fail (GIMP_IS_IMAGE_WINDOW (dock_container));
 
   window  = GIMP_IMAGE_WINDOW (dock_container);
@@ -982,7 +1000,7 @@ gimp_image_window_get_aux_info (GimpSessionManaged *session_managed)
       GimpSessionInfoAux *aux;
       GtkAllocation       allocation;
       gchar               widthbuf[128];
-
+#if 0
       g_snprintf (widthbuf, sizeof (widthbuf), "%d",
                   gtk_paned_get_position (GTK_PANED (private->left_hpane)));
       aux = gimp_session_info_aux_new (GIMP_IMAGE_WINDOW_LEFT_DOCKS_WIDTH,
@@ -997,7 +1015,7 @@ gimp_image_window_get_aux_info (GimpSessionManaged *session_managed)
       aux = gimp_session_info_aux_new (GIMP_IMAGE_WINDOW_RIGHT_DOCKS_WIDTH,
                                        widthbuf);
       aux_info = g_list_append (aux_info, aux);
-
+#endif
       aux = gimp_session_info_aux_new (GIMP_IMAGE_WINDOW_MAXIMIZED,
                                        gimp_image_window_is_maximized (GIMP_IMAGE_WINDOW (session_managed)) ?
                                        "yes" : "no");
@@ -1015,12 +1033,12 @@ gimp_image_window_set_right_docks_width (GtkPaned      *paned,
   gint width = GPOINTER_TO_INT (data);
 
   g_return_if_fail (GTK_IS_PANED (paned));
-
+#if 0
   if (width > 0)
     gtk_paned_set_position (paned, allocation->width - width);
   else
     gtk_paned_set_position (paned, - width);
-
+#endif
   g_signal_handlers_disconnect_by_func (paned,
                                         gimp_image_window_set_right_docks_width,
                                         data);
@@ -1068,7 +1086,7 @@ gimp_image_window_set_aux_info (GimpSessionManaged *session_managed,
           *width = - *width;
         }
     }
-
+#if 0
   if (left_docks_width != G_MININT &&
       gtk_paned_get_position (GTK_PANED (private->left_hpane)) !=
       left_docks_width)
@@ -1106,7 +1124,7 @@ gimp_image_window_set_aux_info (GimpSessionManaged *session_managed,
                                   - right_docks_width);
         }
     }
-
+#endif
   if (maximized)
     gtk_window_maximize (GTK_WINDOW (session_managed));
   else
@@ -1997,6 +2015,8 @@ gimp_image_window_session_apply (GimpImageWindow *window,
   GimpSessionInfo        *session_info = NULL;
   gint                    width        = -1;
   gint                    height       = -1;
+
+  g_print("GimpImageWindow::session_apply(%s)\n", entry_id);
 
   gtk_window_unfullscreen (GTK_WINDOW (window));
 

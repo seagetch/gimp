@@ -157,7 +157,7 @@ class Delegator<Ret (*)(Arg0,Arg1, Arg2, Arg3)> :
 };
 
 template<typename Ret, typename Arg0, typename Arg1, typename Arg2, typename Arg3, typename Arg4>
-class Delegator<Ret (*)(Ret, Arg0,Arg1, Arg2, Arg3, Arg4)> : 
+class Delegator<Ret (*)(Arg0,Arg1, Arg2, Arg3, Arg4)> : 
   public Delegator_arg4<Ret, Arg0, Arg1, Arg2, Arg3, Arg4> {
 };
 

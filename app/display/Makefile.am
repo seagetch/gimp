@@ -135,7 +135,7 @@ libappdisplay_a_sources = \
 	gimpimagewindow.h			\
 	gimpimagewindow-webview.cpp		\
 	gimpimagewindow-webview.h		\
-        gimpimagewindow-private.h
+        gimpimagewindow-private.h		\
 	gimpmotionbuffer.c			\
 	gimpmotionbuffer.h			\
 	gimpmultiwindowstrategy.c		\

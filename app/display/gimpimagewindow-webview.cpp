@@ -19,6 +19,8 @@ extern "C" {
 
 #include "config.h"
 
+#include <glib.h>
+#include <glib/gprintf.h>
 #include <gegl.h>
 #include <gtk/gtk.h>
 
@@ -77,11 +79,26 @@ extern "C" {
 #include "base/delegators.hpp"
 #include "base/glib-cxx-utils.hpp"
 
-const static 
+class PluginDetatcher {
+private:
+  GtkWidget* child;
+public:
+  PluginDetatcher(GtkWidget* child) {
+    this->child = child;
+  }
+  ~PluginDetatcher() {
+  }
+  void on_destroy(GtkWidget* widget) {
+    g_object_ref(child);
+    GtkContainer* container = GTK_CONTAINER(gtk_widget_get_parent(child));
+    gtk_container_remove(container, child);
+  }
+};
 
 class GimpImageWindowWebviewPrivate {
 private:
   GimpImageWindow* window;
+  GtkWidget* force_update_widget(GtkWidget* widget);
 public:
   GimpImageWindowWebviewPrivate() : window(NULL) { };
   GtkWidget* 
@@ -100,6 +117,21 @@ public:
   GtkWidget* create(GimpImageWindow* window);
 };
 
+GtkWidget*
+GimpImageWindowWebviewPrivate::
+force_update_widget (GtkWidget* widget) {
+  GtkWidget* eventbox = gtk_scrolled_window_new(NULL, NULL);
+  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (eventbox),
+                                  GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+  gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(eventbox), widget);
+  PluginDetatcher* detatcher = new PluginDetatcher(widget);
+  g_object_set_cxx_object(G_OBJECT(eventbox), "_behavior", detatcher);
+  g_signal_connect_delegator (G_OBJECT(eventbox), "destroy", 
+                              Delegator::delegator(detatcher, &PluginDetatcher::on_destroy));
+  gtk_container_check_resize(GTK_CONTAINER(eventbox));
+  return eventbox;
+}
+
 GtkWidget* 
 GimpImageWindowWebviewPrivate::
 create_plugin_widget(WebKitWebView* view, 
@@ -107,30 +139,46 @@ create_plugin_widget(WebKitWebView* view,
                      gchar* uri,
                      GHashTable* param)
 {
+  GtkWidget* result = NULL;
+  g_print("WEBVIEW::create_plugin:%s\n", uri);
   if (strcmp(mime_type, "application/gimp") == 0) {
     GimpImageWindowPrivate* priv = GIMP_IMAGE_WINDOW_GET_PRIVATE(window);
-    if (strcmp(uri, "") == 0) {
-      // toolbar
-	  priv->toolbar = gimp_tool_options_toolbar_new (priv->gimp,
-	      gimp_dialog_factory_get_menu_factory (priv->dialog_factory));
-    } else if (strcmp(uri, "") == 0) {
-      // left / right docks
-      gimp_dock_columns_new (gimp_get_user_context (priv->gimp),
-                             priv->dialog_factory,
-                             priv->menubar_manager);
-    } else if (strcmp(uri, "") == 0) {
-      // notebook (contains displayshell)
-      priv->notebook = gtk_notebook_new ();
-      gtk_notebook_set_scrollable (GTK_NOTEBOOK (priv->notebook), TRUE);
-      gtk_notebook_set_show_border (GTK_NOTEBOOK (priv->notebook), FALSE);
-      gtk_notebook_set_show_tabs (GTK_NOTEBOOK (priv->notebook), FALSE);
-      gtk_notebook_set_tab_pos (GTK_NOTEBOOK (priv->notebook), GTK_POS_LEFT);  
-    } else if (strcmp(uri, "") == 0) {
-      // menubar
-      gtk_ui_manager_get_widget (GTK_UI_MANAGER (priv->menubar_manager),
-                                 "/image-menubar");
+    if (strncmp(uri, "file://", strlen("file://")) == 0)
+      uri += strlen("file://");
+    if (strcmp(uri, "/toolbar") == 0) {
+      g_print("WEBVIEW:toolbar=%lx\n", (gulong)priv->toolbar);
+      result = priv->toolbar;
+    } else if (strncmp(uri, "/dock", strlen("/dock")) == 0) {
+      gchar* dock_name = uri + strlen("/dock");
+      if (strcmp(dock_name,"/left") == 0) {
+        g_print("WEBVIEW:left_docks=%lx\n", (gulong)priv->left_docks);
+        result = priv->left_docks;
+      } else if (strcmp(dock_name, "/right") == 0) {
+        g_print("WEBVIEW:right_docks=%lx\n", (gulong)priv->right_docks);
+        result = priv->right_docks;
+      }
+    } else if (strcmp(uri, "/images") == 0) {
+        g_print("WEBVIEW:images=%lx\n", (gulong)priv->notebook);
+      result = priv->notebook;
+    } else if (strcmp(uri, "/menubar") == 0) {
+        g_print("WEBVIEW:menubar=%lx\n", (gulong)priv->menubar);
+      result = priv->menubar;
+    } else if (strncmp(uri, "/dialog/", strlen("/dialog/")) == 0) {
+      gchar* word_head = uri + strlen("/dialog/");
+      gchar* word_term = strstr(word_head,"/");
+      int index = word_term ? word_term - word_head: strlen(word_head); 
+      StringHolder dialog_name = strndup(word_head, index);
+      GimpUIManager* ui_manager = gimp_image_window_get_ui_manager(window);
+      result = gimp_dialog_factory_dialog_new (gimp_dialog_factory_get_singleton (),
+                                               gtk_widget_get_screen (GTK_WIDGET(view)),
+                                               ui_manager,
+                                               dialog_name.ptr(), -1, TRUE);
+      gtk_widget_show(result);
+      g_print("WEBVIEW:dialog[%s]%lx\n", dialog_name.ptr(), (gulong)result);
     }
   }
+  if (result)
+    return force_update_widget(result);
   return NULL;
 }
 
@@ -156,13 +204,21 @@ GtkWidget*
 GimpImageWindowWebviewPrivate::create(GimpImageWindow* window)
 {
   GtkWidget* result = NULL;
+  g_return_val_if_fail (GIMP_IS_IMAGE_WINDOW(window), NULL);
+  g_print("WEBVIEW::create: window=%lx\n", (ulong)window);
+  this->window = window;
   result = webkit_web_view_new ();
   // Get file name from config
-  StringHolder filename = ;
-  StringHolder file_uri = g_sprintf("file://%s", filename.ptr());
-  webkit_web_view_load_uri(result, file_uri.ptr());
-  if (result)
+  StringHolder filename = g_strdup("/tmp/template.html");
+  StringHolder file_uri = g_strdup_printf("file://%s", filename.ptr());
+  webkit_web_view_load_uri(WEBKIT_WEB_VIEW(result), file_uri.ptr());
+  if (result) {
     g_object_set_cxx_object(G_OBJECT(result), "_behavior", this);
+    g_signal_connect_delegator (G_OBJECT(result), "create-plugin-widget", 
+                                Delegator::delegator(this, &GimpImageWindowWebviewPrivate::create_plugin_widget));
+    g_signal_connect_delegator (G_OBJECT(result), "navigation-policy-decision-requested",
+                                Delegator::delegator(this, &GimpImageWindowWebviewPrivate::navigation_policy_decision_requested));
+  }
   return result;
 }
 
@@ -171,6 +227,8 @@ extern "C" {
 GtkWidget*
 gimp_image_window_get_webview (GimpImageWindow* window)
 {
+  GimpImageWindowPrivate* win_private = GIMP_IMAGE_WINDOW_GET_PRIVATE (window);
+  return win_private->webview;
 }
 
 
@@ -184,7 +242,10 @@ GtkWidget*
 gimp_image_window_create_webview (GimpImageWindow* window)
 {
   GimpImageWindowWebviewPrivate* priv = new GimpImageWindowWebviewPrivate();
-  return priv->create(window);
+  GimpImageWindowPrivate* win_private = GIMP_IMAGE_WINDOW_GET_PRIVATE (window);
+  GtkWidget* result = priv->create(window);
+  win_private->webview = result;
+  return result;
 }
 
 }

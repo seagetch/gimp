@@ -203,7 +203,8 @@ gimp_2_8_LDADD = \
 	$(GTK_MAC_INTEGRATION_LIBS)	\
 	$(DBUS_GLIB_LIBS)		\
 	$(gimpconsoleldadd)		\
-	$(GIMPRC)
+	$(GIMPRC)			\
+	$(WEBKIT_LIBS)
 
 
 if ENABLE_GIMP_CONSOLE

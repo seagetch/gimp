@@ -81,6 +81,8 @@ gimp_single_window_strategy_show_dockable_dialog (GimpWindowStrategy *strategy,
   GtkWidget       *widget  = NULL;
   GimpImageWindow *window;
 
+  g_print("GimpSingleWindowStrategy::show_dockable_dialog\n");
+
   g_return_val_if_fail (windows != NULL, NULL);
 
   /* In single-window mode, there should only be one window... */

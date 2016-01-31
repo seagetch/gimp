@@ -39,6 +39,7 @@ struct _GimpImageWindowPrivate
   GtkWidget         *notebook;
   GtkWidget         *right_docks;
   GtkWidget         *toolbar; /* gimp-painter-2.7 */
+  GtkWidget         *webview; /* gimp-painter-2.8 */
 
   GdkWindowState     window_state;
 

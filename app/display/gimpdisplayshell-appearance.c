@@ -154,6 +154,7 @@ gimp_display_shell_set_show_statusbar (GimpDisplayShell *shell,
                                        gboolean          show)
 {
   GimpDisplayOptions *options;
+  GimpImageWindow* window;
 
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
 
@@ -161,7 +162,9 @@ gimp_display_shell_set_show_statusbar (GimpDisplayShell *shell,
 
   g_object_set (options, "show-statusbar", show, NULL);
 
-  gimp_image_window_keep_canvas_pos (gimp_display_shell_get_window (shell));
+  window = gimp_display_shell_get_window (shell);
+  if (window)
+    gimp_image_window_keep_canvas_pos (window);
   gimp_statusbar_set_visible (GIMP_STATUSBAR (shell->statusbar), show);
 
   appearance_set_action_active (shell, "view-show-statusbar", show);
@@ -180,6 +183,7 @@ gimp_display_shell_set_show_rulers (GimpDisplayShell *shell,
                                     gboolean          show)
 {
   GimpDisplayOptions *options;
+  GimpImageWindow* window;
 
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
 
@@ -187,7 +191,9 @@ gimp_display_shell_set_show_rulers (GimpDisplayShell *shell,
 
   g_object_set (options, "show-rulers", show, NULL);
 
-  gimp_image_window_keep_canvas_pos (gimp_display_shell_get_window (shell));
+  window = gimp_display_shell_get_window (shell);
+  if (window)
+    gimp_image_window_keep_canvas_pos (window);
   gtk_widget_set_visible (shell->origin, show);
   gtk_widget_set_visible (shell->hrule, show);
   gtk_widget_set_visible (shell->vrule, show);
@@ -208,6 +214,7 @@ gimp_display_shell_set_show_scrollbars (GimpDisplayShell *shell,
                                         gboolean          show)
 {
   GimpDisplayOptions *options;
+  GimpImageWindow* window;
 
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
 
@@ -215,7 +222,9 @@ gimp_display_shell_set_show_scrollbars (GimpDisplayShell *shell,
 
   g_object_set (options, "show-scrollbars", show, NULL);
 
-  gimp_image_window_keep_canvas_pos (gimp_display_shell_get_window (shell));
+  window = gimp_display_shell_get_window (shell);
+  if (window)
+    gimp_image_window_keep_canvas_pos (window);
   gtk_widget_set_visible (shell->nav_ebox, show);
   gtk_widget_set_visible (shell->hsb, show);
   gtk_widget_set_visible (shell->vsb, show);

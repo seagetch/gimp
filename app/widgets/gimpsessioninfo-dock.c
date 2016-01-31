@@ -292,7 +292,7 @@ gimp_session_info_dock_restore (GimpSessionInfoDock *dock_info,
 
   g_return_val_if_fail (GIMP_IS_DIALOG_FACTORY (factory), NULL);
   g_return_val_if_fail (GDK_IS_SCREEN (screen), NULL);
-
+  g_print("GimpSessionInfo::dock_restore\n");
   ui_manager = gimp_dock_container_get_ui_manager (dock_container);
   dock       = gimp_dialog_factory_dialog_new (factory,
                                                screen,
