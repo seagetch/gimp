@@ -40,6 +40,7 @@ extern "C" {
 #include "widgets/gimpactiongroup.h"
 #include "widgets/gimpdialogfactory.h"
 #include "widgets/gimpdock.h"
+#include "widgets/gimpdockable.h"
 #include "widgets/gimpdockbook.h"
 #include "widgets/gimpdockcolumns.h"
 #include "widgets/gimpdockcontainer.h"
@@ -79,6 +80,10 @@ extern "C" {
 #include "base/delegators.hpp"
 #include "base/glib-cxx-utils.hpp"
 
+extern "C" {
+static GimpContext* image_window_get_context(GimpImageWindow* window);
+}
+
 class PluginDetatcher {
 private:
   GtkWidget* child;
@@ -98,7 +103,7 @@ public:
 class GimpImageWindowWebviewPrivate {
 private:
   GimpImageWindow* window;
-  GtkWidget* force_update_widget(GtkWidget* widget);
+  GtkWidget* wrap_widget(GtkWidget* widget, bool detach_on_destroy = true);
 public:
   GimpImageWindowWebviewPrivate() : window(NULL) { };
   GtkWidget* 
@@ -119,15 +124,17 @@ public:
 
 GtkWidget*
 GimpImageWindowWebviewPrivate::
-force_update_widget (GtkWidget* widget) {
+wrap_widget (GtkWidget* widget, bool detach_on_destroy) {
   GtkWidget* eventbox = gtk_scrolled_window_new(NULL, NULL);
   gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (eventbox),
                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
   gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(eventbox), widget);
-  PluginDetatcher* detatcher = new PluginDetatcher(widget);
-  g_object_set_cxx_object(G_OBJECT(eventbox), "_behavior", detatcher);
-  g_signal_connect_delegator (G_OBJECT(eventbox), "destroy", 
-                              Delegator::delegator(detatcher, &PluginDetatcher::on_destroy));
+  if (detach_on_destroy) {
+    PluginDetatcher* detatcher = new PluginDetatcher(widget);
+    g_object_set_cxx_object(G_OBJECT(eventbox), "_behavior", detatcher);
+    g_signal_connect_delegator (G_OBJECT(eventbox), "destroy", 
+                                Delegator::delegator(detatcher, &PluginDetatcher::on_destroy));
+  }
   gtk_container_check_resize(GTK_CONTAINER(eventbox));
   return eventbox;
 }
@@ -148,21 +155,30 @@ create_plugin_widget(WebKitWebView* view,
     if (strcmp(uri, "/toolbar") == 0) {
       g_print("WEBVIEW:toolbar=%lx\n", (gulong)priv->toolbar);
       result = priv->toolbar;
+      result = wrap_widget(result);
+      
     } else if (strncmp(uri, "/dock", strlen("/dock")) == 0) {
       gchar* dock_name = uri + strlen("/dock");
       if (strcmp(dock_name,"/left") == 0) {
         g_print("WEBVIEW:left_docks=%lx\n", (gulong)priv->left_docks);
         result = priv->left_docks;
+        result = wrap_widget(result);
+
       } else if (strcmp(dock_name, "/right") == 0) {
         g_print("WEBVIEW:right_docks=%lx\n", (gulong)priv->right_docks);
         result = priv->right_docks;
+        result = wrap_widget(result);
       }
     } else if (strcmp(uri, "/images") == 0) {
         g_print("WEBVIEW:images=%lx\n", (gulong)priv->notebook);
       result = priv->notebook;
+      result = wrap_widget(result);
+      
     } else if (strcmp(uri, "/menubar") == 0) {
         g_print("WEBVIEW:menubar=%lx\n", (gulong)priv->menubar);
       result = priv->menubar;
+      result = wrap_widget(result);
+      
     } else if (strncmp(uri, "/dialog/", strlen("/dialog/")) == 0) {
       gchar* word_head = uri + strlen("/dialog/");
       gchar* word_term = strstr(word_head,"/");
@@ -173,13 +189,15 @@ create_plugin_widget(WebKitWebView* view,
                                                gtk_widget_get_screen (GTK_WIDGET(view)),
                                                ui_manager,
                                                dialog_name.ptr(), -1, TRUE);
+      if (GIMP_IS_DOCKABLE(result)) {
+        gimp_dockable_set_context(GIMP_DOCKABLE(result), image_window_get_context(window));
+      }
       gtk_widget_show(result);
+      result = wrap_widget(result, false);
       g_print("WEBVIEW:dialog[%s]%lx\n", dialog_name.ptr(), (gulong)result);
     }
   }
-  if (result)
-    return force_update_widget(result);
-  return NULL;
+  return result;
 }
 
 
@@ -224,6 +242,13 @@ GimpImageWindowWebviewPrivate::create(GimpImageWindow* window)
 
 
 extern "C" {
+
+GimpContext* 
+image_window_get_context(GimpImageWindow* window) {
+  GimpImageWindowPrivate* win_private = GIMP_IMAGE_WINDOW_GET_PRIVATE (window);
+  return gimp_get_user_context(win_private->gimp);
+};
+  
 GtkWidget*
 gimp_image_window_get_webview (GimpImageWindow* window)
 {
