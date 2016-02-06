@@ -84,15 +84,44 @@ extern "C" {
 static GimpContext* image_window_get_context(GimpImageWindow* window);
 }
 
-class PluginDetatcher {
+class ActiveShellConfigurator {
+private:
+  CXXPointer<Delegator::Connection> handler;
+  GimpImageWindow* window;
+public:
+  ActiveShellConfigurator(GimpImageWindow* win, GtkWidget* widget) {
+    auto dec = decorator(widget, this);
+    handler = dec.connecth("expose-event", &ActiveShellConfigurator::expose);
+    window = win; 
+  }
+  void expose(GtkWidget* widget, GdkEvent* ev) {
+    g_print("EXPOSE!!!!!\n");
+    auto active_shell = _G(window)[gimp_image_window_get_active_shell]();
+    _G(window)[gimp_image_window_remove_shell](active_shell);
+    _G(window)[gimp_image_window_add_shell](active_shell);
+    handler->disconnect();
+    //FIXME: should be detached from widget!
+    delete this;
+  }
+};
+
+class DockableWrapper {
+private:
+  GimpDockable* child;
+public:
+  DockableWrapper(GimpDockable* c) : child(c) {}
+  ~DockableWrapper() {}
+  void on_destroy(GtkWidget* widget) {
+    gimp_dockable_set_context(GIMP_DOCKABLE(child), NULL);
+  }
+};
+
+class PluginDetacher {
 private:
   GtkWidget* child;
 public:
-  PluginDetatcher(GtkWidget* child) {
-    this->child = child;
-  }
-  ~PluginDetatcher() {
-  }
+  PluginDetacher(GtkWidget* c) : child(c) {}
+  ~PluginDetacher() {}
   void on_destroy(GtkWidget* widget) {
     g_object_ref(child);
     GtkContainer* container = GTK_CONTAINER(gtk_widget_get_parent(child));
@@ -104,6 +133,7 @@ class GimpImageWindowWebviewPrivate {
 private:
   GimpImageWindow* window;
   GtkWidget* wrap_widget(GtkWidget* widget, bool detach_on_destroy = true);
+  CXXPointer<Delegator::Connection> on_show_handler;
 public:
   GimpImageWindowWebviewPrivate() : window(NULL) { };
   GtkWidget* 
@@ -119,22 +149,26 @@ public:
                                        WebKitWebNavigationAction* action,
                                        WebKitWebPolicyDecision* decision);
 
+  void on_show(WebKitWebView* widget);
   GtkWidget* create(GimpImageWindow* window);
 };
 
 GtkWidget*
 GimpImageWindowWebviewPrivate::
 wrap_widget (GtkWidget* widget, bool detach_on_destroy) {
+  if (gtk_widget_get_parent(widget) != NULL)
+    return NULL;
   GtkWidget* eventbox = gtk_scrolled_window_new(NULL, NULL);
   gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (eventbox),
                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
   gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(eventbox), widget);
   if (detach_on_destroy) {
-    PluginDetatcher* detatcher = new PluginDetatcher(widget);
-    g_object_set_cxx_object(G_OBJECT(eventbox), "_behavior", detatcher);
-    g_signal_connect_delegator (G_OBJECT(eventbox), "destroy", 
-                                Delegator::delegator(detatcher, &PluginDetatcher::on_destroy));
+    decorator(eventbox, new PluginDetacher(widget))
+      .connect("destroy", &PluginDetacher::on_destroy);
   }
+  if (GIMP_IS_DOCKABLE(widget))
+    decorator(eventbox, new DockableWrapper(GIMP_DOCKABLE(widget)))
+      .connect("destroy", &DockableWrapper::on_destroy);
   gtk_container_check_resize(GTK_CONTAINER(eventbox));
   return eventbox;
 }
@@ -172,6 +206,7 @@ create_plugin_widget(WebKitWebView* view,
     } else if (strcmp(uri, "/images") == 0) {
         g_print("WEBVIEW:images=%lx\n", (gulong)priv->notebook);
       result = priv->notebook;
+      new ActiveShellConfigurator(window, result);
       result = wrap_widget(result);
       
     } else if (strcmp(uri, "/menubar") == 0) {
@@ -217,6 +252,16 @@ navigation_policy_decision_requested(WebKitWebView* view,
   return FALSE;
 }
 
+void
+GimpImageWindowWebviewPrivate::
+on_show(WebKitWebView* view) {
+  on_show_handler->disconnect();
+
+  // Get file name from config
+  StringHolder filename = g_strdup("/tmp/template.html");
+  StringHolder file_uri = g_strdup_printf("file://%s", filename.ptr());
+  _G(view)[webkit_web_view_load_uri](file_uri);
+}
 
 GtkWidget* 
 GimpImageWindowWebviewPrivate::create(GimpImageWindow* window)
@@ -226,17 +271,16 @@ GimpImageWindowWebviewPrivate::create(GimpImageWindow* window)
   g_print("WEBVIEW::create: window=%lx\n", (ulong)window);
   this->window = window;
   result = webkit_web_view_new ();
-  // Get file name from config
-  StringHolder filename = g_strdup("/tmp/template.html");
-  StringHolder file_uri = g_strdup_printf("file://%s", filename.ptr());
-  webkit_web_view_load_uri(WEBKIT_WEB_VIEW(result), file_uri.ptr());
   if (result) {
-    g_object_set_cxx_object(G_OBJECT(result), "_behavior", this);
-    g_signal_connect_delegator (G_OBJECT(result), "create-plugin-widget", 
-                                Delegator::delegator(this, &GimpImageWindowWebviewPrivate::create_plugin_widget));
-    g_signal_connect_delegator (G_OBJECT(result), "navigation-policy-decision-requested",
-                                Delegator::delegator(this, &GimpImageWindowWebviewPrivate::navigation_policy_decision_requested));
+    decorator(result, this)
+      .connect("create-plugin-widget", 
+              &GimpImageWindowWebviewPrivate::create_plugin_widget)
+      .connect("navigation-policy-decision-requested", 
+              &GimpImageWindowWebviewPrivate::navigation_policy_decision_requested);
+    on_show_handler = 
+      delegator(result, this).connecth("realize", &GimpImageWindowWebviewPrivate::on_show);
   }
+  
   return result;
 }
 
