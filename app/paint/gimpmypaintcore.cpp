@@ -53,6 +53,7 @@ extern "C" {
 };
 
 #include "base/delegators.hpp"
+#include "base/glib-cxx-utils.hpp"
 #include "gimpmypaintcore.hpp"
 #include "gimpmypaintcore-surface.hpp"
 #include "core/gimpmypaintbrush-private.hpp"
@@ -114,7 +115,7 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
       option_changed_handler = NULL;
     }
     this->options = options;
-    option_changed_handler = g_signal_connect_delegator(G_OBJECT(options), "notify", Delegator::delegator(this, &GimpMypaintCore::option_changed));
+    option_changed_handler = delegator(options, this).connecth("notify", &GimpMypaintCore::option_changed);
   }
   
   // Prepare Brush.

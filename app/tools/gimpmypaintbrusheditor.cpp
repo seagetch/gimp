@@ -130,16 +130,15 @@ public:
     GtkTreeSelection* tree_sel = gtk_tree_view_get_selection(GTK_TREE_VIEW (tree_view));
     input_setting = NULL;
 
-    g_object_set_cxx_object(G_OBJECT(tree_view), "behavior", this);
+    decorator(tree_view, this);
+    delegator(tree_sel, this).connect("changed", &CurveViewActions::selected);
+    delegator(toggle, this).connect("toggled", &CurveViewActions::toggled); 
 
-    g_signal_connect_delegator (G_OBJECT(tree_sel), "changed", Delegator::delegator(this, &CurveViewActions::selected));
-    g_signal_connect_delegator (G_OBJECT(toggle), "toggled", Delegator::delegator(this, &CurveViewActions::toggled));
-
-    options_notify_handler      = g_signal_connect_delegator (G_OBJECT(options), "notify", Delegator::delegator(this, &CurveViewActions::notify_options));
-    x_min_adj_changed_handler   = g_signal_connect_delegator (G_OBJECT(x_min_adj), "value-changed", Delegator::delegator(this, &CurveViewActions::value_changed));
-    x_max_adj_changed_handler   = g_signal_connect_delegator (G_OBJECT(x_max_adj), "value-changed", Delegator::delegator(this, &CurveViewActions::value_changed));
-    y_min_adj_changed_handler   = g_signal_connect_delegator (G_OBJECT(y_min_adj), "value-changed", Delegator::delegator(this, &CurveViewActions::value_changed));
-    y_max_adj_changed_handler   = g_signal_connect_delegator (G_OBJECT(y_max_adj), "value-changed", Delegator::delegator(this, &CurveViewActions::value_changed));
+    options_notify_handler      = delegator(options, this).connecth("notify", &CurveViewActions::notify_options);
+    x_min_adj_changed_handler   = delegator(x_min_adj, this).connecth("value-changed", &CurveViewActions::value_changed);
+    x_max_adj_changed_handler   = delegator(x_max_adj, this).connecth("value-changed", &CurveViewActions::value_changed);
+    y_min_adj_changed_handler   = delegator(y_min_adj, this).connecth("value-changed", &CurveViewActions::value_changed);
+    y_max_adj_changed_handler   = delegator(y_max_adj, this).connecth("value-changed", &CurveViewActions::value_changed);
     curve_notify_handler        = NULL;
   };
   
@@ -263,8 +262,8 @@ public:
     GimpRGB color = {1.0, 0., 0.};
     gimp_curve_view_set_curve (curve_view,
                                  curve, &color);
-    curve_notify_handler = g_signal_connect_delegator(G_OBJECT(curve), "notify::points",
-                                                      Delegator::delegator(this, &CurveViewActions::notify_curve));      
+    curve_notify_handler = 
+      delegator(curve, this).connecth("notify::points", &CurveViewActions::notify_curve);      
     
     update_range_parameters();        
 

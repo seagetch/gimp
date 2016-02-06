@@ -137,8 +137,8 @@ MypaintPopupPrivate::update_history ()
     GtkTreeIter iter;
     GimpMypaintBrush* brush = history->get_brush(i);
     if (brush) {
-      GWrapper<GimpMypaintBrush> brush_obj = brush;
-      StringHolder name = g_strdup(brush_obj.get("name"));
+      auto brush_obj = _G(brush);
+      StringHolder name = g_strdup(brush_obj["name"]);
       g_print("%d: brush %s\n", i, name.ptr());
       GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(brush->p);
       gtk_list_store_append(store, &iter);
@@ -281,11 +281,9 @@ MypaintPopupPrivate::create (GObject* object,
   g_object_set(G_OBJECT(renderer), "editable", TRUE, NULL);
   gtk_tree_view_append_column(GTK_TREE_VIEW(history), column);
 
-  g_signal_connect_delegator(G_OBJECT(renderer), "edited",
-                             Delegator::delegator(this, &MypaintPopupPrivate::history_name_edited));
+  delegator(renderer, this).connect("edited",&MypaintPopupPrivate::history_name_edited);
 
-  g_signal_connect_delegator(G_OBJECT(history), "cursor-changed",
-                             Delegator::delegator(this, &MypaintPopupPrivate::history_cursor_changed));
+  delegator(history, this).connect("cursor-changed", &MypaintPopupPrivate::history_cursor_changed);
 
   gtk_widget_show (GTK_WIDGET (history));
   gtk_notebook_insert_page (GTK_NOTEBOOK (*result), GTK_WIDGET (history), 
@@ -295,9 +293,9 @@ MypaintPopupPrivate::create (GObject* object,
   page_reminder.bind_to(GTK_NOTEBOOK (*result));
 
   brush_changed_handler = 
-    g_signal_connect_delegator (G_OBJECT(context),
-                                gimp_context_type_to_signal_name (GIMP_TYPE_MYPAINT_BRUSH),
-                                Delegator::delegator(this, &MypaintPopupPrivate::brush_changed));
+    delegator(context, this)
+      .connecth(gimp_context_type_to_signal_name (GIMP_TYPE_MYPAINT_BRUSH),
+                &MypaintPopupPrivate::brush_changed);
 
 /*
 //  g_signal_connect (brush, "notify", G_CALLBACK (notify_brush), p);
@@ -307,8 +305,7 @@ MypaintPopupPrivate::create (GObject* object,
   children = gtk_container_get_children (GTK_CONTAINER (table));  
   gimp_tool_options_setup_popup_layout (children, FALSE);
   
-  g_signal_connect_delegator (G_OBJECT (*result), "destroy", 
-                              Delegator::delegator(this, &MypaintPopupPrivate::destroy));
+  delegator(*result, this).connect("destroy", &MypaintPopupPrivate::destroy);
 }
 
 extern "C" {
