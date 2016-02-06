@@ -37,6 +37,7 @@ gimp_device_info_get_event_coords (GimpDeviceInfo *info,
                                    GimpCoords     *coords)
 {
   gdouble x;
+  g_print("gimp_device_info_get_event_coords:dev=%s\n", gdk_device_get_name(info->device));
 
   if (gdk_event_get_axis (event, GDK_AXIS_X, &x))
     {
@@ -120,6 +121,7 @@ gimp_device_info_get_device_coords (GimpDeviceInfo *info,
   gdouble axes[GDK_AXIS_LAST] = { 0, };
 
   *coords = default_coords;
+  g_print("gimp_device_info_get_device_coords:dev=%s\n", gdk_device_get_name(info->device));
 
   gdk_device_get_state (info->device, window, axes, NULL);
 
@@ -225,5 +227,6 @@ gimp_device_info_get_device_state (GimpDeviceInfo  *info,
                                    GdkWindow       *window,
                                    GdkModifierType *state)
 {
+  g_print("gimp_device_info_get_device_state:dev=%lx\n", (gulong)info->device);
   gdk_device_get_state (info->device, window, NULL, state);
 }

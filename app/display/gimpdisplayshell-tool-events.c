@@ -1969,11 +1969,13 @@ gimp_display_shell_get_event_coords (GimpDisplayShell *shell,
 
   manager = gimp_devices_get_manager (gimp);
   current_device = gimp_device_manager_get_current_device (manager);
+//  g_print("gimp_display_shell_get_event_coords:win=%lx\n", (gulong)gtk_widget_get_window(shell->canvas));
 
   gimp_device_info_get_event_coords (current_device,
                                      gtk_widget_get_window (shell->canvas),
                                      event,
                                      display_coords);
+//  g_print("-->gimp_device_info_get_event_state:\n" );
 
   gimp_device_info_get_event_state (current_device,
                                     gtk_widget_get_window (shell->canvas),
