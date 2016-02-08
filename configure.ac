@@ -167,7 +167,7 @@ AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE, "$GETTEXT_PACKAGE",
 # Determine a CXX compiler to use
 AC_PROG_CXX
 AC_PROG_CXX_C_O
-AX_CXX_COMPILE_STDCXX_11
+AX_CXX_COMPILE_STDCXX([11],[ext],[mandatory])
 
 # Determine a C compiler to use
 AC_PROG_CC
