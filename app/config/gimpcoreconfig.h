@@ -62,6 +62,8 @@ struct _GimpCoreConfig
   gchar                  *font_path_writable;  /*  unused  */
   gchar                  *mypaint_brush_path;
   gchar                  *mypaint_brush_path_writable;
+  gchar                  *webview_html_path;
+  gchar                  *webview_html_path_writable;  /*  unused  */
   gchar                  *default_brush;
   gchar                  *default_dynamics;
   gchar                  *default_pattern;

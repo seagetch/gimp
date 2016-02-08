@@ -67,6 +67,7 @@ struct _GimpGuiConfig
   GimpWindowHint       dock_window_hint;
   GimpCursorFormat     cursor_format;
   GimpHandedness       cursor_handedness;
+  gboolean             use_web_view;
 
   /* saved in sessionrc */
   gboolean             hide_docks;

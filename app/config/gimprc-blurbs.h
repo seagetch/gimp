@@ -187,6 +187,11 @@ N_("When enabled, the selected pattern will be used for all tools.")
 
 #define MYPAINT_BRUSH_PATH_WRITABLE_BLURB ""
 
+#define WEBVIEW_HTML_PATH_BLURB \
+"Where to locate html files for webview template."
+
+#define WEBVIEW_HTML_PATH_WRITABLE_BLURB ""
+
 #define HELP_BROWSER_BLURB \
 N_("Sets the browser used by the help system.")
 

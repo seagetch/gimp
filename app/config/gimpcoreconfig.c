@@ -75,6 +75,8 @@ enum
   PROP_FONT_PATH_WRITABLE,
   PROP_MYPAINT_BRUSH_PATH,
   PROP_MYPAINT_BRUSH_PATH_WRITABLE,
+  PROP_WEBVIEW_HTML_PATH,
+  PROP_WEBVIEW_HTML_PATH_WRITABLE,
   PROP_DEFAULT_BRUSH,
   PROP_DEFAULT_DYNAMICS,
   PROP_DEFAULT_PATTERN,
@@ -329,6 +331,19 @@ gimp_core_config_class_init (GimpCoreConfigClass *klass)
                                  GIMP_PARAM_STATIC_STRINGS |
                                  GIMP_CONFIG_PARAM_RESTART);
   g_free (path);
+
+  path = gimp_config_build_data_path ("webview");
+  GIMP_CONFIG_INSTALL_PROP_PATH (object_class, PROP_WEBVIEW_HTML_PATH,
+                                 "webview-html-path", WEBVIEW_HTML_PATH_BLURB,
+                                 GIMP_CONFIG_PATH_DIR_LIST, path,
+                                 GIMP_PARAM_STATIC_STRINGS |
+                                 GIMP_CONFIG_PARAM_RESTART);
+  g_free (path);
+  GIMP_CONFIG_INSTALL_PROP_PATH (object_class, PROP_WEBVIEW_HTML_PATH_WRITABLE,
+                                 "webview-html-path-writable", NULL,
+                                 GIMP_CONFIG_PATH_DIR_LIST, NULL,
+                                 GIMP_PARAM_STATIC_STRINGS |
+                                 GIMP_CONFIG_PARAM_IGNORE);
 
   GIMP_CONFIG_INSTALL_PROP_STRING (object_class, PROP_DEFAULT_BRUSH,
                                    "default-brush", DEFAULT_BRUSH_BLURB,

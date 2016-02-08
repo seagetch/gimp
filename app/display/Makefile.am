@@ -10,7 +10,11 @@ INCLUDES = \
 	-I$(top_srcdir)/app	\
 	$(GEGL_CFLAGS)		\
 	$(GTK_CFLAGS)		\
-	-I$(includedir)
+	-I$(includedir)		\
+	$(WEBKIT_CFLAGS)
+
+LDDADD = \
+	$(WEBKIT_LIBS)
 
 noinst_LIBRARIES = libappdisplay.a
 
@@ -129,6 +133,9 @@ libappdisplay_a_sources = \
 	gimpdisplayshell-transform.h		\
 	gimpimagewindow.c			\
 	gimpimagewindow.h			\
+	gimpimagewindow-webview.cpp		\
+	gimpimagewindow-webview.h		\
+        gimpimagewindow-private.h		\
 	gimpmotionbuffer.c			\
 	gimpmotionbuffer.h			\
 	gimpmultiwindowstrategy.c		\

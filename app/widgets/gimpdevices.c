@@ -255,6 +255,8 @@ gimp_devices_check_callback (GtkWidget *widget,
   g_return_val_if_fail (event != NULL, FALSE);
   g_return_val_if_fail (GIMP_IS_GIMP (gimp), FALSE);
 
+  g_print("gimp_devices_check_callback*%s(%lx)\n", gtk_widget_get_name(widget), (gulong)widget);
+
   if (! gimp->busy)
     gimp_devices_check_change (gimp, event);
 

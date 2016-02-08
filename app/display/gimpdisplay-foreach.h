@@ -25,7 +25,7 @@ void            gimp_displays_delete           (Gimp      *gimp);
 void            gimp_displays_close            (Gimp      *gimp);
 void            gimp_displays_reconnect        (Gimp      *gimp,
                                                 GimpImage *old,
-                                                GimpImage *new);
+                                                GimpImage *_new);
 
 gint            gimp_displays_get_num_visible  (Gimp      *gimp);
 

@@ -54,6 +54,7 @@ static void       gimp_canvas_get_property    (GObject         *object,
                                                GValue          *value,
                                                GParamSpec      *pspec);
 
+static void       gimp_canvas_realize         (GtkWidget       *widget);
 static void       gimp_canvas_unrealize       (GtkWidget       *widget);
 static void       gimp_canvas_style_set       (GtkWidget       *widget,
                                                GtkStyle        *prev_style);
@@ -79,6 +80,7 @@ gimp_canvas_class_init (GimpCanvasClass *klass)
   object_class->set_property    = gimp_canvas_set_property;
   object_class->get_property    = gimp_canvas_get_property;
 
+  widget_class->realize         = gimp_canvas_realize;
   widget_class->unrealize       = gimp_canvas_unrealize;
   widget_class->style_set       = gimp_canvas_style_set;
   widget_class->focus_in_event  = gimp_canvas_focus_in_event;
@@ -99,7 +101,7 @@ gimp_canvas_init (GimpCanvas *canvas)
 
   gtk_widget_set_can_focus (widget, TRUE);
   gtk_widget_add_events (widget, GIMP_CANVAS_EVENT_MASK);
-  gtk_widget_set_extension_events (widget, GDK_EXTENSION_EVENTS_ALL);
+//  gtk_widget_set_extension_events (widget, GDK_EXTENSION_EVENTS_ALL);
 }
 
 static void
@@ -140,6 +142,17 @@ gimp_canvas_get_property (GObject    *object,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
     }
+}
+
+static void
+gimp_canvas_realize (GtkWidget *widget)
+{
+  GdkExtensionMode mask;
+  g_print("gimp_canvas_realize\n");
+  GTK_WIDGET_CLASS (parent_class)->realize (widget);
+  gtk_widget_set_extension_events (widget, GDK_EXTENSION_EVENTS_ALL);
+  mask = gtk_widget_get_extension_events (widget);
+  g_print("--->mask=%lx\n",(gulong)mask);
 }
 
 static void
