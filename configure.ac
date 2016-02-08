@@ -67,7 +67,7 @@ m4_define([lcms2_required_version], [2.2])
 m4_define([libpng_required_version], [1.2.37])
 m4_define([gtk_mac_integration_required_version], [2.0.0])
 m4_define([python2_required_version], [2.5.0])
-m4_define([jansson_required_version],[2.7])
+m4_define([jansson_required_version],[2.5])
 
 # Current test considers only 2 version numbers. If we update the recommended
 # version of gettext with more version numbers, please update the tests.

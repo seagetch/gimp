@@ -332,7 +332,7 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
       MyPaintBrushSwitchSettings             *setting;
       setting = switches_dict[key];
       if (setting) {
-        priv->set_bool_value(setting->index, json_boolean_value(value));
+        priv->set_bool_value(setting->index, json_is_true(value));
       } else {
         g_print ("unknown key '%s'\n", key);
       }
