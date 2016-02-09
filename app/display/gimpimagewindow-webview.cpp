@@ -24,6 +24,8 @@ extern "C" {
 #include <gegl.h>
 #include <gtk/gtk.h>
 
+#include "libgimpconfig/gimpconfig.h"
+#include "libgimpbase/gimpbase.h"
 #include "libgimpmath/gimpmath.h"
 #include "libgimpwidgets/gimpwidgets.h"
 
@@ -84,6 +86,7 @@ extern "C" {
 static GimpContext* image_window_get_context(GimpImageWindow* window);
 }
 
+/////////////////////////////////////////////////////////////////////////////
 class ActiveShellConfigurator {
 private:
   CXXPointer<Delegator::Connection> handler;
@@ -128,7 +131,7 @@ public:
     gtk_container_remove(container, child);
   }
 };
-
+/////////////////////////////////////////////////////////////////////////////
 class GimpImageWindowWebviewPrivate {
 private:
   GimpImageWindow* window;
@@ -254,13 +257,38 @@ navigation_policy_decision_requested(WebKitWebView* view,
 
 void
 GimpImageWindowWebviewPrivate::
-on_show(WebKitWebView* view) {
+on_show(WebKitWebView* _view) {
   on_show_handler->disconnect();
 
   // Get file name from config
-  StringHolder filename = g_strdup("/tmp/template.html");
-  StringHolder file_uri = g_strdup_printf("file://%s", filename.ptr());
-  _G(view)[webkit_web_view_load_uri](file_uri);
+  GimpImageWindowPrivate* win_private = GIMP_IMAGE_WINDOW_GET_PRIVATE (window);
+  auto view = _G(_view);
+  auto config = _G(win_private->gimp->config);
+
+  StringHolder path_origin          = g_strdup(config["webview-html-path"]);
+  StringHolder writable_path_origin = g_strdup(config["webview-html-path-writable"]);
+  StringHolder writable_path        = gimp_config_path_expand (writable_path_origin, TRUE, NULL);
+  StringHolder readable_path        = gimp_config_path_expand (path_origin, TRUE, NULL);
+
+  auto try_load = [&](gchar* path) {
+    GListHolder writable_list = path?
+      gimp_path_parse (path, 256, TRUE, NULL) : NULL;
+
+    for (GList* item = writable_list.ptr(); item; item = g_list_next(item)) {
+      gchar* path = (gchar*)item->data;
+      StringHolder filename = g_strdup_printf("%s/index.html", path);
+      if (g_file_test(filename, G_FILE_TEST_IS_REGULAR)) {
+        g_print("Read html from %s\n", filename.ptr());
+        StringHolder file_uri = g_strdup_printf("file://%s", filename.ptr());
+        view[webkit_web_view_load_uri](file_uri);
+        return true;
+      }
+    }
+    return false;
+  };
+  try_load(writable_path.ptr()) ||
+  try_load(readable_path.ptr()) ||
+  [&]{ view[webkit_web_view_load_uri](""); return true; }();
 }
 
 GtkWidget* 

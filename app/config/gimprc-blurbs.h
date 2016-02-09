@@ -77,6 +77,9 @@ N_("When enabled, this will ensure that each pixel of an image gets " \
 #define DEFAULT_MYPAINT_BRUSH_BLURB \
 "Specify a default mypaint-compatible brush."
 
+#define DEFAULT_WEBVIEW_BLURB \
+"Specify a webview path."
+
 #define DEFAULT_GRADIENT_BLURB \
 "Specify a default gradient."
 
@@ -164,6 +167,9 @@ N_("When enabled, the selected dynamics will be used for all tools.")
 
 #define GLOBAL_MYPAINT_BRUSH_BLURB \
 "When enabled, the selected mypaint-compatible brush will be used for all tools."
+
+#define GLOBAL_WEBVIEW_BLURB \
+"When enabled, the selected webview will be used for user interface."
 
 #define GLOBAL_GRADIENT_BLURB \
 N_("When enabled, the selected gradient will be used for all tools.")

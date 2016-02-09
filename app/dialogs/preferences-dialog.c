@@ -2798,7 +2798,11 @@ prefs_dialog_new (Gimp       *gimp,
       { N_("Mypaint"), N_("Mypaint Brush Folders"), "folders-mypaint-brushes",
         GIMP_HELP_PREFS_FOLDERS_MYPAINT_BRUSHES,
         N_("Select Mypaint Brush Folders"),
-        "mypaint-brush-path", "mypaint-brush-path-writable", NULL }
+        "mypaint-brush-path", "mypaint-brush-path-writable", NULL },
+       { N_("Webview"), N_("Webview Folders"), "folders-webview",
+        GIMP_HELP_PREFS_FOLDERS_WEBVIEW,
+        N_("Select Webview Folders"),
+        "webview-path", "webview-path-writable", NULL }
     };
 
     for (i = 0; i < G_N_ELEMENTS (paths); i++)

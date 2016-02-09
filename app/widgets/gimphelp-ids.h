@@ -470,6 +470,7 @@
 #define GIMP_HELP_PREFS_FOLDERS_ENVIRONMENT       "gimp-prefs-folders-environment"
 #define GIMP_HELP_PREFS_FOLDERS_THEMES            "gimp-prefs-folders-themes"
 #define GIMP_HELP_PREFS_FOLDERS_MYPAINT_BRUSHES   "gimp-prefs-folders-mypaint-brushes"
+#define GIMP_HELP_PREFS_FOLDERS_WEBVIEW           "gimp-prefs-folders-webview"
 
 #define GIMP_HELP_INPUT_DEVICES                   "gimp-help-input-devices"
 #define GIMP_HELP_KEYBOARD_SHORTCUTS              "gimp-help-keyboard-shortcuts"

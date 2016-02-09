@@ -339,11 +339,13 @@ gimp_core_config_class_init (GimpCoreConfigClass *klass)
                                  GIMP_PARAM_STATIC_STRINGS |
                                  GIMP_CONFIG_PARAM_RESTART);
   g_free (path);
+  path = gimp_config_build_writable_path ("webview");
   GIMP_CONFIG_INSTALL_PROP_PATH (object_class, PROP_WEBVIEW_HTML_PATH_WRITABLE,
                                  "webview-html-path-writable", NULL,
-                                 GIMP_CONFIG_PATH_DIR_LIST, NULL,
+                                 GIMP_CONFIG_PATH_DIR_LIST, path,
                                  GIMP_PARAM_STATIC_STRINGS |
-                                 GIMP_CONFIG_PARAM_IGNORE);
+                                 GIMP_CONFIG_PARAM_RESTART);
+  g_free (path);
 
   GIMP_CONFIG_INSTALL_PROP_STRING (object_class, PROP_DEFAULT_BRUSH,
                                    "default-brush", DEFAULT_BRUSH_BLURB,
@@ -674,6 +676,14 @@ gimp_core_config_set_property (GObject      *object,
       g_free (core_config->mypaint_brush_path_writable);
       core_config->mypaint_brush_path_writable = g_value_dup_string (value);
       break;
+    case PROP_WEBVIEW_HTML_PATH:
+      g_free (core_config->webview_html_path);
+      core_config->webview_html_path = g_value_dup_string (value);
+      break;
+    case PROP_WEBVIEW_HTML_PATH_WRITABLE:
+      g_free (core_config->webview_html_path_writable);
+      core_config->webview_html_path_writable = g_value_dup_string (value);
+      break;
     case PROP_DEFAULT_BRUSH:
       g_free (core_config->default_brush);
       core_config->default_brush = g_value_dup_string (value);
@@ -872,6 +882,12 @@ gimp_core_config_get_property (GObject    *object,
       break;
     case PROP_MYPAINT_BRUSH_PATH_WRITABLE:
       g_value_set_string (value, core_config->mypaint_brush_path_writable);
+      break;
+    case PROP_WEBVIEW_HTML_PATH:
+      g_value_set_string (value, core_config->webview_html_path);
+      break;
+    case PROP_WEBVIEW_HTML_PATH_WRITABLE:
+      g_value_set_string (value, core_config->webview_html_path_writable);
       break;
     case PROP_DEFAULT_BRUSH:
       g_value_set_string (value, core_config->default_brush);
