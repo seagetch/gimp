@@ -318,6 +318,26 @@ public:
   }
 };
 
+template<typename Type, typename Arg0, typename Arg1, typename Arg2, typename Arg3>
+class ObjectDelegator_arg3<Type, void, Arg0, Arg1, Arg2, Arg3>: 
+  public Delegator<void (*)(Arg0,Arg1, Arg2, Arg3)> 
+{
+public:
+  typedef Type type;
+  typedef void (Type::*Function)(Arg0, Arg1 a1, Arg2 a2, Arg3 a3);
+
+private:  
+  Type*    obj;
+  Function func_ptr;
+
+public:
+  ObjectDelegator_arg3(Type* o, Function f) : obj(o), func_ptr(f) {};
+  void emit(Arg0 t, Arg1 a1, Arg2 a2, Arg3 a3) {
+    if (obj)
+      (obj->*func_ptr)(t, a1, a2, a3);
+  }
+};
+
 template<typename Type, typename Ret, typename Arg0, typename Arg1, typename Arg2, typename Arg3, typename Arg4>
 class ObjectDelegator_arg4 :
   public Delegator<Ret (*)(Arg0,Arg1, Arg2, Arg3, Arg4)> 
@@ -342,6 +362,25 @@ public:
   }
 };
 
+template<typename Type, typename Arg0, typename Arg1, typename Arg2, typename Arg3, typename Arg4>
+class ObjectDelegator_arg4<Type, void, Arg0, Arg1, Arg2, Arg3, Arg4> :
+  public Delegator<void (*)(Arg0,Arg1, Arg2, Arg3, Arg4)> 
+{
+public:
+  typedef Type type;
+  typedef void (Type::*Function)(Arg0, Arg1 a1, Arg2 a2, Arg3 a3, Arg4 a4);
+
+private:  
+  Type*    obj;
+  Function func_ptr;
+
+public:
+  ObjectDelegator_arg4(Type* o, Function f) : obj(o), func_ptr(f) {};
+  void emit(Arg0 t, Arg1 a1, Arg2 a2, Arg3 a3, Arg4 a4) {
+    if (obj)
+      (obj->*func_ptr)(t, a1, a2, a3, a4);
+  }
+};
 ///////////////////////////////////////////////////////////////////////////////
 template<typename Ret, typename Arg0>
 class FunctionDelegator_arg0 :

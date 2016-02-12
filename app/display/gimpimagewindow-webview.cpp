@@ -114,10 +114,10 @@ public:
                         RouteMapperClass::glib_instance,
                         RouteMapperClass, RouteMapper>();
   }
-  void init() {
-    GLib::CXXClass<RouteMapper>::init();
+  virtual void class_init() {
+    GLib::CXXClass<RouteMapper>::class_init();
     _property("prop1", &RouteMapper::get_prop1, &RouteMapper::set_prop1, -100, 100, 0);
-    _signal<void, int>("test-signal1");
+    _signal<void, int, int, int, int>("test-signal1");
   };
 };
 
@@ -128,11 +128,13 @@ RouteMapper* RouteMapper::new_instance() {
 void RouteMapper::finalize() {
   auto object_class = G_OBJECT_CLASS(GLib::get_singleton<RouteMapperClass>()->get_parent());
   object_class->finalize(G_OBJECT(_gobj));
+  g_print("RouteMapper::finalize\n");
 }
 
 void RouteMapper::dispose() {
   auto object_class = G_OBJECT_CLASS(GLib::get_singleton<RouteMapperClass>()->get_parent());
   object_class->dispose(G_OBJECT(_gobj));
+  g_print("RouteMapper::dispose\n");
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -205,8 +207,8 @@ public:
 
   void on_show(WebKitWebView* widget);
   GtkWidget* create(GimpImageWindow* window);
-  void test_handler(RouteMapper* mapper, int id) {
-    g_print("Signal::test-1\n");
+  void test_handler(RouteMapper* mapper, int a1, int a2, int a3, int a4) {
+    g_print("Signal::test-1(%d,%d,%d,%d)\n",a1,a2,a3,a4);
   }
 };
 
@@ -344,6 +346,7 @@ on_show(WebKitWebView* _view) {
   mapper.set("prop1", 5);
   g_print("PROPERTY=%d\n", (int)mapper["prop1"]);
   mapper.connect("test-signal1", Delegator::delegator(this, &GimpImageWindowWebviewPrivate::test_handler));
+  reinterpret_cast<RouteMapper*>(mapper->cxx_instance)->emit("test-signal1", 1, 2, 3, 4);
   try_load(writable_path.ptr()) ||
   try_load(readable_path.ptr()) ||
   [&]{ view[webkit_web_view_load_uri](""); return true; }();

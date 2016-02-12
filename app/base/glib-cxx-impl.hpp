@@ -81,11 +81,16 @@ protected:
   glib_instance* _gobj;
 public:
   CXXInstance() { };
-  virtual ~CXXInstance() {};
+  virtual ~CXXInstance() { this->finalize(); };
   virtual void finalize() {};
   virtual void dispose() {};
   glib_instance* gobj() { return _gobj; };
   void gobj(glib_instance* ins) { _gobj = ins; };
+
+  template<typename... Args>
+  void emit(const gchar* name, Args... args) {
+    g_signal_emit_by_name(_gobj, name, args...);
+  }
 };
 
 
@@ -101,7 +106,9 @@ protected:
   gsize g_define_type_id__volatile;
   GType (*accessor)();
   const gchar* classname;
-  
+
+  /////// Property /////////////////////////////////////////////////
+  // [ Setter / Getter ]
   struct PropertyHandler {
     virtual ~PropertyHandler() {}
     virtual bool can_get() = 0;
@@ -109,6 +116,7 @@ protected:
     virtual void get(cxx_instance* instance, GValue *value) = 0;
     virtual void set(cxx_instance* instance, const GValue *value) = 0;
   };
+  std::vector<PropertyHandler*> properties;
 
   #define DECLARE_ACCESSOR(Target, type) \
     Target (cxx_instance::*getter)(); \
@@ -149,88 +157,7 @@ protected:
   #undef DECLARE_ACCESSOR
   #undef DECLARE_SPECIAL_ACCESSOR
 
-  std::vector<guint> signals;
-  std::vector<PropertyHandler*> properties;
-
-  template<typename Ret, Ret(cxx_instance::*func_ptr)()>
-  static Ret _wrap(cxx_instance* instance) {
-    return (instance->*func_ptr)();
-  };
-
-  template<void(cxx_instance::*func_ptr)()>
-  static void _wrap(cxx_instance* instance) {
-    (instance->*func_ptr)();
-  };
-
-  template<typename Ret, typename A1, Ret(cxx_instance::*func_ptr)(A1)>
-  static Ret _wrap(cxx_instance* instance, A1 a1) {
-    return (instance->*func_ptr)(a1);
-  };
-
-  template<typename A1, void(cxx_instance::*func_ptr)(A1)>
-  static void _wrap(cxx_instance* instance, A1 a1) {
-    (instance->*func_ptr)(a1);
-  };
-
-  template<typename Ret, typename A1, typename A2, Ret(cxx_instance::*func_ptr)(A1, A2)>
-  static Ret _wrap(cxx_instance* instance, A1 a1, A2 a2) {
-    return (instance->*func_ptr)(a1, a2);
-  };
-
-  template<typename A1, typename A2, void(cxx_instance::*func_ptr)(A1, A2)>
-  static void _wrap(cxx_instance* instance, A1 a1, A2 a2) {
-    (instance->*func_ptr)(a1, a2);
-  };
-
-  template<typename Ret, typename A1, typename A2, typename A3, Ret(cxx_instance::*func_ptr)(A1, A2, A3)>
-  static Ret _wrap(cxx_instance* instance, A1 a1, A2 a2, A3 a3) {
-    return (instance->*func_ptr)(a1, a2, a3);
-  };
-
-  template<typename A1, typename A2, typename A3, void(cxx_instance::*func_ptr)(A1, A2, A3)>
-  static void _wrap(cxx_instance* instance, A1 a1, A2 a2, A3 a3) {
-    (instance->*func_ptr)(a1, a2, a3);
-  };
-
-  template<typename Ret, typename A1, typename A2, typename A3, typename A4, Ret(cxx_instance::*func_ptr)(A1, A2, A3, A4)>
-  static Ret _wrap(cxx_instance* instance, A1 a1, A2 a2, A3 a3, A4 a4) {
-    (instance->*func_ptr)(a1, a2, a3, a4);
-  };
-
-  template<typename A1, typename A2, typename A3, typename A4, void(cxx_instance::*func_ptr)(A1, A2, A3, A4)>
-  static void _wrap(cxx_instance* instance, A1 a1, A2 a2, A3 a3, A4 a4) {
-    (instance->*func_ptr)(a1, a2, a3, a4);
-  };
-
-  template<typename Ret, typename A1, typename A2, typename A3, typename A4, typename A5, Ret(cxx_instance::*func_ptr)(A1, A2, A3, A4, A5)>
-  static Ret _wrap(cxx_instance* instance, A1 a1, A2 a2, A3 a3, A4 a4, A5 a5) {
-    (instance->*func_ptr)(a1, a2, a3, a4, a5);
-  };
-
-  template<typename A1, typename A2, typename A3, typename A4, typename A5, void(cxx_instance::*func_ptr)(A1, A2, A3, A4, A5)>
-  static void _wrap(cxx_instance* instance, A1 a1, A2 a2, A3 a3, A4 a4, A5 a5) {
-    (instance->*func_ptr)(a1, a2, a3, a4, a5);
-  };
-  
-  template<typename Dst, typename Src>
-  static void _bind(Dst& dst, Src src) {
-    dst = reinterpret_cast<Dst>(src);
-  }
-
-  template<typename Ret>
-  void _signal(const gchar* signal_name, guint flags = G_SIGNAL_RUN_FIRST) {
-    g_signal_new (signal_name, G_TYPE_FROM_CLASS (gclass),
-                  (GSignalFlags)flags, 0, NULL, NULL,
-                  NULL, GTypeTraits<Ret>::get_type(), 0);
-  }
-
-  template<typename Ret, typename... As>
-  void _signal(const gchar* signal_name, guint flags = G_SIGNAL_RUN_FIRST) {
-    g_signal_new (signal_name, G_TYPE_FROM_CLASS (gclass),
-                  (GSignalFlags)flags, 0, NULL, NULL,
-                  NULL, GTypeTraits<Ret>::get_type(), sizeof...(As), GTypeTraits<As...>::get_type());
-  }
-  
+  // [ C callbacks ]
   static void 
   _get_property (glib_instance*   obj,
                  guint      property_id,
@@ -286,6 +213,7 @@ protected:
   DECLARE_PARAM_SPEC(gulong, ulong);
   DECLARE_PARAM_SPEC(float, float);
   DECLARE_PARAM_SPEC(double, double);
+  #undef DECLARE_PARAM_SPEC
   
   template<typename T, typename... Args>
   void _property(const gchar* name, 
@@ -305,9 +233,56 @@ protected:
 
     g_object_class_install_property(G_OBJECT_CLASS(gclass), properties.size() + 1,
       param_spec(name, flags, args...));
-//      g_param_spec_object(name, NULL, NULL, GTypeTraits<T>::get_type(), (GParamFlags)flags));
 
     properties.push_back(handler);
+  }
+
+
+  // [ Function overloading: Convert function(obj, args...) to obj->method(args...) ]
+  template<typename Ret, typename... As, Ret(cxx_instance::*func_ptr)(As...)>
+  static Ret _wrap(cxx_instance* instance, As... as) {
+    return (instance->*func_ptr)(as...);
+  };
+
+  template<typename... As, void(cxx_instance::*func_ptr)(As...)>
+  static void _wrap(cxx_instance* instance, As... as) {
+    (instance->*func_ptr)(as...);
+  };
+  
+  template<typename As, void(cxx_instance::*func_ptr)(As)>
+  static void _wrap(cxx_instance* instance, As as) {
+    (instance->*func_ptr)(as);
+  };
+
+  template<typename Ret, Ret(cxx_instance::*func_ptr)()>
+  static Ret _wrap(cxx_instance* instance) {
+    return (instance->*func_ptr)();
+  };
+
+  template<void(cxx_instance::*func_ptr)()>
+  static void _wrap(cxx_instance* instance) {
+    (instance->*func_ptr)();
+  };
+
+  template<typename Dst, typename Src>
+  static void _bind(Dst& dst, Src src) {
+    dst = reinterpret_cast<Dst>(src);
+  }
+  
+  /////// Signal / Slot /////////////////////////////////////////////////
+  std::vector<guint> signals;
+  template<typename Ret>
+  void _signal(const gchar* signal_name, guint flags = G_SIGNAL_RUN_FIRST) {
+    g_signal_new (signal_name, G_TYPE_FROM_CLASS (gclass),
+                  (GSignalFlags)flags, 0, NULL, NULL,
+                  NULL, GTypeTraits<Ret>::get_type(), 0);
+  }
+
+  template<typename Ret, typename... As>
+  void _signal(const gchar* signal_name, guint flags = G_SIGNAL_RUN_FIRST) {
+    g_signal_new (signal_name, G_TYPE_FROM_CLASS (gclass),
+                  (GSignalFlags)flags, 0, NULL, NULL,
+                  NULL, GTypeTraits<Ret>::get_type(), sizeof...(As), GTypeTraits<As>::get_type()...);
   }
   
 public:
@@ -318,26 +293,32 @@ public:
     classname = name;
   }
   
-  virtual void init() {
-    _parent_class = g_type_class_peek_parent (gclass);
-    GObjectClass      *object_class   = G_OBJECT_CLASS (gclass);
-    _bind(object_class->finalize,     _wrap<&cxx_instance::finalize>);
-    _bind(object_class->dispose ,     _wrap<&cxx_instance::dispose>);
-    _bind(object_class->get_property, _get_property);
-    _bind(object_class->set_property, _set_property);
-  };
-  
   virtual ~CXXClass() {
   };
   
   gpointer get_parent() { return _parent_class; }
 
+  virtual void class_init() {
+    _parent_class = g_type_class_peek_parent (gclass);
+    GObjectClass      *object_class   = G_OBJECT_CLASS (gclass);
+    _bind(object_class->finalize,     (GCallback)&cxx_class::instance_finalize);
+    _bind(object_class->dispose ,     _wrap<&cxx_instance::dispose>);
+    _bind(object_class->get_property, _get_property);
+    _bind(object_class->set_property, _set_property);
+  };
+  
   template<class cxx_instance>
   static void     instance_init(glib_instance *self) {
     cxx_instance* impl = new cxx_instance();
     self->cxx_instance = impl;
     impl->gobj(self);
   };
+  
+  static void     instance_finalize(glib_instance* self) {
+    g_print("CXXInstance::finalize process...\n");
+    cxx_instance* impl = (cxx_instance*)self->cxx_instance;
+    delete impl;
+  }
 
   template<class cxx_class>
   static void     class_intern_init (gpointer klass) {
@@ -346,7 +327,7 @@ public:
 
     gclass->cxx_class = cclass;
     cclass->gclass = gclass;
-    cclass->init();
+    cclass->class_init();
   };
   
   virtual glib_instance* cast(gpointer ptr) {
