@@ -29,7 +29,7 @@ template<class T, typename Destructor, Destructor* f>
 class ScopedPointer : public ScopeGuard<T*, Destructor, f, is_null<T*> > {
 public:
   ScopedPointer(T* ptr) : ScopeGuard<T*, Destructor, f, is_null<T*> >(ptr) {};
-  T* ptr() { return ScopeGuard<T*, Destructor, f, is_null<T*> >::ref(); };
+  T* ptr() { return this->ref(); };
   T* operator ->() { return ptr(); };
   T& operator *() { return *ptr(); ;}
   operator T*() { return ptr(); };
@@ -46,19 +46,32 @@ void destroy_instance(T* instance)
 
 
 template<class T>
-class CXXPointer : ScopedPointer<T, void(T*), destroy_instance<T> >
+class CXXPointer : public ScopedPointer<T, void(T*), destroy_instance<T> >
 {
   typedef ScopedPointer<T, void(T*), destroy_instance<T> > super;
 public:
   CXXPointer() : super(NULL) { };
   CXXPointer(T* src) : super(src) { };
+  CXXPointer(const CXXPointer<T>& src) : super(src.obj) {
+    CXXPointer* src_ = (CXXPointer*)(&src);
+    src_->obj = NULL;
+  };
   T* operator ->() { return super::ptr(); }
   T& operator *() { return *super::ptr(); }
   operator T*() { return super::ptr(); }
-  T& operator=(T* src) {
+  CXXPointer& operator=(T* src) {
     if (!is_null(super::ptr()))
       destroy_instance(super::ptr());
     super::obj = src;
+    return *this;
+  };
+  CXXPointer& operator=(const CXXPointer<T>& src) {
+    if (!is_null(super::ptr()))
+      destroy_instance(super::ptr());
+    super::obj = src.obj;
+    CXXPointer* src_ = (CXXPointer*)(&src);
+    src_->obj = NULL;
+    return *this;
   };
 };
 

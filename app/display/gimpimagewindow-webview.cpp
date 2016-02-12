@@ -81,9 +81,58 @@ extern "C" {
 
 #include "base/delegators.hpp"
 #include "base/glib-cxx-utils.hpp"
+#include "base/glib-cxx-impl.hpp"
 
 extern "C" {
 static GimpContext* image_window_get_context(GimpImageWindow* window);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+class RouteMapper : public GLib::CXXInstance<GObjectClass, GObject> {
+private:
+  int prop1;
+public:
+  RouteMapper() : GLib::CXXInstance<GObjectClass, GObject>() {
+  };
+  virtual void finalize();
+  virtual void dispose();
+  int get_prop1() { 
+    g_print("get_prop1\n");
+    return prop1; };
+  void set_prop1(int v) { 
+    g_print("set_prop1\n");
+    prop1 = v; };
+
+  static RouteMapper* new_instance();
+};
+
+class RouteMapperClass : public GLib::CXXClass<RouteMapper> {
+public:
+  RouteMapperClass() : GLib::CXXClass<RouteMapper>(g_object_get_type, "RouteMapper") { }
+  virtual GType get_type() {
+    return get_type_for<RouteMapperClass::glib_class, 
+                        RouteMapperClass::glib_instance,
+                        RouteMapperClass, RouteMapper>();
+  }
+  void init() {
+    GLib::CXXClass<RouteMapper>::init();
+    _property("prop1", &RouteMapper::get_prop1, &RouteMapper::set_prop1, -100, 100, 0);
+    _signal<void, int>("test-signal1");
+  };
+};
+
+RouteMapper* RouteMapper::new_instance() {
+  GLib::get_singleton<RouteMapperClass>()->create();
+};
+
+void RouteMapper::finalize() {
+  auto object_class = G_OBJECT_CLASS(GLib::get_singleton<RouteMapperClass>()->get_parent());
+  object_class->finalize(G_OBJECT(_gobj));
+}
+
+void RouteMapper::dispose() {
+  auto object_class = G_OBJECT_CLASS(GLib::get_singleton<RouteMapperClass>()->get_parent());
+  object_class->dispose(G_OBJECT(_gobj));
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -137,6 +186,8 @@ private:
   GimpImageWindow* window;
   GtkWidget* wrap_widget(GtkWidget* widget, bool detach_on_destroy = true);
   CXXPointer<Delegator::Connection> on_show_handler;
+  
+  RouteMapper* mapper;
 public:
   GimpImageWindowWebviewPrivate() : window(NULL) { };
   GtkWidget* 
@@ -154,6 +205,9 @@ public:
 
   void on_show(WebKitWebView* widget);
   GtkWidget* create(GimpImageWindow* window);
+  void test_handler(RouteMapper* mapper, int id) {
+    g_print("Signal::test-1\n");
+  }
 };
 
 GtkWidget*
@@ -286,6 +340,10 @@ on_show(WebKitWebView* _view) {
     }
     return false;
   };
+  auto mapper = _G(GLib::get_singleton<RouteMapperClass>()->create());
+  mapper.set("prop1", 5);
+  g_print("PROPERTY=%d\n", (int)mapper["prop1"]);
+  mapper.connect("test-signal1", Delegator::delegator(this, &GimpImageWindowWebviewPrivate::test_handler));
   try_load(writable_path.ptr()) ||
   try_load(readable_path.ptr()) ||
   [&]{ view[webkit_web_view_load_uri](""); return true; }();
