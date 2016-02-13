@@ -385,5 +385,65 @@ public:
 
 /////////////////////////////////////////////////////////////////////////////
 
+#if 0
+//// Usage of the implementation.
+class RouteMapper : public GLib::CXXInstance<GObjectClass, GObject> {
+private:
+  int prop1;
+public:
+  RouteMapper() : GLib::CXXInstance<GObjectClass, GObject>() {
+  };
+  virtual void finalize();
+  virtual void dispose();
+  int get_prop1() { 
+    g_print("get_prop1\n");
+    return prop1; };
+  void set_prop1(int v) { 
+    g_print("set_prop1\n");
+    prop1 = v; };
+
+  static RouteMapper* new_instance();
+};
+
+class RouteMapperClass : public GLib::CXXClass<RouteMapper> {
+public:
+  RouteMapperClass() : GLib::CXXClass<RouteMapper>(g_object_get_type, "RouteMapper") { }
+  virtual GType get_type() {
+    return get_type_for<RouteMapperClass::glib_class, 
+                        RouteMapperClass::glib_instance,
+                        RouteMapperClass, RouteMapper>();
+  }
+  virtual void class_init() {
+    GLib::CXXClass<RouteMapper>::class_init();
+    _property("prop1", &RouteMapper::get_prop1, &RouteMapper::set_prop1, -100, 100, 0);
+    _signal<void, int, int, int, int>("test-signal1");
+  };
+};
+
+RouteMapper* RouteMapper::new_instance() {
+  GLib::get_singleton<RouteMapperClass>()->create();
+};
+
+void RouteMapper::finalize() {
+  auto object_class = G_OBJECT_CLASS(GLib::get_singleton<RouteMapperClass>()->get_parent());
+  object_class->finalize(G_OBJECT(_gobj));
+  g_print("RouteMapper::finalize\n");
+}
+
+void RouteMapper::dispose() {
+  auto object_class = G_OBJECT_CLASS(GLib::get_singleton<RouteMapperClass>()->get_parent());
+  object_class->dispose(G_OBJECT(_gobj));
+  g_print("RouteMapper::dispose\n");
+}
+
+{
+  auto mapper = _G(GLib::get_singleton<RouteMapperClass>()->create());
+  mapper.set("prop1", 5);
+  g_print("PROPERTY=%d\n", (int)mapper["prop1"]);
+  mapper.connect("test-signal1", Delegator::delegator(this, &GimpImageWindowWebviewPrivate::test_handler));
+  reinterpret_cast<RouteMapper*>(mapper->cxx_instance)->emit("test-signal1", 1, 2, 3, 4);
+}
+#endif
+
 };
 #endif

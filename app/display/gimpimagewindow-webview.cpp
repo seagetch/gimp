@@ -79,63 +79,186 @@ extern "C" {
 #include <webkit/webkit.h>
 }
 
+#include <cmath>
+#include <vector>
 #include "base/delegators.hpp"
 #include "base/glib-cxx-utils.hpp"
-#include "base/glib-cxx-impl.hpp"
 
 extern "C" {
 static GimpContext* image_window_get_context(GimpImageWindow* window);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-class RouteMapper : public GLib::CXXInstance<GObjectClass, GObject> {
-private:
-  int prop1;
+/// Class RouteMapper
+///  Manage mapping from URI to handler delegators.
+class RouteMapper {
 public:
-  RouteMapper() : GLib::CXXInstance<GObjectClass, GObject>() {
+  struct MatchedRoute {
+    char** path;
+    struct Data {
+      StringHolder name;
+      StringHolder value;
+      Data(const gchar* n, const gchar* v) : name(g_strdup(n)), value(g_strdup(v)) {}
+      Data(const Data& src) : name(g_strdup(src.name.ptr())), value(g_strdup(src.value.ptr())) {}
+    };
+    std::vector<Data> data;
+    MatchedRoute() : path(NULL) {}
+    MatchedRoute(const MatchedRoute& src) : path(g_strdupv((gchar**)src.path)), data(src.data) {}
+    ~MatchedRoute() {
+      if (path)
+        g_strfreev(path);
+      path = NULL;
+    }
   };
-  virtual void finalize();
-  virtual void dispose();
-  int get_prop1() { 
-    g_print("get_prop1\n");
-    return prop1; };
-  void set_prop1(int v) { 
-    g_print("set_prop1\n");
-    prop1 = v; };
+  typedef bool rule_handler(MatchedRoute*);
+  typedef Delegator::Delegator<bool, MatchedRoute*> rule_delegator;
 
-  static RouteMapper* new_instance();
-};
+protected:
+  struct Rule {
+    struct TokenRule { virtual bool test(const gchar* token, MatchedRoute& result) = 0; };
+    struct Match: TokenRule {
+      StringHolder token;
+      Match(const gchar* name) : token(g_strdup(name)) {}
+      Match(const Match& src) : token(g_strdup(src.token)) {}
+      virtual bool test(const gchar* tested_token, MatchedRoute& result) {
+//        g_print("  - match:%s<->%s\n", token.ptr(), tested_token);
+        return strcmp(token, tested_token) == 0;
+      }
+    };
+    struct Name: TokenRule {
+      StringHolder name;
+      Name(const gchar* n) : name(g_strdup(n)) {}
+      Name(const Name& src) : name(g_strdup(src.name)) {}
+      virtual bool test(const gchar* tested_token, MatchedRoute& result) {
+//        g_print("  - name:[%s]=%s\n", name.ptr(), tested_token);
+        result.data.push_back(MatchedRoute::Data(name, tested_token));
+        return true;
+      }
+    };
+    struct Select: TokenRule {
+      StringHolder name;
+      gchar** candidates;
+      Select(const gchar* n, gchar** c) : name(g_strdup(n)), candidates(g_strdupv(c)) {}
+      Select(const Select& src) : name(g_strdup(src.name)), candidates(g_strdupv(src.candidates)) {}
+      ~Select() {
+        if (candidates)
+          g_strfreev(candidates);
+      }
+      virtual bool test(const gchar* tested_token, MatchedRoute& result) {
+        for (gchar** next_token = candidates; *next_token; next_token ++) {
+//          g_print("  - select:[%s](%s<=>%s)\n", name.ptr(), *next_token, tested_token);
+          if (strcmp(*next_token, tested_token) == 0) {
+            result.data.push_back(MatchedRoute::Data(name, tested_token));
+            return true;        
+          }
+        }
+        return false;
+      }
+    };
+    std::vector<TokenRule*> rules;
+    rule_delegator* handler;
+    
+    Rule(const gchar* path, rule_delegator* h) {
+      handler = h;
+      g_print("Rule::constructor parse %s\n", path);
+      parse_rule(path);
+    }
+    
+    void parse_rule(const gchar* path) {
+      ScopedPointer<gchar*, void (gchar**), g_strfreev> rule_path(g_strsplit(path, "/", 256));
+      for (gchar** token = rule_path.ptr(); *token; token ++) {
+        if (!*token || strlen(*token) == 0)
+          continue;
+        g_print("Rule::constructor parse: transform %s\n", *token);
+        switch ((*token)[0]) {
+        case '<': {
+            gchar* word_term = strstr(&((*token)[1]),">");
+            if (word_term) {
+              StringHolder varname = strndup(&((*token)[1]), word_term - &((*token)[1]));
 
-class RouteMapperClass : public GLib::CXXClass<RouteMapper> {
+              gchar* type_term = strstr(varname.ptr(), ":");
+              if (type_term) { // Have type declaration or selection
+                StringHolder type = strndup(varname.ptr(), type_term - varname.ptr());
+                StringHolder subname = strdup(type_term + 1);
+                ScopedPointer<gchar*, void (gchar**), g_strfreev> candidates(g_strsplit(type.ptr(), "|", 256));
+                g_print("register Select(%s)\n", subname.ptr());
+                rules.push_back(new Select(subname.ptr(), candidates.ptr()));
+              } else { // Have no type declaration, assume string type.
+                g_print("register Name(%s)\n", varname.ptr());
+                rules.push_back(new Name(varname.ptr()));
+              }
+            }
+            break;
+          }
+        default: {
+            rules.push_back(new Match(*token));
+            g_print("register Match(%s)\n", *token);
+            break;
+          }
+        }
+      };
+    };
+    
+    ~Rule() {
+      for (auto i = rules.begin(); i != rules.end(); i ++) {
+        delete *i;
+      }
+      rules.clear();
+      if (handler)
+        delete handler;
+      handler = NULL;
+    }
+    
+    MatchedRoute test(const gchar** uri, const gchar* data) {
+      MatchedRoute result;
+      result.path = NULL;
+      if (rules.size() == 0)
+        return result;
+      
+      gchar** tested_token = (gchar**)uri;
+      for (auto i = rules.begin(); i != rules.end(); i ++) {
+        const gchar* token = *tested_token;
+        while (token && strlen(token) == 0)
+          token = *(++tested_token);
+        if (!token) { // Tested URI is short.
+          return result;
+        }
+        if (!(*i)->test(token, result))
+          return result;
+        tested_token ++;
+      }
+      if (*tested_token)
+        return result;
+      result.path = g_strdupv((gchar**)uri);
+      return result;
+    }
+    
+  };
+  std::vector<RouteMapper::Rule*> rules;
+  
 public:
-  RouteMapperClass() : GLib::CXXClass<RouteMapper>(g_object_get_type, "RouteMapper") { }
-  virtual GType get_type() {
-    return get_type_for<RouteMapperClass::glib_class, 
-                        RouteMapperClass::glib_instance,
-                        RouteMapperClass, RouteMapper>();
+  RouteMapper() {}
+  ~RouteMapper() {
+    for (auto i = rules.begin(); i != rules.end(); i ++) {
+      delete *i;
+    }
+    rules.clear();
   }
-  virtual void class_init() {
-    GLib::CXXClass<RouteMapper>::class_init();
-    _property("prop1", &RouteMapper::get_prop1, &RouteMapper::set_prop1, -100, 100, 0);
-    _signal<void, int, int, int, int>("test-signal1");
+  int route(const gchar* route, rule_delegator* handler) {
+    rules.push_back(new Rule(route, handler));
+    return rules.size() - 1;
   };
+  void dispatch(const gchar* uri, const gchar* data) {
+    ScopedPointer<gchar*, void (gchar**), g_strfreev> tested_path = g_strsplit(uri, "/", 256);
+    for (auto i = rules.begin(); i != rules.end(); i ++) {
+      MatchedRoute route = (*i)->test((const gchar**)tested_path.ptr(), data);
+      if (route.path) {
+        (*i)->handler->emit(&route);
+        break;
+      }
+    }
+  }
 };
-
-RouteMapper* RouteMapper::new_instance() {
-  GLib::get_singleton<RouteMapperClass>()->create();
-};
-
-void RouteMapper::finalize() {
-  auto object_class = G_OBJECT_CLASS(GLib::get_singleton<RouteMapperClass>()->get_parent());
-  object_class->finalize(G_OBJECT(_gobj));
-  g_print("RouteMapper::finalize\n");
-}
-
-void RouteMapper::dispose() {
-  auto object_class = G_OBJECT_CLASS(GLib::get_singleton<RouteMapperClass>()->get_parent());
-  object_class->dispose(G_OBJECT(_gobj));
-  g_print("RouteMapper::dispose\n");
-}
 
 /////////////////////////////////////////////////////////////////////////////
 class ActiveShellConfigurator {
@@ -189,7 +312,7 @@ private:
   GtkWidget* wrap_widget(GtkWidget* widget, bool detach_on_destroy = true);
   CXXPointer<Delegator::Connection> on_show_handler;
   
-  RouteMapper* mapper;
+  RouteMapper mapper;
 public:
   GimpImageWindowWebviewPrivate() : window(NULL) { };
   GtkWidget* 
@@ -342,11 +465,35 @@ on_show(WebKitWebView* _view) {
     }
     return false;
   };
-  auto mapper = _G(GLib::get_singleton<RouteMapperClass>()->create());
-  mapper.set("prop1", 5);
-  g_print("PROPERTY=%d\n", (int)mapper["prop1"]);
-  mapper.connect("test-signal1", Delegator::delegator(this, &GimpImageWindowWebviewPrivate::test_handler));
-  reinterpret_cast<RouteMapper*>(mapper->cxx_instance)->emit("test-signal1", 1, 2, 3, 4);
+  RouteMapper mapper;
+  std::function<bool (RouteMapper::MatchedRoute*)> func1 = [](RouteMapper::MatchedRoute*)->bool { g_print("Say hello!\n"); return true; };
+  mapper.route("/hello", Delegator::delegator(func1));
+  std::function<bool (RouteMapper::MatchedRoute*)> func2 = [](RouteMapper::MatchedRoute*)->bool { g_print("Say hello world!\n"); return true; };
+  mapper.route("/hello/world", Delegator::delegator(func2));
+  std::function<bool (RouteMapper::MatchedRoute*)> func3 = [](RouteMapper::MatchedRoute*)->bool { g_print("You say action!\n"); };
+  mapper.route("/actions", Delegator::delegator(func3));
+  std::function<bool (RouteMapper::MatchedRoute*)> func4 = [](RouteMapper::MatchedRoute* r)->bool { g_print("You asks [%s]=%s!\n", r->data[0].name.ptr(), r->data[0].value.ptr()); };
+  mapper.route("/actions/<id>", Delegator::delegator(func4));
+  std::function<bool (RouteMapper::MatchedRoute*)> func5 = [](RouteMapper::MatchedRoute* r)->bool { g_print("You asks [%s]=%s, with choice[%s]=%s!\n", r->data[0].name.ptr(), r->data[0].value.ptr(), r->data[1].name.ptr(), r->data[1].value.ptr()); };
+  mapper.route("/actions/<id>/<say|tell:cmd>", Delegator::delegator(func5));
+  g_print("***Test /hello\n");
+  mapper.dispatch("/hello",NULL);
+  g_print("***Test /hello/world\n");
+  mapper.dispatch("/hello/world",NULL);
+  g_print("***Test /hello/another world\n");
+  mapper.dispatch("/hello/another world",NULL);
+  g_print("***Test /actions\n");
+  mapper.dispatch("/actions",NULL);
+  g_print("***Test /actions/\n");
+  mapper.dispatch("/actions/",NULL);
+  g_print("***Test /actions/ab124\n");
+  mapper.dispatch("/actions/ab124",NULL);
+  g_print("***Test /actions/ab124/say\n");
+  mapper.dispatch("/actions/ab801/say",NULL);
+  g_print("***Test /actions/ab124/tell\n");
+  mapper.dispatch("/actions/ab801/tell",NULL);
+  g_print("***Test /actions/ab124/what's up?\n");
+  mapper.dispatch("/actions/ab801/what's up?",NULL);
   try_load(writable_path.ptr()) ||
   try_load(readable_path.ptr()) ||
   [&]{ view[webkit_web_view_load_uri](""); return true; }();

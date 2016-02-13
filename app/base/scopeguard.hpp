@@ -16,7 +16,8 @@ public:
       Free(obj);
     }
   }
-  T& ref() { return obj; }
+  T&       ref()       { return obj; }
+  const T& ref() const { return obj; }
 };
 
 
@@ -29,7 +30,8 @@ template<class T, typename Destructor, Destructor* f>
 class ScopedPointer : public ScopeGuard<T*, Destructor, f, is_null<T*> > {
 public:
   ScopedPointer(T* ptr) : ScopeGuard<T*, Destructor, f, is_null<T*> >(ptr) {};
-  T* ptr() { return this->ref(); };
+  T*       ptr()       { return this->ref(); };
+  const T* ptr() const { return this->ref(); };
   T* operator ->() { return ptr(); };
   T& operator *() { return *ptr(); ;}
   operator T*() { return ptr(); };

@@ -155,9 +155,9 @@ public:
     g_object_set_property(object, prop_name, &value.ref());
   };
 
-  template<typename Function>
+  template<typename Ret, typename... Args>
   Delegator::Connection* connect(const gchar* event, 
-            Delegator::Delegator<Function>* delegator, 
+            Delegator::Delegator<Ret, Args...>* delegator, 
             bool after=false) 
   {
       return g_signal_connect_delegator (as_object(), event, delegator, after);
