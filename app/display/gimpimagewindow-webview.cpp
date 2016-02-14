@@ -116,7 +116,6 @@ protected:
       Match(const gchar* name) : token(g_strdup(name)) {}
       Match(const Match& src) : token(g_strdup(src.token)) {}
       virtual bool test(const gchar* tested_token, Matched& result) {
-//        g_print("  - match:%s<->%s\n", token.ptr(), tested_token);
         return strcmp(token, tested_token) == 0;
       }
     };
@@ -125,7 +124,6 @@ protected:
       Name(const gchar* n) : name(g_strdup(n)) {}
       Name(const Name& src) : name(g_strdup(src.name)) {}
       virtual bool test(const gchar* tested_token, Matched& result) {
-//        g_print("  - name:[%s]=%s\n", name.ptr(), tested_token);
         g_hash_table_insert(result.data, name, g_strdup(tested_token));
         return true;
       }
@@ -141,7 +139,6 @@ protected:
       }
       virtual bool test(const gchar* tested_token, Matched& result) {
         for (gchar** next_token = candidates; *next_token; next_token ++) {
-//          g_print("  - select:[%s](%s<=>%s)\n", name.ptr(), *next_token, tested_token);
           if (strcmp(*next_token, tested_token) == 0) {
             g_hash_table_insert(result.data, name, g_strdup(tested_token));
             return true;
@@ -322,6 +319,7 @@ private:
   GimpImageWindow* window;
   GtkWidget* wrap_widget(GtkWidget* widget, bool detach_on_destroy = true);
   CXXPointer<Delegator::Connection> on_show_handler;
+  CXXPointer<Delegator::Connection> navigation_policy_decision_request_handler;
   
   typedef Route<bool,
                 WebKitWebFrame*,
@@ -331,6 +329,7 @@ private:
   typedef Route<GtkWidget*, GtkWidget*> PluginRoute;
   URIRoute uri_mapper;
   PluginRoute plugin_mapper;
+  
 public:
   GimpImageWindowWebviewPrivate();
   void setup_plugin_mapper();
@@ -481,7 +480,11 @@ GimpImageWindowWebviewPrivate::setup_uri_mapper() {
       StringHolder strformatted = g_strdup_printf("[\"%s\"]", strjoined.ptr());
       g_print("group=%s\n", strformatted.ptr());
 
-      webkit_web_frame_load_string(f, strformatted.ptr(), "text/json", "utf-8", "");
+      navigation_policy_decision_request_handler->block();
+      GWrapper<WebKitNetworkRequest> request = r;
+      StringHolder uri = g_strdup((const gchar*)request["uri"]);
+      webkit_web_frame_load_string(f, strformatted.ptr(), "text/json", "utf-8", uri);
+      navigation_policy_decision_request_handler->unblock();
 
       g_strfreev(names);
 			webkit_web_policy_decision_ignore(d);
@@ -506,9 +509,13 @@ GimpImageWindowWebviewPrivate::setup_uri_mapper() {
       StringHolder strjoined = g_strjoinv("\",\"", names);
       StringHolder strformatted = g_strdup_printf("[\"%s\"]", strjoined.ptr());
       g_print("action=%s\n", strformatted.ptr());
+
+      navigation_policy_decision_request_handler->block();
       GWrapper<WebKitNetworkRequest> request = r;
       StringHolder uri = g_strdup((const gchar*)request["uri"]);
-      webkit_web_frame_load_string(f, strformatted.ptr(), "text/json", "utf-8", "");
+      webkit_web_frame_load_string(f, strformatted.ptr(), "text/json", "utf-8", uri);
+      navigation_policy_decision_request_handler->unblock();
+
       g_strfreev(names);
 			webkit_web_policy_decision_ignore(d);
 		  return true; 
@@ -566,14 +573,14 @@ navigation_policy_decision_requested(WebKitWebView* view,
 {
   GWrapper<WebKitNetworkRequest> request = req;
   StringHolder uri = g_strdup((const gchar*)request["uri"]);
-
+  gboolean result = FALSE;
   g_print("WEBVIEW::navigation_policy_decision_requested:%s\n", uri.ptr());
   if (strncmp(uri, "file://", strlen("file://")) == 0) {
     const gchar* path = uri.ptr() + strlen("file://");
-    bool result = uri_mapper.dispatch(path, NULL, false, frame, req, action, decision);
-    return result;
+    bool bresult = uri_mapper.dispatch(path, NULL, false, frame, req, action, decision);
+    result = bresult;
   }
-  return FALSE;
+  return result;
 }
 
 void
@@ -624,9 +631,10 @@ GimpImageWindowWebviewPrivate::create(GimpImageWindow* window)
   if (result) {
     decorator(result, this)
       .connect("create-plugin-widget", 
-              &GimpImageWindowWebviewPrivate::create_plugin_widget)
-      .connect("navigation-policy-decision-requested", 
-              &GimpImageWindowWebviewPrivate::navigation_policy_decision_requested);
+              &GimpImageWindowWebviewPrivate::create_plugin_widget);
+    navigation_policy_decision_request_handler = 
+      delegator(result, this).connecth("navigation-policy-decision-requested", 
+                &GimpImageWindowWebviewPrivate::navigation_policy_decision_requested);
     on_show_handler = 
       delegator(result, this).connecth("realize", &GimpImageWindowWebviewPrivate::on_show);
   }

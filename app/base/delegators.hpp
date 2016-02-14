@@ -180,14 +180,17 @@ delegator(std::function<Ret (Args...)> f)
 }
 ///////////////////////////////////////////////////////////////////////////////
 class Connection {
+  gulong    handler_id;
   GObject*  target;
   gchar*    signal;
   GClosure* closure;
 public:
-  Connection(GObject* target_,
+  Connection(gulong handler_id_,
+             GObject* target_,
              const gchar*   signal_,
              GClosure* closure_)
   {
+    handler_id = handler_id_;
     target  = target_;
     signal  = g_strdup(signal_);
     closure = closure_;
@@ -209,18 +212,22 @@ public:
   
   void block() {
     if (target && closure) {
-      g_signal_handlers_block_matched (target,
-                                       GSignalMatchType(G_SIGNAL_MATCH_DETAIL|G_SIGNAL_MATCH_CLOSURE),
-                                       0, g_quark_from_static_string (signal), closure, NULL, NULL);
+//      g_signal_handlers_block_matched (target,
+//                                       GSignalMatchType(G_SIGNAL_MATCH_DETAIL|G_SIGNAL_MATCH_CLOSURE),
+//                                       0, g_quark_from_static_string (signal), closure, NULL, NULL);
     }
+    if (target)
+      g_signal_handler_block (target, handler_id);
   }
   
   void unblock() {
     if (target && closure) {
-      g_signal_handlers_unblock_matched (target,
-                                       GSignalMatchType(G_SIGNAL_MATCH_DETAIL|G_SIGNAL_MATCH_CLOSURE),
-                                       0, g_quark_from_static_string (signal), closure, NULL, NULL);
+//      g_signal_handlers_unblock_matched (target,
+//                                       GSignalMatchType(G_SIGNAL_MATCH_DETAIL|G_SIGNAL_MATCH_CLOSURE),
+//                                       0, g_quark_from_static_string (signal), closure, NULL, NULL);
     }
+    if (target)
+      g_signal_handler_unblock (target, handler_id);
   }
 };
 
@@ -244,8 +251,8 @@ g_signal_connect_delegator (GObject* target,
   closure = g_cclosure_new (G_CALLBACK ((&Delegator::Delegator<Ret, Args...>::callback)),
                             (gpointer)delegator, 
                             closure_destroy_notify<Delegator::Delegator<Ret, Args...> >);
-  g_signal_connect_closure (target, event, closure, after);
-  return new Delegator::Connection(target, event, closure);
+  gulong handler_id = g_signal_connect_closure (target, event, closure, after);
+  return new Delegator::Connection(handler_id, target, event, closure);
 }
 
 template<typename T>
