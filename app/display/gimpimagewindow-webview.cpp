@@ -89,38 +89,33 @@ static GimpContext* image_window_get_context(GimpImageWindow* window);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-/// Class RouteMapper
+/// Class Route
 ///  Manage mapping from URI to handler delegators.
-class RouteMapper {
+template<typename Ret, typename... Args>
+class Route {
 public:
-  struct MatchedRoute {
+  struct Matched {
     char** path;
-    struct Data {
-      StringHolder name;
-      StringHolder value;
-      Data(const gchar* n, const gchar* v) : name(g_strdup(n)), value(g_strdup(v)) {}
-      Data(const Data& src) : name(g_strdup(src.name.ptr())), value(g_strdup(src.value.ptr())) {}
-    };
-    std::vector<Data> data;
-    MatchedRoute() : path(NULL) {}
-    MatchedRoute(const MatchedRoute& src) : path(g_strdupv((gchar**)src.path)), data(src.data) {}
-    ~MatchedRoute() {
+    GHashTableHolder<gchar*, gchar*> data;
+    Matched() : path(NULL), data(g_hash_table_new(g_str_hash, g_str_equal)) {}
+    Matched(const Matched& src) : path(g_strdupv((gchar**)src.path)), data(g_hash_table_ref((GHashTable*)src.data.ptr())) {}
+    ~Matched() {
       if (path)
         g_strfreev(path);
       path = NULL;
     }
   };
-  typedef bool rule_handler(MatchedRoute*);
-  typedef Delegator::Delegator<bool, MatchedRoute*> rule_delegator;
+  typedef bool rule_handler(Matched*);
+  typedef Delegator::Delegator<Ret, Matched*, Args...> rule_delegator;
 
 protected:
   struct Rule {
-    struct TokenRule { virtual bool test(const gchar* token, MatchedRoute& result) = 0; };
+    struct TokenRule { virtual bool test(const gchar* token, Matched& result) = 0; };
     struct Match: TokenRule {
       StringHolder token;
       Match(const gchar* name) : token(g_strdup(name)) {}
       Match(const Match& src) : token(g_strdup(src.token)) {}
-      virtual bool test(const gchar* tested_token, MatchedRoute& result) {
+      virtual bool test(const gchar* tested_token, Matched& result) {
 //        g_print("  - match:%s<->%s\n", token.ptr(), tested_token);
         return strcmp(token, tested_token) == 0;
       }
@@ -129,9 +124,9 @@ protected:
       StringHolder name;
       Name(const gchar* n) : name(g_strdup(n)) {}
       Name(const Name& src) : name(g_strdup(src.name)) {}
-      virtual bool test(const gchar* tested_token, MatchedRoute& result) {
+      virtual bool test(const gchar* tested_token, Matched& result) {
 //        g_print("  - name:[%s]=%s\n", name.ptr(), tested_token);
-        result.data.push_back(MatchedRoute::Data(name, tested_token));
+        g_hash_table_insert(result.data, name, g_strdup(tested_token));
         return true;
       }
     };
@@ -144,12 +139,12 @@ protected:
         if (candidates)
           g_strfreev(candidates);
       }
-      virtual bool test(const gchar* tested_token, MatchedRoute& result) {
+      virtual bool test(const gchar* tested_token, Matched& result) {
         for (gchar** next_token = candidates; *next_token; next_token ++) {
 //          g_print("  - select:[%s](%s<=>%s)\n", name.ptr(), *next_token, tested_token);
           if (strcmp(*next_token, tested_token) == 0) {
-            result.data.push_back(MatchedRoute::Data(name, tested_token));
-            return true;        
+            g_hash_table_insert(result.data, name, g_strdup(tested_token));
+            return true;
           }
         }
         return false;
@@ -209,8 +204,8 @@ protected:
       handler = NULL;
     }
     
-    MatchedRoute test(const gchar** uri, const gchar* data) {
-      MatchedRoute result;
+    Matched test(const gchar** uri, const gchar* data) {
+      Matched result;
       result.path = NULL;
       if (rules.size() == 0)
         return result;
@@ -234,11 +229,11 @@ protected:
     }
     
   };
-  std::vector<RouteMapper::Rule*> rules;
+  std::vector<Route::Rule*> rules;
   
 public:
-  RouteMapper() {}
-  ~RouteMapper() {
+  Route() {}
+  ~Route() {
     for (auto i = rules.begin(); i != rules.end(); i ++) {
       delete *i;
     }
@@ -248,18 +243,34 @@ public:
     rules.push_back(new Rule(route, handler));
     return rules.size() - 1;
   };
-  void dispatch(const gchar* uri, const gchar* data) {
-    ScopedPointer<gchar*, void (gchar**), g_strfreev> tested_path = g_strsplit(uri, "/", 256);
-    for (auto i = rules.begin(); i != rules.end(); i ++) {
-      MatchedRoute route = (*i)->test((const gchar**)tested_path.ptr(), data);
-      if (route.path) {
-        (*i)->handler->emit(&route);
-        break;
-      }
-    }
-  }
+  Ret dispatch(const gchar* uri, const gchar* data, Ret default_value, Args... args);
 };
 
+template<typename Ret, typename... Args>
+Ret Route<Ret, Args...>::dispatch(const gchar* uri, const gchar* data, Ret default_value, Args... args) {
+  ScopedPointer<gchar*, void (gchar**), g_strfreev> tested_path = g_strsplit(uri, "/", 256);
+  for (auto i = rules.begin(); i != rules.end(); i ++) {
+    Matched route = (*i)->test((const gchar**)tested_path.ptr(), data);
+    if (route.path) {
+      return (*i)->handler->emit(&route, args...);
+    }
+  }
+  return default_value;
+}
+
+#if 0
+template<typename... Args>
+void Route<void, Args...>::dispatch(const gchar* uri, const gchar* data, Args... args) {
+  ScopedPointer<gchar*, void (gchar**), g_strfreev> tested_path = g_strsplit(uri, "/", 256);
+  for (auto i = rules.begin(); i != rules.end(); i ++) {
+    Matched route = (*i)->test((const gchar**)tested_path.ptr(), data);
+    if (route.path) {
+      (*i)->handler->emit(&route, args...);
+      break;
+    }
+  }
+}
+#endif
 /////////////////////////////////////////////////////////////////////////////
 class ActiveShellConfigurator {
 private:
@@ -312,9 +323,18 @@ private:
   GtkWidget* wrap_widget(GtkWidget* widget, bool detach_on_destroy = true);
   CXXPointer<Delegator::Connection> on_show_handler;
   
-  RouteMapper mapper;
+  typedef Route<bool,
+                WebKitWebFrame*,
+                WebKitNetworkRequest*,
+                WebKitWebNavigationAction*,
+                WebKitWebPolicyDecision*> URIRoute;
+  typedef Route<GtkWidget*, GtkWidget*> PluginRoute;
+  URIRoute uri_mapper;
+  PluginRoute plugin_mapper;
 public:
-  GimpImageWindowWebviewPrivate() : window(NULL) { };
+  GimpImageWindowWebviewPrivate();
+  void setup_plugin_mapper();
+  void setup_uri_mapper();
   GtkWidget* 
   create_plugin_widget(WebKitWebView* view, 
                        gchar* mime_type,
@@ -330,14 +350,176 @@ public:
 
   void on_show(WebKitWebView* widget);
   GtkWidget* create(GimpImageWindow* window);
-  void test_handler(RouteMapper* mapper, int a1, int a2, int a3, int a4) {
-    g_print("Signal::test-1(%d,%d,%d,%d)\n",a1,a2,a3,a4);
-  }
+
+	template<typename F> 
+	static Delegator::Delegator<GtkWidget*, PluginRoute::Matched*, GtkWidget*>*
+	plugin_builder(F f) {
+		std::function<GtkWidget* (PluginRoute::Matched*, GtkWidget*)> func = f;
+		return Delegator::delegator(func);
+	}
+
+	template<typename F> 
+	static Delegator::Delegator<bool, 
+	                            URIRoute::Matched*,
+														  WebKitWebFrame*,
+														  WebKitNetworkRequest*,
+														  WebKitWebNavigationAction*,
+														  WebKitWebPolicyDecision*>*
+	uri_func(F f) {
+		std::function<bool (URIRoute::Matched*, WebKitWebFrame*, WebKitNetworkRequest*, WebKitWebNavigationAction*, WebKitWebPolicyDecision*)> func = f;
+		return Delegator::delegator(func);
+	}
+
+};
+
+GimpImageWindowWebviewPrivate::GimpImageWindowWebviewPrivate() : window(NULL) {
+  setup_plugin_mapper();
+  setup_uri_mapper();
+};
+
+void 
+GimpImageWindowWebviewPrivate::setup_plugin_mapper() {
+  typedef PluginRoute::Matched Matched;
+
+  plugin_mapper.route("/toolbar", plugin_builder([this](Matched* m, GtkWidget* view) {
+    GimpImageWindowPrivate* priv = GIMP_IMAGE_WINDOW_GET_PRIVATE(window);
+    g_print("WEBVIEW:toolbar=%lx\n", (gulong)priv->toolbar);
+    return wrap_widget(priv->toolbar);
+  }));
+
+  plugin_mapper.route("/dock/<side>", plugin_builder([this](Matched* m, GtkWidget* view) {
+    GimpImageWindowPrivate* priv = GIMP_IMAGE_WINDOW_GET_PRIVATE(window);
+	  const gchar* dock_name       = m->data["side"];
+	  GtkWidget* result            = NULL;
+
+	  if (strcmp(dock_name,"left") == 0) {
+	    g_print("WEBVIEW:left_docks=%lx\n", (gulong)priv->left_docks);
+	    result = priv->left_docks;
+
+	  } else if (strcmp(dock_name, "right") == 0) {
+	    g_print("WEBVIEW:right_docks=%lx\n", (gulong)priv->right_docks);
+	    result = priv->right_docks;
+	  }
+
+    return wrap_widget(result);
+	}));
+
+  plugin_mapper.route("/images", plugin_builder([this](Matched* m, GtkWidget* view) {
+    GimpImageWindowPrivate* priv = GIMP_IMAGE_WINDOW_GET_PRIVATE(window);
+	  GtkWidget* result            = NULL;
+
+	  g_print("WEBVIEW:images=%lx\n", (gulong)priv->notebook);
+	  result = priv->notebook;
+	  new ActiveShellConfigurator(window, result);
+	  return wrap_widget(result);
+	}));
+
+  plugin_mapper.route("/menubar", plugin_builder([this](Matched* m, GtkWidget* view) {
+    GimpImageWindowPrivate* priv = GIMP_IMAGE_WINDOW_GET_PRIVATE(window);
+    return wrap_widget(priv->menubar);
+  }));
+
+  plugin_mapper.route("/dialog/<dialog_name>", plugin_builder([this](Matched* m, GtkWidget* view) {
+    const gchar* key = "dialog_name";
+	  const gchar* dialog_name  = (const gchar*)g_hash_table_lookup(m->data, key);
+	  GtkWidget* result         = NULL;
+	  GimpUIManager* ui_manager = gimp_image_window_get_ui_manager(window);
+	  result = gimp_dialog_factory_dialog_new (gimp_dialog_factory_get_singleton (),
+	                                           gtk_widget_get_screen (GTK_WIDGET(view)),
+	                                           ui_manager,
+	                                           dialog_name, -1, TRUE);
+	  if (GIMP_IS_DOCKABLE(result)) {
+	    gimp_dockable_set_context(GIMP_DOCKABLE(result), image_window_get_context(window));
+	  }
+	  gtk_widget_show(result);
+	  g_print("WEBVIEW:dialog[%s]%lx\n", dialog_name, (gulong)result);
+	  return wrap_widget(result, false);
+	}));
+
+};
+
+
+void 
+GimpImageWindowWebviewPrivate::setup_uri_mapper() {
+  typedef URIRoute::Matched Matched;
+  typedef WebKitWebFrame Frame;
+  typedef WebKitNetworkRequest Request;
+  typedef WebKitWebNavigationAction Action;
+  typedef WebKitWebPolicyDecision Decision;
+
+  uri_mapper.route("/actions/<group>/<cmd>", 
+    uri_func([this](Matched* m, Frame* f, Request* r, Action* a, Decision* d)->bool {
+		  const gchar* group = m->data["group"];
+		  const gchar* cmd   = m->data["cmd"];
+      g_print("WEBVIEW:action[%s]->%s  --->", group, cmd);
+			GimpUIManager* ui_manager = gimp_image_window_get_ui_manager(window);
+			gboolean result = gimp_ui_manager_activate_action(ui_manager, group, cmd);
+			if (result)
+			  g_print("Found\n");
+			else
+			  g_print("Not found\n");
+			webkit_web_policy_decision_ignore(d);
+		  return true; 
+		}));
+
+  uri_mapper.route("/actions",
+    uri_func([this](Matched* m, Frame* f, Request* r, Action* a, Decision* d)->bool {
+			GimpUIManager* ui_manager = gimp_image_window_get_ui_manager(window);
+			GList* groups             = gtk_ui_manager_get_action_groups (GTK_UI_MANAGER(ui_manager));
+			gint size                 = g_list_length(groups);
+			gchar** names             = g_new(gchar*, size + 1);
+			gchar** current_name      = names;
+
+      for (GList* list = groups; list; list = g_list_next (list)){
+        auto group = GIMP_ACTION_GROUP(list->data);
+        *current_name = g_strdup(gtk_action_group_get_name(GTK_ACTION_GROUP(group)));
+        current_name ++;
+      }
+
+      *current_name = NULL;
+      StringHolder strjoined = g_strjoinv("\",\"", names);
+      StringHolder strformatted = g_strdup_printf("[\"%s\"]", strjoined.ptr());
+      g_print("group=%s\n", strformatted.ptr());
+
+      webkit_web_frame_load_string(f, strformatted.ptr(), "text/json", "utf-8", "");
+
+      g_strfreev(names);
+			webkit_web_policy_decision_ignore(d);
+		  return true; 
+    }));
+
+  uri_mapper.route("/actions/<group>",
+    uri_func([this](Matched* m, Frame* f, Request* r, Action* a, Decision* d)->bool {
+      const gchar* group_name   = m->data["group"];
+			GimpUIManager* ui_manager = gimp_image_window_get_ui_manager(window);
+      GtkActionGroup* group     = GTK_ACTION_GROUP(gimp_ui_manager_get_action_group(ui_manager, group_name));
+      GList* actions            = gtk_action_group_list_actions (group);
+			gint size                 = g_list_length(actions);
+			gchar** names             = g_new(gchar*, size + 1);
+			gchar** current_name      = names;
+      for (GList* list = actions; list; list = g_list_next (list)){
+        auto action    = GTK_ACTION(list->data);
+        *current_name  = g_strdup(gtk_action_get_name(action));
+        current_name ++;
+      }
+      *current_name = NULL;
+      StringHolder strjoined = g_strjoinv("\",\"", names);
+      StringHolder strformatted = g_strdup_printf("[\"%s\"]", strjoined.ptr());
+      g_print("action=%s\n", strformatted.ptr());
+      GWrapper<WebKitNetworkRequest> request = r;
+      StringHolder uri = g_strdup((const gchar*)request["uri"]);
+      webkit_web_frame_load_string(f, strformatted.ptr(), "text/json", "utf-8", "");
+      g_strfreev(names);
+			webkit_web_policy_decision_ignore(d);
+		  return true; 
+    }));
+
 };
 
 GtkWidget*
 GimpImageWindowWebviewPrivate::
 wrap_widget (GtkWidget* widget, bool detach_on_destroy) {
+
   if (gtk_widget_get_parent(widget) != NULL)
     return NULL;
   GtkWidget* eventbox = gtk_scrolled_window_new(NULL, NULL);
@@ -365,53 +547,9 @@ create_plugin_widget(WebKitWebView* view,
   GtkWidget* result = NULL;
   g_print("WEBVIEW::create_plugin:%s\n", uri);
   if (strcmp(mime_type, "application/gimp") == 0) {
-    GimpImageWindowPrivate* priv = GIMP_IMAGE_WINDOW_GET_PRIVATE(window);
-    if (strncmp(uri, "file://", strlen("file://")) == 0)
-      uri += strlen("file://");
-    if (strcmp(uri, "/toolbar") == 0) {
-      g_print("WEBVIEW:toolbar=%lx\n", (gulong)priv->toolbar);
-      result = priv->toolbar;
-      result = wrap_widget(result);
-      
-    } else if (strncmp(uri, "/dock", strlen("/dock")) == 0) {
-      gchar* dock_name = uri + strlen("/dock");
-      if (strcmp(dock_name,"/left") == 0) {
-        g_print("WEBVIEW:left_docks=%lx\n", (gulong)priv->left_docks);
-        result = priv->left_docks;
-        result = wrap_widget(result);
-
-      } else if (strcmp(dock_name, "/right") == 0) {
-        g_print("WEBVIEW:right_docks=%lx\n", (gulong)priv->right_docks);
-        result = priv->right_docks;
-        result = wrap_widget(result);
-      }
-    } else if (strcmp(uri, "/images") == 0) {
-        g_print("WEBVIEW:images=%lx\n", (gulong)priv->notebook);
-      result = priv->notebook;
-      new ActiveShellConfigurator(window, result);
-      result = wrap_widget(result);
-      
-    } else if (strcmp(uri, "/menubar") == 0) {
-        g_print("WEBVIEW:menubar=%lx\n", (gulong)priv->menubar);
-      result = priv->menubar;
-      result = wrap_widget(result);
-      
-    } else if (strncmp(uri, "/dialog/", strlen("/dialog/")) == 0) {
-      gchar* word_head = uri + strlen("/dialog/");
-      gchar* word_term = strstr(word_head,"/");
-      int index = word_term ? word_term - word_head: strlen(word_head); 
-      StringHolder dialog_name = strndup(word_head, index);
-      GimpUIManager* ui_manager = gimp_image_window_get_ui_manager(window);
-      result = gimp_dialog_factory_dialog_new (gimp_dialog_factory_get_singleton (),
-                                               gtk_widget_get_screen (GTK_WIDGET(view)),
-                                               ui_manager,
-                                               dialog_name.ptr(), -1, TRUE);
-      if (GIMP_IS_DOCKABLE(result)) {
-        gimp_dockable_set_context(GIMP_DOCKABLE(result), image_window_get_context(window));
-      }
-      gtk_widget_show(result);
-      result = wrap_widget(result, false);
-      g_print("WEBVIEW:dialog[%s]%lx\n", dialog_name.ptr(), (gulong)result);
+    if (strncmp(uri, "file://", strlen("file://")) == 0) {
+      uri += strlen("file://");      
+      return plugin_mapper.dispatch(uri, NULL, NULL, GTK_WIDGET(view));
     }
   }
   return result;
@@ -427,10 +565,14 @@ navigation_policy_decision_requested(WebKitWebView* view,
                                      WebKitWebPolicyDecision* decision)
 {
   GWrapper<WebKitNetworkRequest> request = req;
-  StringHolder uri = g_strdup((const gchar*)request.get("uri"));
+  StringHolder uri = g_strdup((const gchar*)request["uri"]);
 
-  
-  
+  g_print("WEBVIEW::navigation_policy_decision_requested:%s\n", uri.ptr());
+  if (strncmp(uri, "file://", strlen("file://")) == 0) {
+    const gchar* path = uri.ptr() + strlen("file://");
+    bool result = uri_mapper.dispatch(path, NULL, false, frame, req, action, decision);
+    return result;
+  }
   return FALSE;
 }
 
@@ -465,35 +607,7 @@ on_show(WebKitWebView* _view) {
     }
     return false;
   };
-  RouteMapper mapper;
-  std::function<bool (RouteMapper::MatchedRoute*)> func1 = [](RouteMapper::MatchedRoute*)->bool { g_print("Say hello!\n"); return true; };
-  mapper.route("/hello", Delegator::delegator(func1));
-  std::function<bool (RouteMapper::MatchedRoute*)> func2 = [](RouteMapper::MatchedRoute*)->bool { g_print("Say hello world!\n"); return true; };
-  mapper.route("/hello/world", Delegator::delegator(func2));
-  std::function<bool (RouteMapper::MatchedRoute*)> func3 = [](RouteMapper::MatchedRoute*)->bool { g_print("You say action!\n"); };
-  mapper.route("/actions", Delegator::delegator(func3));
-  std::function<bool (RouteMapper::MatchedRoute*)> func4 = [](RouteMapper::MatchedRoute* r)->bool { g_print("You asks [%s]=%s!\n", r->data[0].name.ptr(), r->data[0].value.ptr()); };
-  mapper.route("/actions/<id>", Delegator::delegator(func4));
-  std::function<bool (RouteMapper::MatchedRoute*)> func5 = [](RouteMapper::MatchedRoute* r)->bool { g_print("You asks [%s]=%s, with choice[%s]=%s!\n", r->data[0].name.ptr(), r->data[0].value.ptr(), r->data[1].name.ptr(), r->data[1].value.ptr()); };
-  mapper.route("/actions/<id>/<say|tell:cmd>", Delegator::delegator(func5));
-  g_print("***Test /hello\n");
-  mapper.dispatch("/hello",NULL);
-  g_print("***Test /hello/world\n");
-  mapper.dispatch("/hello/world",NULL);
-  g_print("***Test /hello/another world\n");
-  mapper.dispatch("/hello/another world",NULL);
-  g_print("***Test /actions\n");
-  mapper.dispatch("/actions",NULL);
-  g_print("***Test /actions/\n");
-  mapper.dispatch("/actions/",NULL);
-  g_print("***Test /actions/ab124\n");
-  mapper.dispatch("/actions/ab124",NULL);
-  g_print("***Test /actions/ab124/say\n");
-  mapper.dispatch("/actions/ab801/say",NULL);
-  g_print("***Test /actions/ab124/tell\n");
-  mapper.dispatch("/actions/ab801/tell",NULL);
-  g_print("***Test /actions/ab124/what's up?\n");
-  mapper.dispatch("/actions/ab801/what's up?",NULL);
+
   try_load(writable_path.ptr()) ||
   try_load(readable_path.ptr()) ||
   [&]{ view[webkit_web_view_load_uri](""); return true; }();

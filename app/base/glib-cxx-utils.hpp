@@ -28,10 +28,10 @@ class GHashTableHolder : public ScopedPointer<GHashTable, void(GHashTable*), g_h
 public:
   GHashTableHolder(GHashTable* table) : ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>(table) {};
 
-  Data lookup(const Key data) {
-    return reinterpret_cast<Data>(g_hash_table_lookup(obj, (const gpointer)data));
+  const Data lookup(const Key key) const {
+    return (Data)(g_hash_table_lookup(obj, key));
   }
-  Data operator[](const Key data) {
+  const Data operator[](const Key data) const {
     return lookup(data);
   }
 };
