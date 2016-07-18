@@ -60,7 +60,7 @@ extern "C" {
 #include "mypaintbrush-brushsettings.h"
 
 #include "gimp-intl.h"
-#include <jansson.h>
+#include <json-glib/json-glib.h>
 
 }
 
@@ -80,7 +80,7 @@ private:
   gint64            version;
   
   void write_file (GError **error);
-  json_t* build_json ();
+  JsonNode* build_json ();
   bool is_default(gchar* name);
   gchar *quote        (const gchar *string);
   void save_icon       (gchar *filename);
@@ -121,10 +121,6 @@ MypaintBrushWriter::~MypaintBrushWriter()
 {
 }
 
-void json_decref_(json_t* json) {
-  json_decref(json);
-}
-
 bool
 MypaintBrushWriter::save_brush (GError      **error)
 {
@@ -138,10 +134,12 @@ MypaintBrushWriter::save_brush (GError      **error)
   StringHolder icon_filename(g_strconcat(brushname.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION, NULL));
   StringHolder icon_fullpath(g_build_filename(dirname.ptr(), icon_filename.ptr(), NULL));
 
-  ScopedPointer<FILE, int(FILE*), fclose> file(g_fopen (filename, "wb"));
-  ScopedPointer<json_t, void(json_t*), json_decref_> result(build_json());
-
-  json_dumpf(result.ptr(), file.ptr(), 0);
+//  ScopedPointer<FILE, int(FILE*), fclose> file(g_fopen (filename, "wb"));
+  GWrapper<JsonGenerator> generator = json_generator_new();
+  JsonNode* root = build_json();
+  json_generator_set_root(generator, root);
+  json_generator_to_file(generator, filename, NULL);
+  json_node_unref(root);
 
   g_print ("Write Icon: %s\n", icon_fullpath.ptr());
   save_icon (icon_fullpath.ptr());
@@ -166,10 +164,12 @@ MypaintBrushWriter::is_default(gchar* name)
   return true;
 }
 
-json_t*
+JsonNode*
 MypaintBrushWriter::build_json()
 {
   g_return_val_if_fail(source.ptr() != NULL, NULL);
+  GWrapper<JsonBuilder> builder = json_builder_new();
+  json_builder_begin_object(builder);
   
   const gchar* filename = gimp_data_get_filename (GIMP_DATA(source.ptr()));
   
@@ -180,28 +180,31 @@ MypaintBrushWriter::build_json()
   StringHolder brush_name = g_strdup(source.get("name"));
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(source->p);
 
-  json_t* result = json_object();
   // version
-  json_object_set_new(result, "version", json_integer(version));
+  json_builder_set_member_name(builder, "version");
+  json_builder_add_int_value(builder, version);
   // group
-  json_object_set_new(result, "group", json_string(priv->get_group()));
+  json_builder_set_member_name(builder, "group");
+  json_builder_add_string_value(builder, priv->get_group());
   // parent_brush_name
-  json_object_set_new(result, "parent_brush_name", json_string(brush_name));
+  json_builder_set_member_name(builder, "parent_brush_name");
+  json_builder_add_string_value(builder, brush_name);
   // settings
-  json_t* result_settings = json_object();
-  json_object_set_new(result, "settings", result_settings);
+  json_builder_set_member_name(builder, "settings");
+  json_builder_begin_object(builder);
 
   for (GList* item = settings.ptr(); item; item = item->next) {
     MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(item->data);
-    json_t* value = json_object();
-    json_object_set_new(result_settings, setting->internal_name, value);
-
+    json_builder_set_member_name(builder, setting->internal_name);
+    json_builder_begin_object(builder);
+    
     GimpMypaintBrushPrivate::Value* v = priv->get_setting(setting->index);
     g_print("BASE_VALUE(%s)=%f\n", setting->internal_name, priv->get_base_value(setting->index));
-    json_object_set_new(value, "base_value", json_real(priv->get_base_value(setting->index)));
+    json_builder_set_member_name(builder, "base_value");
+    json_builder_add_double_value(builder, priv->get_base_value(setting->index));
     
-    json_t* result_inputs = json_object();
-    json_object_set_new(value, "inputs", result_inputs);
+    json_builder_set_member_name(builder, "inputs");
+    json_builder_begin_object(builder);
     
     if (v->mapping) {
       for (GList* input_iter = inputs.ptr(); input_iter; input_iter = input_iter->next) {
@@ -211,42 +214,50 @@ MypaintBrushWriter::build_json()
         if (n == 0)
           continue;
 
-        json_t* input_array = json_array();
-        json_object_set_new(result_inputs, input->name, input_array);
+        json_builder_set_member_name(builder, input->name);
+        json_builder_begin_array(builder);
         
         for (int i = 0; i < n; i ++) {
           float x, y;
           v->mapping->get_point(input->index, i, &x, &y);
-          json_t* val_pair = json_array();
-          json_array_append(val_pair, json_real(x));
-          json_array_append(val_pair, json_real(y));
-          json_array_append(input_array, val_pair);
+          json_builder_begin_array(builder);
+          json_builder_add_double_value(builder, x);
+          json_builder_add_double_value(builder, y);
+          json_builder_end_array(builder);
         }
+        json_builder_end_array(builder);
       }
     }
+    json_builder_end_object(builder);
+    json_builder_end_object(builder);
   }
+  json_builder_end_object(builder);
 
   // switches
-  json_t* result_switches = json_object();
-  json_object_set_new(result, "switches", result_switches);
-
+  json_builder_set_member_name(builder, "switches");
+  json_builder_begin_object(builder);
   for (GList* item = switches.ptr(); item; item = item->next) {
     MyPaintBrushSwitchSettings* setting = reinterpret_cast<MyPaintBrushSwitchSettings*>(item->data);
     bool value = priv->get_bool_value(setting->index);
-    json_object_set_new(result_switches, setting->internal_name, json_boolean(value));
+    json_builder_set_member_name(builder, setting->internal_name);
+    json_builder_add_boolean_value(builder, value);
   }
+  json_builder_end_object(builder);
 
   // text
-  json_t* result_texts = json_object();
-  json_object_set_new(result, "texts", result_texts);
+  json_builder_set_member_name(builder, "texts");
+  json_builder_begin_object(builder);
 
   for (GList* item = texts.ptr(); item; item = item->next) {
     MyPaintBrushTextSettings* setting = reinterpret_cast<MyPaintBrushTextSettings*>(item->data);
     char* value = priv->get_text_value(setting->index);
-    json_object_set_new(result_texts, setting->internal_name, json_string(value));
+    json_builder_set_member_name(builder, setting->internal_name);
+    json_builder_add_string_value(builder, value);
   }
+  json_builder_end_object(builder);
+  json_builder_end_object(builder);
 
-  return result;
+  return json_builder_get_root(builder); 
 }
 
 

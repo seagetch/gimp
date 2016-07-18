@@ -40,8 +40,8 @@ m4_define([gimp_stable],
 m4_define([gimp_full_name], [GNU Image Manipulation Program])
 
 # required versions of other packages
-m4_define([babl_required_version], [0.1.10])
-m4_define([gegl_required_version], [0.2.0])
+m4_define([babl_required_version], [0.1.12])
+m4_define([gegl_required_version], [0.3.0])
 m4_define([glib_required_version], [2.30.2])
 m4_define([atk_required_version], [2.2.0])
 m4_define([gtk_required_version], [2.24.10])
@@ -67,7 +67,7 @@ m4_define([lcms2_required_version], [2.2])
 m4_define([libpng_required_version], [1.2.37])
 m4_define([gtk_mac_integration_required_version], [2.0.0])
 m4_define([python2_required_version], [2.5.0])
-m4_define([jansson_required_version],[2.5])
+m4_define([json_glib_required_version],[1.0])
 
 # Current test considers only 2 version numbers. If we update the recommended
 # version of gettext with more version numbers, please update the tests.
@@ -525,7 +525,7 @@ AC_SUBST(ISO_CODES_LOCALEDIR)
 ###############################
 
 PKG_CHECK_MODULES(BABL, babl >= babl_required_version)
-PKG_CHECK_MODULES(GEGL, gegl-0.2 >= gegl_required_version)
+PKG_CHECK_MODULES(GEGL, gegl-0.3 >= gegl_required_version)
 PKG_CHECK_MODULES(ATK, atk >= atk_required_version)
 
 AM_PATH_GLIB_2_0(glib_required_version, :,
@@ -544,7 +544,7 @@ else
 fi
 AC_MSG_RESULT($have_glib_2_31)
 
-PKG_CHECK_MODULES(JANSSON, jansson >= jansson_required_version)
+PKG_CHECK_MODULES(JANSSON, json-glib-1.0 >= json_glib_required_version)
 
 # Check for bind_textdomain_codeset, including -lintl if GLib brings it in.
 gimp_save_LIBS=$LIBS

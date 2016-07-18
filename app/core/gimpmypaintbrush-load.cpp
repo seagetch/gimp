@@ -62,7 +62,7 @@ extern "C" {
 
 #include "gimp-intl.h"
 
-#include <jansson.h>
+#include <json-glib/json-glib.h>
 
 }
 #include "gimpmypaintbrush-private.hpp"
@@ -231,32 +231,38 @@ MyPaintBrushReader::dump ()
 bool
 MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
 {
-  json_error_t jerror;
-  json_t* root;
-  root = json_load_file(filename, 0, &jerror);
+  GWrapper<JsonParser> parser = json_parser_new();
+  JsonNode* root;
+  GWrapper<JsonReader> reader;
+  GError* jerror = NULL;
+  json_parser_load_from_file(parser, filename, &jerror);
   *error = NULL;
-  if (!root) {
+  if (jerror) {
     *error = NULL;
     return false;
   }
-  json_t* element;
+  root = json_parser_get_root(parser);
+  reader = json_reader_new(root);
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
 
   //version
-  element = json_object_get(root, "version");
-  if (element) {
-    version = json_integer_value(element);
+  bool version_result = json_reader_read_member(reader, "version");
+  if (version_result) {
+    version = json_reader_get_int_value(reader);
     if (version < BRUSHFILE_JSON_VERSION) {
       // TBD: 
+      g_print("[MyB-Load]Expected %d, but version is older (%ld)\n", BRUSHFILE_JSON_VERSION, version);
     } else if (version > CURRENT_BRUSHFILE_VERSION) {
       // TBD: 
+      g_print("[MyB-Load]Expected %d, but version is newer!! (%ld)\n", CURRENT_BRUSHFILE_VERSION, version);
     }
   }
+  json_reader_end_member(reader);
   //parent_brush_name
-  element = json_object_get(root, "parent_brush_name");
-  if (element) {
-    if (strlen(json_string_value(element)) > 0) {
-      StringHolder uq_value = g_strdup(json_string_value(element));
+  bool brushname_result = json_reader_read_member(reader, "parent_brush_name");
+  if (brushname_result) {
+    if (strlen(json_reader_get_string_value(reader)) > 0) {
+      StringHolder uq_value = g_strdup(json_reader_get_string_value(reader));
       priv->set_parent_brush_name(uq_value);
       result.set("name", uq_value.ptr());
     } else {
@@ -264,100 +270,125 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
       priv->set_parent_brush_name(name.ptr());
     }
   }
+  json_reader_end_member(reader);
   //group
-  element = json_object_get(root, "group");
-  if (element) {
-    const gchar *uq_value = json_string_value(element);
+  bool group_result = json_reader_read_member(reader, "group");
+  if (group_result) {
+    const gchar *uq_value = json_reader_get_string_value(reader);
     priv->set_group(uq_value);
   }
+  json_reader_end_member(reader);
   //comment
   //settings
-  element = json_object_get(root, "settings");
-  if (element) {
+  bool settings_result = json_reader_read_member(reader, "settings");
+  if (settings_result) {
     GHashTableHolder<const gchar*, MyPaintBrushSettings*> settings_dict = 
       mypaint_brush_get_brush_settings_dict ();
     GHashTableHolder<const gchar*, MyPaintBrushInputSettings*> inputs_dict =
       mypaint_brush_get_input_settings_dict ();
 
-    json_t* value;
+    bool element_result;
     const char* key;
-    json_object_foreach(element, key, value) {
+    gint count = json_reader_count_members(reader);
+    for (gint i = 0; i < count; i ++, json_reader_end_element(reader)) {
+      json_reader_read_element(reader, i);
+      key = json_reader_get_member_name(reader);
       MyPaintBrushSettings             *setting;
       setting = settings_dict[key];
       if (setting) {
-        json_t* prop;
-	prop = json_object_get(value, "base_value");
-	if (!prop) {
+        bool prop_result;
+	prop_result = json_reader_read_member(reader, "base_value");
+	if (!prop_result) {
           g_print ("invalid format for '%s'\n", key);
+          json_reader_end_member(reader);
 	  continue;
 	}
-	priv->set_base_value(setting->index, json_real_value(prop));
+	priv->set_base_value(setting->index, json_reader_get_double_value(reader));
         priv->allocate_mapping(setting->index);
-	prop = json_object_get(value, "inputs");
-	if (prop) {
+        json_reader_end_member(reader);
+
+	prop_result = json_reader_read_member(reader, "inputs");
+	if (prop_result) {
           GimpMypaintBrushPrivate::Value* v = priv->get_setting(setting->index);
-	  json_t* input_values;
 	  const char* input_key;
-	  json_object_foreach(prop, input_key, input_values) {
+          gint input_count = json_reader_count_members(reader);
+          for (gint j = 0; j < input_count; j ++, json_reader_end_element(reader)) {
+            json_reader_read_element(reader, j);
+            input_key = json_reader_get_member_name(reader);
             MyPaintBrushInputSettings *input_setting;
             input_setting = inputs_dict[input_key];
 	    if (input_setting) {
-              size_t num_seq = json_array_size(input_values);
+              size_t num_seq = json_reader_count_elements(reader);
               v->mapping->set_n(input_setting->index, num_seq);
-              for (int i = 0; i < num_seq; i ++) {
+              for (int k = 0; k < num_seq; k ++, json_reader_end_element(reader)) {
+                json_reader_read_element(reader, k);
+
                 gdouble x_val, y_val;
-		json_t* val_pair = json_array_get(input_values, i);
-                x_val = json_real_value(json_array_get(val_pair, 0));
-		y_val = json_real_value(json_array_get(val_pair, 1));
-                v->mapping->set_point(input_setting->index, i, (float)x_val, (float)y_val);
+
+                json_reader_read_element(reader, 0);
+                x_val = json_reader_get_double_value(reader);
+                json_reader_end_element(reader);
+
+                json_reader_read_element(reader, 1);
+                y_val = json_reader_get_double_value(reader);
+                json_reader_end_element(reader);
+
+                v->mapping->set_point(input_setting->index, k, (float)x_val, (float)y_val);
               }
 	    }
 	  }
 	}
+        json_reader_end_member(reader);
       } else {
         g_print ("unknown key '%s'\n", key);
       }
 
     }
   }
+  json_reader_end_member(reader);
 
   //switches
-  element = json_object_get(root, "switches");
-  if (element) {
+  bool switch_result = json_reader_read_member(reader, "switches");
+  if (switch_result) {
     GHashTableHolder<const gchar*, MyPaintBrushSwitchSettings*> switches_dict =
       mypaint_brush_get_brush_switch_settings_dict ();
-    json_t* value;
+    gint count = json_reader_count_members(reader);
     const char* key;
-    json_object_foreach(element, key, value) {
+    for(gint i = 0; i < count; i ++, json_reader_end_element(reader)) {
+      json_reader_read_element(reader, i);
+      key = json_reader_get_member_name(reader);
       MyPaintBrushSwitchSettings             *setting;
       setting = switches_dict[key];
       if (setting) {
-        priv->set_bool_value(setting->index, json_is_true(value));
+        priv->set_bool_value(setting->index, json_reader_get_boolean_value(reader));
       } else {
         g_print ("unknown key '%s'\n", key);
       }
     }
   }
+  json_reader_end_member(reader);
 
   //texts
-  element = json_object_get(root, "texts");
-  if (element) {
+  bool text_result = json_reader_read_member(reader, "texts");
+  if (text_result) {
     GHashTableHolder<const gchar*, MyPaintBrushTextSettings*> text_dict = 
       mypaint_brush_get_brush_text_settings_dict ();
-    json_t* value;
+    gint count = json_reader_count_members(reader);
     const char* key;
-    json_object_foreach(element, key, value) {
+    for (gint i = 0; i < count; i ++, json_reader_end_element(reader)) {
+      json_reader_read_element(reader, i);
+      key = json_reader_get_member_name(reader);
       MyPaintBrushTextSettings             *setting;
       setting = text_dict[key];
       if (setting) {
-        priv->set_text_value(setting->index, json_string_value(value));
+        priv->set_text_value(setting->index, json_reader_get_string_value(reader));
       } else {
         g_print ("unknown key '%s'\n", key);
       }
     }
   }
+  json_reader_end_member(reader);
 
-  json_decref(root);
   return true;
 }
 
