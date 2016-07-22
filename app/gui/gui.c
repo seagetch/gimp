@@ -77,6 +77,7 @@
 #include "splash.h"
 #include "themes.h"
 #ifdef GDK_WINDOWING_QUARTZ
+#import <AppKit/AppKit.h>
 #include <gtkosxapplication.h>
 #endif /* GDK_WINDOWING_QUARTZ */
 
@@ -198,13 +199,18 @@ gui_init (Gimp     *gimp,
 
   the_gui_gimp = gimp;
 
-  /* Normally this should have been taken care of during command line
-   * parsing as a post-parse hook of gtk_get_option_group(), using the
-   * system locales.
-   * But user config may have overriden the language, therefore we must
-   * check the widget directions again.
+  /* TRANSLATORS: there is no need to translate this in GIMP. This uses
+   * "gtk20" domain as a special trick to determine language direction,
+   * but xgettext extracts it anyway mistakenly into GIMP po files.
+   * Leave an empty string as translation. It does not matter.
    */
   if (g_strcmp0 (dgettext ("gtk20", "default:LTR"), "default:RTL") == 0)
+    /* Normally this should have been taken care of during command line
+     * parsing as a post-parse hook of gtk_get_option_group(), using the
+     * system locales.
+     * But user config may have overriden the language, therefore we must
+     * check the widget directions again.
+     */
     gtk_widget_set_default_direction (GTK_TEXT_DIR_RTL);
   else
     gtk_widget_set_default_direction (GTK_TEXT_DIR_LTR);
@@ -491,6 +497,9 @@ gui_restore_after_callback (Gimp               *gimp,
     GtkosxApplication *osx_app;
     GtkWidget         *menu;
     GtkWidget         *item;
+
+    [[NSUserDefaults standardUserDefaults] setObject:@"NO"
+                                           forKey:@"NSTreatUnknownArgumentsAsOpen"];
 
     osx_app = gtkosx_application_get ();
 

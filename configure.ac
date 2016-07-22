@@ -8,11 +8,11 @@ AC_PREREQ(2.54)
 
 m4_define([gimp_major_version], [2])
 m4_define([gimp_minor_version], [8])
-m4_define([gimp_micro_version], [15])
+m4_define([gimp_micro_version], [19])
 m4_define([gimp_real_version],
           [gimp_major_version.gimp_minor_version.gimp_micro_version])
 m4_define([gimp_version], [gimp_real_version])
-m4_define([gimp_interface_age], [15])
+m4_define([gimp_interface_age], [19])
 m4_define([gimp_binary_age],
           [m4_eval(100 * gimp_minor_version + gimp_micro_version)])
 
@@ -168,6 +168,10 @@ AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE, "$GETTEXT_PACKAGE",
 AC_PROG_CXX
 AC_PROG_CXX_C_O
 AX_CXX_COMPILE_STDCXX_11
+# work around intltool-update issues during 'make distcheck'
+AS_IF([test "x$0" != "x./configure"], [
+        AC_SUBST([INTLTOOL_UPDATE], [/bin/true])
+])
 
 # Determine a C compiler to use
 AC_PROG_CC

@@ -55,6 +55,7 @@ EXTRA_DIST = \
 	ChangeLog.pre-2-2	\
 	ChangeLog.pre-2-4	\
 	ChangeLog.pre-2-6	\
+	ChangeLog.pre-git	\
 	HACKING			\
 	INSTALL			\
 	LICENSE			\
@@ -63,6 +64,7 @@ EXTRA_DIST = \
 	NEWS.pre-2-2		\
 	NEWS.pre-2-4		\
 	NEWS.pre-2-6		\
+	NEWS.pre-2-8		\
 	README			\
 	README.i18n		\
 	authors.dtd		\

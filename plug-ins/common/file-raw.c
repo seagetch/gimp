@@ -105,7 +105,7 @@ static gboolean          raw_load_palette  (RawGimpData      *data,
                                             const gchar      *palette_filename);
 
 /* support functions */
-static gint32            get_file_info     (const gchar      *filename);
+static goffset           get_file_info     (const gchar      *filename);
 static void              raw_read_row      (FILE             *fp,
                                             guchar           *buf,
                                             gint32            offset,
@@ -361,14 +361,28 @@ run (const gchar      *name,
 
 
 /* get file size from a filename */
-static gint32
+static goffset
 get_file_info (const gchar *filename)
 {
-  struct stat status;
+  GFile     *file = g_file_new_for_path (filename);
+  GFileInfo *info;
+  goffset    size = 0;
 
-  g_stat (filename, &status);
+  info = g_file_query_info (file,
+                            G_FILE_ATTRIBUTE_STANDARD_SIZE,
+                            G_FILE_QUERY_INFO_NONE,
+                            NULL, NULL);
 
-  return status.st_size;
+  if (info)
+    {
+      size = g_file_info_get_size (info);
+
+      g_object_unref (info);
+    }
+
+  g_object_unref (file);
+
+  return size;
 }
 
 /* new image handle functions */
@@ -573,19 +587,19 @@ save_image (const gchar  *filename,
   GimpPixelRgn      pixel_rgn;
   guchar           *cmap = NULL;  /* colormap for indexed images */
   guchar           *buf;
-  guchar           *red, *green, *blue, *alpha = NULL;
-  gint32            width, height, bpp = 0;
-  gboolean          have_alpha = 0;
+  guchar           *components[4] = { 0, };
+  gint              n_components;
+  gint32            width, height, bpp;
   FILE             *fp;
-  gint              i, j = 0;
+  gint              i, j, c;
   gint              palsize = 0;
   GimpPDBStatusType ret = GIMP_PDB_EXECUTION_ERROR;
 
   /* get info about the current image */
   drawable = gimp_drawable_get (drawable_id);
 
-  bpp        = gimp_drawable_bpp (drawable_id);
-  have_alpha = gimp_drawable_has_alpha (drawable_id);
+  bpp          = gimp_drawable_bpp (drawable_id);
+  n_components = bpp;
 
   if (gimp_drawable_is_indexed (drawable_id))
     cmap = gimp_image_get_colormap (image_id, &palsize);
@@ -666,39 +680,24 @@ save_image (const gchar  *filename,
       break;
 
     case RAW_PLANAR:
-      red   = g_new (guchar, width * height);
-      green = g_new (guchar, width * height);
-      blue  = g_new (guchar, width * height);
-      if (have_alpha)
-        alpha = g_new (guchar, width * height);
+      for (c = 0; c < n_components; c++)
+        components[c] = g_new (guchar, width * height);
 
-      for (i = 0; i < width * height * bpp; i += bpp)
+      for (i = 0, j = 0; i < width * height * bpp; i += bpp, j++)
         {
-          red[j]   = buf[i + 0];
-          green[j] = buf[i + 1];
-          blue[j]  = buf[i + 2];
-          if (have_alpha)
-            alpha[j] = buf[i + 3];
-          j++;
+          for (c = 0; c < n_components; c++)
+            components[c][j] = buf[i + c];
         }
 
       ret = GIMP_PDB_SUCCESS;
-      if (!fwrite (red, width * height, 1, fp))
-        ret = GIMP_PDB_EXECUTION_ERROR;
-      if (!fwrite (green, width * height, 1, fp))
-        ret = GIMP_PDB_EXECUTION_ERROR;
-      if (!fwrite (blue, width * height, 1, fp))
-        ret = GIMP_PDB_EXECUTION_ERROR;
-      if (have_alpha)
+      for (c = 0; c < n_components; c++)
         {
-          if (!fwrite (alpha, width * height, 1, fp))
+          if (! fwrite (components[c], width * height, 1, fp))
             ret = GIMP_PDB_EXECUTION_ERROR;
+
+          g_free (components[c]);
         }
-      g_free (red);
-      g_free (green);
-      g_free (blue);
-      if (have_alpha)
-        g_free (alpha);
+
       fclose (fp);
       break;
 
@@ -717,7 +716,7 @@ load_image (const gchar  *filename,
   gint32             layer_id = -1;
   GimpImageType      ltype    = GIMP_RGB;
   GimpImageBaseType  itype    = GIMP_RGB_IMAGE;
-  gint32             size;
+  goffset            size;
   gint               bpp = 0;
 
   data = g_new0 (RawGimpData, 1);
@@ -1064,7 +1063,7 @@ load_dialog (const gchar *filename)
   GtkWidget *combo;
   GtkWidget *button;
   GtkObject *adj;
-  gint32     file_size;
+  goffset    file_size;
   gboolean   run;
 
   file_size = get_file_info (filename);

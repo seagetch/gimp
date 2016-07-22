@@ -58,8 +58,39 @@ gimp_fonts_init (Gimp *gimp)
                             G_CALLBACK (gimp_fonts_load), gimp);
 }
 
+typedef struct
+{
+  FcConfig  *config;
+  GMutex     mutex;
+  GCond      cond;
+  gboolean   caching_complete : 1;
+} GimpFontsLoadFuncData;
+
+static void
+gimp_fonts_load_func (FcConfig *config)
+{
+  if (! FcConfigBuildFonts (config))
+    FcConfigDestroy (config);
+  else
+    FcConfigSetCurrent (config);
+}
+
+static void
+gimp_fonts_load_thread (GimpFontsLoadFuncData *data)
+{
+  gimp_fonts_load_func (data->config);
+
+  g_mutex_lock (&data->mutex);
+  data->caching_complete = TRUE;
+  g_cond_signal (&data->cond);
+  g_mutex_unlock (&data->mutex);
+
+  g_thread_exit (0);
+}
+
 void
-gimp_fonts_load (Gimp *gimp)
+gimp_fonts_load_with_status (Gimp               *gimp,
+                             GimpInitStatusFunc  status_callback)
 {
   FcConfig *config;
   gchar    *fonts_conf;
@@ -93,19 +124,57 @@ gimp_fonts_load (Gimp *gimp)
   gimp_fonts_add_directories (config, path);
   g_free (path);
 
-  if (! FcConfigBuildFonts (config))
+  if (status_callback)
     {
-      FcConfigDestroy (config);
-      goto cleanup;
-    }
+      gint64                 end_time;
+      GThread               *cache_thread;
+      GimpFontsLoadFuncData  data;
 
-  FcConfigSetCurrent (config);
+      /* We perform font cache initialization in a separate thread, so
+       * in the case a cache rebuild is to be done it will not block
+       * the UI.
+       */
+      data.config = config;
+      g_mutex_init (&data.mutex);
+      g_cond_init (&data.cond);
+      data.caching_complete = FALSE;
+
+      cache_thread = g_thread_new ("font-cacher",
+                                   (GThreadFunc) gimp_fonts_load_thread,
+                                   &data);
+
+      g_mutex_lock (&data.mutex);
+
+      end_time = g_get_monotonic_time () + 0.1 * G_TIME_SPAN_SECOND;
+      while (!data.caching_complete)
+        if (!g_cond_wait_until (&data.cond, &data.mutex, end_time))
+          {
+            status_callback (NULL, NULL, 0.6);
+
+            end_time += 0.1 * G_TIME_SPAN_SECOND;
+            continue;
+          }
+
+      g_mutex_unlock (&data.mutex);
+      g_thread_join (cache_thread);
+
+      g_mutex_clear (&data.mutex);
+      g_cond_clear (&data.cond);
+    }
+  else
+    gimp_fonts_load_func (config);
 
   gimp_font_list_restore (GIMP_FONT_LIST (gimp->fonts));
 
  cleanup:
   gimp_container_thaw (GIMP_CONTAINER (gimp->fonts));
   gimp_unset_busy (gimp);
+}
+
+void
+gimp_fonts_load (Gimp *gimp)
+{
+  gimp_fonts_load_with_status (gimp, NULL);
 }
 
 void
@@ -150,7 +219,17 @@ gimp_fonts_add_directories (FcConfig    *config,
   path = gimp_path_parse (path_str, 256, TRUE, NULL);
 
   for (list = path; list; list = list->next)
-    FcConfigAppFontAddDir (config, (const guchar *) list->data);
+    {
+#ifdef G_OS_WIN32
+      gchar *dir = g_win32_locale_filename_from_utf8 (list->data);
+#else
+      gchar *dir = g_strdup (list->data);
+#endif
+
+      FcConfigAppFontAddDir (config, (const FcChar8 *) dir);
+
+      g_free (dir);
+    }
 
   gimp_path_free (path);
 }

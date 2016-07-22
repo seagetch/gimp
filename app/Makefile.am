@@ -95,6 +95,8 @@ endif
 
 if OS_WIN32
 win32_ldflags = -mwindows -Wl,--tsaware $(WIN32_LARGE_ADDRESS_AWARE)
+else
+libm = -lm
 endif
 
 if USE_BINRELOC
@@ -116,7 +118,6 @@ INCLUDES = \
 	$(GTK_CFLAGS)		\
 	$(PANGOCAIRO_CFLAGS)	\
 	$(GEGL_CFLAGS)		\
-	$(JANSSON_CFLAGS)	\
 	-I$(includedir)
 
 # FIXME: core should not depend on xcf
@@ -182,8 +183,8 @@ gimpconsoleldadd = \
 	$(GEGL_LIBS)			\
 	$(GLIB_LIBS)			\
 	$(INTLLIBS)			\
-	$(JANSSON_LIBS)			\
-	$(RT_LIBS)
+	$(RT_LIBS)			\
+	$(libm)
 
 gimp_2_8_LDFLAGS = \
 	$(AM_LDFLAGS)		\

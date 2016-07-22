@@ -136,6 +136,15 @@ static gboolean xcf_save_vectors       (XcfInfo           *info,
     }                                                              \
   } G_STMT_END
 
+#define xcf_write_zero_int32_check_error(info, count) G_STMT_START {  \
+  info->cp += xcf_write_zero_int32 (info->fp, count, &tmp_error); \
+  if (tmp_error)                                                  \
+    {                                                             \
+      g_propagate_error (error, tmp_error);                       \
+      return FALSE;                                               \
+    }                                                             \
+  } G_STMT_END
+
 #define xcf_write_int8_check_error(info, data, count) G_STMT_START { \
   info->cp += xcf_write_int8 (info->fp, data, count, &tmp_error); \
   if (tmp_error)                                                  \
@@ -181,7 +190,6 @@ static gboolean xcf_save_vectors       (XcfInfo           *info,
                                (gdouble) progress / (gdouble) max_progress); \
   } G_STMT_END
 
-static const guint32 zero = 0;
 
 /**
  * xcf_save_choose_format:
@@ -318,66 +326,74 @@ xcf_save_image (XcfInfo    *info,
 
   xcf_progress_update (info);
 
-  offset = info->cp + (n_layers + n_channels + 2) * 4;
+  /* 'saved_pos' is the next slot in the offset table */
+  saved_pos = info->cp;
+
+  /* write an empty offset table */
+  xcf_write_zero_int32_check_error (info, n_layers + n_channels + 2);
+
+  /* 'offset' is where we will write the next layer or channel */
+  offset = info->cp;
 
   /* write the layers */
   for (list = all_layers; list; list = g_list_next (list))
     {
       GimpLayer *layer = list->data;
 
-      /* write offset to layer pointers table */
+      /* seek back to the next slot in the offset table and write the
+       * offset of the layer
+       */
+      xcf_check_error (xcf_seek_pos (info, saved_pos, error));
       xcf_write_int32_check_error (info, &offset, 1);
 
-      /* write layer at offset */
+      /* remember the next slot in the offset table */
       saved_pos = info->cp;
+
+      /* seek to the layer offset and save the layer */
       xcf_check_error (xcf_seek_pos (info, offset, error));
       xcf_check_error (xcf_save_layer (info, image, layer, error));
 
-      /* increase offset */
+      /* the next layer's offset is after the layer we just wrote */
       offset = info->cp;
 
-      /* set file position to layer pointers table */
-      xcf_check_error (xcf_seek_pos (info, saved_pos, error));
-
-      /* indicate progress */
       xcf_progress_update (info);
     }
 
-  /* write out a '0' offset position to indicate the end
-   *  of the layer offsets.
+  /* skip a '0' in the offset table to indicate the end of the layer
+   * offsets
    */
-  xcf_write_int32_check_error (info, &zero, 1);
+  saved_pos += 4;
 
   /* write the channels */
   for (list = all_channels; list; list = g_list_next (list))
     {
       GimpChannel *channel = list->data;
 
-      /* write offset to channel pointers table */
+      /* seek back to the next slot in the offset table and write the
+       * offset of the channel
+       */
+      xcf_check_error (xcf_seek_pos (info, saved_pos, error));
       xcf_write_int32_check_error (info, &offset, 1);
 
-      /* write channel at offset */
+      /* remember the next slot in the offset table */
       saved_pos = info->cp;
+
+      /* seek to the channel offset and save the channel */
       xcf_check_error (xcf_seek_pos (info, offset, error));
       xcf_check_error (xcf_save_channel (info, image, channel, error));
 
-      /* increase offset */
+      /* the next channels's offset is after the channel we just wrote */
       offset = info->cp;
 
-      /* set file position to channel pointers table */
-      xcf_check_error (xcf_seek_pos (info, saved_pos, error));
-
-      /* indicate progress */
       xcf_progress_update (info);
     }
 
+  /* there is already a '0' at the end of the offset table to indicate
+   * the end of the channel offsets
+   */
+
   g_list_free (all_layers);
   g_list_free (all_channels);
-
-  /* write out a '0' offset position to indicate the end
-   *  of the channel offsets.
-   */
-  xcf_write_int32_check_error (info, &zero, 1);
 
   return !ferror (info->fp);
 }
@@ -1195,39 +1211,32 @@ xcf_save_layer (XcfInfo    *info,
   /* write out the layer properties */
   xcf_save_layer_props (info, image, layer, error);
 
-  /*  save the current position which is where the hierarchy offset
-   *  will be stored.
-   */
-
-  /*  write out the layer tile hierarchy  */
+  /* write out the layer tile hierarchy */
   offset = info->cp + 8;
   xcf_write_int32_check_error (info, &offset, 1);
 
   saved_pos = info->cp;
-  xcf_check_error (xcf_seek_pos (info, offset, error));
+
+  /* write a zero layer mask offset */
+  xcf_write_zero_int32_check_error (info, 1);
 
   xcf_check_error (xcf_save_hierarchy (info,
                                        gimp_drawable_get_tiles (GIMP_DRAWABLE (layer)),
                                        error));
 
   offset = info->cp;
-  xcf_check_error (xcf_seek_pos (info, saved_pos, error));
 
   /* write out the layer mask */
   if (gimp_layer_get_mask (layer))
     {
       GimpLayerMask *mask = gimp_layer_get_mask (layer);
 
+      xcf_check_error (xcf_seek_pos (info, saved_pos, error));
       xcf_write_int32_check_error (info, &offset, 1);
-      xcf_check_error (xcf_seek_pos (info, offset, error));
 
+      xcf_check_error (xcf_seek_pos (info, offset, error));
       xcf_check_error (xcf_save_channel (info, image, GIMP_CHANNEL (mask),
                                          error));
-    }
-  else
-    {
-      xcf_write_int32_check_error (info, &zero, 1);
-      xcf_check_error (xcf_seek_pos (info, offset, error));
     }
 
   return TRUE;
@@ -1327,13 +1336,27 @@ xcf_save_hierarchy (XcfInfo      *info,
   tmp2 = xcf_calc_levels (height, TILE_HEIGHT);
   nlevels = MAX (tmp1, tmp2);
 
-  offset = info->cp + (1 + nlevels) * 4;
+  /* 'saved_pos' is the next slot in the offset table */
+  saved_pos = info->cp;
+
+  /* write an empty offset table */
+  xcf_write_zero_int32_check_error (info, nlevels + 1);
+
+  /* 'offset' is where we will write the next level */
+  offset = info->cp;
 
   for (i = 0; i < nlevels; i++)
     {
+      /* seek back to the next slot in the offset table and write the
+       * offset of the level
+       */
+      xcf_check_error (xcf_seek_pos (info, saved_pos, error));
       xcf_write_int32_check_error (info, &offset, 1);
 
+      /* remember the next slot in the offset table */
       saved_pos = info->cp;
+
+      /* seek to the level offset and save the level */
       xcf_check_error (xcf_seek_pos (info, offset, error));
 
       if (i == 0)
@@ -1352,15 +1375,13 @@ xcf_save_hierarchy (XcfInfo      *info,
           xcf_write_int32_check_error (info, (guint32 *) &tmp1,   1);
         }
 
+      /* the next level's offset if after the level we just wrote */
       offset = info->cp;
-      xcf_check_error (xcf_seek_pos (info, saved_pos, error));
     }
 
-  /* write out a '0' offset position to indicate the end
-   *  of the level offsets.
+  /* there is already a '0' at the end of the offset table to indicate
+   * the end of the level offsets
    */
-  xcf_write_int32_check_error (info, &zero, 1);
-  xcf_check_error (xcf_seek_pos (info, offset, error));
 
   return TRUE;
 }
@@ -1370,6 +1391,8 @@ xcf_save_level (XcfInfo      *info,
                 TileManager  *level,
                 GError      **error)
 {
+  guint32 *offset_table;
+  guint32 *next_offset;
   guint32  saved_pos;
   guint32  offset;
   guint32  width;
@@ -1390,17 +1413,32 @@ xcf_save_level (XcfInfo      *info,
      written to disk */
   rlebuf =
     g_malloc (TILE_WIDTH * TILE_HEIGHT * tile_manager_bpp (level) * 1.5);
+
   ntiles = level->ntile_rows * level->ntile_cols;
-  offset = info->cp + (ntiles + 1) * 4;
+
+  /* allocate an offset table so we don't have to seek back after each
+   * tile, see bug #686862. allocate ntiles + 1 slots because a zero
+   * offset indicates the offset table's end.
+   */
+  offset_table = g_alloca ((ntiles + 1) * sizeof (gint32));
+  memset (offset_table, 0, (ntiles + 1) * sizeof (gint32));
+  next_offset = offset_table;
+
+  /* 'saved_pos' is the offset of the tile offset table  */
+  saved_pos = info->cp;
+
+  /* write an empty offset table */
+  xcf_write_zero_int32_check_error (info, ntiles + 1);
+
+  /* 'offset' is where we will write the next tile */
+  offset = info->cp;
 
   if (level->tiles)
     {
       for (i = 0; i < ntiles; i++)
         {
-          xcf_write_int32_check_error (info, &offset, 1);
-
-          saved_pos = info->cp;
-          xcf_check_error (xcf_seek_pos (info, offset, error));
+          /* store the offset in the table and increment the next pointer */
+          *next_offset++ = offset;
 
           /* write out the tile. */
           switch (info->compression)
@@ -1420,17 +1458,18 @@ xcf_save_level (XcfInfo      *info,
               break;
             }
 
+          /* the next tile's offset is after the tile we just wrote */
           offset = info->cp;
-          xcf_check_error (xcf_seek_pos (info, saved_pos, error));
         }
     }
 
   g_free (rlebuf);
 
-  /* write out a '0' offset position to indicate the end
-   *  of the level offsets.
-   */
-  xcf_write_int32_check_error (info, &zero, 1);
+  /* seek back to the offset table and write it  */
+  xcf_check_error (xcf_seek_pos (info, saved_pos, error));
+  xcf_write_int32_check_error (info, offset_table, ntiles + 1);
+
+  /* seek to the end of the file */
   xcf_check_error (xcf_seek_pos (info, offset, error));
 
   return TRUE;

@@ -7,15 +7,17 @@
 # Duarte Loreto <happyguy_pt@hotmail.com>, 2003, 2004.
 # Bruno Queiros <brunomiguelqueiros@sapo.pt>, 2008.
 # Pedro Barreira <almufadado@gmail.com>, 2010
+# Pedro Albuquerque <palbuquerque73@gmail.com>, 2015.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: gimp-script-fu.HEAD\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-05-04 00:47+1200\n"
-"PO-Revision-Date: 2011-01-17 13:01+0100\n"
-"Last-Translator: Pedro Barreira <almufadado@gmail.com>\n"
-"Language-Team: Português Translation Team <gnome_pt@yahoogroups.com>\n"
+"Report-Msgid-Bugs-To: http://bugzilla.gnome.org/enter_bug.cgi?"
+"product=gimp&keywords=I18N+L10N&component=general\n"
+"POT-Creation-Date: 2015-09-20 17:39+0000\n"
+"PO-Revision-Date: 2015-09-21 06:17+0100\n"
+"Last-Translator: Pedro Albuquerque <palbuquerque73@gmail.com>\n"
+"Language-Team: Português <palbuquerque73@gmail.com>\n"
 "Language: pt\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -23,10 +25,11 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Poedit-Language: Portuguese\n"
 "X-Poedit-Country: Portugal\n"
+"X-Generator: Gtranslator 2.91.6\n"
 
 #: ../plug-ins/script-fu/script-fu.c:111
 msgid "Interactive console for Script-Fu development"
-msgstr "Consola interactiva para desenvolvimento do Script-Fu"
+msgstr "Consola interativa para desenvolvimento do Script-Fu"
 
 #: ../plug-ins/script-fu/script-fu.c:117
 msgid "_Console"
@@ -38,15 +41,15 @@ msgstr "Servidor para operação remota do Script-Fu"
 
 #: ../plug-ins/script-fu/script-fu.c:151
 msgid "_Start Server..."
-msgstr "_Iniciar Servidor..."
+msgstr "_Iniciar servidor..."
 
 #: ../plug-ins/script-fu/script-fu.c:307
 msgid "_GIMP Online"
-msgstr "_GIMP Online"
+msgstr "_GIMP online"
 
 #: ../plug-ins/script-fu/script-fu.c:308
 msgid "_User Manual"
-msgstr "_Manual do Utilizador"
+msgstr "_Manual do utilizador"
 
 #: ../plug-ins/script-fu/script-fu.c:311
 msgid "_Script-Fu"
@@ -70,15 +73,15 @@ msgstr "_Texturas"
 
 #: ../plug-ins/script-fu/script-fu.c:323
 msgid "_Web Page Themes"
-msgstr "_Temas da Página Web"
+msgstr "_Temas da página Web"
 
 #: ../plug-ins/script-fu/script-fu.c:325
 msgid "_Alien Glow"
-msgstr "_Brilho Estranho"
+msgstr "_Brilho estranho"
 
 #: ../plug-ins/script-fu/script-fu.c:327
 msgid "_Beveled Pattern"
-msgstr "_Textura Biselada"
+msgstr "_Textura chanfrada"
 
 #: ../plug-ins/script-fu/script-fu.c:329
 msgid "_Classic.Gimp.Org"
@@ -86,24 +89,23 @@ msgstr "_Classic.Gimp.Org"
 
 #: ../plug-ins/script-fu/script-fu.c:332
 msgid "Alpha to _Logo"
-msgstr "Transparência para _Logótipo"
+msgstr "Alfa para _Logótipo"
 
 #: ../plug-ins/script-fu/script-fu.c:335
 msgid "Re-read all available Script-Fu scripts"
-msgstr "Re-ler todos os scripts Script-Fu disponíveis"
+msgstr "Reler todos os scripts Script-Fu disponíveis"
 
 #: ../plug-ins/script-fu/script-fu.c:340
 msgid "_Refresh Scripts"
-msgstr "_Refrescar Scripts"
+msgstr "_Atualizar scripts"
 
 #: ../plug-ins/script-fu/script-fu.c:363
 msgid ""
 "You can not use \"Refresh Scripts\" while a Script-Fu dialog box is open.  "
 "Please close all Script-Fu windows and try again."
 msgstr ""
-"Não pode utilizar \"Refrescar Scripts\" enquanto uma caixa de diálogo Script-"
-"Fu estiver aberta.  Por favor feche todas as janelas Script-Fu e tente de "
-"novo."
+"Não pode utilizar \"Atualizar scripts\" enquanto um diálogo Script-Fu "
+"estiver aberto. Por favor feche todas as janelas Script-Fu e tente de novo."
 
 #: ../plug-ins/script-fu/script-fu-console.c:130
 #: ../plug-ins/script-fu/script-fu-console.c:197
@@ -112,32 +114,32 @@ msgstr "Consola Script-Fu"
 
 #: ../plug-ins/script-fu/script-fu-console.c:193
 msgid "Welcome to TinyScheme"
-msgstr "Bem-vindo(a) ao TinyScheme"
+msgstr "Boas vindas ao TinyScheme"
 
 #: ../plug-ins/script-fu/script-fu-console.c:199
 msgid "Interactive Scheme Development"
-msgstr "Esquema de Desenvolvimento Interactivo"
+msgstr "Esquema de desenvolvimento interativo"
 
 #: ../plug-ins/script-fu/script-fu-console.c:235
 msgid "_Browse..."
-msgstr "_Escolher..."
+msgstr "_Navegar..."
 
 #: ../plug-ins/script-fu/script-fu-console.c:293
 msgid "Save Script-Fu Console Output"
-msgstr "Gravar Saída da Consola Script-Fu"
+msgstr "Gravar saída da consola Script-Fu"
 
 #: ../plug-ins/script-fu/script-fu-console.c:340
 #, c-format
 msgid "Could not open '%s' for writing: %s"
-msgstr "Impossível abrir '%s' para escrita: %s"
+msgstr "Impossível abrir \"%s\" para escrita: %s"
 
 #: ../plug-ins/script-fu/script-fu-console.c:369
 msgid "Script-Fu Procedure Browser"
-msgstr "Procedimento do Navegador do Script-Fu"
+msgstr "Navegador de procedimentos do Script-Fu"
 
 #: ../plug-ins/script-fu/script-fu-eval.c:60
 msgid "Script-Fu evaluation mode only allows non-interactive invocation"
-msgstr "O modo de avaliação Script-Fu apenas permite invocação não-interactiva"
+msgstr "O modo de avaliação Script-Fu só permite invocação não interativa"
 
 #: ../plug-ins/script-fu/script-fu-interface.c:198
 msgid "Script-Fu cannot process two scripts at the same time."
@@ -163,44 +165,44 @@ msgstr "%s:"
 
 #: ../plug-ins/script-fu/script-fu-interface.c:337
 msgid "Script-Fu Color Selection"
-msgstr "Selecção de Cores do Script-Fu"
+msgstr "Seleção de cores do Script-Fu"
 
 #: ../plug-ins/script-fu/script-fu-interface.c:446
 msgid "Script-Fu File Selection"
-msgstr "Selecção de Ficheiros Script-Fu"
+msgstr "Seleção de ficheiros Script-Fu"
 
 #: ../plug-ins/script-fu/script-fu-interface.c:449
 msgid "Script-Fu Folder Selection"
-msgstr "Selecção de Pasta Script-Fu"
+msgstr "Seleção de pastas Script-Fu"
 
 #: ../plug-ins/script-fu/script-fu-interface.c:462
 msgid "Script-Fu Font Selection"
-msgstr "Selecção de Tipo de Letra do Script-Fu"
+msgstr "Seleção de letra do Script-Fu"
 
 #: ../plug-ins/script-fu/script-fu-interface.c:470
 msgid "Script-Fu Palette Selection"
-msgstr "Selecção de Paleta do Script-fu"
+msgstr "Seleção de paleta do Script-fu"
 
 #: ../plug-ins/script-fu/script-fu-interface.c:479
 msgid "Script-Fu Pattern Selection"
-msgstr "Selecção de Textura Script-fu"
+msgstr "Seleção de textura Script-fu"
 
 #: ../plug-ins/script-fu/script-fu-interface.c:488
 msgid "Script-Fu Gradient Selection"
-msgstr "Selecção de Gradiente Script-Fu"
+msgstr "Seleção de gradiente Script-Fu"
 
 #: ../plug-ins/script-fu/script-fu-interface.c:497
 msgid "Script-Fu Brush Selection"
-msgstr "Selecção de Pincel Script-Fu"
+msgstr "Seleção de pincel Script-Fu"
 
-#: ../plug-ins/script-fu/script-fu-interface.c:840
+#: ../plug-ins/script-fu/script-fu-interface.c:857
 #, c-format
 msgid "Error while executing %s:"
 msgstr "Erro ao executar %s:"
 
 #: ../plug-ins/script-fu/script-fu-scripts.c:146
 msgid "Too few arguments to 'script-fu-register' call"
-msgstr "Argumentos insuficiente para a chamado do 'script-fu-register'"
+msgstr "Poucos argumentos para a chamada a \"script-fu-register\""
 
 #: ../plug-ins/script-fu/script-fu-scripts.c:605
 #, c-format
@@ -209,29 +211,31 @@ msgstr "Erro ao carregar %s:"
 
 #: ../plug-ins/script-fu/script-fu-server.c:824
 msgid "Script-Fu Server Options"
-msgstr "Opções do Servidor Script-Fu"
+msgstr "Opções do servidor Script-Fu"
 
 #: ../plug-ins/script-fu/script-fu-server.c:829
 msgid "_Start Server"
-msgstr "_Iniciar Servidor"
+msgstr "_Iniciar servidor"
 
 #: ../plug-ins/script-fu/script-fu-server.c:862
 msgid "Listen on IP:"
-msgstr ""
+msgstr "Ouvir no IP:"
 
 #: ../plug-ins/script-fu/script-fu-server.c:869
 msgid "Server port:"
-msgstr "Porta servidor:"
+msgstr "Porta do servidor:"
 
 #: ../plug-ins/script-fu/script-fu-server.c:875
 msgid "Server logfile:"
-msgstr "Ficheiro de log do Servidor:"
+msgstr "Ficheiro de diário do servidor:"
 
 #: ../plug-ins/script-fu/script-fu-server.c:887
 msgid ""
 "Listening on an IP address other than 127.0.0.1 (especially 0.0.0.0) can "
 "allow attackers to remotely execute arbitrary code on this machine."
 msgstr ""
+"Ouvir num endereço IP diferente de 127.0.0.1 (especialmente no 0.0.0.0) pode "
+"permitir que atacantes executem remotamente código arbitrário nesta máquina."
 
 #: ../plug-ins/script-fu/scripts/3d-outline.scm:120
 #: ../plug-ins/script-fu/scripts/3d-outline.scm:166
@@ -254,7 +258,7 @@ msgstr ""
 #: ../plug-ins/script-fu/scripts/beveled-pattern-hrule.scm:85
 #: ../plug-ins/script-fu/scripts/chip-away.scm:155
 #: ../plug-ins/script-fu/scripts/chip-away.scm:202
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:128
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:126
 msgid "Pattern"
 msgstr "Textura"
 
@@ -331,7 +335,7 @@ msgstr "Criar um logótipo com texto contornado e sombra projectada"
 #: ../plug-ins/script-fu/scripts/speed-text.scm:92
 #: ../plug-ins/script-fu/scripts/starscape-logo.scm:145
 #: ../plug-ins/script-fu/scripts/text-circle.scm:213
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:167
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:165
 #: ../plug-ins/script-fu/scripts/title-header.scm:171
 #: ../plug-ins/script-fu/scripts/t-o-p-logo.scm:144
 msgid "Text"
@@ -367,7 +371,7 @@ msgstr "Texto"
 #: ../plug-ins/script-fu/scripts/speed-text.scm:94
 #: ../plug-ins/script-fu/scripts/starscape-logo.scm:146
 #: ../plug-ins/script-fu/scripts/text-circle.scm:217
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:168
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:166
 #: ../plug-ins/script-fu/scripts/title-header.scm:172
 #: ../plug-ins/script-fu/scripts/t-o-p-logo.scm:145
 msgid "Font size (pixels)"
@@ -404,7 +408,7 @@ msgstr "Tamanho do Tipo de Letra (pixeis)"
 #: ../plug-ins/script-fu/scripts/speed-text.scm:93
 #: ../plug-ins/script-fu/scripts/starscape-logo.scm:147
 #: ../plug-ins/script-fu/scripts/text-circle.scm:219
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:169
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:167
 #: ../plug-ins/script-fu/scripts/title-header.scm:173
 #: ../plug-ins/script-fu/scripts/t-o-p-logo.scm:146
 msgid "Font"
@@ -463,8 +467,8 @@ msgstr "Espessura"
 #: ../plug-ins/script-fu/scripts/news-text.scm:90
 #: ../plug-ins/script-fu/scripts/speed-text.scm:97
 #: ../plug-ins/script-fu/scripts/swirltile.scm:65
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:132
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:174
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:130
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:172
 #: ../plug-ins/script-fu/scripts/t-o-p-logo.scm:111
 #: ../plug-ins/script-fu/scripts/t-o-p-logo.scm:151
 #: ../plug-ins/script-fu/scripts/truchet.scm:173
@@ -972,7 +976,7 @@ msgstr "Modo de mistura"
 #: ../plug-ins/script-fu/scripts/blended-logo.scm:136
 #: ../plug-ins/script-fu/scripts/blended-logo.scm:195
 msgid "FG-BG-RGB"
-msgstr "FG-BG-RGB"
+msgstr "1ºP-F-RGB"
 
 #: ../plug-ins/script-fu/scripts/blended-logo.scm:137
 #: ../plug-ins/script-fu/scripts/blended-logo.scm:196
@@ -1114,7 +1118,7 @@ msgid "Color 3"
 msgstr "Cor 3"
 
 #: ../plug-ins/script-fu/scripts/camo.scm:105
-#: ../plug-ins/script-fu/scripts/distress-selection.scm:113
+#: ../plug-ins/script-fu/scripts/distress-selection.scm:116
 msgid "Smooth"
 msgstr "Uniforme"
 
@@ -1141,7 +1145,7 @@ msgstr "Criar sombra"
 #: ../plug-ins/script-fu/scripts/carved-logo.scm:152
 #: ../plug-ins/script-fu/scripts/carve-it.scm:172
 msgid "Inset"
-msgstr ""
+msgstr "Inserir"
 
 #: ../plug-ins/script-fu/scripts/carved-logo.scm:162
 msgid "Carved..."
@@ -1245,7 +1249,6 @@ msgid "Create a logo resembling a chipped wood carving"
 msgstr "Criar um logótipo assemelhando-se a uma escultura de madeira lascada"
 
 #: ../plug-ins/script-fu/scripts/chrome-it.scm:104
-#, fuzzy
 msgid "Layer 1"
 msgstr "Camada 1"
 
@@ -1506,32 +1509,31 @@ msgstr "Nuvens diferenciadas..."
 msgid "Solid noise applied with Difference layer mode"
 msgstr "Ruído sólido aplicado em modo de diferenciação de camada"
 
-#: ../plug-ins/script-fu/scripts/distress-selection.scm:102
+#: ../plug-ins/script-fu/scripts/distress-selection.scm:105
 msgid "_Distort..."
 msgstr "_Distorcer..."
 
-#: ../plug-ins/script-fu/scripts/distress-selection.scm:103
+#: ../plug-ins/script-fu/scripts/distress-selection.scm:106
 msgid "Distress the selection"
 msgstr "Acalmar a selecção"
 
-#: ../plug-ins/script-fu/scripts/distress-selection.scm:110
-#, fuzzy
+#: ../plug-ins/script-fu/scripts/distress-selection.scm:113
 msgid "Threshold (bigger 1<-->254 smaller)"
-msgstr "Limite (maior 1<-->255 menor)"
+msgstr "Limite (maior 1<-->254 menor)"
 
-#: ../plug-ins/script-fu/scripts/distress-selection.scm:111
+#: ../plug-ins/script-fu/scripts/distress-selection.scm:114
 msgid "Spread"
 msgstr "Espalhar"
 
-#: ../plug-ins/script-fu/scripts/distress-selection.scm:112
+#: ../plug-ins/script-fu/scripts/distress-selection.scm:115
 msgid "Granularity (1 is low)"
 msgstr "Granulado (1 é baixo)"
 
-#: ../plug-ins/script-fu/scripts/distress-selection.scm:114
+#: ../plug-ins/script-fu/scripts/distress-selection.scm:117
 msgid "Smooth horizontally"
 msgstr "Suavizar horizontalmente"
 
-#: ../plug-ins/script-fu/scripts/distress-selection.scm:115
+#: ../plug-ins/script-fu/scripts/distress-selection.scm:118
 msgid "Smooth vertically"
 msgstr "Suavizar verticalmente"
 
@@ -1917,7 +1919,7 @@ msgstr ""
 "região seleccionada (ou à transparência)"
 
 #: ../plug-ins/script-fu/scripts/gradient-bevel-logo.scm:102
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:127
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:125
 #: ../plug-ins/script-fu/scripts/t-o-p-logo.scm:106
 msgid "Border size (pixels)"
 msgstr "Tamanho da margem (pixeis)"
@@ -1963,9 +1965,8 @@ msgid "New Guides from _Selection"
 msgstr "Novas Guias a partir da _Selecção"
 
 #: ../plug-ins/script-fu/scripts/guides-from-selection.scm:33
-#, fuzzy
 msgid "Create four guides around the bounding box of the current selection"
-msgstr "Arredondar os cantos da selecção actual"
+msgstr "Criar quatro guias à volta da caixa limite da seleção atual"
 
 #: ../plug-ins/script-fu/scripts/guides-new-percent.scm:27
 msgid "New Guide (by _Percent)..."
@@ -2069,31 +2070,30 @@ msgstr "Roughness"
 msgid "Use current gradient"
 msgstr "Usar o gradiente actual"
 
-#: ../plug-ins/script-fu/scripts/line-nova.scm:106
+#: ../plug-ins/script-fu/scripts/line-nova.scm:108
 msgid "Line _Nova..."
 msgstr "E_xplosão de Linhas..."
 
-#: ../plug-ins/script-fu/scripts/line-nova.scm:107
-#, fuzzy
+#: ../plug-ins/script-fu/scripts/line-nova.scm:109
 msgid ""
 "Fill a layer with rays emanating outward from its center using the "
 "foreground color"
 msgstr ""
 "Preencher a camada com raios emanado do seu centro, usando a cor de 1º plano"
 
-#: ../plug-ins/script-fu/scripts/line-nova.scm:114
+#: ../plug-ins/script-fu/scripts/line-nova.scm:116
 msgid "Number of lines"
 msgstr "Número de linhas"
 
-#: ../plug-ins/script-fu/scripts/line-nova.scm:115
+#: ../plug-ins/script-fu/scripts/line-nova.scm:117
 msgid "Sharpness (degrees)"
 msgstr "Acuidade (grau)"
 
-#: ../plug-ins/script-fu/scripts/line-nova.scm:116
+#: ../plug-ins/script-fu/scripts/line-nova.scm:118
 msgid "Offset radius"
 msgstr "Raio de deslocamento"
 
-#: ../plug-ins/script-fu/scripts/line-nova.scm:117
+#: ../plug-ins/script-fu/scripts/line-nova.scm:119
 msgid "Randomness"
 msgstr "Aleatório"
 
@@ -2210,11 +2210,11 @@ msgstr "Sépia"
 msgid "Mottle"
 msgstr "Matizar"
 
-#: ../plug-ins/script-fu/scripts/palette-export.scm:235
+#: ../plug-ins/script-fu/scripts/palette-export.scm:226
 msgid "Folder for the output file"
 msgstr "Pasta para o ficheiro de destino"
 
-#: ../plug-ins/script-fu/scripts/palette-export.scm:236
+#: ../plug-ins/script-fu/scripts/palette-export.scm:227
 msgid ""
 "The name of the file to create (if a file with this name already exist, it "
 "will be replaced)"
@@ -2222,12 +2222,12 @@ msgstr ""
 "O nome do ficheiro a ser criado (se já existir um ficheiro com este nome "
 "será substituido)"
 
-#: ../plug-ins/script-fu/scripts/palette-export.scm:244
+#: ../plug-ins/script-fu/scripts/palette-export.scm:235
 msgid "The filename you entered is not a suitable name for a file."
 msgstr ""
 "O nome do ficheiro que indicou não é um nome adequado para um ficheiro."
 
-#: ../plug-ins/script-fu/scripts/palette-export.scm:246
+#: ../plug-ins/script-fu/scripts/palette-export.scm:237
 msgid ""
 "All characters in the name are either white-spaces or characters which can "
 "not appear in filenames."
@@ -2235,7 +2235,7 @@ msgstr ""
 "Todos os caracteres no nome ou são espaços ou caracteres que não podem "
 "aparecer em nomes de ficheiros."
 
-#: ../plug-ins/script-fu/scripts/palette-export.scm:274
+#: ../plug-ins/script-fu/scripts/palette-export.scm:265
 msgid ""
 "Export the active palette as a CSS stylesheet with the color entry name as "
 "their class name, and the color itself as the color attribute"
@@ -2243,15 +2243,15 @@ msgstr ""
 "Exportar a paleta activa como folha-de-estilos CSS, com o nome do item de "
 "cor como 'class name' e a própria cor como atributo de cor"
 
-#: ../plug-ins/script-fu/scripts/palette-export.scm:300
+#: ../plug-ins/script-fu/scripts/palette-export.scm:291
 msgid "Export the active palette as a PHP dictionary (name => color)"
 msgstr "Exportar a paleta activa como dicionário PHP (nome => cor)"
 
-#: ../plug-ins/script-fu/scripts/palette-export.scm:332
+#: ../plug-ins/script-fu/scripts/palette-export.scm:323
 msgid "Export the active palette as a Python dictionary (name: color)"
 msgstr "Exportar a paleta activa como dicionário Python (nome: cor)"
 
-#: ../plug-ins/script-fu/scripts/palette-export.scm:361
+#: ../plug-ins/script-fu/scripts/palette-export.scm:352
 msgid ""
 "Write all the colors in a palette to a text file, one hexadecimal value per "
 "line (no names)"
@@ -2259,7 +2259,7 @@ msgstr ""
 "Escrever todoas as cores da palete como ficheiro de texto, um valor "
 "hexadecimal por linha (sem nomes)"
 
-#: ../plug-ins/script-fu/scripts/palette-export.scm:408
+#: ../plug-ins/script-fu/scripts/palette-export.scm:399
 msgid "Export the active palette as a java.util.Hashtable<String, Color>"
 msgstr "Exportar a paleta activa como java.util.Hashtable<Expressão, Cor>"
 
@@ -2408,7 +2408,7 @@ msgstr "Comportamento"
 
 #: ../plug-ins/script-fu/scripts/rendermap.scm:90
 msgid "Tile"
-msgstr "Azulejo"
+msgstr "Mosaico"
 
 #: ../plug-ins/script-fu/scripts/rendermap.scm:90
 msgid "Detail in Middle"
@@ -2448,7 +2448,7 @@ msgstr "Comportamento da orla"
 
 #: ../plug-ins/script-fu/scripts/ripply-anim.scm:129
 msgid "Wrap"
-msgstr "Enrolar"
+msgstr "Quebrar"
 
 #: ../plug-ins/script-fu/scripts/ripply-anim.scm:129
 msgid "Smear"
@@ -2610,7 +2610,7 @@ msgstr "Tipo"
 
 #: ../plug-ins/script-fu/scripts/spyrogimp.scm:323
 msgid "Spyrograph"
-msgstr "Esferográfica"
+msgstr "Espirógrafo"
 
 #: ../plug-ins/script-fu/scripts/spyrogimp.scm:324
 msgid "Epitrochoid"
@@ -2704,7 +2704,7 @@ msgstr "Método de cor"
 
 #: ../plug-ins/script-fu/scripts/spyrogimp.scm:347
 msgid "Solid Color"
-msgstr "Cor Sólida"
+msgstr "Cor sólida"
 
 #: ../plug-ins/script-fu/scripts/spyrogimp.scm:348
 msgid "Gradient: Loop Sawtooth"
@@ -2757,9 +2757,8 @@ msgid "Number of times to whirl"
 msgstr "Nº de voltas do remoinho"
 
 #: ../plug-ins/script-fu/scripts/test-sphere.scm:267
-#, fuzzy
 msgid "_Sphere..."
-msgstr "C_romar..."
+msgstr "_Esfera..."
 
 #: ../plug-ins/script-fu/scripts/text-circle.scm:207
 msgid "Text C_ircle..."
@@ -2780,12 +2779,12 @@ msgstr "Ângulo de preenchimento"
 msgid "Antialias"
 msgstr "Antialias"
 
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:119
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:161
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:117
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:159
 msgid "_Textured..."
 msgstr "_Texturizado..."
 
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:120
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:118
 msgid ""
 "Fill the selected region (or alpha) with a texture and add highlights, "
 "shadows, and a mosaic background"
@@ -2793,43 +2792,43 @@ msgstr ""
 "Preencher a região seleccionada (ou a transparência) com uma textura, "
 "adicionando destaques, sombras e um fundo em mosaico"
 
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:129
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:171
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:127
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:169
 msgid "Mosaic tile type"
 msgstr "Tipo de mosaico"
 
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:129
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:171
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:127
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:169
 msgid "Squares"
 msgstr "Quadrados"
 
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:130
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:172
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:128
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:170
 msgid "Hexagons"
 msgstr "Hexágonos"
 
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:131
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:173
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:129
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:171
 msgid "Octagons"
 msgstr "Octógonos"
 
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:133
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:175
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:131
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:173
 msgid "Starting blend"
 msgstr "Início da Mistura"
 
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:134
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:176
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:132
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:174
 msgid "Ending blend"
 msgstr "Fim da mistura"
 
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:162
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:160
 msgid ""
 "Create a textured logo with highlights, shadows, and a mosaic background"
 msgstr ""
 "Criar um logótipo texturizado com destaques, sombras e um fundo em mosaico"
 
-#: ../plug-ins/script-fu/scripts/textured-logo.scm:170
+#: ../plug-ins/script-fu/scripts/textured-logo.scm:168
 msgid "Text pattern"
 msgstr "Textura de Texto"
 

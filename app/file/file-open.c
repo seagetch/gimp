@@ -115,13 +115,6 @@ file_open_image (Gimp                *gimp,
 
   *status = GIMP_PDB_EXECUTION_ERROR;
 
-  if (! file_proc)
-    file_proc = file_procedure_find (gimp->plug_in_manager->load_procs, uri,
-                                     error);
-
-  if (! file_proc)
-    return NULL;
-
   filename = file_utils_filename_from_uri (uri);
 
   if (filename)
@@ -151,6 +144,19 @@ file_open_image (Gimp                *gimp,
       filename = g_strdup (uri);
     }
 
+  if (! file_proc)
+    file_proc = file_procedure_find (gimp->plug_in_manager->load_procs, uri,
+                                     error);
+
+  if (! file_proc)
+    {
+      g_free (filename);
+      return NULL;
+    }
+
+  if (progress)
+    g_object_add_weak_pointer (G_OBJECT (progress), (gpointer) &progress);
+
   return_vals =
     gimp_pdb_execute_procedure_by_name (gimp->pdb,
                                         context, progress, error,
@@ -159,6 +165,9 @@ file_open_image (Gimp                *gimp,
                                         G_TYPE_STRING,   filename,
                                         G_TYPE_STRING,   entered_filename,
                                         G_TYPE_NONE);
+
+  if (progress)
+    g_object_remove_weak_pointer (G_OBJECT (progress), (gpointer) &progress);
 
   g_free (filename);
 

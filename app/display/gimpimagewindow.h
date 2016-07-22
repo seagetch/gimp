@@ -98,5 +98,6 @@ void               gimp_image_window_link_foreign_active_shell (GimpImageWindow 
                                                                 GimpDisplayShell *shell);
 
 GimpImageWindow*    gimp_image_window_get_toolbar_window (void);
+void               gimp_image_window_update_tabs          (GimpImageWindow  *window);
 
 #endif /* __GIMP_IMAGE_WINDOW_H__ */

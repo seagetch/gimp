@@ -119,12 +119,9 @@
 		${prefix}/lib/gdk-pixbuf-2.0/${pkg:gdk-pixbuf-2.0:gdk_pixbuf_binary_version}/
 	</binary>
 
-	<!-- Copy in pango modules -->
-	<binary>
-		${prefix}/lib/pango/${pkg:pango:pango_module_version}/modules/*.so
-	</binary>
-
 	<!-- Translations -->
+	<data>${prefix}/share/xml/iso-codes/iso_639.xml</data>
+
 	<!-- - GIMP and GEGL translations - -->
 	<translations name="gegl-0.2">${prefix}/share/locale</translations>
 	<translations name="gimp20-libgimp">${prefix}/share/locale</translations>
@@ -159,7 +156,6 @@
 	<translations name="shared-mime-info">${prefix}/share/locale</translations>
 	<data dest="${bundle}/Contents/Resources">${prefix}/share/strings</data>
 
-	<!-- Copy in mime data -->
 	<!-- Used for opening up help in browser -->
 	<!--<data dest="${bundle}/Contents/Resources/share/applications/gimp.desktop"> 
 		${project}/custom/gimp.desktop </data> -->
@@ -167,14 +163,15 @@
 	<data dest="${bundle}/Contents/Resources/share/applications/open.desktop">
 		${project}/custom/open.desktop
 	</data>
+
+	<!-- Copy in mime data -->
 	<data dest="${bundle}/Contents/Resources/share/applications/mimeinfo.cache">
 		${project}/custom/mimeinfo.cache
 	</data>
 
 	<data>
-		${prefix}/share/mime/*
+		${prefix}/share/mime
 	</data>
-	<!--<data> ${prefix}/share/mime-info/* </data> -->
 
 	<!-- Copy in D-Bus Launch session support -->
 	<data>${prefix}/etc/dbus-1/system.conf</data>
@@ -195,6 +192,9 @@
 	<!-- Copy in FontConfig data -->
 	<data>${prefix}/etc/fonts/conf.d/*</data>
 	<data>${prefix}/etc/fonts/fonts.conf</data>
+
+	<!-- Copy in poppler data -->
+	<data>${prefix}/share/poppler</data>
 
 	<!-- GIMP data -->
 	<data dest="${bundle}/Contents/Resources/share/gimp">
@@ -237,5 +237,5 @@
 	<data dest="${bundle}/Contents/Resources">${project}/xcf.icns</data>
 
 	<!-- Copy in base icon theme -->
-	<icon-theme icons="auto">Tango</icon-theme>
+	<icon-theme icons="all">Tango</icon-theme>
 </app-bundle>

@@ -20,6 +20,11 @@
 #include <gegl.h>
 #include <gtk/gtk.h>
 
+#ifdef GDK_WINDOWING_QUARTZ
+#import <AppKit/AppKit.h>
+#include <gdk/gdkquartz.h>
+#endif /* !GDK_WINDOWING_QUARTZ */
+
 #include "libgimpmath/gimpmath.h"
 #include "libgimpwidgets/gimpwidgets.h"
 
@@ -154,6 +159,7 @@ static void      gimp_image_window_get_property        (GObject             *obj
                                                         GValue              *value,
                                                         GParamSpec          *pspec);
 
+static void      gimp_image_window_map                 (GtkWidget           *widget);
 static gboolean  gimp_image_window_delete_event        (GtkWidget           *widget,
                                                         GdkEventAny         *event);
 static gboolean  gimp_image_window_configure_event     (GtkWidget           *widget,
@@ -273,6 +279,7 @@ gimp_image_window_class_init (GimpImageWindowClass *klass)
   object_class->set_property       = gimp_image_window_set_property;
   object_class->get_property       = gimp_image_window_get_property;
 
+  widget_class->map                = gimp_image_window_map;
   widget_class->delete_event       = gimp_image_window_delete_event;
   widget_class->configure_event    = gimp_image_window_configure_event;
   widget_class->window_state_event = gimp_image_window_window_state_event;
@@ -713,6 +720,34 @@ gimp_image_window_get_property (GObject    *object,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
     }
+}
+
+static void
+gimp_image_window_map (GtkWidget *widget)
+{
+#ifdef GDK_WINDOWING_QUARTZ
+  GdkWindow *gdk_window;
+  NSWindow  *ns_window;
+#endif /* !GDK_WINDOWING_QUARTZ */
+
+  GTK_WIDGET_CLASS (parent_class)->map (widget);
+
+#ifdef GDK_WINDOWING_QUARTZ
+  gdk_window = gtk_widget_get_window (GTK_WIDGET (widget));
+  ns_window = gdk_quartz_window_get_nswindow (gdk_window);
+
+  /* Disable the new-style full screen mode. For now only the "old-style"
+   * full screen mode, via the "View" menu, is supported. In the future, and
+   * as soon as GTK+ has proper support for this, we will migrate to the
+   * new-style full screen mode.
+   */
+#if defined (MAC_OS_X_VERSION_10_7) && MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_7
+  ns_window.collectionBehavior |= NSWindowCollectionBehaviorFullScreenAuxiliary;
+#else
+  /* Hard code the define ... */
+  ns_window.collectionBehavior |= 1 << 8;
+#endif
+#endif /* !GDK_WINDOWING_QUARTZ */
 }
 
 static gboolean
@@ -1246,12 +1281,6 @@ gimp_image_window_add_shell (GimpImageWindow  *window,
 
   private->shells = g_list_append (private->shells, shell);
 
-  if (g_list_length (private->shells) > 1)
-   {
-    gimp_image_window_keep_canvas_pos (window);
-    gtk_notebook_set_show_tabs (GTK_NOTEBOOK (private->notebook), TRUE);
-   }
-
   tab_label = gimp_image_window_create_tab_label (window, shell);
 
   gtk_notebook_append_page (GTK_NOTEBOOK (private->notebook),
@@ -1290,12 +1319,6 @@ gimp_image_window_remove_shell (GimpImageWindow  *window,
 
   gtk_container_remove (GTK_CONTAINER (private->notebook),
                         GTK_WIDGET (shell));
-
-  if (g_list_length (private->shells) == 1)
-    {
-      gimp_image_window_keep_canvas_pos (window);
-      gtk_notebook_set_show_tabs (GTK_NOTEBOOK (private->notebook), FALSE);
-    }
 }
 
 gint
@@ -1720,6 +1743,38 @@ gimp_image_window_keep_canvas_pos (GimpImageWindow *window)
 }
 
 
+/**
+ * gimp_image_window_update_tabs:
+ * @window: the Image Window to update.
+ *
+ * Holds the logics of whether shell tabs are to be shown or not in the
+ * Image Window @window. This function should be called after every
+ * change to @window where one might expect tab visibility to change.
+ *
+ * No direct call to gtk_notebook_set_show_tabs() should ever be made.
+ * If we change the logics of tab hiding, we should only change this
+ * procedure instead.
+ **/
+void
+gimp_image_window_update_tabs (GimpImageWindow  *window)
+{
+  GimpImageWindowPrivate *private;
+  GimpGuiConfig          *config;
+
+  g_return_if_fail (GIMP_IS_IMAGE_WINDOW (window));
+
+  private = GIMP_IMAGE_WINDOW_GET_PRIVATE (window);
+  config = GIMP_GUI_CONFIG (private->gimp->config);
+
+  gtk_notebook_set_show_tabs (GTK_NOTEBOOK (private->notebook),
+                              config->single_window_mode &&
+                              ! config->hide_docks       &&
+                              ((private->active_shell          &&
+                                private->active_shell->display &&
+                                gimp_display_get_image (private->active_shell->display)) ||
+                               g_list_length (private->shells) > 1));
+}
+
 /*  private functions  */
 
 static void
@@ -1756,6 +1811,31 @@ gimp_image_window_config_notify (GimpImageWindow *window,
       gimp_image_window_keep_canvas_pos (window);
       gtk_widget_set_visible (private->left_docks, show_docks);
       gtk_widget_set_visible (private->right_docks, show_docks);
+      gimp_image_window_update_tabs (window);
+
+      /* If docks are being shown, and we are in multi-window-mode,
+       * and this is the window of the active display, try to set
+       * the keyboard focus to this window because it might have
+       * been stolen by a dock. See bug #567333.
+       */
+      if (strcmp (pspec->name, "hide-docks") == 0 &&
+          ! config->single_window_mode            &&
+          ! config->hide_docks)
+        {
+          GimpDisplayShell *shell;
+          GimpContext      *user_context;
+
+          shell        = gimp_image_window_get_active_shell (window);
+          user_context = gimp_get_user_context (private->gimp);
+
+          if (gimp_context_get_display (user_context) == shell->display)
+            {
+              GdkWindow *w = gtk_widget_get_window (GTK_WIDGET (window));
+
+              if (w)
+                gdk_window_focus (w, gtk_get_current_event_time ());
+            }
+        }
     }
 
   /* Session management */

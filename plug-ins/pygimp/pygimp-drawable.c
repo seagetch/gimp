@@ -307,26 +307,20 @@ drw_parasite_list(PyGimpDrawable *self)
 {
     gint num_parasites;
     gchar **parasites;
+    PyObject *ret;
+    gint i;
 
     parasites = gimp_item_get_parasite_list(self->ID, &num_parasites);
-    if (parasites) {
-	PyObject *ret;
-	gint i;
 
-	ret = PyTuple_New(num_parasites);
+    ret = PyTuple_New(num_parasites);
 
-	for (i = 0; i < num_parasites; i++) {
-	    PyTuple_SetItem(ret, i, PyString_FromString(parasites[i]));
-	    g_free(parasites[i]);
-	}
-
-	g_free(parasites);
-	return ret;
+    for (i = 0; i < num_parasites; i++) {
+        PyTuple_SetItem(ret, i, PyString_FromString(parasites[i]));
+        g_free(parasites[i]);
     }
 
-    PyErr_Format(pygimp_error, "could not list parasites on drawable (ID %d)",
-		 self->ID);
-    return NULL;
+    g_free(parasites);
+    return ret;
 }
 
 static PyObject *
@@ -1905,14 +1899,20 @@ pygimp_layer_new(gint32 ID)
     PyGimpLayer *self;
 
     if (!gimp_item_is_valid(ID) || !gimp_item_is_layer(ID)) {
-	Py_INCREF(Py_None);
-	return Py_None;
+        Py_INCREF(Py_None);
+        return Py_None;
     }
 
-    self = PyObject_NEW(PyGimpLayer, &PyGimpLayer_Type);
+
+    if (gimp_item_is_group(ID)) {
+        self = PyObject_NEW(PyGimpGroupLayer, &PyGimpGroupLayer_Type);
+    }
+    else {
+        self = PyObject_NEW(PyGimpLayer, &PyGimpLayer_Type);
+    }
 
     if (self == NULL)
-	return NULL;
+        return NULL;
 
     self->ID = ID;
     self->drawable = NULL;

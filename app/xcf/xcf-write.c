@@ -76,6 +76,33 @@ xcf_write_int32 (FILE           *fp,
 }
 
 /**
+ * xcf_write_zero_int32:
+ * @fp:     output file stream
+ * @count:  number of words to write
+ * @error:  container for occurred errors
+ *
+ * Write @count 4-byte zeros to @fp.
+ *
+ * Returns: count (in numbers of bytes, not words)
+ */
+guint
+xcf_write_zero_int32 (FILE    *fp,
+                      gint     count,
+                      GError **error)
+{
+  if (count > 0)
+    {
+      guint32 *tmp = g_alloca (count * 4);
+
+      memset (tmp, 0, count * 4);
+
+      return xcf_write_int8 (fp, (const guint8 *) tmp, count * 4, error);
+    }
+
+  return 0;
+}
+
+/**
  * xcf_write_float:
  * @fp:     output file stream
  * @data:   source data array
@@ -108,21 +135,21 @@ xcf_write_float (FILE           *fp,
  *
  * Returns: @count
  */
-
-/* TODO: shouldn't the return value (i.e. local variable total) mean the number of written bytes? */
 guint
 xcf_write_int8 (FILE           *fp,
                 const guint8   *data,
                 gint            count,
                 GError        **error)
 {
-  guint total = count;
+  guint total = 0;
 
   while (count > 0)
     {
       gint bytes = fwrite ((const gchar*) data, sizeof (gchar), count, fp);
 
-      if (bytes != count)
+      total += bytes;
+
+      if (bytes == 0)
         {
           g_set_error (error, G_FILE_ERROR, g_file_error_from_errno (errno),
                        _("Error writing XCF: %s"), g_strerror (errno));

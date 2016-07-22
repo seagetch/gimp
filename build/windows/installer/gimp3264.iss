@@ -145,7 +145,8 @@ Compression=lzma2/ultra64
 InternalCompressLevel=ultra
 SolidCompression=yes
 LZMAUseSeparateProcess=yes
-LZMANumFastBytes=256
+LZMANumFastBytes=273
+LZMADictionarySize=1048576
 
 #if !defined(REVISION)
 OutputBaseFileName=gimp-{#VERSION}-setup
@@ -162,10 +163,14 @@ SignedUninstallerDir=_Uninst
 
 [Languages]
 Name: "en"; MessagesFile: "compiler:Default.isl,lang\en.setup.isl"
+Name: "ca"; MessagesFile: "compiler:Languages\Catalan.isl,lang\ca.setup.isl"
+Name: "da"; MessagesFile: "compiler:Languages\Danish.isl,lang\da.setup.isl"
 Name: "de"; MessagesFile: "compiler:Languages\German.isl,lang\de.setup.isl"
 Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl,lang\es.setup.isl"
+Name: "fr"; MessagesFile: "compiler:Languages\French.isl,lang\fr.setup.isl"
 Name: "hu"; MessagesFile: "compiler:Languages\Hungarian.isl,lang\hu.setup.isl"
 Name: "it"; MessagesFile: "compiler:Languages\Italian.isl,lang\it.setup.isl"
+Name: "nl"; MessagesFile: "compiler:Languages\Dutch.isl,lang\nl.setup.isl"
 Name: "pl"; MessagesFile: "compiler:Languages\Polish.isl,lang\pl.setup.isl"
 Name: "pt_BR"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl,lang\pt_BR.setup.isl"
 Name: "ru"; MessagesFile: "compiler:Languages\Russian.isl,lang\ru.setup.isl"
@@ -224,6 +229,9 @@ Source: "{#DEPS_DIR32}\share\enchant\*"; DestDir: "{app}\share\enchant"; Compone
 Source: "{#DEPS_DIR32}\share\libwmf\*"; DestDir: "{app}\share\libwmf"; Components: deps32 or deps64; Flags: recursesubdirs restartreplace uninsrestartdelete
 Source: "{#DEPS_DIR32}\share\themes\*"; DestDir: "{app}\share\themes"; Components: deps32 or deps64; Flags: recursesubdirs restartreplace uninsrestartdelete
 Source: "{#DEPS_DIR32}\share\xml\*"; DestDir: "{app}\share\xml"; Components: deps32 or deps64; Flags: recursesubdirs restartreplace uninsrestartdelete
+
+Source: "{#DEPS_DIR32}\share\poppler\*.*"; DestDir: "{app}\share\poppler"; Components: deps32 or deps64; Flags: recursesubdirs restartreplace uninsrestartdelete
+
 Source: "{#DEPS_DIR32}\share\locale\*"; DestDir: "{app}\share\locale"; Components: loc; Flags: recursesubdirs restartreplace uninsrestartdelete
 Source: "{#GIMP_DIR32}\share\locale\*"; DestDir: "{app}\share\locale"; Components: loc; Flags: recursesubdirs restartreplace uninsrestartdelete
 
@@ -657,6 +665,7 @@ var lblAssocInfo: TNewStaticText;
 	btnSelectAll,btnSelectUnused: TNewButton;
 	i,ButtonWidth: Integer;
 	ButtonText: TArrayOfString;
+	MeasureLabel: TNewStaticText;
 	//lblInfo: TNewStaticText;
 begin
 	DebugMsg('InitCustomPages','pgAssociations');
@@ -777,11 +786,26 @@ begin
 		OnClick := @InstallOnClick;
 	end;
 
+	//used to measure text width
+	MeasureLabel := TNewStaticText.Create(WizardForm);
+	with MeasureLabel do
+	begin
+		Parent := WizardForm;
+		Left := 0;
+		Top := 0;
+		AutoSize := True;
+		Caption := CustomMessage('Customize');
+	end;
+
 	btnCustomize := TNewButton.Create(WizardForm);
 	with btnCustomize do
 	begin
 		Parent := WizardForm;
 		Width := WizardForm.NextButton.Width;
+
+		if Width < (MeasureLabel.Width + ScaleX(8)) then
+			Width := MeasureLabel.Width + ScaleX(8);
+
 		Height := WizardForm.NextButton.Height;
 		Left := WizardForm.ClientWidth - (WizardForm.CancelButton.Left + WizardForm.CancelButton.Width);
 		//Left := WizardForm.BackButton.Left;
@@ -792,6 +816,8 @@ begin
 
 		OnClick := @CustomizeOnClick;
 	end;
+
+	MeasureLabel.Free;
 
 end;
 
