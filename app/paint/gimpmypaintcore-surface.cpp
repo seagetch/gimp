@@ -160,10 +160,9 @@ public:
             destPR->bytes);
     // normal case for brushes that use smudging (eg. watercolor)
     draw_dab_pixels_BlendMode_Normal_and_Eraser(iter,
-                                                color_a,
-                                                stroke_opacity,
+                                                1.0,
+                                                stroke_opacity, 
                                                 bg_color[0], bg_color[1], bg_color[2]);
-//        draw_dab_pixels_BlendMode_Normal(iter, 0.4);
   }
 
 };
@@ -836,7 +835,7 @@ public:
 
       pixel_region_init (&destPR, floating_stroke_tiles,
                          rx1, ry1, width, height,
-                         FALSE);
+                         TRUE);
     } else {
       pixel_region_init (&src1PR, gimp_drawable_get_tiles (drawable),
                          rx1, ry1, width, height,
@@ -845,7 +844,7 @@ public:
       pixel_region_init (&destPR, gimp_drawable_get_tiles (drawable),
                          rx1, ry1, width, height,
                          TRUE);
-     }
+    }
 
     TempBuf* pattern = NULL;
     if (texture) {
@@ -865,7 +864,7 @@ public:
                          ry1 + offset_y,
                          width, height,
                          TRUE);
-     }
+    }
 
     if (pattern) {
       pixel_region_init_temp_buf(&texturePR, pattern,
@@ -887,7 +886,7 @@ public:
       /* Copy floating stroke buffer into drawable buffer */
       pixel_region_init (&src1PR, undo_tiles,
                          rx1, ry1, width, height,
-                         TRUE);
+                         FALSE);
 
       pixel_region_init (&destPR, gimp_drawable_get_tiles(drawable),
                          rx1, ry1, width, height,
@@ -897,15 +896,6 @@ public:
                          rx1, ry1, width, height,
                          FALSE);
 
-      if (mask_item) {
-        pixel_region_init (&maskPR,
-                           gimp_drawable_get_tiles (GIMP_DRAWABLE (mask)),
-                           rx1 + offset_x,
-                           ry1 + offset_y,
-                           rx2 - rx1, ry2 - ry1,
-                           TRUE);
-        }
-      
       CopyStrokeProcessor<BrushImpl> stroke_processor;
       stroke_processor.process(&brush_impl,
                                &src1PR,
@@ -1112,17 +1102,9 @@ GimpMypaintSurfaceImpl::get_color (float x, float y,
   
   int width   = (rx2 - rx1 + 1);
   int height   = (ry2 - ry1 + 1);
-  if (floating_stroke) {
-  
-    pixel_region_init (&src1PR, floating_stroke_tiles,
-                       rx1, ry1, width, height,
-                       FALSE);
-
-  } else {
-    pixel_region_init (&src1PR, gimp_drawable_get_tiles (drawable),
-                       rx1, ry1, width, height,
-                       FALSE);
-  }
+  pixel_region_init (&src1PR, gimp_drawable_get_tiles (drawable),
+                     rx1, ry1, width, height,
+                     FALSE);
 
   gpointer pr;
   if (mask_item) {
