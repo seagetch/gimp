@@ -588,61 +588,63 @@ public:
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-#define DefineRegionProcessor(CLASS, FUNC) \
-template<typename MypaintSurfaceImpl> \
-class CLASS { \
-public: \
-  static void process_src_dest(MypaintSurfaceImpl* impl, \
-                               PixelRegion* srcPR, \
-                               PixelRegion* destPR) \
-  { \
-    impl->FUNC(srcPR, destPR, NULL, NULL, NULL); \
-  } \
- \
-  static void process_src_dest_mask(MypaintSurfaceImpl* impl,  \
-                                    PixelRegion* srcPR,  \
-                                    PixelRegion* destPR,  \
-                                    PixelRegion* maskPR) \
-  { \
-    impl->FUNC(srcPR, destPR, NULL, maskPR, NULL); \
-  } \
- \
-  static void process_src_dest_brush(MypaintSurfaceImpl* impl, \
-                                     PixelRegion* srcPR,  \
-                                     PixelRegion* destPR, \
-                                     PixelRegion* brushPR) \
-  { \
-    impl->FUNC(srcPR, destPR, brushPR, NULL, NULL); \
-  } \
- \
-  static void process_full(MypaintSurfaceImpl* impl, \
-                           PixelRegion* srcPR, \
-                           PixelRegion* destPR, \
-                           PixelRegion* brushPR, \
-                           PixelRegion* maskPR, \
-                           PixelRegion* texturePR) \
-  { \
-    impl->FUNC(srcPR, destPR, brushPR, maskPR, texturePR); \
-  } \
- \
-  void \
-  process(MypaintSurfaceImpl* impl, \
-          PixelRegion* srcPR, \
-          PixelRegion* destPR, \
-          PixelRegion* brushPR, \
-          PixelRegion* maskPR, \
-          PixelRegion* texturePR) \
-  { \
-    pixel_regions_process_parallel((PixelProcessorFunc)CLASS::process_full, \
-                                   impl, \
-                                   5, \
-                                   srcPR, destPR, brushPR, maskPR, texturePR); \
-  }; \
-      \
+template<typename MypaintSurfaceImpl>
+struct ParallelProcessor {
+  typedef void (MypaintSurfaceImpl::*Member)(PixelRegion*,PixelRegion*,PixelRegion*,PixelRegion*,PixelRegion*);
+
+  template<Member func>
+  class MemberProcessor {
+  public:
+  
+    static void process_full(MypaintSurfaceImpl* impl,
+                             PixelRegion* srcPR,
+                             PixelRegion* destPR,
+                             PixelRegion* brushPR,
+                             PixelRegion* maskPR,
+                             PixelRegion* texturePR)
+   {
+      (impl->*func)(srcPR, destPR, brushPR, maskPR, texturePR);
+    }
+
+    void
+    process(MypaintSurfaceImpl* impl,
+            PixelRegion* srcPR,
+            PixelRegion* destPR,
+            PixelRegion* brushPR,
+            PixelRegion* maskPR,
+            PixelRegion* texturePR)
+    {
+      pixel_regions_process_parallel((PixelProcessorFunc)MemberProcessor::process_full,
+                                     impl,
+                                     5,
+                                     srcPR, destPR, brushPR, maskPR, texturePR);
+    };
+
+    void operator()(MypaintSurfaceImpl* impl,
+                    PixelRegion* srcPR,
+                    PixelRegion* destPR,
+                    PixelRegion* brushPR,
+                    PixelRegion* maskPR,
+                    PixelRegion* texturePR)
+    {
+      return process(impl, srcPR, destPR, brushPR, maskPR, texturePR);
+    };
+  };
 };
 
-DefineRegionProcessor(DrawDabProcessor, draw_dab);
-DefineRegionProcessor(CopyStrokeProcessor, copy_stroke);
+template<typename BrushImpl>
+struct Processors {
+private:
+  typedef ParallelProcessor<BrushImpl> Processor;
+  typedef typename Processor::Member Member;
+public:
+  typedef typename Processor::
+    template MemberProcessor<reinterpret_cast<Member>(&BrushImpl::draw_dab)> 
+    draw_dab;
+  typedef typename Processor::
+    template MemberProcessor<reinterpret_cast<Member>(&BrushImpl::copy_stroke)> 
+    copy_stroke;
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 class GimpMypaintSurfaceImpl : public GimpMypaintSurface
@@ -874,13 +876,13 @@ public:
       pixel_region_set_closed_loop(&texturePR, TRUE);
     }
     
-    DrawDabProcessor<BrushImpl> processor;
-    processor.process(&brush_impl,
-                     &src1PR, 
-                     &destPR, 
-                     (dab_mask)? &brushPR: NULL, 
-                     (mask_item)? &maskPR: NULL,
-                     (pattern)? &texturePR: NULL);
+    typename Processors<BrushImpl>::draw_dab dab_processor;
+    dab_processor(&brush_impl,
+                  &src1PR, 
+                  &destPR, 
+                  (dab_mask)? &brushPR: NULL, 
+                  (mask_item)? &maskPR: NULL,
+                  (pattern)? &texturePR: NULL);
 
     if (floating_stroke) {
       /* Copy floating stroke buffer into drawable buffer */
@@ -896,12 +898,12 @@ public:
                          rx1, ry1, width, height,
                          FALSE);
 
-      CopyStrokeProcessor<BrushImpl> stroke_processor;
-      stroke_processor.process(&brush_impl,
-                               &src1PR,
-                               &destPR,
-                               &brushPR,
-                               NULL, NULL);
+      typename Processors<BrushImpl>::copy_stroke stroke_processor;
+      stroke_processor(&brush_impl,
+                       &src1PR,
+                       &destPR,
+                       &brushPR,
+                       NULL, NULL);
     }
 
     /*  Update the drawable  */
