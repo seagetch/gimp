@@ -34,8 +34,9 @@ public:
                          ) = 0;
 
   virtual void get_color (float x, float y, 
-                          float radius, 
+                          float radius,
                           float * color_r, float * color_g, float * color_b, float * color_a,
+                          float hardness = 0.5, float aspect_ratio = 1.0, float angle = 0.0,
                           float texture_grain = 0.0, float texture_contrast = 1.0
                           ) = 0;
 

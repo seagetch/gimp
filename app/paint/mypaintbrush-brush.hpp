@@ -520,6 +520,30 @@ private:
       }
     }
 
+    float hardness = CLAMP(settings_value[BRUSH_HARDNESS], 0.0, 1.0);
+
+    // anti-aliasing attempt (works surprisingly well for ink brushes)
+    float current_fadeout_in_pixels = radius * (1.0 - hardness);
+    float min_fadeout_in_pixels = settings_value[BRUSH_ANTI_ALIASING];
+    if (current_fadeout_in_pixels < min_fadeout_in_pixels) {
+      // need to soften the brush (decrease hardness), but keep optical radius
+      // so we tune both radius and hardness, to get the desired fadeout_in_pixels
+      float current_optical_radius = radius - (1.0-hardness)*radius/2.0;
+
+      // Equation 1: (new fadeout must be equal to min_fadeout)
+      //   min_fadeout_in_pixels = radius_new*(1.0 - hardness_new)
+      // Equation 2: (optical radius must remain unchanged)
+      //   current_optical_radius = radius_new - (1.0-hardness_new)*radius_new/2.0
+      //
+      // Solved Equation 1 for hardness_new, using Equation 2: (thanks to mathomatic)
+      float hardness_new = ((current_optical_radius - (min_fadeout_in_pixels/2.0))/(current_optical_radius + (min_fadeout_in_pixels/2.0)));
+      // Using Equation 1:
+      float radius_new = (min_fadeout_in_pixels/(1.0 - hardness_new));
+
+      hardness = hardness_new;
+      radius = radius_new;
+    }
+
     // color part
 
     float color_h = settings[BRUSH_COLOR_H]->base_value;
@@ -571,7 +595,9 @@ private:
 
         float smudge_radius = radius * expf(settings_value[BRUSH_SMUDGE_RADIUS_LOG]);
         smudge_radius = CLAMP(smudge_radius, ACTUAL_RADIUS_MIN, ACTUAL_RADIUS_MAX);
-        surface->get_color (px, py, smudge_radius, &r, &g, &b, &a);
+        surface->get_color (px, py, smudge_radius, &r, &g, &b, &a, hardness, 
+                            states[STATE_ACTUAL_ELLIPTICAL_DAB_RATIO], 
+                            states[STATE_ACTUAL_ELLIPTICAL_DAB_ANGLE]);
 
         states[STATE_LAST_GETCOLOR_R] = r;
         states[STATE_LAST_GETCOLOR_G] = g;
@@ -614,30 +640,6 @@ private:
       color_s += settings_value[BRUSH_CHANGE_COLOR_HSL_S];
       hsl_to_rgb_float (&color_h, &color_s, &color_v);
       rgb_to_hsv_float (&color_h, &color_s, &color_v);
-    }
-
-    float hardness = CLAMP(settings_value[BRUSH_HARDNESS], 0.0, 1.0);
-
-    // anti-aliasing attempt (works surprisingly well for ink brushes)
-    float current_fadeout_in_pixels = radius * (1.0 - hardness);
-    float min_fadeout_in_pixels = settings_value[BRUSH_ANTI_ALIASING];
-    if (current_fadeout_in_pixels < min_fadeout_in_pixels) {
-      // need to soften the brush (decrease hardness), but keep optical radius
-      // so we tune both radius and hardness, to get the desired fadeout_in_pixels
-      float current_optical_radius = radius - (1.0-hardness)*radius/2.0;
-
-      // Equation 1: (new fadeout must be equal to min_fadeout)
-      //   min_fadeout_in_pixels = radius_new*(1.0 - hardness_new)
-      // Equation 2: (optical radius must remain unchanged)
-      //   current_optical_radius = radius_new - (1.0-hardness_new)*radius_new/2.0
-      //
-      // Solved Equation 1 for hardness_new, using Equation 2: (thanks to mathomatic)
-      float hardness_new = ((current_optical_radius - (min_fadeout_in_pixels/2.0))/(current_optical_radius + (min_fadeout_in_pixels/2.0)));
-      // Using Equation 1:
-      float radius_new = (min_fadeout_in_pixels/(1.0 - hardness_new));
-
-      hardness = hardness_new;
-      radius = radius_new;
     }
 
     // the functions below will CLAMP most inputs

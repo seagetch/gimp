@@ -61,12 +61,79 @@ extern "C" {
 #include "paint-funcs/mypaint-brushmodes.hpp"
 #include "gimpmypaintcore-surface.hpp"
 #include "base/delegators.hpp"
+#include "base/glib-cxx-utils.hpp"
 
 const float ALPHA_THRESHOLD = (float)((1 << 16) - 1);
 
 ////////////////////////////////////////////////////////////////////////////////
 template<typename PixelIter>
 class GimpMypaintSurfaceForGeneralBrush {
+public:
+  class ColorAccumulator {
+#ifdef ENABLE_MP
+    GMutex              mutex;
+#endif
+    float sum_weight, sum_r, sum_g, sum_b, sum_a;
+
+  public:
+  ColorAccumulator() {
+    reset();
+#ifdef ENABLE_MP
+    g_mutex_init(&mutex);
+#endif
+    };
+  
+    ~ColorAccumulator() {
+#ifdef ENABLE_MP
+      g_mutex_clear(&mutex);
+#endif
+    }
+
+    void reset() {
+      sum_weight = sum_r = sum_g = sum_b = sum_a = 0.0;
+    }
+  
+    void accumulate(float w, float r, float g, float b, float a) {
+#ifdef ENABLE_MP
+      g_mutex_lock (&mutex);
+#endif
+      sum_weight += w;
+      sum_r += r;
+      sum_g += g;
+      sum_b += b;
+      sum_a += a;
+#ifdef ENABLE_MP
+      g_mutex_unlock (&mutex);
+#endif
+    }
+
+    void summarize(float* r, float* g, float* b, float* a) {
+      if (sum_weight > 0.0) {
+        sum_r /= sum_weight;
+        sum_g /= sum_weight;
+        sum_b /= sum_weight;
+        sum_a /= sum_weight;
+      }
+      if (sum_a > 0.0) {
+        sum_r /= sum_a;
+        sum_g /= sum_a;
+        sum_b /= sum_a;
+      } else {
+        // it is all transparent, so don't care about the colors
+        // (let's make them ugly so bugs will be visible)
+        sum_r = 0.0;
+        sum_g = 1.0;
+        sum_b = 0.0;
+      }
+      // fix rounding problems that do happen due to floating point math
+      *r = CLAMP(sum_r, 0.0, 1.0);
+      *g = CLAMP(sum_g, 0.0, 1.0);
+      *b = CLAMP(sum_b, 0.0, 1.0);
+      *a = CLAMP(sum_a, 0.0, 1.0);
+      reset();
+   }
+  };
+  
 protected:
   float x, y;
   float opaque;
@@ -77,6 +144,8 @@ protected:
   Pixel::real bg_color[3];
   float texture_grain;
   float texture_contrast;
+  ColorAccumulator accumulator;
+  
 public:
   typedef PixelIter iterator;
   bool 
@@ -165,6 +234,10 @@ public:
                                                 bg_color[0], bg_color[1], bg_color[2]);
   }
 
+  ColorAccumulator* get_accumulator() {
+    return &accumulator;
+  }
+  
 };
 
 
@@ -398,10 +471,52 @@ public:
                            maskPR,
                            texturePR);
 
-    BrushPixelIteratorForRunLength iter(dab_mask, dab_offsets, fg_color, src_data, dest_data, src1PR->bytes, destPR->bytes);
+    iterator iter(dab_mask, 
+                  dab_offsets, 
+                  fg_color, 
+                  src_data, 
+                  dest_data, 
+                  src1PR->bytes, 
+                  destPR->bytes);
     
     Parent::draw_dab(iter);
   }
+
+
+  void
+  get_color(PixelRegion* src1PR, 
+            PixelRegion* brushPR, 
+            PixelRegion* maskPR,
+            PixelRegion* texturePR)
+  {
+    float sum_weight, sum_r, sum_g, sum_b, sum_a;
+    sum_weight = sum_r = sum_g = sum_b = sum_a = 0.0;
+
+    Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
+    gint dab_offsets[(TILE_HEIGHT + 2)*2];
+
+    Pixel::data_t*  src_data = src1PR->data;
+    
+    iterator iter(dab_mask, 
+                  dab_offsets, 
+                  NULL, 
+                  src_data, 
+                  src_data,  
+                  src1PR->bytes, 
+                  src1PR->bytes);
+
+    fill_brushmark_buffer(dab_mask,
+                          dab_offsets,
+                          x - src1PR->x,
+                          y - src1PR->y,
+                          src1PR, maskPR, NULL
+                         );
+
+    get_color_pixels_accumulate (iter,
+                                 &sum_weight, &sum_r, &sum_g, &sum_b, &sum_a);
+    accumulator.accumulate(sum_weight, sum_r, sum_g, sum_b, sum_a);
+  }
+  
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -423,6 +538,8 @@ public:
     this->current_coords = current_coords;
     this->last_coords    = last_coords;
   };
+  ~GimpMypaintSurfaceForGimpBrush() {
+  }
 
   const TempBuf* get_brush_data()
   { 
@@ -479,7 +596,8 @@ public:
 
     *last_coords = *current_coords;
 
-    dab_mask=
+    // brush_cache is managed by GimpBrush itself.
+    dab_mask =
       gimp_brush_transform_mask (current_brush,
                                  scale,
                                  gimp_brush_aspect_ratio,
@@ -578,56 +696,80 @@ public:
                   brushPR->w, 
                   srcPR->rowstride,
                   destPR->rowstride,
-                      1,
+                  1,
                   srcPR->bytes,
                   destPR->bytes);
 
     Parent::draw_dab(iter);        
   }
 
+  void
+  get_color(PixelRegion* src1PR, 
+            PixelRegion* brushPR, 
+            PixelRegion* maskPR,
+            PixelRegion* texturePR)
+  {
+    float sum_weight, sum_r, sum_g, sum_b, sum_a;
+    sum_weight = sum_r = sum_g = sum_b = sum_a = 0.0;
+
+    Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
+    gint dab_offsets[(TILE_HEIGHT + 2)*2];
+
+    Pixel::data_t*  src_data = src1PR->data;
+
+    fill_brushmark_buffer (dab_mask,
+                           NULL,
+                           x - src1PR->x,
+                           y - src1PR->y,
+                           brushPR,
+                           maskPR, texturePR);
+
+    iterator iter(dab_mask, fg_color, 
+                  src_data, src_data, 
+                  src1PR->w, src1PR->h, 
+                  brushPR->w, 
+                  src1PR->rowstride,
+                  src1PR->rowstride,
+                  1,
+                  src1PR->bytes,
+                  src1PR->bytes);
+
+    get_color_pixels_accumulate (iter,
+                                 &sum_weight, &sum_r, &sum_g, &sum_b, &sum_a);
+    accumulator.accumulate(sum_weight, sum_r, sum_g, sum_b, sum_a);
+  }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 template<typename MypaintSurfaceImpl>
 struct ParallelProcessor {
-  typedef void (MypaintSurfaceImpl::*Member)(PixelRegion*,PixelRegion*,PixelRegion*,PixelRegion*,PixelRegion*);
+  template<typename... Args>
+  struct Member {
+    typedef void (MypaintSurfaceImpl::*Signature)(Args...);
+    template<Signature func>
+    class Processor {
+    public:
 
-  template<Member func>
-  class MemberProcessor {
-  public:
-  
-    static void process_full(MypaintSurfaceImpl* impl,
-                             PixelRegion* srcPR,
-                             PixelRegion* destPR,
-                             PixelRegion* brushPR,
-                             PixelRegion* maskPR,
-                             PixelRegion* texturePR)
-   {
-      (impl->*func)(srcPR, destPR, brushPR, maskPR, texturePR);
-    }
+      static void process_member(MypaintSurfaceImpl* impl,
+                               Args... args)
+     {
+        (impl->*func)(args...);
+      }
 
-    void
-    process(MypaintSurfaceImpl* impl,
-            PixelRegion* srcPR,
-            PixelRegion* destPR,
-            PixelRegion* brushPR,
-            PixelRegion* maskPR,
-            PixelRegion* texturePR)
-    {
-      pixel_regions_process_parallel((PixelProcessorFunc)MemberProcessor::process_full,
-                                     impl,
-                                     5,
-                                     srcPR, destPR, brushPR, maskPR, texturePR);
-    };
+      void process(MypaintSurfaceImpl* impl,
+              Args... args)
+      {
+        pixel_regions_process_parallel((PixelProcessorFunc)Processor::process_member,
+                                       impl,
+                                       sizeof...(args),
+                                       args...);
+      };
 
-    void operator()(MypaintSurfaceImpl* impl,
-                    PixelRegion* srcPR,
-                    PixelRegion* destPR,
-                    PixelRegion* brushPR,
-                    PixelRegion* maskPR,
-                    PixelRegion* texturePR)
-    {
-      return process(impl, srcPR, destPR, brushPR, maskPR, texturePR);
+      void operator()(MypaintSurfaceImpl* impl,
+                      Args... args)
+      {
+        return process(impl, args...);
+      };
     };
   };
 };
@@ -636,14 +778,17 @@ template<typename BrushImpl>
 struct Processors {
 private:
   typedef ParallelProcessor<BrushImpl> Processor;
-  typedef typename Processor::Member Member;
+  typedef typename Processor::template Member<PixelRegion*,PixelRegion*,PixelRegion*,PixelRegion*,PixelRegion*> Member5;
+  typedef typename Processor::template Member<PixelRegion*,PixelRegion*,PixelRegion*,PixelRegion*> Member4;
 public:
-  typedef typename Processor::
-    template MemberProcessor<reinterpret_cast<Member>(&BrushImpl::draw_dab)> 
+  static typename Member5::template Processor<reinterpret_cast<typename Member5::Signature>(&BrushImpl::draw_dab)> 
     draw_dab;
-  typedef typename Processor::
-    template MemberProcessor<reinterpret_cast<Member>(&BrushImpl::copy_stroke)> 
+
+  static typename Member5::template Processor<reinterpret_cast<typename Member5::Signature>(&BrushImpl::copy_stroke)> 
     copy_stroke;
+
+  static typename Member4::template Processor<reinterpret_cast<typename Member4::Signature>(&BrushImpl::get_color)> 
+    get_color;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -682,6 +827,299 @@ private:
   
   void start_floating_stroke();
   void stop_floating_stroke();
+
+  struct Boundary {
+    gint offset_x, offset_y;
+    int original_x1, original_y1, original_x2, original_y2;
+    int rx1, ry1, rx2, ry2;
+    int width, height;
+
+    void clamp_within(int bx1, int by1, int bx2, int by2) {
+      rx1 = CLAMP (rx1, bx1, bx2);
+      ry1 = CLAMP (ry1, by1, by2);
+      rx2 = CLAMP (rx2, bx1, bx2);
+      ry2 = CLAMP (ry2, by1, by2);      
+    }
+  };
+
+  template<class BrushImpl>
+  bool adjust_boundary(Boundary&  b,
+                       BrushImpl* brush_impl,
+                       GimpItem*  item,
+                       TempBuf*   dab_mask,
+                       GimpItem*  mask_item
+                      ) 
+  {
+    /*  get the layer offsets  */
+    gimp_item_get_offset (item, &b.offset_x, &b.offset_y);
+
+    brush_impl->get_boundary(b.original_x1, b.original_y1, 
+                             b.original_x2, b.original_y2);
+
+    b.rx1 = b.original_x1;
+    b.ry1 = b.original_y1;
+    b.rx2 = b.original_x2;
+    b.ry2 = b.original_y2;
+    
+    if (mask_item) {
+      /*  make sure coordinates are in mask bounds ...
+       *  we need to add the layer offset to transform coords
+       *  into the mask coordinate system
+       */
+      b.clamp_within(-b.offset_x, -b.offset_y,
+                     gimp_item_get_width(mask_item)  - b.offset_x,
+                     gimp_item_get_height(mask_item) - b.offset_y);
+    }
+    b.clamp_within(0,0,
+                   gimp_item_get_width(item)  - 1,
+                   gimp_item_get_height(item) - 1);
+
+    if (dab_mask) {
+      if (dab_mask->width < b.rx2 - b.rx1 + 1)
+        b.rx2 = b.rx1 + dab_mask->width - 1;
+      if (dab_mask->height < b.ry2 - b.ry1 + 1)
+        b.ry2 = b.ry1 + dab_mask->height - 1;
+    }
+
+    b.width    = (b.rx2 - b.rx1 + 1);
+    b.height   = (b.ry2 - b.ry1 + 1);
+
+    if (b.rx1 > b.rx2 || b.ry1 > b.ry2)
+      return false;
+
+    if (dab_mask &&
+        (dab_mask->width < b.rx1 - b.original_x1 || 
+         dab_mask->height < b.ry1 - b.original_y1))
+      return false;
+
+    return true;
+  };
+
+  void configure_pixel_regions(PixelRegion* src1PR, 
+                               PixelRegion* destPR, 
+                               PixelRegion* brushPR, 
+                               PixelRegion* maskPR, 
+                               PixelRegion* texturePR,
+                               Boundary     b,
+                               TileManager* src1_tiles,
+                               TileManager* dest_tiles,
+                               TempBuf*     dab_mask,
+                               TileManager* mask_tiles)
+  {
+    if (src1PR)
+      pixel_region_init (src1PR, src1_tiles,
+                         b.rx1, b.ry1, b.width, b.height, FALSE);
+
+    if (destPR)
+      pixel_region_init (destPR, dest_tiles,
+                         b.rx1, b.ry1, b.width, b.height, TRUE);
+
+    if (brushPR && dab_mask)
+      pixel_region_init_temp_buf(brushPR, dab_mask, 
+                                 MAX(b.rx1 - b.original_x1, 0), 
+                                 MAX(b.ry1 - b.original_y1, 0), 
+                                 b.width, b.height);
+
+    if (maskPR && mask_tiles)
+      pixel_region_init (maskPR,
+                         mask_tiles,
+                         b.rx1 + b.offset_x,
+                         b.ry1 + b.offset_y,
+                         b.width, b.height,
+                         TRUE);
+
+    if (texturePR && texture) {
+      TempBuf* pattern = NULL;
+      pattern = gimp_pattern_get_mask (texture);
+      pixel_region_init_temp_buf(texturePR, pattern,
+                                 b.rx1 % pattern->width,
+                                 b.ry1 % pattern->height,
+                                 pattern->width, pattern->height);
+      pixel_region_set_closed_loop(texturePR, TRUE);
+    }
+  };
+
+  template<class BrushImpl>
+  bool draw_dab_impl (BrushImpl& brush_impl,
+                      float x, float y, 
+                      float radius, 
+                      float color_r, float color_g, float color_b,
+                      float opaque, float hardness,
+                      float color_a,
+                      float aspect_ratio, float angle,
+                      float lock_alpha,float colorize,
+                      float texture_grain = 0.0, float texture_contrast = 1.0)
+  {
+    GimpItem        *item      = GIMP_ITEM (drawable);
+    GimpImage       *image     = gimp_item_get_image (item);
+    GimpChannel     *mask      = gimp_image_get_mask (image);
+    GimpItem        *mask_item = (mask && !gimp_channel_is_empty(GIMP_CHANNEL(mask)))?
+                                   GIMP_ITEM (mask): NULL;
+    PixelRegion     src1PR, destPR, brushPR, maskPR, texturePR;
+    
+    opaque     = CLAMP(opaque, 0.0, 1.0);
+    hardness   = CLAMP(hardness, 0.0, 1.0);
+    lock_alpha = CLAMP(lock_alpha, 0.0, 1.0);
+    colorize   = CLAMP(colorize, 0.0, 1.0);
+
+    if (radius < 0.1)    return false; // don't bother with dabs smaller than 0.1 pixel
+    if (hardness == 0.0) return false; // infintly small center point, fully transparent outside
+    if (opaque == 0.0)   return false;
+
+    if (aspect_ratio<1.0) aspect_ratio=1.0;
+
+    // blending mode preparation
+    float normal = 1.0;
+
+    normal *= 1.0-lock_alpha;
+    normal *= 1.0-colorize;
+
+    Pixel::real fg_color[4] = {color_r, color_g, color_b, color_a };
+    Pixel::real bg_color[3] = {Pixel::real(this->bg_color.r),
+                               Pixel::real(this->bg_color.g), 
+                               Pixel::real(this->bg_color.b) };
+
+    if (!brush_impl.prepare_brush(x, y, radius, 
+                                  hardness, aspect_ratio, angle, 
+                                  normal, opaque, lock_alpha,
+                                  fg_color, color_a, bg_color, stroke_opacity,
+                                  texture_grain, texture_contrast,
+                                  (void*)brushmark))
+      return false;
+    TempBuf* dab_mask = (TempBuf*)brush_impl.get_brush_data();
+
+    Boundary b;
+    if (!adjust_boundary(b, &brush_impl, item, dab_mask, mask_item))
+      return false;
+
+    /*  set undo blocks  */
+    start_undo_group();
+    validate_undo_tiles (b.rx1, b.ry1, b.width, b.height);
+
+    if (floating_stroke) {
+      validate_floating_stroke_tiles(b.rx1, b.ry1, b.width, b.height);
+      configure_pixel_regions(&src1PR, &destPR, &brushPR, &maskPR, &texturePR,
+                              b, floating_stroke_tiles, floating_stroke_tiles,
+                              dab_mask, 
+                              (mask_item)? gimp_drawable_get_tiles(GIMP_DRAWABLE(mask)): NULL);
+    } else {
+      configure_pixel_regions(&src1PR, &destPR, &brushPR, &maskPR, &texturePR,
+                              b, 
+                              gimp_drawable_get_tiles(drawable), 
+                              gimp_drawable_get_tiles(drawable),
+                              dab_mask, 
+                              (mask_item)? gimp_drawable_get_tiles(GIMP_DRAWABLE(mask)): NULL);
+    }
+    
+    Processors<BrushImpl>::draw_dab(&brush_impl,
+                                    &src1PR, 
+                                    &destPR, 
+                                    (PixelRegion*)(dab_mask)? &brushPR: NULL, 
+                                    (PixelRegion*)(mask_item)? &maskPR: NULL,
+                                    (PixelRegion*)(texture)? &texturePR: NULL);
+
+    if (floating_stroke) {
+      /* Copy floating stroke buffer into drawable buffer */
+      pixel_region_init (&src1PR, undo_tiles,
+                         b.rx1, b.ry1, b.width, b.height, FALSE);
+
+      pixel_region_init (&destPR, gimp_drawable_get_tiles(drawable),
+                         b.rx1, b.ry1, b.width, b.height, TRUE);
+
+      pixel_region_init (&brushPR, floating_stroke_tiles,
+                         b.rx1, b.ry1, b.width, b.height, FALSE);
+
+      Processors<BrushImpl>::copy_stroke(&brush_impl,
+                                         &src1PR,
+                                         &destPR,
+                                         &brushPR,
+                                         (PixelRegion*)NULL, (PixelRegion*)NULL);
+    }
+
+    /*  Update the drawable  */
+    gimp_drawable_update (drawable, b.rx1, b.ry1, b.width, b.height);
+    if (b.rx1 < this->x1)
+      this->x1 = b.rx1;
+    if (b.ry1 < this->y1)
+      this->y1 = b.ry1;
+    if (b.rx1 + b.width > this->x2)
+      this->x2 = b.rx1 + b.width;
+    if (b.ry1 + b.height > this->y2)
+      this->y2 = b.ry1 + b.height;
+
+    return true;
+  }
+  
+  template<typename BrushImpl>
+  void 
+  get_color_impl (BrushImpl& brush_impl,
+                  float x, float y, 
+                  float radius, 
+                  float * color_r, 
+                  float * color_g, 
+                  float * color_b, 
+                  float * color_a,
+                  float hardness,
+                  float aspect_ratio,
+                  float angle,
+                  float texture_grain,
+                  float texture_contrast)
+  {
+    hardness   = CLAMP(hardness, 0.0, 1.0);
+
+    // in case we return with an error
+    *color_r = float(this->bg_color.r);
+    *color_g = float(this->bg_color.g);
+    *color_b = float(this->bg_color.b);
+
+    if (radius < 1.0) radius = 1.0;
+    if (hardness == 0.0) return; // infintly small center point, fully transparent outside
+
+    if (aspect_ratio<1.0) aspect_ratio=1.0;
+
+    // WARNING: some code duplication with draw_dab
+
+    GimpItem        *item  = GIMP_ITEM (drawable);
+    GimpImage       *image = gimp_item_get_image (item);
+    GimpChannel     *mask  = gimp_image_get_mask (image);
+    GimpItem        *mask_item = (mask && !gimp_channel_is_empty(GIMP_CHANNEL(mask)))?
+                                   GIMP_ITEM (mask): NULL;
+    PixelRegion      src1PR, brushPR, maskPR, texturePR;
+    
+    /*  get the layer offsets  */
+    Pixel::real fg_color[] = {0.0, 0.0, 0.0, 1.0};
+    Pixel::real bg_color[] = {1.0, 1.0, 1.0};
+    if (!brush_impl.prepare_brush(x, y, radius, 
+                                  hardness, aspect_ratio, angle, 
+                                  1.0, 1.0, 0.0,
+                                  fg_color, 1.0, bg_color, stroke_opacity,
+                                  texture_grain, texture_contrast,
+                                  brushmark))
+        return;
+
+    TempBuf* dab_mask = (TempBuf*)brush_impl.get_brush_data();
+
+    Boundary b;
+    if (!adjust_boundary(b, &brush_impl, item, dab_mask, mask_item))
+      return;
+
+    configure_pixel_regions(&src1PR, NULL, &brushPR, &maskPR, &texturePR,
+                            b, 
+                            gimp_drawable_get_tiles(drawable), 
+                            NULL,
+                            dab_mask,
+                            (mask_item)? gimp_drawable_get_tiles(GIMP_DRAWABLE(mask)): NULL);
+    
+    // first, we calculate the mask (opacity for each pixel)
+    Processors<BrushImpl>::get_color(&brush_impl,
+                                     &src1PR, 
+                                     (dab_mask)? &brushPR: (PixelRegion*)NULL,
+                                     (mask_item)? &maskPR: (PixelRegion*)NULL,
+                                     (texture)? &texturePR: (PixelRegion*)NULL
+                                     );
+    brush_impl.get_accumulator()->summarize(color_r, color_g, color_b, color_a);
+
+  }
 public:
   GimpMypaintSurfaceImpl(GimpDrawable* d) 
     : undo_tiles(NULL), floating_stroke_tiles(NULL), 
@@ -721,209 +1159,13 @@ public:
                          float texture_grain = 0.0, float texture_contrast = 1.0
                          );
 
-  template<class BrushImpl>
-  bool draw_dab_impl (BrushImpl& brush_impl,
-                      float x, float y, 
-                      float radius, 
-                      float color_r, float color_g, float color_b,
-                      float opaque, float hardness,
-                      float color_a,
-                      float aspect_ratio, float angle,
-                      float lock_alpha,float colorize,
-                      float texture_grain = 0.0, float texture_contrast = 1.0)
-  {
-    GimpItem        *item  = GIMP_ITEM (drawable);
-    GimpImage       *image = gimp_item_get_image (item);
-    GimpChannel     *mask  = gimp_image_get_mask (image);
-    gint            offset_x, offset_y;
-    PixelRegion     src1PR, destPR;
-    PixelRegion     brushPR;
-    PixelRegion     maskPR;
-    PixelRegion     texturePR;
-    
-    opaque     = CLAMP(opaque, 0.0, 1.0);
-    hardness   = CLAMP(hardness, 0.0, 1.0);
-    lock_alpha = CLAMP(lock_alpha, 0.0, 1.0);
-    colorize   = CLAMP(colorize, 0.0, 1.0);
 
-    if (radius < 0.1) return false; // don't bother with dabs smaller than 0.1 pixel
-    if (hardness == 0.0) return false; // infintly small center point, fully transparent outside
-    if (opaque == 0.0) return false;
-
-    if (aspect_ratio<1.0) aspect_ratio=1.0;
-
-    /*  get the layer offsets  */
-    gimp_item_get_offset (item, &offset_x, &offset_y);
-
-    // blending mode preparation
-    float normal = 1.0;
-
-    normal *= 1.0-lock_alpha;
-    normal *= 1.0-colorize;
-
-    Pixel::real fg_color[4];
-    fg_color[0] = color_r;
-    fg_color[1] = color_g;
-    fg_color[2] = color_b;
-    fg_color[3] = color_a;
-    Pixel::real bg_color[3];
-    bg_color[0] = this->bg_color.r;
-    bg_color[1] = this->bg_color.g;
-    bg_color[2] = this->bg_color.b;
-
-    if (!brush_impl.prepare_brush(x, y, radius, 
-                                  hardness, aspect_ratio, angle, 
-                                  normal, opaque, lock_alpha,
-                                  fg_color, color_a, bg_color, stroke_opacity,
-                                  texture_grain, texture_contrast,
-                                  (void*)brushmark))
-      return false;
-
-    int x1 = 0, y1 = 0, x2 = 0, y2 = 0;
-    brush_impl.get_boundary(x1, y1, x2, y2);
-
-    int rx1 = x1;
-    int ry1 = y1;
-    int rx2 = x2;
-    int ry2 = y2;
-    
-    GimpItem *mask_item = NULL;
-    if (mask && !gimp_channel_is_empty(GIMP_CHANNEL(mask))) {
-      mask_item = GIMP_ITEM (mask);
-
-      /*  make sure coordinates are in mask bounds ...
-       *  we need to add the layer offset to transform coords
-       *  into the mask coordinate system
-       */
-      rx1 = CLAMP (rx1, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
-      ry1 = CLAMP (ry1, -offset_y, gimp_item_get_height (mask_item) - offset_y);
-      rx2 = CLAMP (rx2, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
-      ry2 = CLAMP (ry2, -offset_y, gimp_item_get_height (mask_item) - offset_y);
-    }
-    rx1 = CLAMP (rx1, 0, gimp_item_get_width  (item) - 1);
-    ry1 = CLAMP (ry1, 0, gimp_item_get_height (item) - 1);
-    rx2 = CLAMP (rx2, 0, gimp_item_get_width  (item) - 1);
-    ry2 = CLAMP (ry2, 0, gimp_item_get_height (item) - 1);
-
-    TempBuf* dab_mask = (TempBuf*)brush_impl.get_brush_data();
-
-    if (dab_mask) {
-      if (dab_mask->width < rx2 - rx1 + 1)
-        rx2 = rx1 + dab_mask->width - 1;
-      if (dab_mask->height < ry2 - ry1 + 1)
-        ry2 = ry1 + dab_mask->height - 1;
-    }
-
-    int width    = (rx2 - rx1 + 1);
-    int height   = (ry2 - ry1 + 1);
-
-    if (rx1 > rx2 || ry1 > ry2)
-      return false;
-
-    if (dab_mask &&
-        (dab_mask->width < rx1 - x1 || dab_mask->height < ry1 - y1))
-      return false;
-
-    /*  set undo blocks  */
-    start_undo_group();
-    validate_undo_tiles (rx1, ry1, width, height);
-
-    if (floating_stroke) {
-      validate_floating_stroke_tiles(rx1, ry1, width, height);
-
-      pixel_region_init (&src1PR, floating_stroke_tiles,
-                         rx1, ry1, width, height,
-                         FALSE);
-
-      pixel_region_init (&destPR, floating_stroke_tiles,
-                         rx1, ry1, width, height,
-                         TRUE);
-    } else {
-      pixel_region_init (&src1PR, gimp_drawable_get_tiles (drawable),
-                         rx1, ry1, width, height,
-                         TRUE);
-
-      pixel_region_init (&destPR, gimp_drawable_get_tiles (drawable),
-                         rx1, ry1, width, height,
-                         TRUE);
-    }
-
-    TempBuf* pattern = NULL;
-    if (texture) {
-      pattern = gimp_pattern_get_mask (texture);
-    }
-
-    if (dab_mask)
-      pixel_region_init_temp_buf(&brushPR, dab_mask, 
-                                 MAX(rx1 - x1, 0), 
-                                 MAX(ry1 - y1, 0), 
-                                 width, height);
-
-    if (mask_item) {
-      pixel_region_init (&maskPR,
-                         gimp_drawable_get_tiles (GIMP_DRAWABLE (mask)),
-                         rx1 + offset_x,
-                         ry1 + offset_y,
-                         width, height,
-                         TRUE);
-    }
-
-    if (pattern) {
-      pixel_region_init_temp_buf(&texturePR, pattern,
-                                 rx1 % pattern->width,
-                                 ry1 % pattern->height,
-                                 pattern->width, pattern->height);
-      pixel_region_set_closed_loop(&texturePR, TRUE);
-    }
-    
-    typename Processors<BrushImpl>::draw_dab dab_processor;
-    dab_processor(&brush_impl,
-                  &src1PR, 
-                  &destPR, 
-                  (dab_mask)? &brushPR: NULL, 
-                  (mask_item)? &maskPR: NULL,
-                  (pattern)? &texturePR: NULL);
-
-    if (floating_stroke) {
-      /* Copy floating stroke buffer into drawable buffer */
-      pixel_region_init (&src1PR, undo_tiles,
-                         rx1, ry1, width, height,
-                         FALSE);
-
-      pixel_region_init (&destPR, gimp_drawable_get_tiles(drawable),
-                         rx1, ry1, width, height,
-                         TRUE);
-
-      pixel_region_init (&brushPR, floating_stroke_tiles,
-                         rx1, ry1, width, height,
-                         FALSE);
-
-      typename Processors<BrushImpl>::copy_stroke stroke_processor;
-      stroke_processor(&brush_impl,
-                       &src1PR,
-                       &destPR,
-                       &brushPR,
-                       NULL, NULL);
-    }
-
-    /*  Update the drawable  */
-    gimp_drawable_update (drawable, rx1, ry1, width, height);
-    if (rx1 < this->x1)
-      this->x1 = rx1;
-    if (ry1 < this->y1)
-      this->y1 = ry1;
-    if (rx1 + width > this->x2)
-      this->x2 = rx1 + width;
-    if (ry1 + height > this->y2)
-      this->y2 = ry1 + height;
-
-    return true;
-  }
 
 
   virtual void get_color (float x, float y, 
                           float radius, 
                           float * color_r, float * color_g, float * color_b, float * color_a,
+                          float hardness, float aspect_ratio, float angle, 
                           float texture_grain, float texture_contrast
                           );
 
@@ -1034,143 +1276,33 @@ GimpMypaintSurfaceImpl::get_color (float x, float y,
                                    float * color_g, 
                                    float * color_b, 
                                    float * color_a,
+                                   float hardness, 
+                                   float aspect_ratio, 
+                                   float angle, 
                                    float texture_grain,
                                    float texture_contrast)
 {
+#if 1
   GimpMypaintSurfaceForMypaintBrush brush_impl;
-
-  if (radius < 1.0) radius = 1.0;
-
-  float sum_weight, sum_r, sum_g, sum_b, sum_a;
-  sum_weight = sum_r = sum_g = sum_b = sum_a = 0.0;
-  const float hardness = 0.5;
-  const float aspect_ratio = 1.0;
-  const float angle = 0.0;
-
-  // in case we return with an error
-  *color_r = 0.0;
-  *color_g = 1.0;
-  *color_b = 0.0;
-
-  // WARNING: some code duplication with draw_dab
-
-  GimpItem        *item  = GIMP_ITEM (drawable);
-  GimpImage       *image = gimp_item_get_image (item);
-  GimpChannel     *mask  = gimp_image_get_mask (image);
-  gint             offset_x, offset_y;
-  PixelRegion      src1PR;
-  PixelRegion maskPR;
-  
-  /*  get the layer offsets  */
-  gimp_item_get_offset (item, &offset_x, &offset_y);
-  Pixel::real fg_color[] = {0.0, 0.0, 0.0, 1.0};
-  Pixel::real bg_color[] = {1.0, 1.0, 1.0};
-  if (!brush_impl.prepare_brush(x, y, radius, 
-                                hardness, aspect_ratio, angle, 
-                                1.0, 1.0, 0.0,
-                                fg_color, 1.0, bg_color, stroke_opacity,
-                                texture_grain, texture_contrast,
-                                brushmark))
-      return;
-
-  int x1, y1, x2, y2;
-  brush_impl.get_boundary(x1, y1, x2, y2);
-
-  int rx1 = x1;
-  int ry1 = y1;
-  int rx2 = x2;
-  int ry2 = y2;
-
-  if (rx1 > rx2 || ry1 > ry2)
-    return;
-
-  GimpItem *mask_item = NULL;
-  if (mask && !gimp_channel_is_empty(GIMP_CHANNEL(mask))) {
-    mask_item = GIMP_ITEM (mask);
-
-    /*  make sure coordinates are in mask bounds ...
-     *  we need to add the layer offset to transform coords
-     *  into the mask coordinate system
-     */
-    rx1 = CLAMP (rx1, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
-    ry1 = CLAMP (ry1, -offset_y, gimp_item_get_height (mask_item) - offset_y);
-    rx2 = CLAMP (rx2, -offset_x, gimp_item_get_width  (mask_item) - offset_x);
-    ry2 = CLAMP (ry2, -offset_y, gimp_item_get_height (mask_item) - offset_y);
-  }
-  rx1 = CLAMP (rx1, 0, gimp_item_get_width  (item) - 1);
-  ry1 = CLAMP (ry1, 0, gimp_item_get_height (item) - 1);
-  rx2 = CLAMP (rx2, 0, gimp_item_get_width  (item) - 1);
-  ry2 = CLAMP (ry2, 0, gimp_item_get_height (item) - 1);
-  
-  int width   = (rx2 - rx1 + 1);
-  int height   = (ry2 - ry1 + 1);
-  pixel_region_init (&src1PR, gimp_drawable_get_tiles (drawable),
-                     rx1, ry1, width, height,
-                     FALSE);
-
-  gpointer pr;
-  if (mask_item) {
-    pixel_region_init (&maskPR,
-                       gimp_drawable_get_tiles (GIMP_DRAWABLE (mask)),
-                       rx1 + offset_x,
-                       ry1 + offset_y,
-                       rx2 - rx1, ry2 - ry1,
-                       FALSE);
-
-    pr = pixel_regions_register (2, &src1PR, &maskPR);
+  return get_color_impl(brush_impl,
+                        x, y, radius, color_r, color_g, color_b, color_a, 
+                        hardness, aspect_ratio, angle, 
+                        texture_grain, texture_contrast);
+#else
+  if (brushmark) {
+    GimpMypaintSurfaceForGimpBrush brush_impl(&current_coords, &last_coords);
+    return get_color_impl(brush_impl,
+                          x, y, radius, color_r, color_g, color_b, color_a, 
+                          hardness, aspect_ratio, angle, 
+                          texture_grain, texture_contrast);
   } else {
-    pr = pixel_regions_register (1, &src1PR);
+    GimpMypaintSurfaceForMypaintBrush brush_impl;
+    return get_color_impl(brush_impl,
+                          x, y, radius, color_r, color_g, color_b, color_a, 
+                          hardness, aspect_ratio, angle, 
+                          texture_grain, texture_contrast);
   }
-
-  // first, we calculate the mask (opacity for each pixel)
-  Pixel::real dab_mask[TILE_WIDTH*TILE_HEIGHT+2*TILE_HEIGHT];
-  gint dab_offsets[(TILE_HEIGHT + 2)*2];
-  for (;
-       pr != NULL;
-       pr = pixel_regions_process ((PixelRegionIterator*)pr)) {
-    Pixel::data_t*  src_data = src1PR.data;
-    
-
-    brush_impl.fill_brushmark_buffer(dab_mask,
-                                     dab_offsets,
-                                     x - src1PR.x,
-                                     y - src1PR.y,
-                                     &src1PR, (mask_item)? &maskPR : NULL, NULL
-                                     );
-
-    BrushPixelIteratorForRunLength iter(dab_mask, dab_offsets, NULL, src_data, src_data,  src1PR.bytes, src1PR.bytes);
-
-    get_color_pixels_accumulate (iter,
-                                 &sum_weight, &sum_r, &sum_g, &sum_b, &sum_a);
-  }
-
-//  assert(sum_weight > 0.0);
-  if (sum_weight > 0.0) {
-    sum_a /= sum_weight;
-    sum_r /= sum_weight;
-    sum_g /= sum_weight;
-    sum_b /= sum_weight;
-  }
-
-  *color_a = sum_a;
-  // now un-premultiply the alpha
-  if (sum_a > 0.0) {
-    *color_r = sum_r / sum_a;
-    *color_g = sum_g / sum_a;
-    *color_b = sum_b / sum_a;
-  } else {
-    // it is all transparent, so don't care about the colors
-    // (let's make them ugly so bugs will be visible)
-    *color_r = 0.0;
-    *color_g = 1.0;
-    *color_b = 0.0;
-  }
-
-  // fix rounding problems that do happen due to floating point math
-  *color_r = CLAMP(*color_r, 0.0, 1.0);
-  *color_g = CLAMP(*color_g, 0.0, 1.0);
-  *color_b = CLAMP(*color_b, 0.0, 1.0);
-  *color_a = CLAMP(*color_a, 0.0, 1.0);
+#endif
 }
 
 void 
