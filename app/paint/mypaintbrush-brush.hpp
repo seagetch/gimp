@@ -598,11 +598,17 @@ private:
         surface->get_color (px, py, smudge_radius, &r, &g, &b, &a, hardness, 
                             states[STATE_ACTUAL_ELLIPTICAL_DAB_RATIO], 
                             states[STATE_ACTUAL_ELLIPTICAL_DAB_ANGLE]);
-
-        states[STATE_LAST_GETCOLOR_R] = r;
-        states[STATE_LAST_GETCOLOR_G] = g;
-        states[STATE_LAST_GETCOLOR_B] = b;
-        states[STATE_LAST_GETCOLOR_A] = a;
+        if (a > 0.0) { // avoid to overwrite when are is out of canvas.
+          states[STATE_LAST_GETCOLOR_R] = r;
+          states[STATE_LAST_GETCOLOR_G] = g;
+          states[STATE_LAST_GETCOLOR_B] = b;
+          states[STATE_LAST_GETCOLOR_A] = a;
+        } else {
+          r = states[STATE_LAST_GETCOLOR_R];
+          g = states[STATE_LAST_GETCOLOR_G];
+          b = states[STATE_LAST_GETCOLOR_B];
+          a = states[STATE_LAST_GETCOLOR_A];
+        }
       } else {
         r = states[STATE_LAST_GETCOLOR_R];
         g = states[STATE_LAST_GETCOLOR_G];
@@ -899,6 +905,7 @@ public:
         // FIXME: use some smoothed state for dpressure, not the output of the interpolation code
         //        (which might easily wrongly give dpressure == 0)
         if (step_dpressure >= 0) {
+g_print("SPLIT:step_dpressure >= 0\n");
           return true;
         }
       }
@@ -908,6 +915,7 @@ public:
       if (stroke_total_painting_time == 0) {
         // not yet painted, start a new stroke if we have accumulated a lot of irrelevant motion events
         if (stroke_current_idling_time > 1.0) {
+g_print("SPLIT:stroke_current_idling_time > 1.0\n");
           return true;
         }
       } else {
@@ -915,6 +923,7 @@ public:
         // nothing at full pressure (eg gappy lines, or a stroke that
         // fades out). In either case this is the prefered moment to split.
 //        if (stroke_total_painting_time+stroke_current_idling_time > 0.9 + 5*pressure) {
+g_print("SPLIT:else\n");
           return true;
 //        }
       }
