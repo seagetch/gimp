@@ -201,29 +201,20 @@ MyPaintBrushReader::dump ()
   GListHolder inputs   = mypaint_brush_get_input_settings ();
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
   
-  StringHolder name = g_strdup(result.get("name"));
-  g_print("BRUSH: %s\n", name.ptr());
-
   for (GList* item = settings.ptr(); item; item = item->next) {
     MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(item->data);
     GimpMypaintBrushPrivate::Value* v = priv->get_setting(setting->index);
     if (v->mapping) {
-      g_print("mapping: %s=%f\n", setting->internal_name, v->mapping->base_value);
       for (GList* input_iter = inputs.ptr(); input_iter; input_iter = input_iter->next) {
         MyPaintBrushInputSettings* input = reinterpret_cast<MyPaintBrushInputSettings*>(input_iter->data);
         int n = v->mapping->get_n(input->index);
         if (n == 0)
           continue;
-        g_print ("  %s:", input->name);
         for (int i = 0; i < n; i ++) {
           float x, y;
           v->mapping->get_point(input->index, i, &x, &y);
-          g_print ("(%f,%f) ", x, y);
         }
-        g_print ("\n");
       }
-    } else {
-      g_print("base only: %s=%f\n", setting->internal_name, v->base_value);
     }
   }
 }
