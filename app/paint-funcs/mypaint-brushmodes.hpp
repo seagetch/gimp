@@ -7,6 +7,9 @@
  * (at your option) any later version.
  */
 
+#ifndef __MYPAINT_BRUSHMODES_HPP__
+#define __MYPAINT_BRUSHMODES_HPP__
+
 #define REAL_CALC
 #include "base/pixel.hpp"
 
@@ -681,3 +684,4 @@ draw_dab_pixels_BlendMode_Color (uint16_t *mask,
 };
 #endif
 
+#endif

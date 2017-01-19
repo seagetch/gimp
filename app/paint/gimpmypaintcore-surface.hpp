@@ -51,6 +51,7 @@ public:
 };
 
 GimpMypaintSurface* GimpMypaintSurface_new(GimpDrawable* drawable);
+GimpMypaintSurface* GimpMypaintSurface_TempBuf_new(TempBuf* drawable);
 
 }
 #endif  /*  __GIMP_MYPAINT_SURFACE_HPP__  */

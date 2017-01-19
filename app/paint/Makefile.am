@@ -92,7 +92,9 @@ libapppaint_a_sources = \
 	gimpsourcecore.c		\
 	gimpsourcecore.h		\
 	gimpsourceoptions.c		\
-	gimpsourceoptions.h
+	gimpsourceoptions.h		\
+	gimpmypaintcore-brushfeature.hpp		\
+	gimpmypaintcore-drawablefeature.hpp
 
 libapppaint_a_built_sources = paint-enums.c
 

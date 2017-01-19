@@ -17,15 +17,23 @@
 extern "C" {
 #include "config.h"
 
+#include <glib.h>
 #include <glib-object.h>
 #include <cairo.h>
-
+#include <math.h>
+   
 #include "libgimpbase/gimpbase.h"
 #include "libgimpmath/gimpmath.h"
 
 #include "core-types.h"
 
 #include "base/temp-buf.h"
+
+#include "gimp.h"
+#include "gimpdatafactory.h"
+#include "gimpcontainer.h"
+#include "gimpbrush.h"
+#include "gimppattern.h"
 
 #include "gimpbezierdesc.h"
 #include "gimpmypaintbrush.h"
@@ -228,7 +236,7 @@ gimp_mypaint_brush_get_new_preview (GimpViewable *viewable,
 
   gimp_mypaint_brush_begin_use (mypaint_brush);
 
-  priv->get_new_preview(dest_buf, width, height, 4, 4 * width);
+  priv->get_new_preview(dest_buf, context, width, height, 4, 4 * width);
 
   gimp_mypaint_brush_end_use (mypaint_brush);
 
@@ -424,7 +432,8 @@ gimp_mypaint_brush_want_null_motion (GimpMypaintBrush        *mypaint_brush,
 
 } /* extern C */
 
-
+#include "paint/gimpmypaintcore-surface.hpp"
+#include "paint/mypaintbrush-brush.hpp"
 
 GimpMypaintBrushPrivate::GimpMypaintBrushPrivate() {
   parent_brush_name = g_strdup("");
@@ -570,10 +579,12 @@ GimpMypaintBrushPrivate::get_text_value (int index) {
 
 void 
 GimpMypaintBrushPrivate::get_new_preview(guchar* dest_buf, 
+                                         GimpContext* context,
                                          int width, 
                                          int height, 
                                          int bytes, 
                                          int dest_stride) {
+#if 0
   ScopedPointer<cairo_surface_t, void(cairo_surface_t*), cairo_surface_destroy> scaled_icon = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height);
   
   gint           icon_width = cairo_image_surface_get_width (icon_image);
@@ -608,6 +619,137 @@ GimpMypaintBrushPrivate::get_new_preview(guchar* dest_buf,
       source_buf += src_stride;
       dest_buf   += dest_stride;
     }
+#else
+  GimpDataFactory*    b_factory = context->gimp->brush_factory;
+  GimpDataFactory*    p_factory = context->gimp->pattern_factory;
+  guchar              color[]   = { 255, 255, 255, 255 };
+  TempBuf*            temp_buf  = temp_buf_new(256, 256, 4, 0, 0, color);
+  GimpMypaintSurface* surface   = GimpMypaintSurface_TempBuf_new (temp_buf);
+  Brush*              brush     = new Brush();
+  brush->reset();
+  guchar* temp = temp_buf_get_data(temp_buf);
+  for (int y = 0; y < 256; y ++) {
+    int x;
+    for (x = 0; x < y; x ++) {
+      temp[4 * (x)  ] = 255; // R
+      temp[4 * (x)+1] = 192; // G
+      temp[4 * (x)+2] = 192; // B
+      temp[4 * (x)+3] = 255; // A
+    }
+    for (; x < 256; x ++) {
+      temp[4 * (x)  ] = 255; // R
+      temp[4 * (x)+1] = 255; // G
+      temp[4 * (x)+2] = 255; // B
+      temp[4 * (x)+3] = 255; // A
+    }
+    temp += temp_buf->bytes * x;
+  }
+
+  g_print("Brush name: %s\n", get_parent_brush_name ());
+  if (1) {
+    // update color values
+    // FIXME: Color should be updated when Foreground color is selected
+    GimpRGB rgb;
+    rgb.a = 1.0;
+    rgb.b = 1.0;
+    rgb.g = 0.0;
+    rgb.r = 0.0;
+    GimpHSV hsv;
+    gimp_rgb_to_hsv (&rgb, &hsv);
+    brush->set_base_value(BRUSH_COLOR_H, hsv.h);
+    brush->set_base_value(BRUSH_COLOR_S, hsv.s);
+    brush->set_base_value(BRUSH_COLOR_V, hsv.v);
+
+    rgb.a = rgb.b = rgb.g = rgb.r = 1.0;
+    surface->set_bg_color(&rgb);
+
+    // Attach gimp brush to the surface object.
+    gboolean use_gimp_brushmark = get_bool_value(BRUSH_USE_GIMP_BRUSHMARK);
+    GimpBrush* brushmark = NULL;
+    if (use_gimp_brushmark) {
+      gchar* brush_name = get_text_value(BRUSH_BRUSHMARK_NAME);
+      if (brush_name) {
+        GimpContainer* container = gimp_data_factory_get_container(b_factory);
+        brushmark = GIMP_BRUSH(gimp_container_get_child_by_name(container, brush_name));
+      } else {
+        brushmark = gimp_context_get_brush (GIMP_CONTEXT(context));
+      }
+    }
+    surface->set_brushmark(brushmark);
+
+    gboolean use_gimp_texture = get_bool_value(BRUSH_USE_GIMP_TEXTURE);
+    GimpPattern* pattern = NULL;
+    if (use_gimp_texture) {
+      gchar* pattern_name = get_text_value(BRUSH_TEXTURE_NAME);
+      if (pattern_name) {
+        GimpContainer* container = gimp_data_factory_get_container(p_factory);
+        pattern = GIMP_PATTERN(gimp_container_get_child_by_name(container, pattern_name));
+      } else {
+        pattern = gimp_context_get_pattern (GIMP_CONTEXT(context));
+      }
+    }
+    surface->set_texture(pattern);
+
+    gboolean floating_stroke = get_bool_value(BRUSH_NON_INCREMENTAL);
+    surface->set_floating_stroke(floating_stroke);
+    gdouble stroke_opacity = get_base_value(BRUSH_STROKE_OPACITY);
+    surface->set_stroke_opacity(stroke_opacity);
+
+    for (int i = 0; i < BRUSH_MAPPING_COUNT; i ++) {
+      Mapping* m = get_setting(i)->mapping;
+      if (m)
+        brush->copy_mapping(i, m);
+      else {
+        brush->set_mapping_n(i, 0, 0);
+        brush->set_base_value(i, get_setting(i)->base_value);
+      }
+    }
+
+    g_print("begin surface session...\n");
+
+    GimpCoords coords;
+    coords.x = coords.y = 128;
+    coords.pressure = 0.0;
+    surface->set_coords(&coords);
+    brush->reset();
+    surface->begin_session();
+    brush->stroke_to(surface, coords.x, coords.y, coords.pressure, 0, 0, 0.001);
+
+    for (int i = 0; i < 256; i ++) {
+      gdouble theta = 2.0 * i * M_PI / 256.0;
+      gdouble x = cos(theta) * exp(0.2 * theta) * 30;
+      gdouble y = sin(theta) * exp(0.2 * theta) * 30;
+
+      coords.x = 128 + x, coords.y = 128 + y;
+      coords.pressure = (256.0 - i)/256.0;
+      surface->set_coords(&coords);
+      /// from Layer#stroke_to
+      brush->stroke_to(surface, coords.x, coords.y, coords.pressure, 0, 0, (i + 2) / 1000.);
+    };
+        
+    surface->end_session();
+    g_print("end surface session...\n");
+  }
+  delete brush;
+  delete surface;
+  TempBuf* scaled_buf = temp_buf_scale(temp_buf, width, height);
+  temp_buf_free(temp_buf);
+  guchar* source_buf = temp_buf_get_data(scaled_buf);
+  for (int y = 0; y < height; y ++) 
+    {
+      for (int x = 0; x < width; x ++)
+        {
+          // Following code may be dependent on the endian.
+          dest_buf[x * 4    ] = source_buf[x * 4];
+          dest_buf[x * 4 + 1] = source_buf[x * 4 + 1];
+          dest_buf[x * 4 + 2] = source_buf[x * 4 + 2];
+          dest_buf[x * 4 + 3] = source_buf[x * 4 + 3];
+        }
+      source_buf += scaled_buf->bytes * width;
+      dest_buf   += dest_stride;
+    }
+  temp_buf_free(scaled_buf);
+#endif
 }
 
 void

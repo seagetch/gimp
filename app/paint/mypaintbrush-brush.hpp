@@ -650,6 +650,7 @@ private:
 
     // the functions below will CLAMP most inputs
     hsv_to_rgb_float (&color_h, &color_s, &color_v);
+  
     return surface->draw_dab (x, y, radius, color_h, color_s, color_v, opaque, hardness, eraser_target_alpha,
                               states[STATE_ACTUAL_ELLIPTICAL_DAB_RATIO], states[STATE_ACTUAL_ELLIPTICAL_DAB_ANGLE],
                               settings_value[BRUSH_LOCK_ALPHA], false, 
@@ -905,7 +906,6 @@ public:
         // FIXME: use some smoothed state for dpressure, not the output of the interpolation code
         //        (which might easily wrongly give dpressure == 0)
         if (step_dpressure >= 0) {
-g_print("SPLIT:step_dpressure >= 0\n");
           return true;
         }
       }
@@ -915,7 +915,6 @@ g_print("SPLIT:step_dpressure >= 0\n");
       if (stroke_total_painting_time == 0) {
         // not yet painted, start a new stroke if we have accumulated a lot of irrelevant motion events
         if (stroke_current_idling_time > 1.0) {
-g_print("SPLIT:stroke_current_idling_time > 1.0\n");
           return true;
         }
       } else {
@@ -923,7 +922,6 @@ g_print("SPLIT:stroke_current_idling_time > 1.0\n");
         // nothing at full pressure (eg gappy lines, or a stroke that
         // fades out). In either case this is the prefered moment to split.
 //        if (stroke_total_painting_time+stroke_current_idling_time > 0.9 + 5*pressure) {
-g_print("SPLIT:else\n");
           return true;
 //        }
       }
