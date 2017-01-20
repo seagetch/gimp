@@ -2086,7 +2086,7 @@ AM_CONDITIONAL(ENABLE_GIMP_CONSOLE, test "x$enable_gimp_console" != xno)
 
 
 # Possibly change default gimpdir from .gimp-major.minor
-gimpdir=.gimp-gimp_user_version
+gimpdir=.gimp-painter-gimp_user_version
 AC_ARG_WITH(gimpdir, [  --with-gimpdir=DIR      change default gimpdir from .gimp-gimp_user_version to DIR],
 if eval "test x$with_gimpdir != x"; then
   if eval "test x$with_gimpdir != xyes"; then
