@@ -5,19 +5,24 @@
 # of course you can do. The sessionrc will be entirely rewritten every time
 # you quit GIMP. If this file isn't found, defaults are used.
 
-(session-info "dock" "gimp-toolbox-window"
-    (position 0 0)
-    (size 170 820)
+(session-info "toplevel"
+    (factory-entry "gimp-empty-image-window")
+    (position 410 370)
+    (size 620 200))
+(session-info "toplevel"
+    (factory-entry "gimp-single-image-window")
+    (position 160 70)
+    (size 1140 780)
     (open-on-exit)
+    (aux-info
+        (left-docks-width "80")
+        (right-docks-width "244")
+        (maximized "yes"))
     (gimp-toolbox
-        (book
-            (dockable "gimp-tool-options"
-                (tab-style automatic)))))
-(session-info "dock" "gimp-dock-window"
-    (position -0 0)
-    (size 210 820)
-    (open-on-exit)
+        (side left)
+        (shaded true))
     (gimp-dock
+        (side right)
         (book
             (dockable "gimp-layer-list"
                 (tab-style automatic))
@@ -35,13 +40,8 @@
                 (tab-style automatic))
             (dockable "gimp-gradient-list"
                 (tab-style automatic)))))
-(session-info "toplevel"
-    (factory-entry "gimp-empty-image-window")
-    (position 410 370)
-    (size 620 200))
-(session-info "toplevel"
-    (factory-entry "gimp-single-image-window")
-    (position 160 70)
-    (size 1140 780))
+)
+(hide-docks no)
+(single-window-mode yes)
 
 # end of sessionrc
