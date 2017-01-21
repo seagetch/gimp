@@ -373,7 +373,7 @@ gimp_ui_configurer_move_docks_to_window (GimpUIConfigurer  *ui_configurer,
                                      "gimp-dock-window"),
                                     -1 /*view_size*/,
                                     FALSE /*present*/);
-
+  
   for (iter = docks; iter; iter = iter->next)
     {
       GimpDock *dock = GIMP_DOCK (iter->data);
@@ -415,9 +415,10 @@ static void
 gimp_ui_configurer_separate_shells (GimpUIConfigurer *ui_configurer,
                                     GimpImageWindow  *source_image_window)
 {
+#if 0
   GimpDisplayShell *active_shell  = gimp_image_window_get_active_shell (source_image_window);
   GimpImageWindow  *active_window = NULL;
-
+#endif
   /* The last display shell remains in its window */
   while (gimp_image_window_get_n_shells (source_image_window) >= 1)
     {
@@ -491,7 +492,6 @@ gimp_ui_configurer_configure_for_single_window (GimpUIConfigurer *ui_configurer)
   g_print("uber_image_window = %p\n", uber_image_window);
   g_print("Set 'toolbar-window' flags off.\n");
   g_object_set (G_OBJECT(uber_image_window), "toolbar-window", FALSE, NULL);
-  g_object_set (G_OBJECT(uber_image_window), "single-window-mode", TRUE, NULL);
 
   g_print("Move columns.\n");
   /* Mve docks to the left and right side of the image window */
@@ -599,7 +599,6 @@ gimp_ui_configurer_configure_for_multi_window (GimpUIConfigurer *ui_configurer)
         }
         g_return_if_fail (GIMP_IS_IMAGE_WINDOW(new_image_window));
       
-        g_object_set (G_OBJECT(new_image_window), "single-window-mode", FALSE, NULL);
         g_object_set (G_OBJECT(new_image_window), "toolbar-window", TRUE, NULL);
 
         g_print("Show Toolbar Window.\n");
@@ -650,8 +649,6 @@ gimp_ui_configurer_get_uber_window (GimpUIConfigurer *ui_configurer)
               gimp_image_window_remove_shell (image_window, shell);
             }
           }
-          GimpDisplayShell* uber_window_shell = gimp_image_window_get_shell (image_window, 0);
-          gimp_display_shell_empty(uber_window_shell);
           return image_window;
         }
 	if (image_window)

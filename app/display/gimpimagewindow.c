@@ -675,18 +675,18 @@ gimp_image_window_set_property (GObject      *object,
       private->dialog_factory = g_value_get_object (value);
       break;
 
-	case PROP_TOOLBAR_WINDOW:
-	  private->toolbar_window = g_value_get_boolean(value);
-          if (private->toolbar_window && toolbar_window != window) {
-            g_object_set(G_OBJECT(toolbar_window), "toolbar-window", FALSE, NULL);
-            toolbar_window = window;
-            
-          } else if (! private->toolbar_window) {
-            toolbar_window = FALSE;
-          }
-      
-	  gimp_image_window_configure_window_mode(window);
-	  break;
+    case PROP_TOOLBAR_WINDOW:
+      private->toolbar_window = g_value_get_boolean(value);
+      if (private->toolbar_window && toolbar_window != window) {
+        g_object_set(G_OBJECT(toolbar_window), "toolbar-window", FALSE, NULL);
+        toolbar_window = window;
+        
+      } else if (! private->toolbar_window) {
+        toolbar_window = FALSE;
+      }
+        
+      gimp_image_window_configure_window_mode(window);
+      break;
 
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -712,9 +712,9 @@ gimp_image_window_get_property (GObject    *object,
       g_value_set_object (value, private->dialog_factory);
       break;
 
-	case PROP_TOOLBAR_WINDOW:
-	  g_value_set_boolean (value, private->toolbar_window);
-	  break;
+    case PROP_TOOLBAR_WINDOW:
+      g_value_set_boolean (value, private->toolbar_window);
+      break;
 
     case PROP_MENU_FACTORY:
     default:
@@ -2159,8 +2159,8 @@ gimp_image_window_session_update (GimpImageWindow *window,
            */
           if (strcmp (new_entry_id, GIMP_SINGLE_IMAGE_WINDOW_ENTRY_ID) == 0)
             {
-			  private->toolbar_window = FALSE;
-			  gtk_widget_set_visible (private->notebook, TRUE);
+              private->toolbar_window = FALSE;
+              gtk_widget_set_visible (private->notebook, TRUE);
               gimp_image_window_session_apply (window, new_entry_id);
             }
         }
@@ -2181,9 +2181,9 @@ gimp_image_window_session_update (GimpImageWindow *window,
                   ! gimp_display_get_image (private->active_shell->display) &&
                   g_list_length (private->shells) <= 1)
                 {
-				  // FIXME
-				  private->toolbar_window = TRUE;
-				  gtk_widget_set_visible (private->notebook, FALSE);
+                  // FIXME
+                  private->toolbar_window = TRUE;
+                  gtk_widget_set_visible (private->notebook, FALSE);
                   gimp_image_window_session_apply (window, new_entry_id);
                 }
             }
@@ -2193,7 +2193,7 @@ gimp_image_window_session_update (GimpImageWindow *window,
                * shall session manage ourself until single-window mode
                * is exited
                */
-			  private->toolbar_window = FALSE;
+              private->toolbar_window = FALSE;
               gimp_image_window_session_apply (window, new_entry_id);
             }
         }
@@ -2414,7 +2414,7 @@ gimp_image_window_link_foreign_active_shell (GimpImageWindow* window,
 }
 
 GimpImageWindow*
-gimp_image_window_get_toolbar_window ()
+gimp_image_window_get_toolbar_window (void)
 {
   return toolbar_window;
 }
