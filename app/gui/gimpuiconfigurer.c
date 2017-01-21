@@ -418,7 +418,7 @@ gimp_ui_configurer_separate_shells (GimpUIConfigurer *ui_configurer,
   GimpImageWindow  *active_window = NULL;
 
   /* The last display shell remains in its window */
-  while (gimp_image_window_get_n_shells (source_image_window) >= 1)
+  while (gimp_image_window_get_n_shells (source_image_window) > 1)
     {
       GimpImageWindow  *new_image_window;
       GimpDisplayShell *shell;
@@ -426,7 +426,7 @@ gimp_ui_configurer_separate_shells (GimpUIConfigurer *ui_configurer,
       /* Move the shell there */
       shell = gimp_image_window_get_shell (source_image_window, 0);
 
-	  if (shell && shell->display && gimp_display_get_image(shell->display)) {
+      if (shell && shell->display && gimp_display_get_image(shell->display)) {
 		g_print("Separate\n");
         /* Create a new image window */
         new_image_window = gimp_image_window_new (ui_configurer->p->gimp,

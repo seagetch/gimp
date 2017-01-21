@@ -553,18 +553,14 @@ void
 gimp_display_close (GimpDisplay *display)
 {
   g_return_if_fail (GIMP_IS_DISPLAY (display));
-#if 0
   if (gimp_container_get_n_children (display->gimp->displays) > 1)
     {
-#endif
       gimp_display_delete (display);
-#if 0
     }
   else
     {
       gimp_display_empty (display);
     }
-#endif
 }
 
 gint
