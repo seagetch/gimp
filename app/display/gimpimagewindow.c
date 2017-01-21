@@ -413,8 +413,9 @@ gimp_image_window_constructed (GObject *object)
   gtk_widget_show (hbox);
 
     {
-	  private->toolbar = gimp_tool_options_toolbar_new (private->gimp,
-													   gimp_dialog_factory_get_menu_factory (private->dialog_factory));
+	  private->toolbar = 
+          gimp_tool_options_toolbar_new (private->gimp,
+                                         gimp_dialog_factory_get_menu_factory (private->dialog_factory));
 	  gtk_box_pack_start (GTK_BOX (hbox), private->toolbar,
 						  TRUE, TRUE, 0);
 	  gtk_widget_show (private->toolbar);

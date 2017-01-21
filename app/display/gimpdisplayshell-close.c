@@ -100,6 +100,7 @@ gimp_display_shell_close (GimpDisplayShell *shell,
       gimp_image_get_display_count (image) == 1 &&
       gimp_image_is_dirty (image))
     {
+      g_print("gimp_display_shell_close: ask save dialog\n");
       /*  If there's a save dialog active for this image, then raise it.
        *  (see bug #511965)
        */
@@ -116,11 +117,13 @@ gimp_display_shell_close (GimpDisplayShell *shell,
     }
   else if (image)
     {
+      g_print("gimp_display_shell_close: execute gimp_display_close\n");
       gimp_display_close (shell->display);
     }
   else
     {
       GimpImageWindow *window = gimp_display_shell_get_window (shell);
+      g_print("gimp_display_shell_close: execute 'file-quit'\n");
 
       if (window)
         {

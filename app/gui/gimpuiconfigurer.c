@@ -26,6 +26,7 @@
 
 #include "core/gimp.h"
 #include "core/gimpcontext.h"
+#include "core/gimpcontainer.h"
 
 #include "widgets/gimpdialogfactory.h"
 #include "widgets/gimpdock.h"
@@ -418,7 +419,7 @@ gimp_ui_configurer_separate_shells (GimpUIConfigurer *ui_configurer,
   GimpImageWindow  *active_window = NULL;
 
   /* The last display shell remains in its window */
-  while (gimp_image_window_get_n_shells (source_image_window) > 1)
+  while (gimp_image_window_get_n_shells (source_image_window) >= 1)
     {
       GimpImageWindow  *new_image_window;
       GimpDisplayShell *shell;
@@ -446,6 +447,10 @@ gimp_ui_configurer_separate_shells (GimpUIConfigurer *ui_configurer,
 
         /* Show after we have added the shell */
         gtk_widget_show (GTK_WIDGET (new_image_window));
+      } else if (shell && shell->display) {
+        g_print("Empty display and remove shell.\n");
+        g_object_ref (shell);
+        gimp_image_window_remove_shell (source_image_window, shell);
       } else {
         g_print("Close empty display\n");
         gimp_display_close (shell->display);
@@ -478,14 +483,15 @@ gimp_ui_configurer_configure_for_single_window (GimpUIConfigurer *ui_configurer)
   GList           *iter               = NULL;
   GimpImageWindow *uber_image_window  = NULL;
   GimpDisplay      *active_display    = gimp_context_get_display (gimp_get_user_context (gimp));
-  GimpDisplayShell *active_shell      = gimp_display_get_shell (active_display);
+//  GimpDisplayShell *active_shell      = gimp_display_get_shell (active_display);
   int              i;
 
   /* Get and setup the window to put everything in */
   uber_image_window = gimp_ui_configurer_get_uber_window (ui_configurer);
-  g_print("uber_image_window = %lx\n", uber_image_window);
+  g_print("uber_image_window = %p\n", uber_image_window);
   g_print("Set 'toolbar-window' flags off.\n");
   g_object_set (G_OBJECT(uber_image_window), "toolbar-window", FALSE, NULL);
+  g_object_set (G_OBJECT(uber_image_window), "single-window-mode", TRUE, NULL);
 
   g_print("Move columns.\n");
   /* Mve docks to the left and right side of the image window */
@@ -514,12 +520,12 @@ gimp_ui_configurer_configure_for_single_window (GimpUIConfigurer *ui_configurer)
 
   if (gimp_image_window_get_n_shells (uber_image_window) > 1) {
     for (i = 0; i < gimp_image_window_get_n_shells (uber_image_window); i ++ ) {
-	  GimpDisplayShell *shell = gimp_image_window_get_shell (uber_image_window, i);
+      GimpDisplayShell *shell = gimp_image_window_get_shell (uber_image_window, i);
       GimpImage        *image = gimp_display_get_image (shell->display);
-	  if (!image) {
+      if (!image) {
         gimp_display_close (shell->display);
-	    i --;
-	  }
+        i --;
+      }
     }
   }
 #if 0
@@ -557,31 +563,58 @@ gimp_ui_configurer_configure_for_multi_window (GimpUIConfigurer *ui_configurer)
       gimp_image_window_destroy (image_window);
     }
   {
-	GimpDisplay      *new_display;
+	GimpDisplay      *new_display = NULL;
 	GimpImageWindow  *new_image_window;
 
 	g_print("New Toolbar Window\n");
 	/* Create a new image window */
-	new_display      = GIMP_DISPLAY(gimp_create_display (gimp, NULL, GIMP_UNIT_PIXEL, 1.0));
-	g_return_if_fail (GIMP_IS_DISPLAY (new_display));
+        if (gimp_container_get_n_children(gimp->displays) != 0) {
+          int i;
+          g_print("try to find reusable display.\n");
+          /* Find empty display */
+          for (i = 0; i < gimp_container_get_n_children(gimp->displays); i ++) {
+            GimpDisplay* display;
+            display = GIMP_DISPLAY(gimp_container_get_child_by_index(gimp->displays, i));
+            if (!gimp_display_get_image(display)) {
+              g_print("empty display found. reuse %p.\n", display);
+              new_display = display;
+              break;
+            }
+          }
+        }
+        if (!new_display) {
+          g_print("create new display\n");
+          new_display      = GIMP_DISPLAY(gimp_create_display (gimp, NULL, GIMP_UNIT_PIXEL, 1.0));
+        }
+        g_return_if_fail (GIMP_IS_DISPLAY (new_display));
 
-	g_print("Set up 'toolbar-window' flags.\n");
-	new_image_window = gimp_display_shell_get_window (gimp_display_get_shell (new_display));
-	g_object_set (G_OBJECT(new_image_window), "toolbar-window", TRUE, NULL);
+        g_print("Set up 'toolbar-window' flags.\n");
+        new_image_window = gimp_display_shell_get_window (gimp_display_get_shell (new_display));
+        if (!new_image_window) {
+          new_image_window = gimp_image_window_new (ui_configurer->p->gimp,
+                                                    NULL,
+                                                    global_menu_factory,
+                                                    gimp_dialog_factory_get_singleton ());
+          gimp_image_window_add_shell(new_image_window, gimp_display_get_shell(new_display));
+        }
+        g_return_if_fail (GIMP_IS_IMAGE_WINDOW(new_image_window));
+      
+        g_object_set (G_OBJECT(new_image_window), "single-window-mode", FALSE, NULL);
+        g_object_set (G_OBJECT(new_image_window), "toolbar-window", TRUE, NULL);
 
-	g_print("Show Toolbar Window.\n");
-    /* Show after we have added the shell */
-	gtk_widget_show (GTK_WIDGET (new_image_window));
+        g_print("Show Toolbar Window.\n");
+        /* Show after we have added the shell */
+        gtk_widget_show (GTK_WIDGET (new_image_window));
   }
   g_list_free (windows);
   {
-  GList            *iter         = gimp_get_display_iter (gimp);
-  for (; iter; iter = g_list_next(iter)) {
-	GimpDisplay      *display      = iter->data;
-    GimpDisplayShell *shell        = gimp_display_get_shell (display);
-    GimpImageWindow  *image_window = gimp_display_shell_get_window (shell);
-	g_print("display=%lx, shell=%lx, image=%lx, image_window=%lx\n", display, shell, gimp_display_get_image(display),image_window);
-  }
+    GList            *iter         = gimp_get_display_iter (gimp);
+    for (; iter; iter = g_list_next(iter)) {
+      GimpDisplay      *display      = iter->data;
+      GimpDisplayShell *shell        = gimp_display_get_shell (display);
+      GimpImageWindow  *image_window = gimp_display_shell_get_window (shell);
+	  g_print("display=%p, shell=%p, image=%p, image_window=%p\n", display, shell, gimp_display_get_image(display),image_window);
+    }
   }
 }
 
@@ -604,13 +637,27 @@ gimp_ui_configurer_get_uber_window (GimpUIConfigurer *ui_configurer)
 	GimpDisplay      *display      = iter->data;
     GimpDisplayShell *shell        = gimp_display_get_shell (display);
     image_window = gimp_display_shell_get_window (shell);
-	g_print("display=%lx, shell=%lx, image=%lx, image_window=%lx\n", display, shell, gimp_display_get_image(display),image_window);
+	g_print("display=%p, shell=%p, image=%p, image_window=%p\n", display, shell, gimp_display_get_image(display),image_window);
 
-	if (image_window && gimp_image_window_is_toolbar_window(image_window))
-	  return image_window;
+	if (image_window && gimp_image_window_is_toolbar_window(image_window)) {
+          g_print("gimp_ui_configurer_get_uber_window: toolbar window is found.\n");
+          while (gimp_image_window_get_n_shells (image_window) > 1) {
+            /* Move the shell there */
+            shell = gimp_image_window_get_shell (image_window, 0);
+
+            if (shell && shell->display) {
+	      g_print("Failback: toolbar window should not have shell\n");
+              gimp_image_window_remove_shell (image_window, shell);
+            }
+          }
+          GimpDisplayShell* uber_window_shell = gimp_image_window_get_shell (image_window, 0);
+          gimp_display_shell_empty(uber_window_shell);
+          return image_window;
+        }
 	if (image_window)
 	  last_valid_window = image_window;
   }
+  g_print("gimp_ui_configurer_get_uber_window: toolbar window is not found. return last valid window instead.\n");
   return last_valid_window;
 }
 

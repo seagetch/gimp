@@ -469,7 +469,7 @@ gimp_display_new (Gimp              *gimp,
   /* add the display to the list */
   gimp_container_add (gimp->displays, GIMP_OBJECT (display));
 
-  g_print("gimp_display_new:return %p\n", display);
+  g_print("gimp_display_new:displays=%d, return %p\n", gimp_container_get_n_children(gimp->displays), display);
 
   return display;
 }
@@ -530,6 +530,7 @@ gimp_display_delete (GimpDisplay *display)
             }
           else
             {
+              g_print("gimp_display_delete: execute gimp_image_window_destroy\n");
               gimp_image_window_destroy (window);
             }
         }
@@ -553,6 +554,7 @@ void
 gimp_display_close (GimpDisplay *display)
 {
   g_return_if_fail (GIMP_IS_DISPLAY (display));
+  g_print("gimp_display_close: n_children=%d\n", gimp_container_get_n_children(display->gimp->displays));
   if (gimp_container_get_n_children (display->gimp->displays) > 1)
     {
       gimp_display_delete (display);
