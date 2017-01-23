@@ -426,11 +426,11 @@ gimp_image_window_constructed (GObject *object)
 	  /* Temporary: right side left buttons */
 	  image = gtk_image_new_from_stock (GIMP_STOCK_FLIP_HORIZONTAL, GTK_ICON_SIZE_BUTTON);
           gtk_widget_show(image);
-          widget = gtk_button_new();
+          widget = gtk_toggle_button_new();
           gtk_button_set_image(GTK_BUTTON(widget), image);
 	  gtk_button_set_relief (GTK_BUTTON (widget), GTK_RELIEF_NONE);
 	  gtk_widget_show (widget);
-	  g_signal_connect(widget, "clicked", G_CALLBACK(gimp_image_window_flip_side_clicked), window);
+	  g_signal_connect(widget, "toggled", G_CALLBACK(gimp_image_window_flip_side_clicked), window);
 	  gtk_box_pack_end (GTK_BOX (hbox), widget,
 						  FALSE, TRUE, 0);
 
@@ -2390,7 +2390,7 @@ gimp_image_window_flip_side_clicked (GtkWidget* widget,
                                      GimpImageWindow *window)
 {
   GimpDisplayShell *shell  = gimp_image_window_get_active_shell (window);
-  shell->mirrored = !shell->mirrored;
+  shell->mirrored = gtk_toggle_button_get_active(GTK_BUTTON(widget));
   gtk_widget_queue_draw(GTK_WIDGET(shell));
 }
 
