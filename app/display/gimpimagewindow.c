@@ -106,7 +106,7 @@ struct _GimpImageWindowPrivate
   Gimp              *gimp;
   GimpUIManager     *menubar_manager;
   GimpDialogFactory *dialog_factory;
-  gboolean			 toolbar_window;
+  gboolean           toolbar_window;
 
   GList             *shells;
   GimpDisplayShell  *active_shell;
@@ -120,6 +120,7 @@ struct _GimpImageWindowPrivate
   GtkWidget         *notebook;
   GtkWidget         *right_docks;
   GtkWidget         *toolbar; /* gimp-painter-2.7 */
+  GtkWidget         *toolbar_container; /* gimp-painter-2.8 */
 
   GdkWindowState     window_state;
 
@@ -408,41 +409,58 @@ gimp_image_window_constructed (GObject *object)
 
   /* Create toolbar */
   hbox           = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+  private->toolbar_container = hbox;
   gtk_box_pack_start (GTK_BOX (private->main_vbox), hbox,
                       FALSE, TRUE, 0);
   gtk_widget_show (hbox);
 
     {
+          GtkWidget* image;
 	  private->toolbar = 
           gimp_tool_options_toolbar_new (private->gimp,
                                          gimp_dialog_factory_get_menu_factory (private->dialog_factory));
 	  gtk_box_pack_start (GTK_BOX (hbox), private->toolbar,
 						  TRUE, TRUE, 0);
-	  gtk_widget_show (private->toolbar);
+//	  gtk_widget_show (private->toolbar);
 
 	  /* Temporary: right side left buttons */
-	  widget = gtk_button_new_with_label ("<->");
+	  image = gtk_image_new_from_stock (GIMP_STOCK_FLIP_HORIZONTAL, GTK_ICON_SIZE_BUTTON);
+          gtk_widget_show(image);
+          widget = gtk_button_new();
+          gtk_button_set_image(GTK_BUTTON(widget), image);
+	  gtk_button_set_relief (GTK_BUTTON (widget), GTK_RELIEF_NONE);
 	  gtk_widget_show (widget);
 	  g_signal_connect(widget, "clicked", G_CALLBACK(gimp_image_window_flip_side_clicked), window);
 	  gtk_box_pack_end (GTK_BOX (hbox), widget,
 						  FALSE, TRUE, 0);
 
 	  /* Temporary: rotate buttons */
-	  widget = gtk_button_new_with_label(">");
+	  image = gtk_image_new_from_stock (GIMP_STOCK_ROTATE_90, GTK_ICON_SIZE_BUTTON);
+          gtk_widget_show(image);
+          widget = gtk_button_new();
+          gtk_button_set_image(GTK_BUTTON(widget), image);
 	  gtk_widget_show (widget);
+	  gtk_button_set_relief (GTK_BUTTON (widget), GTK_RELIEF_NONE);
 	  g_signal_connect(widget, "clicked", G_CALLBACK(gimp_image_window_rotate_right_clicked), window);
 	  gtk_box_pack_end (GTK_BOX (hbox), widget,
 						  FALSE, TRUE, 0);
 
-	  widget = gtk_button_new_from_stock(GTK_STOCK_ZOOM_100);
+	  image = gtk_image_new_from_stock (GTK_STOCK_ZOOM_100, GTK_ICON_SIZE_BUTTON);
+          gtk_widget_show(image);
+          widget = gtk_button_new();
+          gtk_button_set_image(GTK_BUTTON(widget), image);
 	  gtk_widget_show (widget);
 	  gtk_button_set_relief (GTK_BUTTON (widget), GTK_RELIEF_NONE);
 	  g_signal_connect(widget, "clicked", G_CALLBACK(gimp_image_window_reset_view_clicked), window);
 	  gtk_box_pack_end (GTK_BOX (hbox), widget,
 						  FALSE, TRUE, 0);
 
-	  widget = gtk_button_new_with_label("<");
+	  image = gtk_image_new_from_stock (GIMP_STOCK_ROTATE_270, GTK_ICON_SIZE_BUTTON);
+          gtk_widget_show(image);
+          widget = gtk_button_new();
+          gtk_button_set_image(GTK_BUTTON(widget), image);
 	  gtk_widget_show (widget);
+	  gtk_button_set_relief (GTK_BUTTON (widget), GTK_RELIEF_NONE);
 	  g_signal_connect(widget, "clicked", G_CALLBACK(gimp_image_window_rotate_left_clicked), window);
 	  gtk_box_pack_end (GTK_BOX (hbox), widget,
 						  FALSE, TRUE, 0);
@@ -528,7 +546,9 @@ gimp_image_window_configure_for_toolbar_window_mode(GimpImageWindow* window)
 //  GimpGuiConfig          *config;
 //  config          = GIMP_GUI_CONFIG (gimp_dialog_factory_get_context (private->dialog_factory)->gimp->config);
 
+  g_print("Config: %p for toolbar mode, toolbar_window=%p\n", window, toolbar_window);
   gtk_widget_set_visible (private->notebook, FALSE);
+  gtk_widget_set_visible (private->toolbar_container, TRUE);
   gtk_widget_set_visible (private->toolbar, TRUE);
   gtk_widget_set_visible (private->menubar, TRUE);
 
@@ -585,12 +605,13 @@ gimp_image_window_configure_for_non_toolbar_window_mode(GimpImageWindow* window)
   gboolean                show_docks;
 
   config     = GIMP_GUI_CONFIG (gimp_dialog_factory_get_context (private->dialog_factory)->gimp->config);
-  show_docks = config->single_window_mode && !config->hide_docks;
+  show_docks = private->toolbar_window || config->single_window_mode && !config->hide_docks;
 
-  g_print("Config: for non-toolbar mode: show_docks=%d\n", show_docks);
+  g_print("Config: %p for non-toolbar mode: show_docks=%d, toolbar_window=%p\n", window, show_docks, toolbar_window);
   gtk_widget_set_visible (private->notebook, TRUE);
+  gtk_widget_set_visible (private->toolbar_container, show_docks);
   gtk_widget_set_visible (private->toolbar, show_docks);
-//  gtk_widget_set_visible (private->menubar, config->single_window_mode);
+  gtk_widget_set_visible (private->menubar, config->single_window_mode);
   gtk_widget_set_visible (private->menubar, TRUE);
 
 #if 0
