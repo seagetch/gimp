@@ -147,7 +147,6 @@ gimp_display_shell_render (GimpDisplayShell *shell,
 
   if (w <= 0 || h <= 0)
     return;
-
   image = gimp_display_get_image (shell->display);
   projection = gimp_image_get_projection (image);
 
@@ -164,6 +163,16 @@ gimp_display_shell_render (GimpDisplayShell *shell,
   image_w = SCALEX(shell, gimp_image_get_width(image)) - render_start_x;
   image_h = SCALEY(shell, gimp_image_get_height(image)) - render_start_y;
 
+  if (x + render_start_x < 0) {
+    w += x + render_start_x;
+    x  = - render_start_x;
+  }
+
+  if (y + render_start_y < 0) {
+    h += y + render_start_y;
+    y  = - render_start_y;
+  }
+  
   if (x > image_w || y > image_h)
     return;
 

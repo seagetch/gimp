@@ -150,7 +150,7 @@ gimp_display_shell_draw_image (GimpDisplayShell *shell,
                                gint              h)
 {
   gdouble x1, y1, x2, y2;
-  gdouble user_coord[4][2];
+//  gdouble user_coord[4][2];
   gint disp_xoffset, disp_yoffset;
   gint i, j;
   gint overlap = 0;
