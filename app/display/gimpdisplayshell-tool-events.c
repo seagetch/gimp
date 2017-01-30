@@ -1092,6 +1092,20 @@ gimp_display_shell_canvas_tool_events (GtkWidget        *canvas,
             switch (kevent->keyval)
               {
               case GDK_KEY_Left:
+                if (shell->mirrored) {
+                  kevent->keyval = GDK_KEY_Right;
+                }
+                break;
+              case GDK_KEY_Right:
+                if (shell->mirrored) {
+                  kevent->keyval = GDK_KEY_Left;
+                }
+                break;
+              }
+            
+            switch (kevent->keyval)
+              {
+              case GDK_KEY_Left:
               case GDK_KEY_Right:
               case GDK_KEY_Up:
               case GDK_KEY_Down:
