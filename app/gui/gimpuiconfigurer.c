@@ -37,6 +37,7 @@
 
 #include "display/gimpdisplay.h"
 #include "display/gimpdisplayshell.h"
+#include "display/gimpdisplayshell-scroll.h"
 #include "display/gimpdisplayshell-appearance.h"
 #include "display/gimpimagewindow.h"
 
@@ -444,10 +445,11 @@ gimp_ui_configurer_separate_shells (GimpUIConfigurer *ui_configurer,
         /* FIXME: If we don't set a size request here the window will be
          * too small. Get rid of this hack and fix it the proper way
          */
-        gtk_widget_set_size_request (GTK_WIDGET (new_image_window), 640, 480);
-
+//        gtk_widget_set_size_request (GTK_WIDGET (new_image_window), 640, 480);
         /* Show after we have added the shell */
         gtk_widget_show (GTK_WIDGET (new_image_window));
+        gimp_display_shell_scroll_center_image_on_next_size_allocate (shell, TRUE, TRUE);
+        gimp_image_window_shrink_wrap(new_image_window, FALSE);
       } else if (shell && shell->display) {
         g_print("Empty display and remove shell.\n");
         g_object_ref (shell);
@@ -483,8 +485,10 @@ gimp_ui_configurer_configure_for_single_window (GimpUIConfigurer *ui_configurer)
   GList           *windows            = gimp_get_image_windows (gimp);
   GList           *iter               = NULL;
   GimpImageWindow *uber_image_window  = NULL;
+#if 0
   GimpDisplay      *active_display    = gimp_context_get_display (gimp_get_user_context (gimp));
 //  GimpDisplayShell *active_shell      = gimp_display_get_shell (active_display);
+#endif
   int              i;
 
   /* Get and setup the window to put everything in */
