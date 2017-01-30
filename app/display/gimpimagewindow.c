@@ -1922,8 +1922,6 @@ gimp_image_window_shell_size_allocate (GimpDisplayShell  *shell,
       gimp_display_shell_scroll_set_offset (shell,
                                             -image_origin_shell_x,
                                             -image_origin_shell_y);
-      g_print("gimp_display_shell_scroll_set_offset:%d,%d,(data:%d,%d)\n",
-              image_origin_shell_x, image_origin_shell_y, data->x, data->y);
     }
 
   g_signal_handlers_disconnect_by_func (shell,
