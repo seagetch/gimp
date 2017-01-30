@@ -1845,7 +1845,6 @@ gimp_display_shell_update_focus (GimpDisplayShell *shell,
   if (focus_in)
     {
       GimpImageWindow *toolbar_window;
-      g_print("update focus\n");
       toolbar_window = GIMP_IMAGE_WINDOW (gimp_display_shell_get_toolbar_window (gimp) );
       if (toolbar_window) {
         gimp_image_window_link_foreign_active_shell (toolbar_window, shell);
