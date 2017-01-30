@@ -153,6 +153,7 @@ gimp_display_shell_draw_image (GimpDisplayShell *shell,
   gdouble user_coord[4][2];
   gint disp_xoffset, disp_yoffset;
   gint i, j;
+  gint overlap = 0;
 
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
   g_return_if_fail (gimp_display_get_image (shell->display));
@@ -193,9 +194,12 @@ gimp_display_shell_draw_image (GimpDisplayShell *shell,
   /*  display the image in RENDER_BUF_WIDTH x RENDER_BUF_HEIGHT
    *  sized chunks
    */
-  for (i = y; i < y2; i += GIMP_DISPLAY_RENDER_BUF_HEIGHT)
+  if (fmod(shell->rotate_angle, 90.0) != 0.0)
+    overlap = 1;
+    
+  for (i = y; i < y2; i += GIMP_DISPLAY_RENDER_BUF_HEIGHT - overlap)
     {
-      for (j = x; j < x2; j += GIMP_DISPLAY_RENDER_BUF_WIDTH)
+      for (j = x; j < x2; j += GIMP_DISPLAY_RENDER_BUF_WIDTH - overlap)
         {
           gint dx, dy;
 

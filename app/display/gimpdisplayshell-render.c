@@ -167,14 +167,12 @@ gimp_display_shell_render (GimpDisplayShell *shell,
   if (x > image_w || y > image_h)
     return;
 
-  w = CLAMP(w, 0, image_w - x + 1);
-  h = CLAMP(h, 0, image_h - y + 1);
+  w = CLAMP(w, 0, image_w - x);
+  h = CLAMP(h, 0, image_h - y);
 
   if (w == 0 || h == 0)
     return;
 
-//  w += 1;
-//  h += 1;
   gimp_display_shell_render_info_init (&info,
                                        shell, x, y, w, h,
                                        shell->render_surface,
