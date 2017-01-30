@@ -500,7 +500,6 @@ gimp_display_shell_canvas_expose_image (GimpDisplayShell *shell,
 //  gdk_region_subtract (image_region, clear_region);
 //  gdk_region_destroy (clear_region);
 
-//  g_print("hit test\n");
 //  if (! gdk_region_empty (image_region))
     {
       cairo_save (cr);
