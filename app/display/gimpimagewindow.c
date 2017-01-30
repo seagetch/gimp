@@ -121,6 +121,7 @@ struct _GimpImageWindowPrivate
   GtkWidget         *right_docks;
   GtkWidget         *toolbar; /* gimp-painter-2.7 */
   GtkWidget         *toolbar_container; /* gimp-painter-2.8 */
+  GtkWidget         *flip_button; /* gimp-painter-2.8 */
 
   GdkWindowState     window_state;
 
@@ -426,7 +427,7 @@ gimp_image_window_constructed (GObject *object)
 	  /* Temporary: right side left buttons */
 	  image = gtk_image_new_from_stock (GIMP_STOCK_FLIP_HORIZONTAL, GTK_ICON_SIZE_BUTTON);
           gtk_widget_show(image);
-          widget = gtk_toggle_button_new();
+          widget = private->flip_button = gtk_toggle_button_new();
           gtk_button_set_image(GTK_BUTTON(widget), image);
 	  gtk_button_set_relief (GTK_BUTTON (widget), GTK_RELIEF_NONE);
 	  gtk_widget_show (widget);
@@ -1735,20 +1736,20 @@ void
 gimp_image_window_keep_canvas_pos (GimpImageWindow *window)
 {
   GimpDisplayShell  *shell                 = gimp_image_window_get_active_shell (window);
-  gint               image_origin_shell_x  = -1;
-  gint               image_origin_shell_y  = -1;
+  gdouble            image_origin_shell_x  = -1;
+  gdouble            image_origin_shell_y  = -1;
   gint               image_origin_window_x = -1;
   gint               image_origin_window_y = -1;
 
-  gimp_display_shell_transform_xy (shell,
+  gimp_display_shell_transform_xy_f (shell,
                                    0.0, 0.0,
                                    &image_origin_shell_x,
                                    &image_origin_shell_y);
 
   if (gtk_widget_translate_coordinates (GTK_WIDGET (shell->canvas),
                                         GTK_WIDGET (window),
-                                        image_origin_shell_x,
-                                        image_origin_shell_y,
+                                        (gint)(image_origin_shell_x + 0.5),
+                                        (gint)(image_origin_shell_y + 0.5),
                                         &image_origin_window_x,
                                         &image_origin_window_y))
     {
@@ -1914,9 +1915,15 @@ gimp_image_window_shell_size_allocate (GimpDisplayShell  *shell,
        * shell, but the offset of the shell relative to the image,
        * therefore we need to negate
        */
+    // FIXME! This code has problem for mirroed mode.
+      if (shell->mirrored) {
+        image_origin_shell_x = shell->disp_width - image_origin_shell_x;
+      }
       gimp_display_shell_scroll_set_offset (shell,
                                             -image_origin_shell_x,
                                             -image_origin_shell_y);
+      g_print("gimp_display_shell_scroll_set_offset:%d,%d,(data:%d,%d)\n",
+              image_origin_shell_x, image_origin_shell_y, data->x, data->y);
     }
 
   g_signal_handlers_disconnect_by_func (shell,
@@ -1959,29 +1966,30 @@ gimp_image_window_switch_active_shell (GimpImageWindow* window,
            window, shell);
 
   if (shell) {
-  gimp_window_set_primary_focus_widget (GIMP_WINDOW (window),
-                                        shell->canvas);
+    gimp_window_set_primary_focus_widget (GIMP_WINDOW (window),
+                                          shell->canvas);
 
-  active_display = private->active_shell->display;
+    active_display = private->active_shell->display;
 
-  g_signal_connect (active_display, "notify::image",
-                    G_CALLBACK (gimp_image_window_image_notify),
-                    window);
-  if (!gimp_image_window_is_toolbar_window(window)) {
-    g_signal_connect (private->active_shell, "scaled",
-                      G_CALLBACK (gimp_image_window_shell_scaled),
+    g_signal_connect (active_display, "notify::image",
+                      G_CALLBACK (gimp_image_window_image_notify),
                       window);
-    g_signal_connect (private->active_shell, "notify::title",
-                      G_CALLBACK (gimp_image_window_shell_title_notify),
-                      window);
-    g_signal_connect (private->active_shell, "notify::icon",
-                      G_CALLBACK (gimp_image_window_shell_icon_notify),
-                      window);
-  }
-  if (private->toolbar_window)
-    g_signal_connect (private->active_shell, "destroy",
-                      G_CALLBACK (gimp_image_window_shell_destroy),
-                      window);
+    if (!gimp_image_window_is_toolbar_window(window)) {
+      g_signal_connect (private->active_shell, "scaled",
+                        G_CALLBACK (gimp_image_window_shell_scaled),
+                        window);
+      g_signal_connect (private->active_shell, "notify::title",
+                        G_CALLBACK (gimp_image_window_shell_title_notify),
+                        window);
+      g_signal_connect (private->active_shell, "notify::icon",
+                        G_CALLBACK (gimp_image_window_shell_icon_notify),
+                        window);
+    }
+    if (private->toolbar_window)
+      g_signal_connect (private->active_shell, "destroy",
+                        G_CALLBACK (gimp_image_window_shell_destroy),
+                        window);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(private->flip_button), shell->mirrored);
   }
 }
 
@@ -2390,7 +2398,7 @@ gimp_image_window_flip_side_clicked (GtkWidget* widget,
                                      GimpImageWindow *window)
 {
   GimpDisplayShell *shell  = gimp_image_window_get_active_shell (window);
-  shell->mirrored = gtk_toggle_button_get_active(GTK_BUTTON(widget));
+  shell->mirrored = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
   gtk_widget_queue_draw(GTK_WIDGET(shell));
 }
 
