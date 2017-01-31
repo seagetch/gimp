@@ -1902,8 +1902,10 @@ gimp_image_window_shell_size_allocate (GimpDisplayShell  *shell,
                                        PosCorrectionData *data)
 {
   GimpImageWindow *window               = gimp_display_shell_get_window (shell);
-  gint             image_origin_shell_x = -1;
-  gint             image_origin_shell_y = -1;
+  gint          image_origin_shell_x = -1;
+  gint          image_origin_shell_y = -1;
+  gdouble       image_origin_shell_x_f = -1;
+  gdouble       image_origin_shell_y_f = -1;
 
   if (gtk_widget_translate_coordinates (GTK_WIDGET (window),
                                         GTK_WIDGET (shell->canvas),
@@ -1915,13 +1917,17 @@ gimp_image_window_shell_size_allocate (GimpDisplayShell  *shell,
        * shell, but the offset of the shell relative to the image,
        * therefore we need to negate
        */
-    // FIXME! This code has problem for mirroed mode.
-      if (shell->mirrored) {
-        image_origin_shell_x = shell->disp_width - image_origin_shell_x;
-      }
+      cairo_t* cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
+      g_return_if_fail (cr != NULL);
+      gimp_display_shell_set_cairo_rotate (shell, cr);
+      image_origin_shell_x_f = image_origin_shell_x;
+      image_origin_shell_y_f = image_origin_shell_y;
+      cairo_device_to_user(cr, &image_origin_shell_x_f, &image_origin_shell_y_f);
+      cairo_destroy(cr);
+
       gimp_display_shell_scroll_set_offset (shell,
-                                            -image_origin_shell_x,
-                                            -image_origin_shell_y);
+                                            (gint)-image_origin_shell_x_f,
+                                            (gint)-image_origin_shell_y_f);
     }
 
   g_signal_handlers_disconnect_by_func (shell,

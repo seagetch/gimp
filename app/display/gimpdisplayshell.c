@@ -21,6 +21,7 @@
 
 #include <gegl.h>
 #include <gtk/gtk.h>
+#include <cairo.h>
 
 #include "libgimpbase/gimpbase.h"
 #include "libgimpmath/gimpmath.h"
@@ -1362,6 +1363,8 @@ gimp_display_shell_empty (GimpDisplayShell *shell)
   gtk_widget_set_double_buffered (shell->canvas, TRUE);
 
   gimp_display_shell_expose_full (shell);
+
+  shell->rotate_angle = 0.0;
 
   user_context = gimp_get_user_context (shell->display->gimp);
 
