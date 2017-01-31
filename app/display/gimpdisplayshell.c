@@ -1365,6 +1365,7 @@ gimp_display_shell_empty (GimpDisplayShell *shell)
   gimp_display_shell_expose_full (shell);
 
   shell->rotate_angle = 0.0;
+  shell->mirrored     = FALSE;
 
   user_context = gimp_get_user_context (shell->display->gimp);
 
