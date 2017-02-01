@@ -213,7 +213,6 @@ gimp_canvas_guide_transform (GimpCanvasItem   *item,
         *y1 = 0;
         *y2 = allocation.height;
       }
-      g_print("Horz(0, %lf)-(%lf,*) :: --> (%lf, %lf)-(%lf, %lf)\n", private->position, allocation.width, *x1, *y1, *x2, *y2);
       break;
 
     case GIMP_ORIENTATION_VERTICAL:
@@ -235,7 +234,6 @@ gimp_canvas_guide_transform (GimpCanvasItem   *item,
         *x1 = 0;
         *x2 = allocation.width;
       }
-      g_print("Virt(%lf,0)-(*,%lf) :: --> (%lf, %lf)-(%lf, %lf)\n", private->position, allocation.width, *x1, *y1, *x2, *y2);
       break;
 
     case GIMP_ORIENTATION_UNKNOWN:
