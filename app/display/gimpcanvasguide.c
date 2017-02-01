@@ -184,7 +184,6 @@ gimp_canvas_guide_transform (GimpCanvasItem   *item,
 {
   GimpCanvasGuidePrivate *private = GET_PRIVATE (item);
   GtkAllocation           allocation;
-  gint                    x, y;
 
   gtk_widget_get_allocation (shell->canvas, &allocation);
 
@@ -196,13 +195,47 @@ gimp_canvas_guide_transform (GimpCanvasItem   *item,
   switch (private->orientation)
     {
     case GIMP_ORIENTATION_HORIZONTAL:
-      gimp_display_shell_transform_xy (shell, 0, private->position, &x, &y);
-      *y1 = *y2 = y + 0.5;
+      gimp_display_shell_transform_xy_f (shell, 0, private->position, x1, y1);
+      gimp_display_shell_transform_xy_f (shell, allocation.width, private->position, x2, y2);
+      if (*x1 < *x2) {
+        gdouble ratio = (*y2 - *y1) / (*x2 - *x1);
+        *y1 -= ratio * *x1;
+        *x1  = 0;
+        *y2 += ratio * (allocation.width - *x2);
+        *x2  = allocation.width;
+      } else if (*x1 > *x2) {
+        gdouble ratio = (*y2 - *y1) / (*x2 - *x1);
+        *y2 -= ratio * *x2;
+        *x2  = 0;
+        *y1 += ratio * (allocation.width - *x1);
+        *x1  = allocation.width;
+      } else {
+        *y1 = 0;
+        *y2 = allocation.height;
+      }
+      g_print("Horz(0, %lf)-(%lf,*) :: --> (%lf, %lf)-(%lf, %lf)\n", private->position, allocation.width, *x1, *y1, *x2, *y2);
       break;
 
     case GIMP_ORIENTATION_VERTICAL:
-      gimp_display_shell_transform_xy (shell, private->position, 0, &x, &y);
-      *x1 = *x2 = x + 0.5;
+      gimp_display_shell_transform_xy_f (shell, private->position, 0, x1, y1);
+      gimp_display_shell_transform_xy_f (shell, private->position, allocation.height, x2, y2);
+      if (*y1 < *y2) {
+        gdouble ratio = (*x2 - *x1) / (*y2 - *y1);
+        *x1 -= ratio * *y1;
+        *y1  = 0;
+        *x2 += ratio * (allocation.height - *y2);
+        *y2  = allocation.height;
+      } else if (*y1 > *y2) {
+        gdouble ratio = (*x2 - *x1) / (*y2 - *y1);
+        *x2 -= ratio * *y2;
+        *y2  = 0;
+        *x1 += ratio * (allocation.height - *y1);
+        *y1  = allocation.height;
+      } else {
+        *x1 = 0;
+        *x2 = allocation.width;
+      }
+      g_print("Virt(%lf,0)-(*,%lf) :: --> (%lf, %lf)-(%lf, %lf)\n", private->position, allocation.width, *x1, *y1, *x2, *y2);
       break;
 
     case GIMP_ORIENTATION_UNKNOWN:
