@@ -201,6 +201,7 @@ gimp_canvas_grid_draw (GimpCanvasItem   *item,
   gint                   x0, x1, x2, x3;
   gint                   y0, y1, y2, y3;
   gint                   x_real, y_real;
+  gint                   x_real2, y_real2;
   gint                   width, height;
 
 #define CROSSHAIR 2
@@ -239,22 +240,27 @@ gimp_canvas_grid_draw (GimpCanvasItem   *item,
     case GIMP_GRID_DOTS:
       for (x = xoffset; x <= width; x += xspacing)
         {
+#if 0
           if (x < 0)
             continue;
-
+#endif
           gimp_display_shell_transform_xy (shell, x, 0, &x_real, &y_real);
-
-          if (x_real < x1 || x_real >= x2)
+          gimp_display_shell_transform_xy (shell, x, height, &x_real2, &y_real2);
+#if 0
+          if (x_real < MIN(x1, x2) || x_real >= MAX(x1, x2))
             continue;
-
+#endif
           for (y = yoffset; y <= height; y += yspacing)
             {
+#if 0
               if (y < 0)
                 continue;
-
+#endif
               gimp_display_shell_transform_xy (shell, x, y, &x_real, &y_real);
 
-              if (y_real >= y1 && y_real < y2)
+#if 0
+              if (y_real >= MIN(y1,y2) && y_real < MAX(y1, y2))
+#endif
                 {
                   cairo_move_to (cr, x_real,     y_real + 0.5);
                   cairo_line_to (cr, x_real + 1, y_real + 0.5);
@@ -270,6 +276,7 @@ gimp_canvas_grid_draw (GimpCanvasItem   *item,
             continue;
 
           gimp_display_shell_transform_xy (shell, x, 0, &x_real, &y_real);
+          gimp_display_shell_transform_xy (shell, x, height, &x_real2, &y_real2);
 
           if (x_real + CROSSHAIR < x1 || x_real - CROSSHAIR >= x2)
             continue;
@@ -319,29 +326,36 @@ gimp_canvas_grid_draw (GimpCanvasItem   *item,
 
       for (x = xoffset; x < width; x += xspacing)
         {
+#if 0
           if (x < 0)
             continue;
-
+#endif
           gimp_display_shell_transform_xy (shell, x, 0, &x_real, &y_real);
-
-          if (x_real >= x1 && x_real < x2)
+          gimp_display_shell_transform_xy (shell, x, height, &x_real2, &y_real2);
+#if 0
+          if (x_real >= MIN(x1,x2) && x_real < MAX(x1, x2))
+#endif
             {
-              cairo_move_to (cr, x_real + 0.5, y0);
-              cairo_line_to (cr, x_real + 0.5, y3 + 1);
+              cairo_move_to (cr, x_real + 0.5, y_real);
+              cairo_line_to (cr, x_real2 + 0.5, y_real2);
             }
         }
 
       for (y = yoffset; y < height; y += yspacing)
         {
+#if 0
           if (y < 0)
             continue;
-
+#endif
           gimp_display_shell_transform_xy (shell, 0, y, &x_real, &y_real);
+          gimp_display_shell_transform_xy (shell, width, y, &x_real2, &y_real2);
 
-          if (y_real >= y1 && y_real < y2)
+#if 0
+          if (y_real >= MIN(y1, y2) && y_real < MAX(y1, y2))
+#endif
             {
-              cairo_move_to (cr, x0,     y_real + 0.5);
-              cairo_line_to (cr, x3 + 1, y_real + 0.5);
+              cairo_move_to (cr, x_real,  y_real + 0.5);
+              cairo_line_to (cr, x_real2, y_real2 + 0.5);
             }
         }
       break;
@@ -358,6 +372,8 @@ gimp_canvas_grid_get_extents (GimpCanvasItem   *item,
   cairo_rectangle_int_t  rectangle;
   gdouble                x1, y1;
   gdouble                x2, y2;
+  gdouble                x3, y3;
+  gdouble                x4, y4;
   gint                   w, h;
 
   if (! image)
@@ -368,11 +384,13 @@ gimp_canvas_grid_get_extents (GimpCanvasItem   *item,
 
   gimp_display_shell_transform_xy_f (shell, 0, 0, &x1, &y1);
   gimp_display_shell_transform_xy_f (shell, w, h, &x2, &y2);
+  gimp_display_shell_transform_xy_f (shell, w, 0, &x3, &y3);
+  gimp_display_shell_transform_xy_f (shell, 0, h, &x4, &y4);
 
-  rectangle.x      = floor (x1);
-  rectangle.y      = floor (y1);
-  rectangle.width  = ceil (x2) - rectangle.x;
-  rectangle.height = ceil (y2) - rectangle.y;
+  rectangle.x      = floor (MIN(MIN(MIN(x1, x2), x3), x4));
+  rectangle.y      = floor (MIN(MIN(MIN(y1, y2), y3), y4));
+  rectangle.width  = ceil (MAX(MAX(MAX(x1, x2), x3), x4)) - rectangle.x;
+  rectangle.height = ceil (MAX(MAX(MAX(y1, y2), y3), y4)) - rectangle.y;
 
   return cairo_region_create_rectangle (&rectangle);
 }
