@@ -308,7 +308,6 @@ gimp_canvas_rectangle_get_extents (GimpCanvasItem   *item,
 
   if (private->filled)
     {
-      g_print("gimp_canvas_rectangle_get_extents:private->filled\n");
       rectangle.x      = floor (x);
       rectangle.y      = floor (y);
       rectangle.width  = ceil (w);
@@ -319,7 +318,6 @@ gimp_canvas_rectangle_get_extents (GimpCanvasItem   *item,
   else if (w > 64 && h > 64)
     {
       cairo_region_t *region;
-      g_print("gimp_canvas_rectangle_get_extents:w>64 && h>64\n");
 
       /* left */
       rectangle.x      = floor (MIN(x1, x3) - 1.5);
@@ -357,7 +355,6 @@ gimp_canvas_rectangle_get_extents (GimpCanvasItem   *item,
     }
   else
     {
-      g_print("gimp_canvas_rectangle_get_extents: others\n");
       rectangle.x      = floor (x);
       rectangle.y      = floor (y);
       rectangle.width  = ceil (w);

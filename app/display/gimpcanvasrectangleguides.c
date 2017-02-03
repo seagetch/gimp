@@ -327,7 +327,6 @@ gimp_canvas_rectangle_guides_draw (GimpCanvasItem   *item,
 
   gimp_canvas_rectangle_guides_transform (item, shell, &x1, &y1, &x2, &y2, 
                                           &x3, &y3, &x4, &y4);
-  g_print("gimp_canvas_rectangle_guides_draw,%lf,%lf:%lf,%lf:%lf,%lf:%lf,%lf\n",x1,y1,x2,y2,x3,y3,x4,y4);
 
   switch (private->type)
     {
