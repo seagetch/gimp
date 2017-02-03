@@ -184,8 +184,8 @@ gimp_display_shell_draw_image (GimpDisplayShell *shell,
   x2 = ceil(x2 + 0.5);
   y2 = ceil(y2 + 0.5);
 
-  w = x2 - x1;
-  h = y2 - y1;
+  w = x2 - x1 + 1;
+  h = y2 - y1 + 1;
   x = x1;
   y = y1;
 
@@ -203,8 +203,8 @@ gimp_display_shell_draw_image (GimpDisplayShell *shell,
         {
           gint dx, dy;
 
-          dx = MIN (x2 - j, GIMP_DISPLAY_RENDER_BUF_WIDTH);
-          dy = MIN (y2 - i, GIMP_DISPLAY_RENDER_BUF_HEIGHT);
+          dx = MIN (x2 - j + 1, GIMP_DISPLAY_RENDER_BUF_WIDTH);
+          dy = MIN (y2 - i + 1, GIMP_DISPLAY_RENDER_BUF_HEIGHT);
 
           gimp_display_shell_render (shell, cr,
                                      j - disp_xoffset,

@@ -255,7 +255,13 @@ gimp_display_shell_render (GimpDisplayShell *shell,
 
     gimp_display_shell_set_cairo_rotate (shell, cr);
 
-    cairo_rectangle (cr, x + disp_xoffset, y + disp_yoffset, w, h);
+    // FIXME! heuristic code to remove noise.
+    //  If sub buffer is smaller than GIMP_DISPLAY_RENDER_BUF_{w,h},
+    //  rotated image sometimes generate noise at right,bottom side.
+    //  This code clip right and bottom side in that case.
+    cairo_rectangle (cr, x + disp_xoffset, y + disp_yoffset, 
+                     w + 1 < GIMP_DISPLAY_RENDER_BUF_WIDTH ? w - 1: w, 
+                     h + 1 < GIMP_DISPLAY_RENDER_BUF_HEIGHT ? h - 1: h);
     cairo_clip (cr);
     cairo_set_source_surface (cr, shell->render_surface,
                               x + disp_xoffset, y + disp_yoffset);
