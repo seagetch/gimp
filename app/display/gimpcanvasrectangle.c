@@ -301,45 +301,55 @@ gimp_canvas_rectangle_get_extents (GimpCanvasItem   *item,
 
   gimp_canvas_rectangle_transform (item, shell, &x1, &y1, &x2, &y2, &x3, &y3, &x4, &y4);
   gimp_display_shell_get_extents(x1, y1, x2, y2, x3, y3, x4, y4, &x, &y, &w, &h);
-  w -= x;
-  h -= y;
+  x -= 1.5;
+  y -= 1.5;
+  w = w - x + 1.5;
+  h = h - y + 1.5;
 
   if (private->filled)
     {
-      rectangle.x      = floor (x - 1.0);
-      rectangle.y      = floor (y - 1.0);
-      rectangle.width  = ceil (w + 2.0);
-      rectangle.height = ceil (h + 2.0);
+      g_print("gimp_canvas_rectangle_get_extents:private->filled\n");
+      rectangle.x      = floor (x);
+      rectangle.y      = floor (y);
+      rectangle.width  = ceil (w);
+      rectangle.height = ceil (h);
 
       return cairo_region_create_rectangle (&rectangle);
     }
   else if (w > 64 && h > 64)
     {
       cairo_region_t *region;
+      g_print("gimp_canvas_rectangle_get_extents:w>64 && h>64\n");
 
       /* left */
-      rectangle.x      = floor (x - 1.5);
-      rectangle.y      = floor (y - 1.5);
-      rectangle.width  = 3.0;
-      rectangle.height = ceil (h + 3.0);
+      rectangle.x      = floor (MIN(x1, x3) - 1.5);
+      rectangle.y      = floor (MIN(y1, y3) - 1.5);
+      rectangle.width  = ceil (MAX(x1, x3) - rectangle.x + 1.5);
+      rectangle.height = ceil (MAX(y1, y3) - rectangle.y + 1.5);
 
       region = cairo_region_create_rectangle (&rectangle);
 
       /* right */
-      rectangle.x      = floor (x + w - 1.5);
+      rectangle.x      = floor (MIN(x2, x4) - 1.5);
+      rectangle.y      = floor (MIN(y2, y4) - 1.5);
+      rectangle.width  = ceil (MAX(x2, x4) - rectangle.x + 1.5);
+      rectangle.height = ceil (MAX(y2, y4) - rectangle.y + 1.5);
 
       cairo_region_union_rectangle (region, &rectangle);
 
       /* top */
-      rectangle.x      = floor (x - 1.5);
-      rectangle.y      = floor (y - 1.5);
-      rectangle.width  = ceil (w + 3.0);
-      rectangle.height = 3.0;
+      rectangle.x      = floor (MIN(x1, x2) - 1.5);
+      rectangle.y      = floor (MIN(y1, y2) - 1.5);
+      rectangle.width  = ceil (MAX(x1, x2) - rectangle.x + 1.5);
+      rectangle.height = ceil (MAX(y1, y2) - rectangle.y + 1.5);
 
       cairo_region_union_rectangle (region, &rectangle);
 
       /* bottom */
-      rectangle.y      = floor (y + h - 1.5);
+      rectangle.x      = floor (MIN(x3, x4) - 1.5);
+      rectangle.y      = floor (MIN(y3, y4) - 1.5);
+      rectangle.width  = ceil (MAX(x3, x4) - rectangle.x + 1.5);
+      rectangle.height = ceil (MAX(y3, y4) - rectangle.y + 1.5);
 
       cairo_region_union_rectangle (region, &rectangle);
 
@@ -347,10 +357,11 @@ gimp_canvas_rectangle_get_extents (GimpCanvasItem   *item,
     }
   else
     {
-      rectangle.x      = floor (x - 1.5);
-      rectangle.y      = floor (y - 1.5);
-      rectangle.width  = ceil (w + 3.0);
-      rectangle.height = ceil (h + 3.0);
+      g_print("gimp_canvas_rectangle_get_extents: others\n");
+      rectangle.x      = floor (x);
+      rectangle.y      = floor (y);
+      rectangle.width  = ceil (w);
+      rectangle.height = ceil (h);
 
       return cairo_region_create_rectangle (&rectangle);
     }

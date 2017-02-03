@@ -220,7 +220,11 @@ gimp_canvas_rectangle_guides_transform (GimpCanvasItem   *item,
                                         gdouble          *x1,
                                         gdouble          *y1,
                                         gdouble          *x2,
-                                        gdouble          *y2)
+                                        gdouble          *y2,
+                                        gdouble          *x3,
+                                        gdouble          *y3,
+                                        gdouble          *x4,
+                                        gdouble          *y4)
 {
   GimpCanvasRectangleGuidesPrivate *private = GET_PRIVATE (item);
 
@@ -233,10 +237,23 @@ gimp_canvas_rectangle_guides_transform (GimpCanvasItem   *item,
   gimp_display_shell_transform_xy_f (shell,
                                      MAX (private->x,
                                           private->x + private->width),
-                                     MAX (private->y,
+                                     MIN (private->y,
                                           private->y + private->height),
                                      x2, y2);
+  gimp_display_shell_transform_xy_f (shell,
+                                     MIN (private->x,
+                                          private->x + private->width),
+                                     MAX (private->y,
+                                          private->y + private->height),
+                                     x3, y3);
+  gimp_display_shell_transform_xy_f (shell,
+                                     MAX (private->x,
+                                          private->x + private->width),
+                                     MAX (private->y,
+                                          private->y + private->height),
+                                     x4, y4);
 
+  /*
   *x1 = floor (*x1) + 0.5;
   *y1 = floor (*y1) + 0.5;
   *x2 = ceil (*x2) - 0.5;
@@ -244,30 +261,55 @@ gimp_canvas_rectangle_guides_transform (GimpCanvasItem   *item,
 
   *x2 = MAX (*x1, *x2);
   *y2 = MAX (*y1, *y2);
+  */
 }
 
 static void
 draw_hline (cairo_t *cr,
-            gdouble  x1,
-            gdouble  x2,
-            gdouble  y)
+            gdouble vx1, gdouble vy1, gdouble vx2, gdouble vy2,
+            gdouble vx3, gdouble vy3, gdouble vx4, gdouble vy4,
+            gdouble  ratio_x1,
+            gdouble  ratio_x2,
+            gdouble  ratio_y)
 {
-  y = floor (y) + 0.5;
+  gdouble vec_xx = vx2 - vx1;
+  gdouble vec_xy = vy2 - vy1;
+  gdouble vec_yx = vx3 - vx1;
+  gdouble vec_yy = vy3 - vy1;
+//  y = floor (y) + 0.5;
+  gdouble x1, y1, x2, y2;
 
-  cairo_move_to (cr, x1, y);
-  cairo_line_to (cr, x2, y);
+  x1 = vx1 + vec_xx * ratio_x1 + vec_yx * ratio_y;
+  y1 = vy1 + vec_xy * ratio_x1 + vec_yy * ratio_y;
+  x2 = vx1 + vec_xx * ratio_x2 + vec_yx * ratio_y;
+  y2 = vy1 + vec_xy * ratio_x2 + vec_yy * ratio_y;
+
+  cairo_move_to (cr, x1, y1);
+  cairo_line_to (cr, x2, y2);
 }
 
 static void
 draw_vline (cairo_t *cr,
-            gdouble  y1,
-            gdouble  y2,
-            gdouble  x)
+            gdouble vx1, gdouble vy1, gdouble vx2, gdouble vy2,
+            gdouble vx3, gdouble vy3, gdouble vx4, gdouble vy4,
+            gdouble  ratio_y1,
+            gdouble  ratio_y2,
+            gdouble  ratio_x)
 {
-  x = floor (x) + 0.5;
+  gdouble vec_xx = vx2 - vx1;
+  gdouble vec_xy = vy2 - vy1;
+  gdouble vec_yx = vx3 - vx1;
+  gdouble vec_yy = vy3 - vy1;
+//  x = floor (x) + 0.5;
+  gdouble x1, y1, x2, y2;
 
-  cairo_move_to (cr, x, y1);
-  cairo_line_to (cr, x, y2);
+  x1 = vx1 + vec_xx * ratio_x + vec_yx * ratio_y1;
+  y1 = vy1 + vec_xy * ratio_x + vec_yy * ratio_y1;
+  x2 = vx1 + vec_xx * ratio_x + vec_yx * ratio_y2;
+  y2 = vy1 + vec_xy * ratio_x + vec_yy * ratio_y2;
+
+  cairo_move_to (cr, x1, y1);
+  cairo_line_to (cr, x2, y2);
 }
 
 static void
@@ -278,9 +320,14 @@ gimp_canvas_rectangle_guides_draw (GimpCanvasItem   *item,
   GimpCanvasRectangleGuidesPrivate *private = GET_PRIVATE (item);
   gdouble                           x1, y1;
   gdouble                           x2, y2;
+  gdouble                           x3, y3;
+  gdouble                           x4, y4;
   gint                              i;
 
-  gimp_canvas_rectangle_guides_transform (item, shell, &x1, &y1, &x2, &y2);
+
+  gimp_canvas_rectangle_guides_transform (item, shell, &x1, &y1, &x2, &y2, 
+                                          &x3, &y3, &x4, &y4);
+  g_print("gimp_canvas_rectangle_guides_draw,%lf,%lf:%lf,%lf:%lf,%lf:%lf,%lf\n",x1,y1,x2,y2,x3,y3,x4,y4);
 
   switch (private->type)
     {
@@ -288,32 +335,32 @@ gimp_canvas_rectangle_guides_draw (GimpCanvasItem   *item,
       break;
 
     case GIMP_GUIDES_CENTER_LINES:
-      draw_hline (cr, x1, x2, (y1 + y2) / 2);
-      draw_vline (cr, y1, y2, (x1 + x2) / 2);
+      draw_hline (cr, x1, y1, x2, y2, x3, y3, x4, y4, 0, 1, 0.5);
+      draw_vline (cr, x1, y1, x2, y2, x3, y3, x4, y4, 0, 1, 0.5);
       break;
 
     case GIMP_GUIDES_THIRDS:
-      draw_hline (cr, x1, x2, (2 * y1 +     y2) / 3);
-      draw_hline (cr, x1, x2, (    y1 + 2 * y2) / 3);
+      draw_hline (cr, x1, y1, x2, y2, x3, y3, x4, y4, 0, 1, 1.0/3);
+      draw_hline (cr, x1, y1, x2, y2, x3, y3, x4, y4, 0, 1, 2.0/3);
 
-      draw_vline (cr, y1, y2, (2 * x1 +     x2) / 3);
-      draw_vline (cr, y1, y2, (    x1 + 2 * x2) / 3);
+      draw_vline (cr, x1, y1, x2, y2, x3, y3, x4, y4, 0, 1, 1.0/3);
+      draw_vline (cr, x1, y1, x2, y2, x3, y3, x4, y4, 0, 1, 2.0/3);
       break;
 
     case GIMP_GUIDES_FIFTHS:
       for (i = 0; i < 5; i++)
         {
-          draw_hline (cr, x1, x2, y1 + i * (y2 - y1) / 5);
-          draw_vline (cr, y1, y2, x1 + i * (x2 - x1) / 5);
+          draw_hline (cr, x1, y1, x2, y2, x3, y3, x4, y4, 0, 1, i / 5.0);
+          draw_vline (cr, x1, y1, x2, y2, x3, y3, x4, y4, 0, 1, i / 5.0);
         }
       break;
 
     case GIMP_GUIDES_GOLDEN:
-      draw_hline (cr, x1, x2, (2 * y1 + (1 + SQRT5) * y2) / (3 + SQRT5));
-      draw_hline (cr, x1, x2, ((1 + SQRT5) * y1 + 2 * y2) / (3 + SQRT5));
+      draw_hline (cr, x1, y1, x2, y2, x3, y3, x4, y4, 0, 1, 2.0 / (3+SQRT5) );
+      draw_hline (cr, x1, y1, x2, y2, x3, y3, x4, y4, 0, 1, (1.0+SQRT5)/(3+SQRT5));
 
-      draw_vline (cr, y1, y2, (2 * x1 + (1 + SQRT5) * x2) / (3 + SQRT5));
-      draw_vline (cr, y1, y2, ((1 + SQRT5) * x1 + 2 * x2) / (3 + SQRT5));
+      draw_vline (cr, x1, y1, x2, y2, x3, y3, x4, y4, 0, 1, 2.0 / (3+SQRT5) );
+      draw_vline (cr, x1, y1, x2, y2, x3, y3, x4, y4, 0, 1, (1.0+SQRT5)/(3+SQRT5));
       break;
 
     /* This code implements the method of diagonals discovered by
@@ -347,8 +394,8 @@ gimp_canvas_rectangle_guides_draw (GimpCanvasItem   *item,
     case GIMP_GUIDES_N_LINES:
       for (i = 0; i < private->n_guides; i++)
         {
-          draw_hline (cr, x1, x2, y1 + i * (y2 - y1) / private->n_guides);
-          draw_vline (cr, y1, y2, x1 + i * (x2 - x1) / private->n_guides);
+          draw_hline (cr, x1, y1, x2, y2, x3, y3, x4, y4, 0, 1, ((gdouble)i) / private->n_guides);
+          draw_vline (cr, x1, y1, x2, y2, x3, y3, x4, y4, 0, 1, ((gdouble)i) / private->n_guides);
         }
       break;
 
@@ -370,13 +417,16 @@ gimp_canvas_rectangle_guides_get_extents (GimpCanvasItem   *item,
       cairo_rectangle_int_t rectangle;
       gdouble               x1, y1;
       gdouble               x2, y2;
+      gdouble               x3, y3;
+      gdouble               x4, y4;
 
-      gimp_canvas_rectangle_guides_transform (item, shell, &x1, &y1, &x2, &y2);
+      gimp_canvas_rectangle_guides_transform (item, shell, &x1, &y1, &x2, &y2, 
+                                              &x3, &y3, &x4, &y4);
 
-      rectangle.x      = floor (x1 - 1.5);
-      rectangle.y      = floor (y1 - 1.5);
-      rectangle.width  = ceil (x2 - x1 + 3.0);
-      rectangle.height = ceil (y2 - y1 + 3.0);
+      rectangle.x      = floor (MIN(MIN(MIN(x1,x2),x3),x4) - 1.5);
+      rectangle.y      = floor (MIN(MIN(MIN(y1,y2),y3),y4) - 1.5);
+      rectangle.width  = ceil (MAX(MAX(MAX(x1,x2),x3),x4) - rectangle.x + 1.5);
+      rectangle.height = ceil (MAX(MAX(MAX(y1,y2),y3),y4) - rectangle.y + 1.5);
 
       return cairo_region_create_rectangle (&rectangle);
     }
