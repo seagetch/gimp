@@ -167,14 +167,14 @@ public:
   }
 
   gint get_mask_height() {
-    return (mask_item)? gimp_item_get_width(mask_item) : 0;
+    return (mask_item)? gimp_item_get_height(mask_item) : 0;
   }
   
   PixelRegion* 
   get_mask_region(gint x, gint y, gint w, gint h, bool writable) {
     TileManager *tiles = NULL;
     if (mask_item)
-      gimp_drawable_get_tiles(GIMP_DRAWABLE(mask));
+      tiles = gimp_drawable_get_tiles(GIMP_DRAWABLE(mask));
 
     return get_tiles_region(tiles, x, y, w, h, writable);
   };

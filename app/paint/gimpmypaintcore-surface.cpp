@@ -251,7 +251,7 @@ private:
     if (maskPR)
       *maskPR = drawable_feature.
         get_mask_region(b.rx1 + b.offset_x, b.ry1 + b.offset_y,
-                        b.width, b.height, true);
+                        b.width, b.height, false);
 
     if (texturePR && texture) {
       *texturePR = g_new(PixelRegion, 1);
