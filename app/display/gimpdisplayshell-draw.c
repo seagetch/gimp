@@ -118,7 +118,7 @@ gimp_display_shell_draw_selection_out (GimpDisplayShell *shell,
   g_return_if_fail (cr != NULL);
   g_return_if_fail (segs != NULL && n_segs > 0);
 
-  gimp_display_shell_set_cairo_rotate(shell, cr);
+//  gimp_display_shell_set_cairo_rotate(shell, cr);
   gimp_display_shell_set_selection_out_style (shell, cr);
 
   gimp_cairo_add_segments (cr, segs, n_segs);
@@ -135,7 +135,7 @@ gimp_display_shell_draw_selection_in (GimpDisplayShell   *shell,
   g_return_if_fail (cr != NULL);
   g_return_if_fail (mask != NULL);
 
-  gimp_display_shell_set_cairo_rotate(shell, cr);
+//  gimp_display_shell_set_cairo_rotate(shell, cr);
   gimp_display_shell_set_selection_in_style (shell, cr, index);
 
   cairo_mask (cr, mask);

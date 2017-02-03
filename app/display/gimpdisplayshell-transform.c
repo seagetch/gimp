@@ -302,9 +302,18 @@ gimp_display_shell_transform_segments (const GimpDisplayShell *shell,
                                        gdouble                 offset_y)
 {
   gint i;
+  cairo_t* cr = NULL;
 
   g_return_if_fail (GIMP_IS_DISPLAY_SHELL (shell));
 
+  if (shell->rotate_angle != 0.0 || shell->mirrored) {
+    cr = gdk_cairo_create(gtk_widget_get_window (shell->canvas));
+    g_return_if_fail (cr != NULL);
+    gimp_display_shell_set_cairo_rotate (shell, cr);
+  }
+  
+
+  
   for (i = 0; i < n_segs ; i++)
     {
       gdouble x1, x2;
@@ -315,11 +324,23 @@ gimp_display_shell_transform_segments (const GimpDisplayShell *shell,
       y1 = src_segs[i].y1 + offset_y;
       y2 = src_segs[i].y2 + offset_y;
 
-      dest_segs[i].x1 = SCALEX (shell, x1) - shell->offset_x;
-      dest_segs[i].x2 = SCALEX (shell, x2) - shell->offset_x;
-      dest_segs[i].y1 = SCALEY (shell, y1) - shell->offset_y;
-      dest_segs[i].y2 = SCALEY (shell, y2) - shell->offset_y;
+      x1 = SCALEX (shell, x1) - shell->offset_x;
+      x2 = SCALEX (shell, x2) - shell->offset_x;
+      y1 = SCALEY (shell, y1) - shell->offset_y;
+      y2 = SCALEY (shell, y2) - shell->offset_y;
+
+      if (cr) {
+        cairo_user_to_device(cr, &x1, &y1);
+        cairo_user_to_device(cr, &x2, &y2);
+      }
+      dest_segs[i].x1 = x1;
+      dest_segs[i].x2 = x2;
+      dest_segs[i].y1 = y1;
+      dest_segs[i].y2 = y2;
     }
+
+  if (cr)
+    cairo_destroy(cr);
 }
 
 /**
