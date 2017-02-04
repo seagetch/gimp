@@ -22,6 +22,7 @@
 
 #include <gegl.h>
 #include <gtk/gtk.h>
+#include <math.h>
 
 #include "libgimpbase/gimpbase.h"
 #include "libgimpmath/gimpmath.h"
@@ -234,6 +235,8 @@ gimp_canvas_arc_transform (GimpCanvasItem   *item,
   GimpCanvasArcPrivate *private = GET_PRIVATE (item);
   gdouble               x1, y1;
   gdouble               x2, y2;
+  gdouble               x3, y3;
+  gdouble               x4, y4;
 
   gimp_display_shell_transform_xy_f (shell,
                                      private->center_x - private->radius_x,
@@ -241,19 +244,22 @@ gimp_canvas_arc_transform (GimpCanvasItem   *item,
                                      &x1, &y1);
   gimp_display_shell_transform_xy_f (shell,
                                      private->center_x + private->radius_x,
-                                     private->center_y + private->radius_y,
+                                     private->center_y - private->radius_y,
                                      &x2, &y2);
+  gimp_display_shell_transform_xy_f (shell,
+                                     private->center_x - private->radius_x,
+                                     private->center_y + private->radius_y,
+                                     &x3, &y3);
+  gimp_display_shell_transform_xy_f (shell,
+                                     private->center_x + private->radius_x,
+                                     private->center_y + private->radius_y,
+                                     &x4, &y4);
 
-  x1 = floor (x1);
-  y1 = floor (y1);
-  x2 = ceil (x2);
-  y2 = ceil (y2);
+  *center_x = (x1 + x4) / 2.0;
+  *center_y = (y1 + y4) / 2.0;
 
-  *center_x = (x1 + x2) / 2.0;
-  *center_y = (y1 + y2) / 2.0;
-
-  *radius_x = (x2 - x1) / 2.0;
-  *radius_y = (y2 - y1) / 2.0;
+  *radius_x = sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)) / 2.0;
+  *radius_y = sqrt((x3 - x1) * (x3 - x1) + (y3 - y1) * (y3 - y1)) / 2.0;
 
   if (! private->filled)
     {
@@ -277,6 +283,8 @@ gimp_canvas_arc_draw (GimpCanvasItem   *item,
 
   cairo_save (cr);
   cairo_translate (cr, center_x, center_y);
+  // FIXME! flip and rotation should be handled in gimp_display_shell_rotate.c
+  cairo_rotate (cr, (shell->mirrored? -1: 1)*shell->rotate_angle / 180.0 * M_PI);
   cairo_scale (cr, radius_x, radius_y);
   gimp_cairo_add_arc (cr, 0.0, 0.0, 1.0,
                       private->start_angle, private->slice_angle);
@@ -295,17 +303,28 @@ gimp_canvas_arc_get_extents (GimpCanvasItem   *item,
   GimpCanvasArcPrivate  *private = GET_PRIVATE (item);
   cairo_region_t        *region;
   cairo_rectangle_int_t  rectangle;
-  gdouble                center_x, center_y;
-  gdouble                radius_x, radius_y;
+  gdouble                x1, y1, x2, y2, x3, y3, x4, y4;
 
-  gimp_canvas_arc_transform (item, shell,
-                             &center_x, &center_y,
-                             &radius_x, &radius_y);
-
-  rectangle.x      = floor (center_x - radius_x - 1.5);
-  rectangle.y      = floor (center_y - radius_y - 1.5);
-  rectangle.width  = ceil (center_x + radius_x + 1.5) - rectangle.x;
-  rectangle.height = ceil (center_y + radius_y + 1.5) - rectangle.y;
+  gimp_display_shell_transform_xy_f (shell,
+                                     private->center_x - private->radius_x,
+                                     private->center_y - private->radius_y,
+                                     &x1, &y1);
+  gimp_display_shell_transform_xy_f (shell,
+                                     private->center_x + private->radius_x,
+                                     private->center_y - private->radius_y,
+                                     &x2, &y2);
+  gimp_display_shell_transform_xy_f (shell,
+                                     private->center_x - private->radius_x,
+                                     private->center_y + private->radius_y,
+                                     &x3, &y3);
+  gimp_display_shell_transform_xy_f (shell,
+                                     private->center_x + private->radius_x,
+                                     private->center_y + private->radius_y,
+                                     &x4, &y4);
+  rectangle.x      = floor (MIN(MIN(MIN(x1, x2),x3),x4) - 1.5);
+  rectangle.y      = floor (MIN(MIN(MIN(y1, y2),y3),y4) - 1.5);
+  rectangle.width  = ceil (MAX(MAX(MAX(x1, x2),x3),x4) + 1.5) - rectangle.x;
+  rectangle.height = ceil (MAX(MAX(MAX(y1, y2),y3),y4) + 1.5) - rectangle.y;
 
   region = cairo_region_create_rectangle (&rectangle);
 
@@ -313,13 +332,29 @@ gimp_canvas_arc_get_extents (GimpCanvasItem   *item,
       rectangle.width > 64 * 1.43 &&
       rectangle.height > 64 * 1.43)
     {
-      radius_x *= 0.7;
-      radius_y *= 0.7;
+      gdouble radius_x = MIN(private->radius_x, private->radius_y) * 0.7;
+      gdouble radius_y = MIN(private->radius_x, private->radius_y) * 0.7;
+      gimp_display_shell_transform_xy_f (shell,
+                                         private->center_x - radius_x,
+                                         private->center_y - radius_y,
+                                         &x1, &y1);
+      gimp_display_shell_transform_xy_f (shell,
+                                         private->center_x + radius_x,
+                                         private->center_y - radius_y,
+                                         &x2, &y2);
+      gimp_display_shell_transform_xy_f (shell,
+                                         private->center_x - radius_x,
+                                         private->center_y + radius_y,
+                                         &x3, &y3);
+      gimp_display_shell_transform_xy_f (shell,
+                                         private->center_x + radius_x,
+                                         private->center_y + radius_y,
+                                         &x4, &y4);
 
-      rectangle.x      = ceil (center_x - radius_x + 1.5);
-      rectangle.y      = ceil (center_y - radius_y + 1.5);
-      rectangle.width  = floor (center_x + radius_x - 1.5) - rectangle.x;
-      rectangle.height = floor (center_y + radius_y - 1.5) - rectangle.y;
+      rectangle.x      = floor (MIN(MIN(MIN(x1, x2),x3),x4) - 1.5);
+      rectangle.y      = floor (MIN(MIN(MIN(y1, y2),y3),y4) - 1.5);
+      rectangle.width  = ceil (MAX(MAX(MAX(x1, x2),x3),x4) + 1.5) - rectangle.x;
+      rectangle.height = ceil (MAX(MAX(MAX(y1, y2),y3),y4) + 1.5) - rectangle.y;
 
       cairo_region_subtract_rectangle (region, &rectangle);
     }
