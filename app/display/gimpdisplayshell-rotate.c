@@ -20,6 +20,7 @@
 #include <gegl.h>
 #include <gtk/gtk.h>
 #include <math.h>
+#include <cairo.h>
 
 #include "libgimpcolor/gimpcolor.h"
 #include "libgimpwidgets/gimpwidgets.h"

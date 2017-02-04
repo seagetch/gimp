@@ -25,7 +25,16 @@ void  gimp_display_shell_transform_coords     (const GimpDisplayShell *shell,
 void  gimp_display_shell_untransform_coords   (const GimpDisplayShell *shell,
                                                const GimpCoords       *display_coords,
                                                GimpCoords             *image_coords);
-
+void  gimp_display_shell_zoom_xy_f           (const GimpDisplayShell *shell,
+                                              gdouble                 x,
+                                              gdouble                 y,
+                                              gdouble                *nx,
+                                              gdouble                *ny);
+void  gimp_display_shell_unzoom_xy_f         (const GimpDisplayShell *shell,
+                                              gdouble                 x,
+                                              gdouble                 y,
+                                              gdouble                *nx,
+                                              gdouble                *ny);
 void  gimp_display_shell_transform_xy         (const GimpDisplayShell *shell,
                                                gdouble                 x,
                                                gdouble                 y,

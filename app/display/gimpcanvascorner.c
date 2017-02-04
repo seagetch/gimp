@@ -22,6 +22,7 @@
 
 #include <gegl.h>
 #include <gtk/gtk.h>
+#include <math.h>
 
 #include "libgimpbase/gimpbase.h"
 #include "libgimpmath/gimpmath.h"
@@ -248,6 +249,7 @@ gimp_canvas_corner_transform (GimpCanvasItem   *item,
   GimpCanvasCornerPrivate *private = GET_PRIVATE (item);
   gdouble                  rx1, ry1, rx2, ry2, rx3, ry3, rx4, ry4;
   gdouble                  vec_xx, vec_xy, vec_yx, vec_yy;
+  gdouble                  vec_x_len, vec_y_len;
   gdouble                  h_handle_x_offset;
   gdouble                  v_handle_y_offset;
   
@@ -276,13 +278,19 @@ gimp_canvas_corner_transform (GimpCanvasItem   *item,
                                           private->y + private->height),
                                      &rx4, &ry4);
 
-  vec_xx = (rx2 - rx1) / ABS(private->width);
-  vec_xy = (ry2 - ry1) / ABS(private->width);
-  vec_yx = (rx3 - rx1) / ABS(private->height);
-  vec_yy = (ry3 - ry1) / ABS(private->height);
+  vec_xx = (rx2 - rx1);
+  vec_xy = (ry2 - ry1);
+  vec_x_len = sqrt(vec_xx*vec_xx + vec_xy*vec_xy);
+  vec_xx /= vec_x_len;
+  vec_xy /= vec_x_len;
+  vec_yx = (rx3 - rx1);
+  vec_yy = (ry3 - ry1);
+  vec_y_len = sqrt(vec_yx*vec_yx + vec_yy*vec_yy);
+  vec_yx /= vec_y_len;
+  vec_yy /= vec_y_len;
 
-  h_handle_x_offset = (private->width  - private->corner_width) / 2.0;
-  v_handle_y_offset = (private->height - private->corner_height) / 2.0;
+  h_handle_x_offset = (vec_x_len - private->corner_width) / 2.0;
+  v_handle_y_offset = (vec_y_len - private->corner_height) / 2.0;
 
   switch (private->anchor)
     {
@@ -384,12 +392,12 @@ gimp_canvas_corner_transform (GimpCanvasItem   *item,
         {
           *x1 = rx1 - vec_yx * private->corner_height;
           *y1 = ry1 - vec_yy * private->corner_height;
-          *x2 = *x1 + vec_xx * ABS(private->width);
-          *y2 = *y1 + vec_xy * ABS(private->width);
+          *x2 = *x1 + vec_xx * vec_x_len;
+          *y2 = *y1 + vec_xy * vec_x_len;
           *x3 = *x1 + vec_yx * private->corner_height;
           *y3 = *y1 + vec_yy * private->corner_height;
-          *x4 = *x1 + vec_xx * ABS(private->width) + vec_yx * private->corner_height;
-          *y4 = *y1 + vec_xy * ABS(private->width) + vec_yy * private->corner_height;
+          *x4 = *x1 + vec_xx * vec_x_len + vec_yx * private->corner_height;
+          *y4 = *y1 + vec_xy * vec_x_len + vec_yy * private->corner_height;
         }
       else
         {
@@ -409,12 +417,12 @@ gimp_canvas_corner_transform (GimpCanvasItem   *item,
         {
           *x1 = rx3;
           *y1 = ry3;
-          *x2 = *x1 + vec_xx * ABS(private->width);
-          *y2 = *y1 + vec_xy * ABS(private->width);
+          *x2 = *x1 + vec_xx * vec_x_len;
+          *y2 = *y1 + vec_xy * vec_x_len;
           *x3 = *x1 + vec_yx * private->corner_height;
           *y3 = *y1 + vec_yy * private->corner_height;
-          *x4 = *x1 + vec_xx * ABS(private->width) + vec_yx * private->corner_height;
-          *y4 = *y1 + vec_xy * ABS(private->width) + vec_yy * private->corner_height;
+          *x4 = *x1 + vec_xx * vec_x_len + vec_yx * private->corner_height;
+          *y4 = *y1 + vec_xy * vec_x_len + vec_yy * private->corner_height;
         }
       else
         {
@@ -440,10 +448,10 @@ gimp_canvas_corner_transform (GimpCanvasItem   *item,
           *y1 = ry1 - vec_xy * private->corner_width;
           *x2 = *x1 + vec_xx * private->corner_width;
           *y2 = *y1 + vec_xy * private->corner_width;
-          *x3 = *x1 + vec_yx * ABS(private->height);
-          *y3 = *y1 + vec_yy * ABS(private->height);
-          *x4 = *x1 + vec_xx * private->corner_width + vec_yx * ABS(private->height);
-          *y4 = *y1 + vec_xy * private->corner_width + vec_yy * ABS(private->height);
+          *x3 = *x1 + vec_yx * vec_y_len;
+          *y3 = *y1 + vec_yy * vec_y_len;
+          *x4 = *x1 + vec_xx * private->corner_width + vec_yx * vec_y_len;
+          *y4 = *y1 + vec_xy * private->corner_width + vec_yy * vec_y_len;
         }
       else
         {
@@ -465,10 +473,10 @@ gimp_canvas_corner_transform (GimpCanvasItem   *item,
           *y1 = ry2;
           *x2 = *x1 + vec_xx * private->corner_width;
           *y2 = *y1 + vec_xy * private->corner_width;
-          *x3 = *x1 + vec_yx * ABS(private->height);
-          *y3 = *y1 + vec_yy * ABS(private->height);
-          *x4 = *x1 + vec_xx * private->corner_width + vec_yx * ABS(private->height);
-          *y4 = *y1 + vec_xy * private->corner_width + vec_yy * ABS(private->height);
+          *x3 = *x1 + vec_yx * vec_y_len;
+          *y3 = *y1 + vec_yy * vec_y_len;
+          *x4 = *x1 + vec_xx * private->corner_width + vec_yx * vec_y_len;
+          *y4 = *y1 + vec_xy * private->corner_width + vec_yy * vec_y_len;
         }
       else
         {
