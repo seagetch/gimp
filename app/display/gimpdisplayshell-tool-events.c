@@ -70,6 +70,7 @@
 
 /*  local constant values  */
 #define ZOOM_UNIT_DISTANCE 300.0
+#define ROTATE_SNAP_UNIT   15.0
 
 /*  local function prototypes  */
 
@@ -95,6 +96,7 @@ static void       gimp_display_shell_start_rotating          (GimpDisplayShell  
                                                                gint               x,
                                                                gint               y);
 static void       gimp_display_shell_rotate                  (GimpDisplayShell *shell,
+                                                               const GdkEvent   *event,
                                                                gint              x,
                                                                gint              y);
 static void       gimp_display_shell_stop_rotating           (GimpDisplayShell  *shell,
@@ -915,7 +917,7 @@ gimp_display_shell_canvas_tool_events (GtkWidget        *canvas,
                             ? ((GdkEventMotion *) compressed_motion)->y
                             : mevent->y);
 
-            gimp_display_shell_rotate (shell, x, y);
+            gimp_display_shell_rotate (shell, event, x, y);
           }
         else if (shell->scaling)
           {
@@ -1567,12 +1569,14 @@ gimp_display_shell_start_rotating (GimpDisplayShell *shell,
 
 static void
 gimp_display_shell_rotate        (GimpDisplayShell *shell,
+                                  const GdkEvent*         event,
                                   gint              x,
                                   gint              y)
 {
   gdouble cx, cy;
   gdouble rx, ry;
   gdouble angle;
+  GdkEventMotion* mevent = (GdkEventMotion*)event;
   g_return_if_fail (shell->rotating);
 
   cx = shell->disp_width  / 2;
@@ -1585,7 +1589,12 @@ gimp_display_shell_rotate        (GimpDisplayShell *shell,
 
   angle               = shell->rotate_start_angle - 
                         fmod(atan2(rx, ry) / M_PI * 180.0 + 360.0, 360.0);
-  shell->rotate_angle = fmod(angle + 360.0, 360.0);
+  angle = fmod(angle + 360.0, 360.0);
+  if (mevent->state & GDK_CONTROL_MASK) {
+    angle = (gint)((angle + ROTATE_SNAP_UNIT / 2) / ROTATE_SNAP_UNIT) * ROTATE_SNAP_UNIT;
+    angle = fmod(angle + 360.0, 360.0);
+  }
+  shell->rotate_angle = angle;
   gimp_display_shell_expose_full(shell);
 }
 
