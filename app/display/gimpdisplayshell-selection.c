@@ -311,8 +311,10 @@ selection_transform_segs (Selection      *selection,
                           GimpSegment    *dest_segs,
                           gint            n_segs)
 {
+#if 0
   const gint xclamp = selection->shell->disp_width + 1;
   const gint yclamp = selection->shell->disp_height + 1;
+#endif
   gint       i;
 
   gimp_display_shell_transform_segments (selection->shell,
@@ -321,12 +323,14 @@ selection_transform_segs (Selection      *selection,
 
   for (i = 0; i < n_segs; i++)
     {
+#if 0
       dest_segs[i].x1 = CLAMP (dest_segs[i].x1, -1, xclamp);
       dest_segs[i].y1 = CLAMP (dest_segs[i].y1, -1, yclamp);
 
       dest_segs[i].x2 = CLAMP (dest_segs[i].x2, -1, xclamp);
       dest_segs[i].y2 = CLAMP (dest_segs[i].y2, -1, yclamp);
-
+#endif
+    
       /*  If this segment is a closing segment && the segments lie inside
        *  the region, OR if this is an opening segment and the segments
        *  lie outside the region...
