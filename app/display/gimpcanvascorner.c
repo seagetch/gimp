@@ -240,43 +240,49 @@ gimp_canvas_corner_get_property (GObject    *object,
 static void
 gimp_canvas_corner_transform (GimpCanvasItem   *item,
                               GimpDisplayShell *shell,
-                              gdouble          *x,
-                              gdouble          *y,
-                              gdouble          *w,
-                              gdouble          *h)
+                              gdouble *x1, gdouble *y1, 
+                              gdouble *x2, gdouble *y2, 
+                              gdouble *x3, gdouble *y3, 
+                              gdouble *x4,  gdouble *y4)
 {
   GimpCanvasCornerPrivate *private = GET_PRIVATE (item);
-  gdouble                  rx, ry;
-  gdouble                  rw, rh;
-  gint                     top_and_bottom_handle_x_offset;
-  gint                     left_and_right_handle_y_offset;
-
+  gdouble                  rx1, ry1, rx2, ry2, rx3, ry3, rx4, ry4;
+  gdouble                  vec_xx, vec_xy, vec_yx, vec_yy;
+  gdouble                  h_handle_x_offset;
+  gdouble                  v_handle_y_offset;
+  
   gimp_display_shell_transform_xy_f (shell,
                                      MIN (private->x,
                                           private->x + private->width),
                                      MIN (private->y,
                                           private->y + private->height),
-                                     &rx, &ry);
+                                     &rx1, &ry1);
+  gimp_display_shell_transform_xy_f (shell,
+                                     MAX (private->x,
+                                          private->x + private->width),
+                                     MIN (private->y,
+                                          private->y + private->height),
+                                     &rx2, &ry2);
+  gimp_display_shell_transform_xy_f (shell,
+                                     MIN (private->x,
+                                          private->x + private->width),
+                                     MAX (private->y,
+                                          private->y + private->height),
+                                     &rx3, &ry3);
   gimp_display_shell_transform_xy_f (shell,
                                      MAX (private->x,
                                           private->x + private->width),
                                      MAX (private->y,
                                           private->y + private->height),
-                                     &rw, &rh);
+                                     &rx4, &ry4);
 
-  rw -= rx;
-  rh -= ry;
+  vec_xx = (rx2 - rx1) / ABS(private->width);
+  vec_xy = (ry2 - ry1) / ABS(private->width);
+  vec_yx = (rx3 - rx1) / ABS(private->height);
+  vec_yy = (ry3 - ry1) / ABS(private->height);
 
-  rx = floor (rx) + 0.5;
-  ry = floor (ry) + 0.5;
-  rw = ceil (rw) - 1.0;
-  rh = ceil (rh) - 1.0;
-
-  top_and_bottom_handle_x_offset = (rw - private->corner_width)  / 2;
-  left_and_right_handle_y_offset = (rh - private->corner_height) / 2;
-
-  *w = private->corner_width;
-  *h = private->corner_height;
+  h_handle_x_offset = (private->width  - private->corner_width) / 2.0;
+  v_handle_y_offset = (private->height - private->corner_height) / 2.0;
 
   switch (private->anchor)
     {
@@ -286,108 +292,198 @@ gimp_canvas_corner_transform (GimpCanvasItem   *item,
     case GIMP_HANDLE_ANCHOR_NORTH_WEST:
       if (private->outside)
         {
-          *x = rx - private->corner_width;
-          *y = ry - private->corner_height;
+          *x1 = rx1 
+            - private->corner_width * vec_xx 
+            - private->corner_height * vec_yx;
+          *y1 = ry1
+            - private->corner_width * vec_xy 
+            - private->corner_height * vec_yy;
         }
       else
         {
-          *x = rx;
-          *y = ry;
+          *x1 = rx1;
+          *y1 = ry1;
         }
+      *x2 = *x1 + vec_xx * private->corner_width;
+      *y2 = *y1 + vec_xy * private->corner_width;
+      *x3 = *x1 + vec_yx * private->corner_height;
+      *y3 = *y1 + vec_yy * private->corner_height;
+      *x4 = *x1 + vec_xx * private->corner_width + vec_yx * private->corner_height;
+      *y4 = *y1 + vec_xy * private->corner_width + vec_yy * private->corner_height;
       break;
 
     case GIMP_HANDLE_ANCHOR_NORTH_EAST:
       if (private->outside)
         {
-          *x = rx + rw;
-          *y = ry - private->corner_height;
+          *x1 = rx2 - vec_yx * private->corner_height;
+          *y1 = ry2 - vec_yy * private->corner_height;
         }
       else
         {
-          *x = rx + rw - private->corner_width;
-          *y = ry;
+          *x1 = rx2 
+            - vec_xx * private->corner_width;
+          *y1 = ry2
+            - vec_xy * private->corner_width;
         }
+      *x2 = *x1 + vec_xx * private->corner_width;
+      *y2 = *y1 + vec_xy * private->corner_width;
+      *x3 = *x1 + vec_yx * private->corner_height;
+      *y3 = *y1 + vec_yy * private->corner_height;
+      *x4 = *x1 + vec_xx * private->corner_width + vec_yx * private->corner_height;
+      *y4 = *y1 + vec_xy * private->corner_width + vec_yy * private->corner_height;
       break;
 
     case GIMP_HANDLE_ANCHOR_SOUTH_WEST:
       if (private->outside)
         {
-          *x = rx - private->corner_width;
-          *y = ry + rh;
+          *x1 = rx3
+            - vec_xx * private->corner_width;
+          *y1 = ry3
+            - vec_xy * private->corner_width;
         }
       else
         {
-          *x = rx;
-          *y = ry + rh - private->corner_height;
+          *x1 = rx3
+            - vec_yx * private->corner_height;
+          *y1 = ry3
+            - vec_yy * private->corner_height;
         }
+      *x2 = *x1 + vec_xx * private->corner_width;
+      *y2 = *y1 + vec_xy * private->corner_width;
+      *x3 = *x1 + vec_yx * private->corner_height;
+      *y3 = *y1 + vec_yy * private->corner_height;
+      *x4 = *x1 + vec_xx * private->corner_width + vec_yx * private->corner_height;
+      *y4 = *y1 + vec_xy * private->corner_width + vec_yy * private->corner_height;
       break;
 
     case GIMP_HANDLE_ANCHOR_SOUTH_EAST:
       if (private->outside)
         {
-          *x = rx + rw;
-          *y = ry + rh;
+          *x1 = rx4;
+          *y1 = ry4;
         }
       else
         {
-          *x = rx + rw - private->corner_width;
-          *y = ry + rh - private->corner_height;
+          *x1 = rx4 
+            - vec_xx * private->corner_width
+            - vec_yx * private->corner_height;
+          *y1 = ry4 
+            - vec_xy * private->corner_width
+            - vec_yy * private->corner_height;
         }
+      *x2 = *x1 + vec_xx * private->corner_width;
+      *y2 = *y1 + vec_xy * private->corner_width;
+      *x3 = *x1 + vec_yx * private->corner_height;
+      *y3 = *y1 + vec_yy * private->corner_height;
+      *x4 = *x1 + vec_xx * private->corner_width + vec_yx * private->corner_height;
+      *y4 = *y1 + vec_xy * private->corner_width + vec_yy * private->corner_height;
       break;
 
     case GIMP_HANDLE_ANCHOR_NORTH:
       if (private->outside)
         {
-          *x = rx;
-          *y = ry - private->corner_height;
-          *w = rw;
+          *x1 = rx1 - vec_yx * private->corner_height;
+          *y1 = ry1 - vec_yy * private->corner_height;
+          *x2 = *x1 + vec_xx * ABS(private->width);
+          *y2 = *y1 + vec_xy * ABS(private->width);
+          *x3 = *x1 + vec_yx * private->corner_height;
+          *y3 = *y1 + vec_yy * private->corner_height;
+          *x4 = *x1 + vec_xx * ABS(private->width) + vec_yx * private->corner_height;
+          *y4 = *y1 + vec_xy * ABS(private->width) + vec_yy * private->corner_height;
         }
       else
         {
-          *x = rx + top_and_bottom_handle_x_offset;
-          *y = ry;
+          *x1 = rx1 + vec_xx * h_handle_x_offset;
+          *y1 = ry1 + vec_xy * h_handle_x_offset;
+          *x2 = *x1 + vec_xx * private->corner_width;
+          *y2 = *y1 + vec_xy * private->corner_width;
+          *x3 = *x1 + vec_yx * private->corner_height;
+          *y3 = *y1 + vec_yy * private->corner_height;
+          *x4 = *x1 + vec_xx * private->corner_width + vec_yx * private->corner_height;
+          *y4 = *y1 + vec_xy * private->corner_width + vec_yy * private->corner_height;
         }
       break;
 
     case GIMP_HANDLE_ANCHOR_SOUTH:
       if (private->outside)
         {
-          *x = rx;
-          *y = ry + rh;
-          *w = rw;
+          *x1 = rx3;
+          *y1 = ry3;
+          *x2 = *x1 + vec_xx * ABS(private->width);
+          *y2 = *y1 + vec_xy * ABS(private->width);
+          *x3 = *x1 + vec_yx * private->corner_height;
+          *y3 = *y1 + vec_yy * private->corner_height;
+          *x4 = *x1 + vec_xx * ABS(private->width) + vec_yx * private->corner_height;
+          *y4 = *y1 + vec_xy * ABS(private->width) + vec_yy * private->corner_height;
         }
       else
         {
-          *x = rx + top_and_bottom_handle_x_offset;
-          *y = ry + rh - private->corner_height;
+          *x1 = rx3 
+            - vec_yx * private->corner_height
+            + vec_xx * h_handle_x_offset;
+          *y1 = ry3 
+            - vec_yy * private->corner_height
+            + vec_xy * h_handle_x_offset;
+          *x2 = *x1 + vec_xx * private->corner_width;
+          *y2 = *y1 + vec_xy * private->corner_width;
+          *x3 = *x1 + vec_yx * private->corner_height;
+          *y3 = *y1 + vec_yy * private->corner_height;
+          *x4 = *x1 + vec_xx * private->corner_width + vec_yx * private->corner_height;
+          *y4 = *y1 + vec_xy * private->corner_width + vec_yy * private->corner_height;
         }
       break;
 
     case GIMP_HANDLE_ANCHOR_WEST:
       if (private->outside)
         {
-          *x = rx - private->corner_width;
-          *y = ry;
-          *h = rh;
+          *x1 = rx1 - vec_xx * private->corner_width;
+          *y1 = ry1 - vec_xy * private->corner_width;
+          *x2 = *x1 + vec_xx * private->corner_width;
+          *y2 = *y1 + vec_xy * private->corner_width;
+          *x3 = *x1 + vec_yx * ABS(private->height);
+          *y3 = *y1 + vec_yy * ABS(private->height);
+          *x4 = *x1 + vec_xx * private->corner_width + vec_yx * ABS(private->height);
+          *y4 = *y1 + vec_xy * private->corner_width + vec_yy * ABS(private->height);
         }
       else
         {
-          *x = rx;
-          *y = ry + left_and_right_handle_y_offset;
+          *x1 = rx1 + vec_yx * v_handle_y_offset;
+          *y1 = ry1 + vec_yy * v_handle_y_offset;
+          *x2 = *x1 + vec_xx * private->corner_width;
+          *y2 = *y1 + vec_xy * private->corner_width;
+          *x3 = *x1 + vec_yx * private->corner_height;
+          *y3 = *y1 + vec_yy * private->corner_height;
+          *x4 = *x1 + vec_xx * private->corner_width + vec_yx * private->corner_height;
+          *y4 = *y1 + vec_xy * private->corner_width + vec_yy * private->corner_height;
         }
       break;
 
     case GIMP_HANDLE_ANCHOR_EAST:
       if (private->outside)
         {
-          *x = rx + rw;
-          *y = ry;
-          *h = rh;
+          *x1 = rx2;
+          *y1 = ry2;
+          *x2 = *x1 + vec_xx * private->corner_width;
+          *y2 = *y1 + vec_xy * private->corner_width;
+          *x3 = *x1 + vec_yx * ABS(private->height);
+          *y3 = *y1 + vec_yy * ABS(private->height);
+          *x4 = *x1 + vec_xx * private->corner_width + vec_yx * ABS(private->height);
+          *y4 = *y1 + vec_xy * private->corner_width + vec_yy * ABS(private->height);
         }
       else
         {
-          *x = rx + rw - private->corner_width;
-          *y = ry + left_and_right_handle_y_offset;
+          *x1 = rx2 
+            + vec_yx * v_handle_y_offset
+            - vec_xx * private->corner_width;
+          *y1 = ry2 
+            + vec_yy * v_handle_y_offset
+            - vec_xy * private->corner_width;
+          *x2 = *x1 + vec_xx * private->corner_width;
+          *y2 = *y1 + vec_xy * private->corner_width;
+          *x3 = *x1 + vec_yx * private->corner_height;
+          *y3 = *y1 + vec_yy * private->corner_height;
+          *x4 = *x1 + vec_xx * private->corner_width + vec_yx * private->corner_height;
+          *y4 = *y1 + vec_xy * private->corner_width + vec_yy * private->corner_height;
         }
       break;
     }
@@ -398,12 +494,15 @@ gimp_canvas_corner_draw (GimpCanvasItem   *item,
                          GimpDisplayShell *shell,
                          cairo_t          *cr)
 {
-  gdouble x, y;
-  gdouble w, h;
+  gdouble x1, y1, x2, y2, x3, y3, x4, y4;
 
-  gimp_canvas_corner_transform (item, shell, &x, &y, &w, &h);
+  gimp_canvas_corner_transform (item, shell, &x1, &y1, &x2, &y2, &x3, &y3, &x4, &y4);
 
-  cairo_rectangle (cr, x, y, w, h);
+  cairo_move_to (cr, x1, y1);
+  cairo_line_to (cr, x2, y2);
+  cairo_line_to (cr, x4, y4);
+  cairo_line_to (cr, x3, y3);
+  cairo_line_to (cr, x1, y1);
 
   _gimp_canvas_item_stroke (item, cr);
 }
@@ -413,15 +512,14 @@ gimp_canvas_corner_get_extents (GimpCanvasItem   *item,
                                 GimpDisplayShell *shell)
 {
   cairo_rectangle_int_t rectangle;
-  gdouble               x, y;
-  gdouble               w, h;
+  gdouble x1, y1, x2, y2, x3, y3, x4, y4;
 
-  gimp_canvas_corner_transform (item, shell, &x, &y, &w, &h);
+  gimp_canvas_corner_transform (item, shell, &x1, &y1, &x2, &y2, &x3, &y3, &x4, &y4);
 
-  rectangle.x      = floor (x - 1.5);
-  rectangle.y      = floor (y - 1.5);
-  rectangle.width  = ceil (w + 3.0);
-  rectangle.height = ceil (h + 3.0);
+  rectangle.x      = floor (MIN(MIN(MIN(x1, x2),x3),x4) - 1.5);
+  rectangle.y      = floor (MIN(MIN(MIN(y1, y2),y3),y4) - 1.5);
+  rectangle.width  = ceil (MAX(MAX(MAX(x1, x2),x3),x4) - rectangle.x + 1.5);
+  rectangle.height = ceil (MAX(MAX(MAX(y1, y2),y3),y4) - rectangle.y + 1.5);
 
   return cairo_region_create_rectangle (&rectangle);
 }
