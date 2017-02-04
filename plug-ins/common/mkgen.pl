@@ -7,6 +7,8 @@ require 'util.pl';
 *write_file = \&Gimp::CodeGen::util::write_file;
 *FILE_EXT   = \$Gimp::CodeGen::util::FILE_EXT;
 
+$destdir = ".";
+
 $ignorefile = ".gitignore";
 $rcfile     = "gimprc.common";
 
@@ -18,7 +20,7 @@ open MK, "> $outmk";
 open IGNORE, "> $outignore";
 open RC, "> $outrc";
 
-require 'plugin-defs.pl';
+require './plugin-defs.pl';
 
 $bins = ""; $opts = "";
 
@@ -59,6 +61,11 @@ if OS_WIN32
 mwindows = -mwindows
 else
 libm = -lm
+endif
+
+if PLATFORM_OSX
+xobjective_c = "-xobjective-c"
+framework_cocoa = -framework Cocoa
 endif
 
 if HAVE_WINDRES
@@ -150,6 +157,15 @@ foreach (sort keys %plugins) {
 	}
     }
 
+    if (exists $plugins{$_}->{ldflags}) {
+	my $ldflags = $plugins{$_}->{ldflags};
+
+	print MK <<EOT;
+
+${makename}_LDFLAGS = $ldflags
+EOT
+    }
+
     if (exists $plugins{$_}->{cflags}) {
 	my $cflags = $plugins{$_}->{cflags};
 	my $cflagsvalue = $cflags =~ /FLAGS/ ? "\$($cflags)" : $cflags;
@@ -157,6 +173,15 @@ foreach (sort keys %plugins) {
 	print MK <<EOT;
 
 ${makename}_CFLAGS = $cflagsvalue
+EOT
+    }
+
+    if (exists $plugins{$_}->{cppflags}) {
+	my $cppflags = $plugins{$_}->{cppflags};
+
+	print MK <<EOT;
+
+${makename}_CPPFLAGS = $cppflags
 EOT
     }
 
@@ -194,7 +219,7 @@ close RC;
 close MK;
 close IGNORE;
 
-&write_file($outmk);
-&write_file($outignore);
-&write_file($outrc);
+&write_file($outmk, $destdir);
+&write_file($outignore, $destdir);
+&write_file($outrc, $destdir);
 
