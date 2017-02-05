@@ -100,11 +100,7 @@ struct _GimpContext
   GimpImagefile        *imagefile;
   gchar                *imagefile_name;
 
-#ifdef __cplusplus
   GimpTemplate         *template_;
-#else
-  GimpTemplate         *template;
-#endif
   gchar                *template_name;
 };
 

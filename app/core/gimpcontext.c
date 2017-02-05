@@ -792,7 +792,7 @@ gimp_context_init (GimpContext *context)
   context->imagefile       = NULL;
   context->imagefile_name  = NULL;
 
-  context->template        = NULL;
+  context->template_       = NULL;
   context->template_name   = NULL;
 }
 
@@ -1009,10 +1009,10 @@ gimp_context_dispose (GObject *object)
       context->imagefile = NULL;
     }
 
-  if (context->template)
+  if (context->template_)
     {
-      g_object_unref (context->template);
-      context->template = NULL;
+      g_object_unref (context->template_);
+      context->template_ = NULL;
     }
 
   G_OBJECT_CLASS (parent_class)->dispose (object);
@@ -1769,7 +1769,7 @@ gimp_context_copy_property (GimpContext         *src,
       break;
 
     case GIMP_CONTEXT_PROP_TEMPLATE:
-      gimp_context_real_set_template (dest, src->template);
+      gimp_context_real_set_template (dest, src->template_);
       break;
 
     default:
@@ -3771,7 +3771,7 @@ gimp_context_get_template (GimpContext *context)
 {
   g_return_val_if_fail (GIMP_IS_CONTEXT (context), NULL);
 
-  return context->template;
+  return context->template_;
 }
 
 void
@@ -3791,7 +3791,7 @@ gimp_context_template_changed (GimpContext *context)
 
   g_signal_emit (context,
                  gimp_context_signals[TEMPLATE_CHANGED], 0,
-                 context->template);
+                 context->template_);
 }
 
 /*  the active template was modified  */
@@ -3831,9 +3831,9 @@ gimp_context_template_removed (GimpContainer *container,
                                GimpTemplate  *template,
                                GimpContext   *context)
 {
-  if (template == context->template)
+  if (template == context->template_)
     {
-      context->template = NULL;
+      context->template_ = NULL;
 
       g_signal_handlers_disconnect_by_func (template,
                                             gimp_context_template_dirty,
@@ -3849,7 +3849,7 @@ static void
 gimp_context_real_set_template (GimpContext  *context,
                                 GimpTemplate *template)
 {
-  if (context->template == template)
+  if (context->template_ == template)
     return;
 
   if (context->template_name)
@@ -3859,15 +3859,15 @@ gimp_context_real_set_template (GimpContext  *context,
     }
 
   /*  disconnect from the old template's signals  */
-  if (context->template)
+  if (context->template_)
     {
-      g_signal_handlers_disconnect_by_func (context->template,
+      g_signal_handlers_disconnect_by_func (context->template_,
                                             gimp_context_template_dirty,
                                             context);
-      g_object_unref (context->template);
+      g_object_unref (context->template_);
     }
 
-  context->template = template;
+  context->template_ = template;
 
   if (template)
     {
