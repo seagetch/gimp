@@ -96,6 +96,7 @@ class MypaintDetailOptionsPopupPrivate {
 
   GimpContainer*         container;
   GimpContext*           context;
+  GtkWidget*             brush_name_entry;
   Delegator::Connection* brush_changed_handler;
   PageRemindAction       page_reminder;
   
@@ -174,6 +175,7 @@ MypaintDetailOptionsPopupPrivate::brush_save_clicked (GObject*  object)
   GWrapper<GimpDataFactory>  factory       = context->gimp->mypaint_brush_factory;
   GWrapper<GimpMypaintBrush> mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
 
+  brush_name_edited(G_OBJECT(brush_name_entry));
   StringHolder new_brush_name = g_strdup(mypaint_brush.get("name"));
 
   GWrapper<GimpContainer> container = gimp_data_factory_get_container(factory);
@@ -243,7 +245,6 @@ MypaintDetailOptionsPopupPrivate::create (GObject* object,
   GtkWidget                     *table;
   GtkWidget                     *frame2;
   GtkWidget                     *action_button;
-  GtkWidget                     *brush_name_entry;
   GimpViewType                   view_type = GIMP_VIEW_TYPE_GRID;
   GimpViewSize                   view_size = GIMP_VIEW_SIZE_MEDIUM;
   gint                           view_border_width = 1;
