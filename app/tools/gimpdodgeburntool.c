@@ -30,6 +30,7 @@
 #include "widgets/gimpwidgets-utils.h"
 
 #include "gimpdodgeburntool.h"
+#include "gimptooloptions-gui.h"
 #include "gimppaintoptions-gui.h"
 #include "gimptoolcontrol.h"
 
@@ -57,6 +58,9 @@ static GtkWidget * gimp_dodge_burn_options_gui            (GimpToolOptions   *to
 static GtkWidget * gimp_dodge_burn_options_gui_full       (GimpToolOptions   *tool_options,
                                                             gboolean           horizontal);
 static GtkWidget * gimp_dodge_burn_options_gui_horizontal (GimpToolOptions   *tool_options);
+
+static void
+dodge_burn_options_create_view (GtkWidget *source, GtkWidget **result, GObject *config);
 
 
 G_DEFINE_TYPE (GimpDodgeBurnTool, gimp_dodge_burn_tool, GIMP_TYPE_BRUSH_TOOL)
@@ -212,8 +216,25 @@ gimp_dodge_burn_options_gui_full (GimpToolOptions *tool_options, gboolean horizo
 {
   GObject         *config = G_OBJECT (tool_options);
   GtkWidget       *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
+  GType            tool_type = G_TYPE_NONE;
   GtkWidget       *frame;
+  /* Detail Options */
+  frame = gimp_tool_options_frame_gui_with_popup (config, tool_type,
+                                                  _("Details..."),
+                                                  horizontal, dodge_burn_options_create_view);
+  gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
+  gtk_widget_show (frame);
+
+  return vbox;
+}
+
+static void
+dodge_burn_options_create_view (GtkWidget *source, GtkWidget **result, GObject *config)
+{
+  GimpToolOptions *tool_options = GIMP_TOOL_OPTIONS (config);
+  GtkWidget       *vbox         = gimp_tool_options_gui_full (tool_options, FALSE);
   GtkWidget       *scale;
+  GtkWidget       *frame;
   gchar           *str;
   GdkModifierType  toggle_mask;
 
@@ -242,7 +263,7 @@ gimp_dodge_burn_options_gui_full (GimpToolOptions *tool_options, gboolean horizo
   gtk_box_pack_start (GTK_BOX (vbox), scale, FALSE, FALSE, 0);
   gtk_widget_show (scale);
 
-  return vbox;
+  *result = vbox;
 }
 
 static GtkWidget *

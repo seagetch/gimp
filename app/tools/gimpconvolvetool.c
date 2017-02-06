@@ -30,6 +30,7 @@
 #include "widgets/gimpwidgets-utils.h"
 
 #include "gimpconvolvetool.h"
+#include "gimptooloptions-gui.h"
 #include "gimppaintoptions-gui.h"
 #include "gimptoolcontrol.h"
 
@@ -57,6 +58,8 @@ static GtkWidget * gimp_convolve_options_gui            (GimpToolOptions  *optio
 static GtkWidget * gimp_convolve_options_gui_full       (GimpToolOptions  *options,
                                                           gboolean horizontal);
 static GtkWidget * gimp_convolve_options_gui_horizontal (GimpToolOptions  *options);
+static void
+convolve_options_create_view (GtkWidget *source, GtkWidget **result, GObject *config);
 
 
 G_DEFINE_TYPE (GimpConvolveTool, gimp_convolve_tool, GIMP_TYPE_BRUSH_TOOL)
@@ -210,6 +213,25 @@ gimp_convolve_options_gui_full (GimpToolOptions *tool_options, gboolean horizont
   GObject         *config = G_OBJECT (tool_options);
   GtkWidget       *vbox   = gimp_paint_options_gui_full (tool_options, horizontal);
   GtkWidget       *frame;
+  GType      tool_type = G_TYPE_NONE;
+
+  /* Detail Options */
+  frame = gimp_tool_options_frame_gui_with_popup (config, tool_type,
+                                                  _("Convolve options..."),
+                                                  horizontal, convolve_options_create_view);
+  gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
+  gtk_widget_show (frame);
+
+  return vbox;
+}
+
+static void
+convolve_options_create_view (GtkWidget *source, GtkWidget **result, GObject *config)
+{
+  GimpToolOptions *tool_options = GIMP_TOOL_OPTIONS (config);
+  GtkWidget       *vbox         = gimp_tool_options_gui_full (tool_options, FALSE);
+  GtkWidget       *frame;
+
   GtkWidget       *scale;
   gchar           *str;
   GdkModifierType  toggle_mask;
@@ -234,7 +256,7 @@ gimp_convolve_options_gui_full (GimpToolOptions *tool_options, gboolean horizont
   gtk_box_pack_start (GTK_BOX (vbox), scale, FALSE, FALSE, 0);
   gtk_widget_show (scale);
 
-  return vbox;
+  *result = vbox;
 }
 
 static GtkWidget *

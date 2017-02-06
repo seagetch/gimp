@@ -51,7 +51,8 @@ static void   gimp_rectangle_select_options_get_property (GObject      *object,
                                                           guint         property_id,
                                                           GValue       *value,
                                                           GParamSpec   *pspec);
-
+static void
+rectangle_round_create_view (GtkWidget *button, GtkWidget **result, GObject *config);
 
 G_DEFINE_TYPE_WITH_CODE (GimpRectangleSelectOptions,
                          gimp_rectangle_select_options,
@@ -149,32 +150,40 @@ gimp_rectangle_select_options_get_property (GObject    *object,
 static GtkWidget *
 gimp_rectangle_select_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
 {
+#if 0
   GObject   *config = G_OBJECT (tool_options);
+#endif
   GtkWidget *vbox   = gimp_selection_options_gui_full (tool_options, horizontal);
 
   /*  the round corners frame  */
   if (tool_options->tool_info->tool_type == GIMP_TYPE_RECTANGLE_SELECT_TOOL)
     {
       GtkWidget *frame;
+#if 0
       GtkWidget *scale;
       GtkWidget *toggle;
-
-      scale = gimp_prop_spin_scale_new (config, "corner-radius",
-                                        _("Radius"),
-                                        1.0, 10.0, 1);
-
+#endif
+      frame = gimp_tool_options_toggle_gui_with_popup (G_OBJECT (tool_options), 
+                                               tool_options->tool_info->tool_type,
+                                               "round-corners", 
+                                               _("Rounded corners"), 
+                                               _("Rounded corners"),
+                                               horizontal, rectangle_round_create_view);
+#if 0
       frame = gimp_prop_expanding_frame_new (config, "round-corners",
                                              _("Rounded corners"),
                                              scale, NULL);
+#endif
       gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
       gtk_widget_show (frame);
-
+#if 0
       toggle = GIMP_SELECTION_OPTIONS (tool_options)->antialias_toggle;
 
       g_object_bind_property (config, "round-corners",
                               toggle, "sensitive",
                               G_BINDING_SYNC_CREATE);
-    }
+#endif
+  }
 
   /*  the rectangle options  */
   {
@@ -186,6 +195,24 @@ gimp_rectangle_select_options_gui_full (GimpToolOptions *tool_options, gboolean 
   }
 
   return vbox;
+}
+
+static void
+rectangle_round_create_view (GtkWidget *button, GtkWidget **result, GObject *config)
+{
+  GtkWidget *vbox;
+  GtkWidget *scale;
+
+  vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 2);
+  gtk_widget_show (vbox);
+
+  /* size sens slider */
+  scale = gimp_prop_spin_scale_new (config, "corner-radius",
+                                    _("Radius"),
+                                    1.0, 10.0, 1);
+  gtk_box_pack_start (GTK_BOX (vbox), scale, TRUE, TRUE, 0);
+  gtk_widget_show (scale);
+  *result = vbox;
 }
 
 GtkWidget *

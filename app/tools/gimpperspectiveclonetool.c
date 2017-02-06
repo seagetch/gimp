@@ -901,7 +901,9 @@ gimp_perspective_clone_options_gui_full (GimpToolOptions *tool_options, gboolean
   paint_options = gimp_paint_options_gui_full (tool_options, horizontal);
 
   /* radio buttons to set if you are modifying perspe plane or painting */
-  mode = gimp_prop_enum_radio_box_new (config, "clone-mode", 0, 0);
+//  mode = gimp_prop_enum_radio_box_new (config, "clone-mode", 0, 0);
+  mode = gimp_prop_enum_radio_frame_new_with_orientation (config, "clone-mode", "Clone mode",
+                                                           0,0, horizontal ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL);  
   gtk_box_pack_start (GTK_BOX (vbox), mode, FALSE, FALSE, 0);
   gtk_widget_show (mode);
 
@@ -933,7 +935,7 @@ gimp_perspective_clone_options_create_view (GtkWidget *source, GtkWidget **resul
   GtkWidget *frame;
   GtkWidget *button;
   GtkWidget *hbox;
-  GtkWidget *table;
+//  GtkWidget *table;
   GtkWidget *combo;
   GtkWidget *label;
 

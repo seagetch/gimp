@@ -11171,12 +11171,12 @@ msgstr "最初にスタンプソースを設定してください"
 #: ../app/paint/paint-enums.c:52
 msgctxt "perspective-clone-mode"
 msgid "Modify Perspective"
-msgstr "パース(遠近感)の設定"
+msgstr "パース指定"
 
 #: ../app/paint/paint-enums.c:53
 msgctxt "perspective-clone-mode"
 msgid "Perspective Clone"
-msgstr "遠近スタンプで描画"
+msgstr "スタンプ"
 
 #: ../app/paint/paint-enums.c:83
 msgctxt "source-align-mode"

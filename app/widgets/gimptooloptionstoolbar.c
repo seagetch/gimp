@@ -226,51 +226,6 @@ gimp_tool_options_toolbar_get_property (GObject    *object,
     }
 }
 
-#if 0
-static GtkWidget *
-gimp_tool_options_toolbar_get_preview (GimpDocked   *docked,
-                                      GimpContext  *context,
-                                      GtkIconSize   size)
-{
-  GtkSettings *settings = gtk_widget_get_settings (GTK_WIDGET (docked));
-  GtkWidget   *view;
-  gint         width;
-  gint         height;
-
-  gtk_icon_size_lookup_for_settings (settings, size, &width, &height);
-
-  view = gimp_prop_view_new (G_OBJECT (context), "tool", context, height);
-  GIMP_VIEW (view)->renderer->size = -1;
-  gimp_view_renderer_set_size_full (GIMP_VIEW (view)->renderer,
-                                    width, height, 0);
-
-  return view;
-}
-
-static gchar *
-gimp_tool_options_toolbar_get_title (GimpDocked *docked)
-{
-  GimpToolOptionsToolbar *toolbar = GIMP_TOOL_OPTIONS_TOOLBAR (docked);
-  GimpContext           *context;
-  GimpToolInfo          *tool_info;
-
-  context = gimp_get_user_context (toolbar->p->gimp);
-
-  tool_info = gimp_context_get_tool (context);
-
-  return tool_info ? g_strdup (tool_info->blurb) : NULL;
-}
-
-static gboolean
-gimp_tool_options_toolbar_get_prefer_icon (GimpDocked *docked)
-{
-  /* We support get_preview() for tab tyles, but we prefer to show our
-   * icon
-   */
-  return TRUE;
-}
-#endif
-
 /*  public functions  */
 
 GtkWidget *
@@ -278,13 +233,9 @@ gimp_tool_options_toolbar_new (Gimp            *gimp,
                               GimpMenuFactory *menu_factory)
 {
   g_return_val_if_fail (GIMP_IS_GIMP (gimp), NULL);
-//  g_return_val_if_fail (GIMP_IS_MENU_FACTORY (menu_factory), NULL);
 
   return g_object_new (GIMP_TYPE_TOOL_OPTIONS_TOOLBAR,
                        "gimp",            gimp,
-//                       "menu-factory",    menu_factory,
-//                       "menu-identifier", "<ToolOptions>",
-//                       "ui-path",         "/tool-options-popup",
                        NULL);
 }
 
@@ -297,36 +248,6 @@ gimp_tool_options_toolbar_get_tool_options (GimpToolOptionsToolbar *toolbar)
 }
 
 /*  private functions  */
-#if 0
-static void
-gimp_tool_options_toolbar_menu_pos (GtkMenu  *menu,
-                                   gint     *x,
-                                   gint     *y,
-                                   gpointer  data)
-{
-  gimp_button_menu_position (GTK_WIDGET (data), menu, GTK_POS_RIGHT, x, y);
-}
-
-static void
-gimp_tool_options_toolbar_menu_popup (GimpToolOptionsToolbar *toolbar,
-                                     GtkWidget             *button,
-                                     const gchar           *path)
-{
-/*
-  GimpToolbar *GIMP_EDITOR = GIMP_EDITOR (toolbar);
-
-  gtk_ui_manager_get_widget (GTK_UI_MANAGER (GIMP_EDITOR->ui_manager),
-                             GIMP_EDITOR->ui_path);
-  gimp_ui_manager_update (GIMP_EDITOR->ui_manager, GIMP_EDITOR->popup_data);
-
-  gimp_ui_manager_ui_popup (GIMP_EDITOR->ui_manager, path,
-                            button,
-                            gimp_tool_options_toolbar_menu_pos, button,
-                            NULL, NULL);
-*/
-}
-#endif
-
 static void
 gimp_tool_options_toolbar_visible_changed (GimpToolOptionsToolbar *toolbar)
 {
@@ -345,8 +266,8 @@ gimp_tool_options_toolbar_tool_changed (GimpContext           *context,
 {
   GtkWidget       *options_gui;
 
-  if (tool_info && tool_info->tool_options == toolbar->p->visible_tool_options)
-    return;
+//  if (tool_info && tool_info->tool_options == toolbar->p->visible_tool_options)
+//    return;
 
   if (toolbar->p->visible_tool_options)
     {
