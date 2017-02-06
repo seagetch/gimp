@@ -317,13 +317,16 @@ gimp_canvas_handle_draw (GimpCanvasItem   *item,
       break;
 
     case GIMP_HANDLE_CIRCLE:
+    {
+      gdouble rotated_angle = shell->rotate_angle / 180.0 * G_PI;
+        
       gimp_cairo_add_arc (cr, x, y, private->width / 2,
-                          private->start_angle,
+                          private->start_angle - rotated_angle,
                           private->slice_angle);
 
       _gimp_canvas_item_stroke (item, cr);
       break;
-
+    }
     case GIMP_HANDLE_FILLED_CIRCLE:
       cairo_move_to (cr, x, y);
 
