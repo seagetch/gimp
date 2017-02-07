@@ -115,8 +115,6 @@ class GimpMypaintSurfaceImpl : public GimpMypaintSurface
 {
 private:
   DrawableFeature drawable_feature;
-//  virtual GimpUndo* push_undo (GimpImage *imag, const gchar* undo_desc);
-//  GimpDrawable* drawable;
   GimpRGB       bg_color;
   GimpBrush*    brushmark;
   GimpPattern*  texture;
@@ -125,11 +123,6 @@ private:
   bool          floating_stroke;
   float         stroke_opacity;
   
-//  TileManager*  undo_tiles;       /*  tiles which have been modified      */
-//  TileManager*  floating_stroke_tiles;
-
-//  gint          x1, y1;           /*  undo extents in image coords        */
-//  gint          x2, y2;           /*  undo extents in image coords        */
   gint          session;          /*  reference counter of atomic scope   */
 
   void      validate_undo_tiles       (gint              x,

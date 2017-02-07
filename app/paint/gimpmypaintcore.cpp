@@ -72,13 +72,13 @@ GimpMypaintCore::GimpMypaintCore()
 
 GimpMypaintCore::~GimpMypaintCore ()
 {
-  g_print("GimpMypaintCore(%lx)::destructor\n", (gulong)this);
+  g_print("GimpMypaintCore(%p)::destructor\n", this);
   cleanup ();
 }
 
 void GimpMypaintCore::cleanup()
 {
-  g_print("GimpMypaintCore(%lx)::cleanup\n", (gulong)this);
+  g_print("GimpMypaintCore(%p)::cleanup\n", this);
   if (option_changed_handler)
     delete option_changed_handler;
   option_changed_handler = NULL;
@@ -123,13 +123,13 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
   /// from Document#stroke_to
 
   if (!surface) {
-    g_print("MypaintCore(%lx)::create new surface...\n", (gulong)this);
+    g_print("MypaintCore(%p)::create new surface...\n", this);
     surface = GimpMypaintSurface_new(drawable);
   } else if (!surface->is_surface_for(drawable)) {
     surface->end_session();
-    g_print("MypaintCore(%lx)::delete surface...\n", (gulong)this);
+    g_print("MypaintCore(%p)::delete surface...\n", this);
     delete surface;
-    g_print("MypaintCore(%lx)::recreate new surface...\n", (gulong)this);
+    g_print("MypaintCore(%p)::recreate new surface...\n", this);
     surface = GimpMypaintSurface_new(drawable);
   }
 
@@ -238,7 +238,7 @@ void GimpMypaintCore::update_resource(GimpMypaintOptions* options)
   }
 #endif
   if (!brush) {
-    g_print("MypaintCore(%lx)::Create brush object\n", (gulong)this);
+    g_print("MypaintCore(%p)::Create brush object\n", this);
     brush = new Brush();
     option_changed(G_OBJECT(options), NULL);
     mypaint_brush = myb;
