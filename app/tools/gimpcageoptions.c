@@ -49,6 +49,7 @@ static void   gimp_cage_options_get_property (GObject      *object,
                                               guint         property_id,
                                               GValue       *value,
                                               GParamSpec   *pspec);
+static GtkWidget * gimp_cage_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal);
 
 
 G_DEFINE_TYPE (GimpCageOptions, gimp_cage_options,
@@ -131,12 +132,28 @@ gimp_cage_options_get_property (GObject    *object,
 GtkWidget *
 gimp_cage_options_gui (GimpToolOptions *tool_options)
 {
+  return gimp_cage_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_cage_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_cage_options_gui_full (tool_options, TRUE);
+}
+
+static GtkWidget *
+gimp_cage_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
+{
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_tool_options_gui (tool_options);
+  GtkWidget *vbox   = gimp_tool_options_gui_full (tool_options, horizontal);
   GtkWidget *mode;
   GtkWidget *button;
 
-  mode = gimp_prop_enum_radio_box_new (config, "cage-mode", 0, 0);
+  mode = gimp_prop_enum_radio_frame_new_with_orientation (config, "cage-mode",
+                                                          "Cage edit mode", 0, 0,
+                                                          horizontal ? 
+                                                          GTK_ORIENTATION_HORIZONTAL :
+                                                          GTK_ORIENTATION_VERTICAL);  
   gtk_box_pack_start (GTK_BOX (vbox), mode, FALSE, FALSE, 0);
   gtk_widget_show (mode);
 

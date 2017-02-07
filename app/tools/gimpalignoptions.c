@@ -56,7 +56,7 @@ static void   gimp_align_options_get_property (GObject      *object,
                                                guint         property_id,
                                                GValue       *value,
                                                GParamSpec   *pspec);
-
+static GtkWidget *gimp_align_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal);
 
 G_DEFINE_TYPE (GimpAlignOptions, gimp_align_options, GIMP_TYPE_TOOL_OPTIONS)
 
@@ -258,9 +258,21 @@ gimp_align_options_button_new (GimpAlignOptions  *options,
 GtkWidget *
 gimp_align_options_gui (GimpToolOptions *tool_options)
 {
+  return gimp_align_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_align_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_align_options_gui_full (tool_options, TRUE);
+}
+
+static GtkWidget *
+gimp_align_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
+{
   GObject          *config  = G_OBJECT (tool_options);
   GimpAlignOptions *options = GIMP_ALIGN_OPTIONS (tool_options);
-  GtkWidget        *vbox    = gimp_tool_options_gui (tool_options);
+  GtkWidget        *vbox    = gimp_tool_options_gui_full (tool_options, horizontal);
   GtkWidget        *align_vbox;
   GtkWidget        *hbox;
   GtkWidget        *frame;
@@ -273,7 +285,7 @@ gimp_align_options_gui (GimpToolOptions *tool_options)
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  align_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
+  align_vbox = gtk_box_new (horizontal? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), align_vbox);
   gtk_widget_show (align_vbox);
 
@@ -281,12 +293,12 @@ gimp_align_options_gui (GimpToolOptions *tool_options)
   gtk_box_pack_start (GTK_BOX (align_vbox), hbox, FALSE, FALSE, 0);
   gtk_widget_show (hbox);
 
-  frame = gimp_frame_new (_("Relative to:"));
-  gtk_box_pack_start (GTK_BOX (align_vbox), frame, FALSE, FALSE, 0);
-  gtk_widget_show (frame);
+  label = gtk_label_new (_("Relative to:"));
+  gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, FALSE, 0);
+  gtk_widget_show (label);
 
   combo = gimp_prop_enum_combo_box_new (config, "align-reference", 0, 0);
-  gtk_container_add (GTK_CONTAINER (frame), combo);
+  gtk_box_pack_start (GTK_BOX (hbox), combo, TRUE, TRUE, 0);
   gtk_widget_show (combo);
 
   hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
@@ -325,7 +337,7 @@ gimp_align_options_gui (GimpToolOptions *tool_options)
   gtk_box_pack_start (GTK_BOX (vbox), frame, FALSE, FALSE, 0);
   gtk_widget_show (frame);
 
-  align_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
+  align_vbox = gtk_box_new (horizontal? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL, 6);
   gtk_container_add (GTK_CONTAINER (frame), align_vbox);
   gtk_widget_show (align_vbox);
 
