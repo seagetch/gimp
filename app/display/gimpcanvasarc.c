@@ -329,8 +329,8 @@ gimp_canvas_arc_get_extents (GimpCanvasItem   *item,
   region = cairo_region_create_rectangle (&rectangle);
 
   if (! private->filled &&
-      rectangle.width > 64 * 1.43 &&
-      rectangle.height > 64 * 1.43)
+      rectangle.width > 64 * 1.43 * 1.43 &&
+      rectangle.height > 64 * 1.43 * 1.43)
     {
       gdouble radius_x = MIN(private->radius_x, private->radius_y) * 0.7;
       gdouble radius_y = MIN(private->radius_x, private->radius_y) * 0.7;

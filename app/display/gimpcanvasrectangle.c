@@ -276,7 +276,9 @@ gimp_canvas_rectangle_draw (GimpCanvasItem   *item,
 
   gimp_canvas_rectangle_transform (item, shell, &x1, &y1, &x2, &y2, &x3, &y3, &x4, &y4);
 
-//  cairo_rectangle (cr, x, y, w, h);
+  if (x1 == x2 && y1 == y2 && x1 == x3 && y1 == y3)
+    return;
+
   cairo_move_to(cr, x1, y1);
   cairo_line_to(cr, x2, y2);
   cairo_line_to(cr, x4, y4);

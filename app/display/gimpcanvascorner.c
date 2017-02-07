@@ -281,13 +281,17 @@ gimp_canvas_corner_transform (GimpCanvasItem   *item,
   vec_xx = (rx2 - rx1);
   vec_xy = (ry2 - ry1);
   vec_x_len = sqrt(vec_xx*vec_xx + vec_xy*vec_xy);
-  vec_xx /= vec_x_len;
-  vec_xy /= vec_x_len;
+  if (vec_x_len > 0) {
+    vec_xx /= vec_x_len;
+    vec_xy /= vec_x_len;
+  }
   vec_yx = (rx3 - rx1);
   vec_yy = (ry3 - ry1);
   vec_y_len = sqrt(vec_yx*vec_yx + vec_yy*vec_yy);
-  vec_yx /= vec_y_len;
-  vec_yy /= vec_y_len;
+  if (vec_y_len > 0) {
+    vec_yx /= vec_y_len;
+    vec_yy /= vec_y_len;
+  }
 
   h_handle_x_offset = (vec_x_len - private->corner_width) / 2.0;
   v_handle_y_offset = (vec_y_len - private->corner_height) / 2.0;
@@ -510,8 +514,7 @@ gimp_canvas_corner_draw (GimpCanvasItem   *item,
   cairo_line_to (cr, x2, y2);
   cairo_line_to (cr, x4, y4);
   cairo_line_to (cr, x3, y3);
-  cairo_line_to (cr, x1, y1);
-
+  cairo_close_path(cr);
   _gimp_canvas_item_stroke (item, cr);
 }
 

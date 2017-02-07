@@ -270,7 +270,7 @@ selection_undraw (Selection *selection)
     {
       /* expose will restart the selection */
       gimp_display_shell_expose_area (selection->shell,
-                                      x1, y1, (x2 - x1), (y2 - y1));
+                                      x1 - 1, y1 - 1, (x2 - x1) + 3, (y2 - y1) + 3);
     }
   else
     {
