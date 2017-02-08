@@ -49,6 +49,7 @@ static void   gimp_histogram_options_get_property (GObject      *object,
                                                    guint         property_id,
                                                    GValue       *value,
                                                    GParamSpec   *pspec);
+static GtkWidget *gimp_histogram_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal);
 
 
 G_DEFINE_TYPE (GimpHistogramOptions, gimp_histogram_options,
@@ -118,12 +119,25 @@ gimp_histogram_options_get_property (GObject    *object,
 GtkWidget *
 gimp_histogram_options_gui (GimpToolOptions *tool_options)
 {
+  return gimp_histogram_options_gui_full (tool_options, FALSE);
+}
+
+GtkWidget *
+gimp_histogram_options_gui_horizontal (GimpToolOptions *tool_options)
+{
+  return gimp_histogram_options_gui_full (tool_options, TRUE);
+}
+
+static GtkWidget *
+gimp_histogram_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
+{
   GObject   *config = G_OBJECT (tool_options);
-  GtkWidget *vbox   = gimp_tool_options_gui (tool_options);
+  GtkWidget *vbox   = gimp_tool_options_gui_full (tool_options, horizontal);
   GtkWidget *frame;
 
-  frame = gimp_prop_enum_radio_frame_new (config, "histogram-scale",
-                                          _("Histogram Scale"), 0, 0);
+  frame = gimp_prop_enum_radio_frame_new_with_orientation (config, "histogram-scale",
+                                          _("Histogram Scale"), 0, 0,
+                                                           horizontal? GTK_ORIENTATION_HORIZONTAL: GTK_ORIENTATION_VERTICAL);
   gtk_box_pack_start (GTK_BOX (vbox), frame, TRUE, TRUE, 0);
   gtk_widget_show (frame);
 

@@ -44,6 +44,7 @@ struct _GimpHistogramOptions
 GType       gimp_histogram_options_get_type     (void) G_GNUC_CONST;
 
 GtkWidget * gimp_histogram_options_gui          (GimpToolOptions      *tool_options);
+GtkWidget * gimp_histogram_options_gui_horizontal (GimpToolOptions      *tool_options);
 void        gimp_histogram_options_connect_view (GimpHistogramOptions *options,
                                                  GimpHistogramView    *view);
 

@@ -150,7 +150,7 @@ gimp_cage_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   GtkWidget *button;
 
   mode = gimp_prop_enum_radio_frame_new_with_orientation (config, "cage-mode",
-                                                          "Cage edit mode", 0, 0,
+                                                          _("Cage edit mode"), 0, 0,
                                                           horizontal ? 
                                                           GTK_ORIENTATION_HORIZONTAL :
                                                           GTK_ORIENTATION_VERTICAL);  

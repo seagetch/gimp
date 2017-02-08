@@ -143,11 +143,15 @@ gimp_color_options_gui_full (GimpToolOptions *tool_options, gboolean horizontal)
   GObject   *config = G_OBJECT (tool_options);
   GtkWidget *vbox;
   GtkWidget *frame;
+#if 0
   GtkWidget *scale;
- 
-  if (GIMP_IS_HISTOGRAM_OPTIONS (tool_options))
-    vbox = gimp_histogram_options_gui (tool_options);
-  else
+#endif 
+  if (GIMP_IS_HISTOGRAM_OPTIONS (tool_options)) {
+    if (horizontal)
+      vbox = gimp_histogram_options_gui_horizontal (tool_options);
+    else
+      vbox = gimp_histogram_options_gui (tool_options);
+  } else
     vbox = gimp_tool_options_gui_full (tool_options, horizontal);
 
   /*  the sample average options  */
