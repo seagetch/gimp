@@ -23,71 +23,180 @@
 #include "base/delegators.hpp"
 #include "base/glib-cxx-utils.hpp"
 
-namespace GLib {
+namespace GtkCXX {
 
-const char* Key = "cxx";
-
-
-template<typename Class, typename Ret, typename... Args, Ret (Class::*Callback)(Arg...)>
-Ret fn(GObject* obj, Arg... arg) {
-  Class* impl;
-  impl = reinterpret_cast<Class>(g_object_get_data(obj, Key));
-  return (impl->*Callback)(arg...);
+template <typename _Instance,
+          typename _Class, 
+          GType (*g_type)()>
+class Traits {
+public:
+  typedef _Instance Instance;
+  typedef _Class Class;
+  static GType get_type() { return (*g_type)(); };
+  template<typename T>
+  static Instance* cast(T* obj) { return G_TYPE_CHECK_INSTANCE_CAST(obj, get_type(), Instance); }
+  template<typename T>
+  static Class*  cast_class(T* klass) { return G_TYPE_CHECK_CLASS_CAST(klass, get_type(), Class); }
+  template<typename T>
+  static gboolean is_instance(T* obj) { return G_TYPE_CHECK_INSTANCE_TYPE(obj, get_type()); }
+  template<typename T>
+  static gboolean is_class(T* obj) { return G_TYPE_CHECK_CLASS_TYPE(obj, get_type()); }
+  template<typename T>
+  static Class* get_class(Instance* obj) { return G_TYPE_INSTANCE_GET_CLASS(obj, get_type(), Class); }
 };
 
-template<typename InstanceClass>
-class Class {
-  static GType class_type = G_TYPE_NONE;
-public:
-  typedef InstanceClass Instance;
-   
-  static void initialize_class(GObjectClass* klass) {
-    Instance::initialize_class(klass);
-  };
 
-  static void finalize_class(GObjectClass* klass) {
-    Instance::finalize_class(klass);
+template <typename _ParentTraits>
+class ClassExtension {
+public:
+  typedef _ParentTraits ParentTraits;
+  struct Instance {
+    typename ParentTraits::Instance parent_instance;
+  };
+  struct Class {
+    typename ParentTraits::Class parent_class;
+  };
+};
+
+template <typename _ParentTraits, typename _Instance, typename _Class>
+class ClassHolder {
+public:
+  typedef _ParentTraits ParentTraits;
+  typedef _Instance Instance;
+  typedef _Class Class;
+};
+
+
+
+template <char const* name, typename Extension, typename Impl, typename... IFaces>
+class ClassDefinition {
+public:
+  static GType get_type();
+  typedef typename Extension::Instance Instance;
+  typedef typename Extension::Class Class;
+  typedef GtkCXX::Traits<Instance, Class, &ClassDefinition::get_type> Traits;
+
+  static void     instance_init     (Instance        *obj) {
+    void* ptr = get_private(obj);
+    Impl* i = new(ptr) Impl(G_OBJECT(obj));
+    i->init();
   }
+  static gpointer parent_class;
+  static gint     private_offset;
 
-  static void initialize_instance(GObject* obj, GObjectClass* klass) {
-    Instance* instance = new Instance(obj, klass);
+#if GLIB_VERSION_MAX_ALLOWED >= GLIB_VERSION_2_38
+  static void     class_intern_init (gpointer klass) {
+    parent_class = g_type_class_peek_parent (klass);
+    if (private_offset != 0)
+      g_type_class_adjust_private_offset (klass, &private_offset);
+    Impl::class_init ((Class*) klass);
+  }
+#else
+  static void     class_intern_init (gpointer klass) {
+    parent_class = g_type_class_peek_parent (klass);
+    Impl::class_init ((Class*) klass);
+  }
+#endif /* GLIB_VERSION_MAX_ALLOWED >= GLIB_VERSION_2_38 */
+
+  template<typename G>
+  static Impl* get_private(G* obj) {
+    return G_TYPE_INSTANCE_GET_PRIVATE(obj, Traits::get_type(), Impl);
   };
 
-  static GType get_type() {
+  template<typename Ret, typename G, typename... Args>
+  struct Binder {
+    typedef Ret (*FuncStore)(G*, Args...);
+    FuncStore* store;
+    Binder(FuncStore* s) : store(s) {};
+
+    template<Ret (Impl::*signature)(Args... args)>
+    static Ret callback(G* obj, Args... args) {
+      Impl* priv = get_private(obj);
+      (priv->*signature)(args...);
+    };
+
+    template<Ret (Impl::*signature)(Args... args)>
+    void bind() {
+      *store = &(callback<signature>);
+    };
+
+    template<typename R2, typename G2>
+    void bind(R2 (*func)(G2*, Args...)) {
+      *store = reinterpret_cast<Ret (*)(G*, Args...)>(func);
+    }
+
+    void clear() { *store = NULL; }
   };
+  template<typename Ret, typename G, typename... Args>
+  static Binder<Ret, G, Args...> __(Ret (**ptr)(G*, Args...)) { return Binder<Ret, G, Args...>(ptr); }
+
+private:
+  struct __Dummy {};
+  template <typename D>
+  static void add_interface_iter(GType) {};
+
+  template<typename D, typename IFaceTraits, typename... Rest>
+  static void add_interface_iter(GType g_define_type_id) {
+    void (*init)(typename IFaceTraits::Class* klass);
+    init = &Impl::iface_init;
+    const GInterfaceInfo g_implement_interface_info = {
+      (GInterfaceInitFunc) init, NULL, NULL
+    };
+    g_type_add_interface_static (g_define_type_id, IFaceTraits::get_type(), &g_implement_interface_info);
+    add_interface_iter<D, Rest...>(g_define_type_id);
+  }
 };
 
 
-class ObjectImpl {
-public:
-  static void initialize_class(GObjectClass*) {
-  };
+template <char const* name, typename Extension, typename Impl, typename... IFaces>
+gpointer
+ClassDefinition<name, Extension, Impl, IFaces...>::parent_class = NULL;
 
-  static void finalize_class(GObjectClass*) {
-  };
-  
+template <char const* name, typename Extension, typename Impl, typename... IFaces>
+gint
+ClassDefinition<name, Extension, Impl, IFaces...>::private_offset = 0;
+
+template <char const* name, typename Extension, typename Impl, typename... IFaces>
+GType ClassDefinition<name, Extension, Impl, IFaces...>::get_type (void) {
+  static volatile gsize g_define_type_id__volatile = 0;
+  if (g_once_init_enter (&g_define_type_id__volatile)) {
+    GType g_define_type_id =
+        g_type_register_static_simple (Extension::ParentTraits::get_type(),
+                                       g_intern_static_string (name),
+                                       sizeof (Class),
+                                       (GClassInitFunc) class_intern_init,
+                                       sizeof (Instance),
+                                       (GInstanceInitFunc) &ClassDefinition<name, Extension, Impl, IFaces...>::instance_init,
+                                       (GTypeFlags) 0/*flags*/);
+    { /* custom code follows */
+      //#define G_IMPLEMENT_INTERFACE(TYPE_IFACE, iface_init)
+      add_interface_iter<__Dummy, IFaces...>(g_define_type_id);
+      //#define G_ADD_PRIVATE(TypeName)
+      private_offset =
+        g_type_add_instance_private (g_define_type_id, sizeof (Impl));
+    }
+    g_once_init_leave (&g_define_type_id__volatile, g_define_type_id);
+  }
+  return g_define_type_id__volatile;
+}
+
+
+class ImplBase {
+public:
+  void* operator new(size_t s, void* mem) { return mem; };
 protected:
-  ::GObject* gobject;
-
+  GObject* g_object;
 public:
-  ObjectImpl(::GObject* o, ::GObjectClass* klass) : gobject(o) { 
-    g_object_set_cxx_object (gobject, Key, this);
-    initialize(klass);
-  };
-
-  ~ObjectImpl() { };
-
-  virtual void initialize(GObjectClass* klass);
-  virtual void finalize();
-  virtual void dispose();
-  virtual void set_property(guint         property_id,
-                             const GValue *value,
-                             GParamSpec   *pspec);
-  virtual void get_property(guint       property_id,
-                             GValue     *value,
-                             GParamSpec *pspec);
+  ImplBase(GObject* obj) : g_object(obj) { };
+  virtual ~ImplBase() {};
+  template<typename Class, typename Impl>
+  static void class_init(Class* klass) {
+  }
+  template<typename IFace>
+  IFace* cast() { return IFace::cast(g_object); }
 };
 
-};
 
+
+};
 #endif
