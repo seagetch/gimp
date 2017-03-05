@@ -68,6 +68,8 @@ void     pixel_region_init          (PixelRegion         *PR,
                                      gint                 w,
                                      gint                 h,
                                      gboolean             dirty);
+void     pixel_region_duplicate     (PixelRegion         *PR,
+                                     PixelRegion         *src);
 void     pixel_region_init_temp_buf (PixelRegion         *PR,
                                      TempBuf             *temp_buf,
                                      gint                 x,

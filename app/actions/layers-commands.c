@@ -33,6 +33,7 @@
 #include "core/gimp.h"
 #include "core/gimpcontext.h"
 #include "core/gimpgrouplayer.h"
+#include "core/gimpfilterlayer.h"
 #include "core/gimpimage.h"
 #include "core/gimpimage-merge.h"
 #include "core/gimpimage-undo.h"
@@ -375,6 +376,22 @@ layers_new_group_cmd_callback (GtkAction *action,
   return_if_no_image (image, data);
 
   layer = gimp_group_layer_new (image);
+
+  gimp_image_add_layer (image, layer,
+                        GIMP_IMAGE_ACTIVE_PARENT, -1, TRUE);
+
+  gimp_image_flush (image);
+}
+
+void
+layers_new_filter_cmd_callback (GtkAction *action,
+                                gpointer   data)
+{
+  GimpImage *image;
+  GimpLayer *layer;
+  return_if_no_image (image, data);
+
+  layer = gimp_filter_layer_new (image);
 
   gimp_image_add_layer (image, layer,
                         GIMP_IMAGE_ACTIVE_PARENT, -1, TRUE);

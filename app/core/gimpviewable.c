@@ -50,6 +50,7 @@ enum
 {
   INVALIDATE_PREVIEW,
   SIZE_CHANGED,
+  PARENT_CHANGED,
   LAST_SIGNAL
 };
 
@@ -113,6 +114,8 @@ static gboolean gimp_viewable_serialize_property     (GimpConfig    *config,
                                                       const GValue  *value,
                                                       GParamSpec    *pspec,
                                                       GimpConfigWriter *writer);
+static void     gimp_viewable_real_parent_changed    (GimpViewable  *viewable,
+                                                      GimpViewable  *parent);
 
 
 G_DEFINE_TYPE_WITH_CODE (GimpViewable, gimp_viewable, GIMP_TYPE_OBJECT,
@@ -147,6 +150,15 @@ gimp_viewable_class_init (GimpViewableClass *klass)
                   NULL, NULL,
                   gimp_marshal_VOID__VOID,
                   G_TYPE_NONE, 0);
+
+  viewable_signals[PARENT_CHANGED] =
+    g_signal_new ("parent-changed",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_FIRST,
+                  G_STRUCT_OFFSET (GimpViewableClass, parent_changed),
+                  NULL, NULL,
+                  gimp_marshal_VOID__OBJECT,
+                  G_TYPE_NONE, 1, GIMP_TYPE_OBJECT);
 
   object_class->finalize         = gimp_viewable_finalize;
   object_class->get_property     = gimp_viewable_get_property;
@@ -1168,7 +1180,10 @@ gimp_viewable_set_parent (GimpViewable *viewable,
   g_return_if_fail (GIMP_IS_VIEWABLE (viewable));
   g_return_if_fail (parent == NULL || GIMP_IS_VIEWABLE (parent));
 
-  GET_PRIVATE (viewable)->parent = parent;
+  if (GET_PRIVATE(viewable)->parent != parent) {
+    GET_PRIVATE (viewable)->parent = parent;
+    g_signal_emit (viewable, viewable_signals[PARENT_CHANGED], 0, parent);
+  }
 }
 
 GimpContainer *
@@ -1218,4 +1233,10 @@ gimp_viewable_is_ancestor (GimpViewable *ancestor,
     }
 
   return FALSE;
+}
+
+static void
+gimp_viewable_real_parent_changed    (GimpViewable  *viewable,
+                                      GimpViewable  *parent)
+{
 }

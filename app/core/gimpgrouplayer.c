@@ -166,6 +166,7 @@ static void            gimp_group_layer_stack_update (GimpDrawableStack *stack,
                                                       gint               y,
                                                       gint               width,
                                                       gint               height,
+                                                      GimpItem          *item,
                                                       GimpGroupLayer    *group);
 static void            gimp_group_layer_proj_update  (GimpProjection    *proj,
                                                       gboolean           now,
@@ -1150,6 +1151,7 @@ gimp_group_layer_stack_update (GimpDrawableStack *stack,
                                gint               y,
                                gint               width,
                                gint               height,
+                               GimpItem          *item,
                                GimpGroupLayer    *group)
 {
 #if 0

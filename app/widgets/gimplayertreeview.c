@@ -386,6 +386,11 @@ gimp_layer_tree_view_constructed (GObject *object)
                                   GIMP_TYPE_LAYER);
   gtk_box_reorder_child (gimp_editor_get_button_box (GIMP_EDITOR (layer_view)),
                          button, 6);
+
+  button = gimp_editor_add_action_button (GIMP_EDITOR (layer_view), "layers",
+                                          "layers-new-filter", NULL);
+  gtk_box_reorder_child (gimp_editor_get_button_box (GIMP_EDITOR (layer_view)),
+                         button, 3);
 }
 
 static void

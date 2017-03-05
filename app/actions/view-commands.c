@@ -32,6 +32,7 @@
 #include "core/gimpcontext.h"
 #include "core/gimpimage.h"
 #include "core/gimpgrouplayer.h"
+#include "core/gimpfilterlayer.h"
 #include "core/gimpprojection.h"
 
 #include "widgets/gimpactiongroup.h"
@@ -704,7 +705,7 @@ view_use_gegl_cmd_callback (GtkAction *action,
 
   gimp_image_invalidate (image, 0, 0,
                          gimp_image_get_width  (image),
-                         gimp_image_get_height (image));
+                         gimp_image_get_height (image), NULL);
   gimp_image_flush (image);
 }
 

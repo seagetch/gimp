@@ -1193,7 +1193,7 @@ gimp_image_real_colormap_changed (GimpImage *image,
       gimp_image_invalidate (image,
                              0, 0,
                              gimp_image_get_width  (image),
-                             gimp_image_get_height (image));
+                             gimp_image_get_height (image), NULL);
 
       gimp_item_stack_invalidate_previews (GIMP_ITEM_STACK (private->layers->container));
     }
@@ -2245,7 +2245,8 @@ gimp_image_set_component_visible (GimpImage       *image,
       gimp_image_invalidate (image,
                              0, 0,
                              gimp_image_get_width  (image),
-                             gimp_image_get_height (image));
+                             gimp_image_get_height (image),
+                             NULL);
     }
 }
 
@@ -2305,7 +2306,8 @@ gimp_image_invalidate (GimpImage *image,
                        gint       x,
                        gint       y,
                        gint       width,
-                       gint       height)
+                       gint       height,
+                       GimpItem *item)
 {
   g_return_if_fail (GIMP_IS_IMAGE (image));
 

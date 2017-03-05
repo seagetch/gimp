@@ -404,7 +404,11 @@ libappcore_a_sources = \
 	gimpviewable.h				\
 	gimpmypaintbrush-private.hpp		\
 	gimpmypaintbrush-save.cpp		\
-	gimpmypaintbrush-save.h	
+	gimpmypaintbrush-save.h				\
+	gimpfilterlayer.h				\
+	gimpfilterlayer.cpp				\
+	gimpfilterlayerundo.h				\
+	gimpfilterlayerundo.cpp
 
 libappcore_a_built_sources = \
 	core-enums.c	\

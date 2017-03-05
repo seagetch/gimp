@@ -265,7 +265,8 @@ void            gimp_image_invalidate            (GimpImage          *image,
                                                   gint                x,
                                                   gint                y,
                                                   gint                width,
-                                                  gint                height);
+                                                  gint                height,
+                                                  GimpItem           *item);
 void            gimp_image_guide_added           (GimpImage          *image,
                                                   GimpGuide          *guide);
 void            gimp_image_guide_removed         (GimpImage          *image,

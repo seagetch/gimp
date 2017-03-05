@@ -280,7 +280,8 @@ gimp_image_crop (GimpImage   *image,
       gimp_image_invalidate (image,
                              0, 0,
                              gimp_image_get_width  (image),
-                             gimp_image_get_height (image));
+                             gimp_image_get_height (image),
+                             active_layer_only? gimp_image_get_active_layer (image): NULL);
 
       gimp_image_size_changed_detailed (image,
                                         -x1,

@@ -58,7 +58,8 @@ static void   gimp_drawable_stack_update           (GimpDrawableStack *stack,
                                                     gint               x,
                                                     gint               y,
                                                     gint               width,
-                                                    gint               height);
+                                                    gint               height,
+                                                    GimpItem          *item);
 static void   gimp_drawable_stack_drawable_update  (GimpItem          *item,
                                                     gint               x,
                                                     gint               y,
@@ -88,12 +89,13 @@ gimp_drawable_stack_class_init (GimpDrawableStackClass *klass)
                   G_SIGNAL_RUN_FIRST,
                   G_STRUCT_OFFSET (GimpDrawableStackClass, update),
                   NULL, NULL,
-                  gimp_marshal_VOID__INT_INT_INT_INT,
-                  G_TYPE_NONE, 4,
+                  gimp_marshal_VOID__INT_INT_INT_INT_OBJECT,
+                  G_TYPE_NONE, 5,
                   G_TYPE_INT,
                   G_TYPE_INT,
                   G_TYPE_INT,
-                  G_TYPE_INT);
+                  G_TYPE_INT,
+                  G_TYPE_OBJECT);
 
   object_class->constructed = gimp_drawable_stack_constructed;
   object_class->finalize    = gimp_drawable_stack_finalize;
@@ -360,10 +362,11 @@ gimp_drawable_stack_update (GimpDrawableStack *stack,
                             gint               x,
                             gint               y,
                             gint               width,
-                            gint               height)
+                            gint               height,
+                            GimpItem          *item)
 {
   g_signal_emit (stack, stack_signals[UPDATE], 0,
-                 x, y, width, height);
+                 x, y, width, height, item);
 }
 
 static void
@@ -383,7 +386,7 @@ gimp_drawable_stack_drawable_update (GimpItem          *item,
 
       gimp_drawable_stack_update (stack,
                                   x + offset_x, y + offset_y,
-                                  width, height);
+                                  width, height, item);
     }
 }
 
@@ -399,5 +402,6 @@ gimp_drawable_stack_drawable_visible (GimpItem          *item,
   gimp_drawable_stack_update (stack,
                               offset_x, offset_y,
                               gimp_item_get_width  (item),
-                              gimp_item_get_height (item));
+                              gimp_item_get_height (item),
+                              item);
 }

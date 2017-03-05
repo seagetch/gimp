@@ -85,6 +85,36 @@ pixel_region_init (PixelRegion *PR,
   PR->loop_h        = h;
 }
 
+/**
+ * pixel_region_duplicate:
+ * @PR:    Pointer to PixelRegion struct, typically allocated on the
+ *         stack
+ * @src:    Pointer to PixelRegion struct, which is to be copied.
+ *
+ * Duplicate specified pixel region.
+ **/
+void
+pixel_region_duplicate (PixelRegion *PR,
+                        PixelRegion *src)
+{
+  PR->data          = src->data;
+  PR->tiles         = src->tiles;
+  PR->curtile       = src->curtile;
+  PR->offx          = src->offx;
+  PR->offy          = src->offy;
+  PR->bytes         = src->bytes;
+  PR->rowstride     = src->rowstride;
+  PR->x             = src->x;
+  PR->y             = src->y;
+  PR->w             = src->w;
+  PR->h             = src->h;
+  PR->dirty         = src->dirty;
+  PR->process_count = src->process_count;
+  PR->closed_loop   = src->closed_loop;
+  PR->loop_w        = src->loop_w;
+  PR->loop_h        = src->loop_h;
+}
+
 void
 pixel_region_init_temp_buf (PixelRegion *PR,
                             TempBuf     *temp_buf,

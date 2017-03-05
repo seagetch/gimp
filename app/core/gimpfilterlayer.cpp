@@ -1,7 +1,7 @@
 /* GIMP - The GNU Image Manipulation Program
  * Copyright (C) 1995 Spencer Kimball and Peter Mattis
  *
- * GimpGroupLayer
+ * GimpFilterLayer
  * Copyright (C) 2009  Michael Natterer <mitch@gimp.org>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -29,194 +29,286 @@ extern "C" {
 #include "libgimpmath/gimpmath.h"
 
 #include "core-types.h"
+#include "core-enums.h"
 
+#include "base/tile.h"
 #include "base/tile-manager.h"
+#include "base/pixel-region.h"
 
-#include "gimpgrouplayer.h"
+#include "gimp.h"
+#include "pdb/gimppdb.h"
+
 #include "gimpimage.h"
-#include "gimpimage-undo-push.h"
+#include "gimpimage-undo.h"
 #include "gimpdrawable-private.h" /* eek */
 #include "gimpdrawablestack.h"
 #include "gimppickable.h"
 #include "gimpprojectable.h"
 #include "gimpprojection.h"
+#include "gimpcontext.h"
+#include "gimpprogress.h"
 
 #include "gimp-intl.h"
-#include "gimpfilterlayer.h"
+#include "gimplayer.h"
+#include "gimplayermask.h"
+
+#include "gegl/gimp-gegl-utils.h"
+#include "paint-funcs/paint-funcs.h"
+
+#include "pdb/gimppdb.h"
+#include "pdb/gimpprocedure.h"
+#include "core/gimpparamspecs.h"
+#include "plug-in/gimptemporaryprocedure.h"
 }
 
-typedef struct _GimpGroupLayerPrivate GimpGroupLayerPrivate;
+#include "gimpfilterlayer.h"
+#include "gimpfilterlayerundo.h"
+#include "base/delegators.hpp"
+#include "base/glib-cxx-utils.hpp"
+#include "base/glib-cxx-impl.hpp"
 
-struct _GimpGroupLayerPrivate
+
+namespace GtkCXX {
+typedef Traits<GimpLayer, GimpLayerClass, gimp_layer_get_type> ParentTraits;
+typedef ClassHolder<ParentTraits, GimpFilterLayer, GimpFilterLayerClass> ClassDef;
+
+struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterface
 {
   GimpContainer  *children;
   GimpProjection *projection;
+  TileManager    *projected_tiles;
+  bool            projected_tiles_updated;
+  gdouble         filter_progress;
+  bool            filter_active;
+
   GeglNode       *graph;
   GeglNode       *offset_node;
-  gint            suspend_resize;
+  gint            suspend_resize_;
   gboolean        expanded;
 
   /*  hackish temp states to make the projection/tiles stuff work  */
   gboolean        reallocate_projection;
   gint            reallocate_width;
   gint            reallocate_height;
+
+  struct Rectangle {
+    gint x, y;
+    gint width, height;
+    Rectangle(gint x_, gint y_, gint w_, gint h_) : x(x_), y(y_), width(w_), height(h_) {};
+  };
+  GList*          updates;
+
+  Delegator::Connection* child_update_conn;
+  Delegator::Connection* parent_changed_conn;
+
+  FilterLayer(GObject* o) : ImplBase(o) {}
+  virtual ~FilterLayer();
+
+  static void class_init(ClassDef::Class* klass);
+  template<typename IFaceClass>
+  static void iface_init(IFaceClass* klass);
+
+  // Inherited methods
+  virtual void            init         ();
+  virtual void            finalize     ();
+  virtual void            constructed  ();
+  virtual void            set_property (guint            property_id,
+                                        const GValue    *value,
+                                        GParamSpec      *pspec);
+  virtual void            get_property (guint            property_id,
+                                        GValue          *value,
+                                        GParamSpec      *pspec);
+
+  virtual gint64          get_memsize  (gint64          *gui_size);
+
+  virtual gboolean        get_size     (gint            *width,
+                                        gint            *height);
+  virtual GimpContainer * get_children ();
+  virtual gboolean        get_expanded ();
+  virtual void            set_expanded (gboolean         expanded);
+
+  virtual GimpItem      * duplicate    (GType            new_type);
+  virtual void            convert      (GimpImage       *dest_image);
+  virtual void            translate    (gint             offset_x,
+                                        gint             offset_y,
+                                        gboolean         push_undo);
+  virtual void            scale        (gint             new_width,
+                                        gint             new_height,
+                                        gint             new_offset_x,
+                                        gint             new_offset_y,
+                                        GimpInterpolationType  interp_type,
+                                        GimpProgress    *progress);
+  virtual void            resize       (GimpContext     *context,
+                                        gint             new_width,
+                                        gint             new_height,
+                                        gint             offset_x,
+                                        gint             offset_y);
+  virtual void            flip         (GimpContext     *context,
+                                        GimpOrientationType flip_type,
+                                        gdouble          axis,
+                                        gboolean         clip_result);
+  virtual void            rotate       (GimpContext     *context,
+                                        GimpRotationType rotate_type,
+                                        gdouble          center_x,
+                                        gdouble          center_y,
+                                        gboolean         clip_result);
+  virtual void            transform    (GimpContext     *context,
+                                        const GimpMatrix3 *matrix,
+                                        GimpTransformDirection direction,
+                                        GimpInterpolationType  interpolation_type,
+                                        gint             recursion_level,
+                                        GimpTransformResize clip_result,
+                                        GimpProgress    *progress);
+
+  virtual gint64      estimate_memsize (gint             width,
+                                        gint             height);
+  virtual void            convert_type (GimpImage         *dest_image,
+                                        GimpImageBaseType  new_base_type,
+                                        gboolean           push_undo);
+
+  virtual GeglNode      * get_node    ();
+  virtual GeglNode      * get_graph    ();
+  virtual GList         * get_layers   ();
+  virtual void         project_region (gint          x,
+                                       gint          y,
+                                       gint          width,
+                                       gint          height,
+                                       PixelRegion  *projPR,
+                                       gboolean      combine);
+  virtual gint         get_opacity_at (gint             x,
+                                       gint             y);
+
+  virtual void            update       ();
+  virtual void            update_size  ();
+
+  // For GimpProgress Interface
+  virtual GimpProgress*   start        (const gchar* message,
+                                        gboolean     cancelable);
+  virtual void            end          ();
+  virtual gboolean        is_active    ();
+  virtual void            set_text     (const gchar* message);
+  virtual void            set_value    (gdouble      percentage);
+  virtual gdouble         get_value    ();
+  virtual void            pulse        ();
+  virtual gboolean        message      (Gimp*                gimp,
+                                        GimpMessageSeverity severity,
+                                        const gchar*        domain,
+                                        const gchar*       message);
+
+  // Event handlers
+  virtual void            on_parent_changed (GimpViewable  *viewable,
+                                             GimpViewable  *parent);
+
+  virtual void            on_stack_update (GimpDrawableStack *stack,
+                                           gint               x,
+                                           gint               y,
+                                           gint               width,
+                                           gint               height,
+                                           GimpItem          *item);
+  virtual void            on_proj_update  (GimpProjection    *proj,
+                                           gboolean           now,
+                                           gint               x,
+                                           gint               y,
+                                           gint               width,
+                                           gint               height);
+  // Public interfaces
+  virtual GimpProjection * get_projection ();
+  virtual void             suspend_resize (gboolean        push_undo);
+  virtual void             resume_resize  (gboolean        push_undo);
+
+private:
+  void                    sync_mode_node ();
 };
 
-#define GET_PRIVATE(item) G_TYPE_INSTANCE_GET_PRIVATE (item, \
-                                                       GIMP_TYPE_GROUP_LAYER, \
-                                                       GimpGroupLayerPrivate)
 
+extern const char gimp_filter_layer_name[] = "GimpFilterLayer";
+typedef ClassDefinition<gimp_filter_layer_name,
+                        ClassDef,
+                        FilterLayer,
+//                        Traits<GimpProjectable, GimpProjectableInterface, gimp_projectable_interface_get_type>,
+                        Traits<GimpProgress, GimpProgressInterface, gimp_progress_interface_get_type>,
+                        Traits<GimpPickable, GimpPickableInterface, gimp_pickable_interface_get_type> >
+                        Class;
 
-static void            gimp_projectable_iface_init   (GimpProjectableInterface  *iface);
-static void            gimp_pickable_iface_init      (GimpPickableInterface     *iface);
-
-static void            gimp_group_layer_finalize     (GObject         *object);
-static void            gimp_group_layer_set_property (GObject         *object,
-                                                      guint            property_id,
-                                                      const GValue    *value,
-                                                      GParamSpec      *pspec);
-static void            gimp_group_layer_get_property (GObject         *object,
-                                                      guint            property_id,
-                                                      GValue          *value,
-                                                      GParamSpec      *pspec);
-
-static gint64          gimp_group_layer_get_memsize  (GimpObject      *object,
-                                                      gint64          *gui_size);
-
-static gboolean        gimp_group_layer_get_size     (GimpViewable    *viewable,
-                                                      gint            *width,
-                                                      gint            *height);
-static GimpContainer * gimp_group_layer_get_children (GimpViewable    *viewable);
-static gboolean        gimp_group_layer_get_expanded (GimpViewable    *viewable);
-static void            gimp_group_layer_set_expanded (GimpViewable    *viewable,
-                                                      gboolean         expanded);
-
-static GimpItem      * gimp_group_layer_duplicate    (GimpItem        *item,
-                                                      GType            new_type);
-static void            gimp_group_layer_convert      (GimpItem        *item,
-                                                      GimpImage       *dest_image);
-static void            gimp_group_layer_translate    (GimpItem        *item,
-                                                      gint             offset_x,
-                                                      gint             offset_y,
-                                                      gboolean         push_undo);
-static void            gimp_group_layer_scale        (GimpItem        *item,
-                                                      gint             new_width,
-                                                      gint             new_height,
-                                                      gint             new_offset_x,
-                                                      gint             new_offset_y,
-                                                      GimpInterpolationType  interp_type,
-                                                      GimpProgress    *progress);
-static void            gimp_group_layer_resize       (GimpItem        *item,
-                                                      GimpContext     *context,
-                                                      gint             new_width,
-                                                      gint             new_height,
-                                                      gint             offset_x,
-                                                      gint             offset_y);
-static void            gimp_group_layer_flip         (GimpItem        *item,
-                                                      GimpContext     *context,
-                                                      GimpOrientationType flip_type,
-                                                      gdouble          axis,
-                                                      gboolean         clip_result);
-static void            gimp_group_layer_rotate       (GimpItem        *item,
-                                                      GimpContext     *context,
-                                                      GimpRotationType rotate_type,
-                                                      gdouble          center_x,
-                                                      gdouble          center_y,
-                                                      gboolean         clip_result);
-static void            gimp_group_layer_transform    (GimpItem        *item,
-                                                      GimpContext     *context,
-                                                      const GimpMatrix3 *matrix,
-                                                      GimpTransformDirection direction,
-                                                      GimpInterpolationType  interpolation_type,
-                                                      gint             recursion_level,
-                                                      GimpTransformResize clip_result,
-                                                      GimpProgress    *progress);
-
-static gint64      gimp_group_layer_estimate_memsize (const GimpDrawable *drawable,
-                                                      gint             width,
-                                                      gint             height);
-static void            gimp_group_layer_convert_type (GimpDrawable      *drawable,
-                                                      GimpImage         *dest_image,
-                                                      GimpImageBaseType  new_base_type,
-                                                      gboolean           push_undo);
-
-static GeglNode      * gimp_group_layer_get_graph    (GimpProjectable *projectable);
-static GList         * gimp_group_layer_get_layers   (GimpProjectable *projectable);
-static gint            gimp_group_layer_get_opacity_at
-                                                     (GimpPickable    *pickable,
-                                                      gint             x,
-                                                      gint             y);
-
-
-static void            gimp_group_layer_child_add    (GimpContainer   *container,
-                                                      GimpLayer       *child,
-                                                      GimpGroupLayer  *group);
-static void            gimp_group_layer_child_remove (GimpContainer   *container,
-                                                      GimpLayer       *child,
-                                                      GimpGroupLayer  *group);
-static void            gimp_group_layer_child_move   (GimpLayer       *child,
-                                                      GParamSpec      *pspec,
-                                                      GimpGroupLayer  *group);
-static void            gimp_group_layer_child_resize (GimpLayer       *child,
-                                                      GimpGroupLayer  *group);
-
-static void            gimp_group_layer_update       (GimpGroupLayer  *group);
-static void            gimp_group_layer_update_size  (GimpGroupLayer  *group);
-
-static void            gimp_group_layer_stack_update (GimpDrawableStack *stack,
-                                                      gint               x,
-                                                      gint               y,
-                                                      gint               width,
-                                                      gint               height,
-                                                      GimpGroupLayer    *group);
-static void            gimp_group_layer_proj_update  (GimpProjection    *proj,
-                                                      gboolean           now,
-                                                      gint               x,
-                                                      gint               y,
-                                                      gint               width,
-                                                      gint               height,
-                                                      GimpGroupLayer    *group);
-
-
-G_DEFINE_TYPE_WITH_CODE (GimpGroupLayer, gimp_group_layer, GIMP_TYPE_LAYER,
-                         G_IMPLEMENT_INTERFACE (GIMP_TYPE_PROJECTABLE,
-                                                gimp_projectable_iface_init)
-                         G_IMPLEMENT_INTERFACE (GIMP_TYPE_PICKABLE,
-                                                gimp_pickable_iface_init))
-
-
-#define parent_class gimp_group_layer_parent_class
-
-
-static void
-gimp_group_layer_class_init (GimpGroupLayerClass *klass)
+static GimpUndo *
+gimp_image_undo_push_filter_layer_suspend (GimpImage      *image,
+                                           const gchar    *undo_desc,
+                                           GimpFilterLayer *group)
 {
+  g_return_val_if_fail (GIMP_IS_IMAGE (image), NULL);
+  g_return_val_if_fail (Class::Traits::is_instance(group), NULL);
+  g_return_val_if_fail (gimp_item_is_attached (GIMP_ITEM (group)), NULL);
+
+  return gimp_image_undo_push (image, FilterLayerUndoTraits::get_type(),
+                               GIMP_UNDO_GROUP_LAYER_SUSPEND, undo_desc,
+                               GimpDirtyMask(GIMP_DIRTY_ITEM | GIMP_DIRTY_DRAWABLE),
+                               "item",  group,
+                               NULL);
+}
+
+static GimpUndo *
+gimp_image_undo_push_filter_layer_resume (GimpImage      *image,
+                                         const gchar    *undo_desc,
+                                         GimpFilterLayer *group)
+{
+  g_return_val_if_fail (GIMP_IS_IMAGE (image), NULL);
+  g_return_val_if_fail (Class::Traits::is_instance(group), NULL);
+  g_return_val_if_fail (gimp_item_is_attached (GIMP_ITEM (group)), NULL);
+
+  return gimp_image_undo_push (image, FilterLayerUndoTraits::get_type(),
+                               GIMP_UNDO_GROUP_LAYER_RESUME, undo_desc,
+                               GimpDirtyMask(GIMP_DIRTY_ITEM | GIMP_DIRTY_DRAWABLE),
+                               "item",  group,
+                               NULL);
+}
+
+static GimpUndo *
+gimp_image_undo_push_filter_layer_convert (GimpImage      *image,
+                                          const gchar    *undo_desc,
+                                          GimpFilterLayer *group)
+{
+  g_return_val_if_fail (GIMP_IS_IMAGE (image), NULL);
+  g_return_val_if_fail (Class::Traits::is_instance(group), NULL);
+  g_return_val_if_fail (gimp_item_is_attached (GIMP_ITEM (group)), NULL);
+
+  return gimp_image_undo_push (image, FilterLayerUndoTraits::get_type(),
+                               GIMP_UNDO_GROUP_LAYER_CONVERT, undo_desc,
+                               GimpDirtyMask(GIMP_DIRTY_ITEM | GIMP_DIRTY_DRAWABLE),
+                               "item", group,
+                               NULL);
+}
+
+void FilterLayer::class_init(ClassDef::Class *klass)
+{
+  typedef FilterLayer Impl;
+  g_print("FilterLayer::class_init\n");
   GObjectClass      *object_class      = G_OBJECT_CLASS (klass);
   GimpObjectClass   *gimp_object_class = GIMP_OBJECT_CLASS (klass);
   GimpViewableClass *viewable_class    = GIMP_VIEWABLE_CLASS (klass);
   GimpItemClass     *item_class        = GIMP_ITEM_CLASS (klass);
   GimpDrawableClass *drawable_class    = GIMP_DRAWABLE_CLASS (klass);
 
-  object_class->set_property       = gimp_group_layer_set_property;
-  object_class->get_property       = gimp_group_layer_get_property;
-  object_class->finalize           = gimp_group_layer_finalize;
-
-  gimp_object_class->get_memsize   = gimp_group_layer_get_memsize;
+  Class::__(&object_class->set_property    ).bind<&Impl::set_property>();
+  Class::__(&object_class->get_property    ).bind<&Impl::get_property>();
+  Class::__(&object_class->finalize        ).bind<&Impl::finalize>();
+  Class::__(&object_class->constructed     ).bind<&Impl::constructed>();
+  Class::__(&gimp_object_class->get_memsize).bind<&Impl::get_memsize>();
 
   viewable_class->default_stock_id = "gtk-directory";
-  viewable_class->get_size         = gimp_group_layer_get_size;
-  viewable_class->get_children     = gimp_group_layer_get_children;
-  viewable_class->set_expanded     = gimp_group_layer_set_expanded;
-  viewable_class->get_expanded     = gimp_group_layer_get_expanded;
+  Class::__(&viewable_class->get_size       ).bind<&Impl::get_size>();
+//  F::__(&viewable_class->get_children   ).bind<&Impl::get_children>();
+//  F::__(&viewable_class->set_expanded   ).bind<&Impl::set_expanded>();
+//  F::__(&viewable_class->get_expanded   ).bind<&Impl::get_expanded>();
 
-  item_class->duplicate            = gimp_group_layer_duplicate;
-  item_class->convert              = gimp_group_layer_convert;
-  item_class->translate            = gimp_group_layer_translate;
-  item_class->scale                = gimp_group_layer_scale;
-  item_class->resize               = gimp_group_layer_resize;
-  item_class->flip                 = gimp_group_layer_flip;
-  item_class->rotate               = gimp_group_layer_rotate;
-  item_class->transform            = gimp_group_layer_transform;
+  Class::__(&item_class->duplicate          ).bind<&Impl::duplicate>();
+  Class::__(&item_class->get_node           ).bind<&Impl::get_node>();
+//  F::__(&item_class->convert            ).bind<&Impl::convert>();
+//  F::__(&item_class->translate          ).bind<&Impl::translate>();
+//  F::__(&item_class->scale              ).bind<&Impl::scale>();
+//  F::__(&item_class->resize             ).bind<&Impl::resize>();
+//  F::__(&item_class->flip               ).bind<&Impl::flip>();
+//  F::__(&item_class->rotate             ).bind<&Impl::rotate>();
+//  F::__(&item_class->transform          ).bind<&Impl::transform>();
 
   item_class->default_name         = _("Layer Group");
   item_class->rename_desc          = C_("undo-type", "Rename Layer Group");
@@ -226,213 +318,198 @@ gimp_group_layer_class_init (GimpGroupLayerClass *klass)
   item_class->flip_desc            = C_("undo-type", "Flip Layer Group");
   item_class->rotate_desc          = C_("undo-type", "Rotate Layer Group");
   item_class->transform_desc       = C_("undo-type", "Transform Layer Group");
+  Class::__(&drawable_class->project_region  ).bind<&Impl::project_region>();
 
-  drawable_class->estimate_memsize = gimp_group_layer_estimate_memsize;
-  drawable_class->convert_type     = gimp_group_layer_convert_type;
+  Class::__(&drawable_class->estimate_memsize).bind<&Impl::estimate_memsize>();
+  Class::__(&drawable_class->convert_type    ).bind<&Impl::convert_type>();
 
-  g_type_class_add_private (klass, sizeof (GimpGroupLayerPrivate));
+  ImplBase::class_init<ClassDef::Class, FilterLayer>(klass);
 }
 
-static void
-gimp_projectable_iface_init (GimpProjectableInterface *iface)
+template<>
+void FilterLayer::iface_init<GimpPickableInterface>(GimpPickableInterface* iface)
 {
-  iface->get_image          = (GimpImage * (*) (GimpProjectable *)) gimp_item_get_image;
-  iface->get_image_type     = (GimpImageType (*) (GimpProjectable *)) gimp_drawable_type;
-  iface->get_offset         = (void (*) (GimpProjectable*, gint*, gint*)) gimp_item_get_offset;
-  iface->get_size           = (void (*) (GimpProjectable*, gint*, gint*)) gimp_viewable_get_size;
-  iface->get_graph          = gimp_group_layer_get_graph;
-  iface->invalidate_preview = (void (*) (GimpProjectable*)) gimp_viewable_invalidate_preview;
-  iface->get_layers         = gimp_group_layer_get_layers;
-  iface->get_channels       = NULL;
+  typedef FilterLayer Impl;
+  g_print("FilterLayer::iface_init<GimpPickableInterface>\n");
+  
+  Class::__(&iface->get_opacity_at).bind<&Impl::get_opacity_at>();
 }
 
-static void
-gimp_pickable_iface_init (GimpPickableInterface *iface)
+template<>
+void FilterLayer::iface_init<GimpProjectableInterface> (GimpProjectableInterface *iface)
 {
-  iface->get_opacity_at = gimp_group_layer_get_opacity_at;
+  typedef GtkCXX::FilterLayer Impl;
+  g_print("FilterLayer::iface_init<GimpProjectableInterface>\n");
+  
+  Class::__(&iface->get_image         ).bind(&gimp_item_get_image);
+  Class::__(&iface->get_image_type    ).bind(&gimp_drawable_type);
+  Class::__(&iface->get_offset        ).bind(&gimp_item_get_offset);
+  Class::__(&iface->get_size          ).bind(&gimp_viewable_get_size);
+  Class::__(&iface->invalidate_preview).bind(gimp_viewable_invalidate_preview);
+  Class::__(&iface->get_channels      ).clear();
+  //  Class::__(&iface->get_graph         ).bind<&Impl::get_graph>();
+  //  Class::__(&iface->get_layers        ).bind<&Impl::get_layers>();
 }
 
-static void
-gimp_group_layer_init (GimpGroupLayer *group)
+template<>
+void FilterLayer::iface_init<GimpProgressInterface>(GimpProgressInterface*iface)
 {
-  GimpGroupLayerPrivate *private = GET_PRIVATE (group);
-
-  private->children = gimp_drawable_stack_new (GIMP_TYPE_LAYER);
-  private->expanded = TRUE;
-
-  g_signal_connect (private->children, "add",
-                    G_CALLBACK (gimp_group_layer_child_add),
-                    group);
-  g_signal_connect (private->children, "remove",
-                    G_CALLBACK (gimp_group_layer_child_remove),
-                    group);
-
-  gimp_container_add_handler (private->children, "notify::offset-x",
-                              G_CALLBACK (gimp_group_layer_child_move),
-                              group);
-  gimp_container_add_handler (private->children, "notify::offset-y",
-                              G_CALLBACK (gimp_group_layer_child_move),
-                              group);
-  gimp_container_add_handler (private->children, "size-changed",
-                              G_CALLBACK (gimp_group_layer_child_resize),
-                              group);
-
-  g_signal_connect (private->children, "update",
-                    G_CALLBACK (gimp_group_layer_stack_update),
-                    group);
-
-  private->projection = gimp_projection_new (GIMP_PROJECTABLE (group));
-
-  g_signal_connect (private->projection, "update",
-                    G_CALLBACK (gimp_group_layer_proj_update),
-                    group);
+  typedef GtkCXX::FilterLayer Impl;
+  Class::__(&iface->start     ).bind<&Impl::start>();
+  Class::__(&iface->end       ).bind<&Impl::end>();
+  Class::__(&iface->is_active ).bind<&Impl::is_active>();
+  Class::__(&iface->set_text  ).bind<&Impl::set_text>();
+  Class::__(&iface->set_value ).bind<&Impl::set_value>();
+  Class::__(&iface->get_value ).bind<&Impl::get_value>();
+  Class::__(&iface->pulse     ).bind<&Impl::pulse>();
+  Class::__(&iface->message   ).bind<&Impl::message>();
 }
 
-static void
-gimp_group_layer_finalize (GObject *object)
+}; // namespace
+
+GtkCXX::FilterLayer::~FilterLayer()
 {
-  GimpGroupLayerPrivate *private = GET_PRIVATE (object);
-
-  if (private->children)
-    {
-      g_signal_handlers_disconnect_by_func (private->children,
-                                            gimp_group_layer_child_add,
-                                            object);
-      g_signal_handlers_disconnect_by_func (private->children,
-                                            gimp_group_layer_child_remove,
-                                            object);
-      g_signal_handlers_disconnect_by_func (private->children,
-                                            gimp_group_layer_stack_update,
-                                            object);
-
-      g_object_unref (private->children);
-      private->children = NULL;
-    }
-
-  if (private->projection)
-    {
-      g_object_unref (private->projection);
-      private->projection = NULL;
-    }
-
-  if (private->graph)
-    {
-      g_object_unref (private->graph);
-      private->graph = NULL;
-    }
-
-  G_OBJECT_CLASS (parent_class)->finalize (object);
 }
 
-static void
-gimp_group_layer_set_property (GObject      *object,
-                               guint         property_id,
-                               const GValue *value,
-                               GParamSpec   *pspec)
+void GtkCXX::FilterLayer::init ()
 {
-  switch (property_id)
-    {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-      break;
-    }
+  typedef Class F;
+#if 0
+  projection = gimp_projection_new (GIMP_PROJECTABLE (g_object));
+
+  g_signal_connect_delegator (G_OBJECT(projection), "update",
+                              Delegator::delegator(this, &GtkCXX::FilterLayer::on_proj_update));
+#endif
+  child_update_conn   = NULL;
+  parent_changed_conn = g_signal_connect_delegator (G_OBJECT(g_object), "parent-changed",
+                                                    Delegator::delegator(this, &GtkCXX::FilterLayer::on_parent_changed));
+  updates             = NULL;
+  projected_tiles     = NULL;
+  filter_progress     = 0;
+  filter_active       = false;
+  projected_tiles_updated = false;
 }
 
-static void
-gimp_group_layer_get_property (GObject    *object,
-                               guint       property_id,
-                               GValue     *value,
-                               GParamSpec *pspec)
+void GtkCXX::FilterLayer::constructed ()
+{
+  g_print("FilterLayer::constructed: project_tiles = %p\n", projected_tiles);
+  on_parent_changed(GIMP_VIEWABLE(g_object), NULL);
+}
+
+void GtkCXX::FilterLayer::finalize ()
+{
+  if (child_update_conn) {
+    delete child_update_conn;
+    child_update_conn = NULL;
+  }
+  if (projection) {
+    g_object_unref (projection);
+    projection = NULL;
+  }
+
+  if (graph) {
+    g_object_unref (graph);
+    graph = NULL;
+  }
+
+  if (projected_tiles) {
+    tile_manager_unref(projected_tiles);
+    projected_tiles = NULL;
+  }
+
+  G_OBJECT_CLASS (Class::parent_class)->finalize (g_object);
+}
+
+void GtkCXX::FilterLayer::set_property (guint         property_id,
+                                        const GValue *value,
+                                        GParamSpec   *pspec)
 {
   switch (property_id)
     {
     default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (g_object, property_id, pspec);
       break;
     }
 }
 
-static gint64
-gimp_group_layer_get_memsize (GimpObject *object,
-                              gint64     *gui_size)
+void GtkCXX::FilterLayer::get_property (guint       property_id,
+                                        GValue     *value,
+                                        GParamSpec *pspec)
 {
-  GimpGroupLayerPrivate *private = GET_PRIVATE (object);
+  switch (property_id)
+    {
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (g_object, property_id, pspec);
+      break;
+    }
+}
+
+gint64 GtkCXX::FilterLayer::get_memsize (gint64     *gui_size)
+{
   gint64                 memsize = 0;
 
-  memsize += gimp_object_get_memsize (GIMP_OBJECT (private->children), gui_size);
-  memsize += gimp_object_get_memsize (GIMP_OBJECT (private->projection), gui_size);
+  memsize += gimp_object_get_memsize (GIMP_OBJECT (children), gui_size);
+  memsize += gimp_object_get_memsize (GIMP_OBJECT (projection), gui_size);
 
-  return memsize + GIMP_OBJECT_CLASS (parent_class)->get_memsize (object,
+  return memsize + GIMP_OBJECT_CLASS (Class::parent_class)->get_memsize (GIMP_OBJECT(g_object),
                                                                   gui_size);
 }
 
-static gboolean
-gimp_group_layer_get_size (GimpViewable *viewable,
-                           gint         *width,
-                           gint         *height)
+gboolean GtkCXX::FilterLayer::get_size (gint         *width,
+                                        gint         *height)
 {
-  GimpGroupLayerPrivate *private = GET_PRIVATE (viewable);
-
-  if (private->reallocate_width  != 0 &&
-      private->reallocate_height != 0)
+  if (reallocate_width  != 0 &&
+      reallocate_height != 0)
     {
-      *width  = private->reallocate_width;
-      *height = private->reallocate_height;
+      *width  = reallocate_width;
+      *height = reallocate_height;
 
+      g_print("w,h=%d,%d",*width, *height);
       return TRUE;
     }
 
-  return GIMP_VIEWABLE_CLASS (parent_class)->get_size (viewable, width, height);
+  gboolean result = GIMP_VIEWABLE_CLASS (Class::parent_class)->get_size (GIMP_VIEWABLE(g_object), width, height);
+  g_print("inherited: w,h=%d,%d",*width, *height);
+  return result;
 }
 
-static GimpContainer *
-gimp_group_layer_get_children (GimpViewable *viewable)
+GimpContainer * GtkCXX::FilterLayer::get_children ()
 {
-  return GET_PRIVATE (viewable)->children;
+  return children;
 }
 
-static gboolean
-gimp_group_layer_get_expanded (GimpViewable *viewable)
+gboolean GtkCXX::FilterLayer::get_expanded ()
 {
-  GimpGroupLayer *group = GIMP_GROUP_LAYER (viewable);
-
-  return GET_PRIVATE (group)->expanded;
+  return expanded;
 }
 
-static void
-gimp_group_layer_set_expanded (GimpViewable *viewable,
-                               gboolean      expanded)
+void GtkCXX::FilterLayer::set_expanded (gboolean      expanded)
 {
-  GimpGroupLayer *group = GIMP_GROUP_LAYER (viewable);
-
-  GET_PRIVATE (group)->expanded = expanded;
+  this->expanded = expanded;
 }
 
-static GimpItem *
-gimp_group_layer_duplicate (GimpItem *item,
-                            GType     new_type)
+GimpItem* GtkCXX::FilterLayer::duplicate (GType     new_type)
 {
+  typedef Class F;
   GimpItem *new_item;
 
   g_return_val_if_fail (g_type_is_a (new_type, GIMP_TYPE_DRAWABLE), NULL);
 
-  new_item = GIMP_ITEM_CLASS (parent_class)->duplicate (item, new_type);
+  new_item = GIMP_ITEM_CLASS (Class::parent_class)->duplicate (GIMP_ITEM(g_object), new_type);
 
-  if (GIMP_IS_GROUP_LAYER (new_item))
+  if (GIMP_IS_FILTER_LAYER (new_item))
     {
-      GimpGroupLayerPrivate *private     = GET_PRIVATE (item);
-      GimpGroupLayer        *new_group   = GIMP_GROUP_LAYER (new_item);
-      GimpGroupLayerPrivate *new_private = GET_PRIVATE (new_item);
+      GtkCXX::FilterLayer *new_priv = F::get_private(new_item);
       gint                   position    = 0;
       GList                 *list;
 
-      gimp_group_layer_suspend_resize (new_group, FALSE);
+      new_priv->suspend_resize (FALSE);
 
-      for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
+      for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (children));
            list;
            list = g_list_next (list))
         {
-          GimpItem      *child = list->data;
+          GimpItem      *child = GIMP_ITEM(list->data);
           GimpItem      *new_child;
           GimpLayerMask *mask;
 
@@ -454,91 +531,80 @@ gimp_group_layer_duplicate (GimpItem *item,
             }
 
           gimp_viewable_set_parent (GIMP_VIEWABLE (new_child),
-                                    GIMP_VIEWABLE (new_group));
+                                    GIMP_VIEWABLE (new_item));
 
-          gimp_container_insert (new_private->children,
+          gimp_container_insert (new_priv->children,
                                  GIMP_OBJECT (new_child),
                                  position++);
         }
 
       /*  force the projection to reallocate itself  */
-      GET_PRIVATE (new_group)->reallocate_projection = TRUE;
+      new_priv->reallocate_projection = TRUE;
 
-      gimp_group_layer_resume_resize (new_group, FALSE);
+      new_priv->resume_resize (FALSE);
     }
 
   return new_item;
 }
 
-static void
-gimp_group_layer_convert (GimpItem  *item,
-                          GimpImage *dest_image)
+void GtkCXX::FilterLayer::convert (GimpImage *dest_image)
 {
-  GimpGroupLayerPrivate *private = GET_PRIVATE (item);
   GList                 *list;
-
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
+#if 0
+  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (children));
        list;
        list = g_list_next (list))
     {
-      GimpItem *child = list->data;
+      GimpItem *child = GIMP_ITEM(list->data);
 
       GIMP_ITEM_GET_CLASS (child)->convert (child, dest_image);
     }
-
-  GIMP_ITEM_CLASS (parent_class)->convert (item, dest_image);
+#endif
+  GIMP_ITEM_CLASS (Class::parent_class)->convert (GIMP_ITEM(g_object), dest_image);
 }
 
-static void
-gimp_group_layer_translate (GimpItem *item,
-                            gint      offset_x,
-                            gint      offset_y,
-                            gboolean  push_undo)
+void GtkCXX::FilterLayer::translate (gint      offset_x,
+                                     gint      offset_y,
+                                     gboolean  push_undo)
 {
-  GimpGroupLayer        *group   = GIMP_GROUP_LAYER (item);
-  GimpGroupLayerPrivate *private = GET_PRIVATE (item);
   GimpLayerMask         *mask;
   GList                 *list;
 
   /*  don't push an undo here because undo will call us again  */
-  gimp_group_layer_suspend_resize (group, FALSE);
-
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
+  suspend_resize (FALSE);
+#if 0
+  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (children));
        list;
        list = g_list_next (list))
     {
-      GimpItem *child = list->data;
+      GimpItem *child = GIMP_ITEM(list->data);
 
       gimp_item_translate (child, offset_x, offset_y, push_undo);
     }
 
-  mask = gimp_layer_get_mask (GIMP_LAYER (group));
+  mask = gimp_layer_get_mask (GIMP_LAYER (g_object));
 
   if (mask)
     {
       gint off_x, off_y;
 
-      gimp_item_get_offset (item, &off_x, &off_y);
+      gimp_item_get_offset (GIMP_ITEM(g_object), &off_x, &off_y);
       gimp_item_set_offset (GIMP_ITEM (mask), off_x, off_y);
 
       gimp_viewable_invalidate_preview (GIMP_VIEWABLE (mask));
     }
-
+#endif
   /*  don't push an undo here because undo will call us again  */
-  gimp_group_layer_resume_resize (group, FALSE);
+  resume_resize ( FALSE);
 }
 
-static void
-gimp_group_layer_scale (GimpItem              *item,
-                        gint                   new_width,
-                        gint                   new_height,
-                        gint                   new_offset_x,
-                        gint                   new_offset_y,
-                        GimpInterpolationType  interpolation_type,
-                        GimpProgress          *progress)
+void GtkCXX::FilterLayer::scale (gint                   new_width,
+                                 gint                   new_height,
+                                 gint                   new_offset_x,
+                                 gint                   new_offset_y,
+                                 GimpInterpolationType  interpolation_type,
+                                 GimpProgress          *progress)
 {
-  GimpGroupLayer        *group   = GIMP_GROUP_LAYER (item);
-  GimpGroupLayerPrivate *private = GET_PRIVATE (item);
   GimpLayerMask         *mask;
   GList                 *list;
   gdouble                width_factor;
@@ -546,19 +612,21 @@ gimp_group_layer_scale (GimpItem              *item,
   gint                   old_offset_x;
   gint                   old_offset_y;
 
+  GimpItem*              item = GIMP_ITEM(g_object);
+
   width_factor  = (gdouble) new_width  / (gdouble) gimp_item_get_width  (item);
   height_factor = (gdouble) new_height / (gdouble) gimp_item_get_height (item);
 
   old_offset_x = gimp_item_get_offset_x (item);
   old_offset_y = gimp_item_get_offset_y (item);
 
-  gimp_group_layer_suspend_resize (group, TRUE);
-
-  list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
+  suspend_resize ( TRUE);
+#if 0
+  list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (children));
 
   while (list)
     {
-      GimpItem *child = list->data;
+      GimpItem *child = GIMP_ITEM(list->data);
       gint      child_width;
       gint      child_height;
       gint      child_offset_x;
@@ -591,45 +659,42 @@ gimp_group_layer_scale (GimpItem              *item,
         }
       else
         {
-          gimp_container_remove (private->children, GIMP_OBJECT (child));
+          gimp_container_remove (children, GIMP_OBJECT (child));
         }
     }
 
-  mask = gimp_layer_get_mask (GIMP_LAYER (group));
+  mask = gimp_layer_get_mask (GIMP_LAYER (g_object));
 
   if (mask)
     gimp_item_scale (GIMP_ITEM (mask),
                      new_width, new_height,
                      new_offset_x, new_offset_y,
                      interpolation_type, progress);
-
-  gimp_group_layer_resume_resize (group, TRUE);
+#endif
+  resume_resize ( TRUE);
 }
 
-static void
-gimp_group_layer_resize (GimpItem    *item,
-                         GimpContext *context,
-                         gint         new_width,
-                         gint         new_height,
-                         gint         offset_x,
-                         gint         offset_y)
+void GtkCXX::FilterLayer::resize (GimpContext *context,
+                                  gint         new_width,
+                                  gint         new_height,
+                                  gint         offset_x,
+                                  gint         offset_y)
 {
-  GimpGroupLayer        *group   = GIMP_GROUP_LAYER (item);
-  GimpGroupLayerPrivate *private = GET_PRIVATE (item);
   GimpLayerMask         *mask;
   GList                 *list;
   gint                   x, y;
 
+  GimpItem*              item = GIMP_ITEM(g_object);
   x = gimp_item_get_offset_x (item) - offset_x;
   y = gimp_item_get_offset_y (item) - offset_y;
 
-  gimp_group_layer_suspend_resize (group, TRUE);
-
-  list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
+  suspend_resize ( TRUE);
+#if 0
+  list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (children));
 
   while (list)
     {
-      GimpItem *child = list->data;
+      GimpItem *child = GIMP_ITEM(list->data);
       gint      child_width;
       gint      child_height;
       gint      child_x;
@@ -665,197 +730,119 @@ gimp_group_layer_resize (GimpItem    *item,
         }
       else
         {
-          gimp_container_remove (private->children, GIMP_OBJECT (child));
+          gimp_container_remove (children, GIMP_OBJECT (child));
         }
     }
 
-  mask = gimp_layer_get_mask (GIMP_LAYER (group));
+  mask = gimp_layer_get_mask (GIMP_LAYER (g_object));
 
   if (mask)
     gimp_item_resize (GIMP_ITEM (mask), context,
                       new_width, new_height, offset_x, offset_y);
-
-  gimp_group_layer_resume_resize (group, TRUE);
+#endif
+  resume_resize ( TRUE);
 }
 
-static void
-gimp_group_layer_flip (GimpItem            *item,
-                       GimpContext         *context,
-                       GimpOrientationType  flip_type,
-                       gdouble              axis,
-                       gboolean             clip_result)
+void GtkCXX::FilterLayer::flip (GimpContext         *context,
+                                GimpOrientationType  flip_type,
+                                gdouble              axis,
+                                gboolean             clip_result)
 {
-  GimpGroupLayer        *group   = GIMP_GROUP_LAYER (item);
-  GimpGroupLayerPrivate *private = GET_PRIVATE (item);
   GimpLayerMask         *mask;
   GList                 *list;
 
-  gimp_group_layer_suspend_resize (group, TRUE);
-
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
+  suspend_resize ( TRUE);
+#if 0
+  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (children));
        list;
        list = g_list_next (list))
     {
-      GimpItem *child = list->data;
+      GimpItem *child = GIMP_ITEM(list->data);
 
       gimp_item_flip (child, context,
                       flip_type, axis, clip_result);
     }
 
-  mask = gimp_layer_get_mask (GIMP_LAYER (group));
+  mask = gimp_layer_get_mask (GIMP_LAYER (g_object));
 
   if (mask)
     gimp_item_flip (GIMP_ITEM (mask), context,
                     flip_type, axis, clip_result);
-
-  gimp_group_layer_resume_resize (group, TRUE);
+#endif
+  resume_resize ( TRUE);
 }
 
-static void
-gimp_group_layer_rotate (GimpItem         *item,
-                         GimpContext      *context,
-                         GimpRotationType  rotate_type,
-                         gdouble           center_x,
-                         gdouble           center_y,
-                         gboolean          clip_result)
+void GtkCXX::FilterLayer::rotate (GimpContext      *context,
+                                  GimpRotationType  rotate_type,
+                                  gdouble           center_x,
+                                  gdouble           center_y,
+                                  gboolean          clip_result)
 {
-  GimpGroupLayer        *group   = GIMP_GROUP_LAYER (item);
-  GimpGroupLayerPrivate *private = GET_PRIVATE (item);
   GimpLayerMask         *mask;
   GList                 *list;
 
-  gimp_group_layer_suspend_resize (group, TRUE);
-
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
-       list;
-       list = g_list_next (list))
-    {
-      GimpItem *child = list->data;
-
-      gimp_item_rotate (child, context,
-                        rotate_type, center_x, center_y, clip_result);
-    }
-
-  mask = gimp_layer_get_mask (GIMP_LAYER (group));
-
-  if (mask)
-    gimp_item_rotate (GIMP_ITEM (mask), context,
-                      rotate_type, center_x, center_y, clip_result);
-
-  gimp_group_layer_resume_resize (group, TRUE);
+  suspend_resize ( TRUE);
+  resume_resize ( TRUE);
 }
 
-static void
-gimp_group_layer_transform (GimpItem               *item,
-                            GimpContext            *context,
-                            const GimpMatrix3      *matrix,
-                            GimpTransformDirection  direction,
-                            GimpInterpolationType   interpolation_type,
-                            gint                    recursion_level,
-                            GimpTransformResize     clip_result,
-                            GimpProgress           *progress)
+void GtkCXX::FilterLayer::transform (GimpContext            *context,
+                                     const GimpMatrix3      *matrix,
+                                     GimpTransformDirection  direction,
+                                     GimpInterpolationType   interpolation_type,
+                                     gint                    recursion_level,
+                                     GimpTransformResize     clip_result,
+                                     GimpProgress           *progress)
 {
-  GimpGroupLayer        *group   = GIMP_GROUP_LAYER (item);
-  GimpGroupLayerPrivate *private = GET_PRIVATE (item);
   GimpLayerMask         *mask;
   GList                 *list;
 
-  gimp_group_layer_suspend_resize (group, TRUE);
-
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
-       list;
-       list = g_list_next (list))
-    {
-      GimpItem *child = list->data;
-
-      gimp_item_transform (child, context,
-                           matrix, direction,
-                           interpolation_type, recursion_level,
-                           clip_result, progress);
-    }
-
-  mask = gimp_layer_get_mask (GIMP_LAYER (group));
-
-  if (mask)
-    gimp_item_transform (GIMP_ITEM (mask), context,
-                         matrix, direction,
-                         interpolation_type, recursion_level,
-                         clip_result, progress);
-
-  gimp_group_layer_resume_resize (group, TRUE);
+  suspend_resize ( TRUE);
+  resume_resize ( TRUE);
 }
 
-static gint64
-gimp_group_layer_estimate_memsize (const GimpDrawable *drawable,
-                                   gint                width,
-                                   gint                height)
+gint64 GtkCXX::FilterLayer::estimate_memsize (gint                width,
+                                              gint                height)
 {
-  GimpGroupLayerPrivate *private = GET_PRIVATE (drawable);
   GList                 *list;
   GimpImageBaseType      base_type;
   gint64                 memsize = 0;
-
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
-       list;
-       list = g_list_next (list))
-    {
-      GimpDrawable *child = list->data;
-      gint          child_width;
-      gint          child_height;
-
-      child_width  = (gimp_item_get_width (GIMP_ITEM (child)) *
-                      width /
-                      gimp_item_get_width (GIMP_ITEM (drawable)));
-      child_height = (gimp_item_get_height (GIMP_ITEM (child)) *
-                      height /
-                      gimp_item_get_height (GIMP_ITEM (drawable)));
-
-      memsize += gimp_drawable_estimate_memsize (child,
-                                                 child_width,
-                                                 child_height);
-    }
-
-  base_type = GIMP_IMAGE_TYPE_BASE_TYPE (gimp_drawable_type (drawable));
+  base_type = (GimpImageBaseType)(GIMP_IMAGE_TYPE_BASE_TYPE (gimp_drawable_type (GIMP_DRAWABLE(g_object))));
 
   memsize += gimp_projection_estimate_memsize (base_type, width, height);
 
-  return memsize + GIMP_DRAWABLE_CLASS (parent_class)->estimate_memsize (drawable,
+  return memsize + GIMP_DRAWABLE_CLASS (Class::parent_class)->estimate_memsize (GIMP_DRAWABLE(g_object),
                                                                          width,
                                                                          height);
 }
 
-static void
-gimp_group_layer_convert_type (GimpDrawable      *drawable,
-                               GimpImage         *dest_image,
-                               GimpImageBaseType  new_base_type,
-                               gboolean           push_undo)
+void GtkCXX::FilterLayer::convert_type (GimpImage         *dest_image,
+                                        GimpImageBaseType  new_base_type,
+                                        gboolean           push_undo)
 {
-  GimpGroupLayer        *group   = GIMP_GROUP_LAYER (drawable);
-  GimpGroupLayerPrivate *private = GET_PRIVATE (drawable);
   TileManager           *tiles;
   GimpImageType          new_type;
+  GimpDrawable*          drawable = GIMP_DRAWABLE(g_object);
 
   if (push_undo)
     {
-      GimpImage *image = gimp_item_get_image (GIMP_ITEM (group));
-
-      gimp_image_undo_push_group_layer_convert (image, NULL, group);
+      GimpImage *image = gimp_item_get_image (GIMP_ITEM (g_object));
+      gimp_image_undo_push_filter_layer_convert (image, NULL, Class::Traits::cast(g_object));
     }
 
-  new_type = GIMP_IMAGE_TYPE_FROM_BASE_TYPE (new_base_type);
+  new_type = (GimpImageType)(GIMP_IMAGE_TYPE_FROM_BASE_TYPE (new_base_type));
 
   if (gimp_drawable_has_alpha (drawable))
-    new_type = GIMP_IMAGE_TYPE_WITH_ALPHA (new_type);
+    new_type = (GimpImageType)(GIMP_IMAGE_TYPE_WITH_ALPHA (new_type));
 
   /*  FIXME: find a better way to do this: need to set the drawable's
    *  type to the new values so the projection will create its tiles
    *  with the right depth
    */
-  drawable->private->type = new_type;
+  GIMP_DRAWABLE(g_object)->private_->type = new_type;
 
-  gimp_projectable_structure_changed (GIMP_PROJECTABLE (drawable));
+  gimp_projectable_structure_changed (GIMP_PROJECTABLE (g_object));
 
-  tiles = gimp_projection_get_tiles_at_level (private->projection,
+  tiles = gimp_projection_get_tiles_at_level (projection,
                                               0, NULL);
 
   gimp_drawable_set_tiles_full (drawable,
@@ -865,192 +852,450 @@ gimp_group_layer_convert_type (GimpDrawable      *drawable,
                                 gimp_item_get_offset_y (GIMP_ITEM (drawable)));
 }
 
-static GeglNode *
-gimp_group_layer_get_graph (GimpProjectable *projectable)
+GeglNode* GtkCXX::FilterLayer::get_node ()
 {
-  GimpGroupLayer        *group   = GIMP_GROUP_LAYER (projectable);
-  GimpGroupLayerPrivate *private = GET_PRIVATE (projectable);
+  GimpDrawable *drawable = GIMP_DRAWABLE (g_object);
+  GimpLayer    *layer    = GIMP_LAYER (g_object);
+  GeglNode     *node;
+  GeglNode     *offset_node;
+  GeglNode     *filter_node;
+  GeglNode     *input;
+  GeglNode     *mode_node;
+
+  g_print("FilterLayer::get_node\n");
+
+  node = GIMP_ITEM_CLASS (Class::parent_class)->get_node (GIMP_ITEM(g_object));
+  input = gegl_node_get_input_proxy (node, "input");
+
+  gegl_node_connect_to (layer->opacity_node, "output",
+                        offset_node,         "input");
+
+  g_warn_if_fail (layer->opacity_node == NULL);
+
+  layer->opacity_node = gegl_node_new_child (node,
+                                             "operation", "gegl:opacity",
+                                             "value",     layer->opacity,
+                                             NULL);
+  if (layer->mask) {
+      GeglNode *mask;
+
+      mask = gimp_drawable_get_source_node (GIMP_DRAWABLE (layer->mask));
+
+      gegl_node_connect_to (mask,                "output",
+                            layer->opacity_node, "aux");
+  }
+
+  offset_node = gimp_item_get_offset_node (GIMP_ITEM (layer));
+
+  gegl_node_connect_to (layer->opacity_node, "output",
+                        offset_node,         "input");
+
+  filter_node = gegl_node_new_child (node,
+                                     "operation", "gegl:gray",
+                                     NULL);
+  gegl_node_connect_to (offset_node, "output",
+                        filter_node, "input");
+
+  sync_mode_node();
+
+  mode_node = gimp_drawable_get_mode_node (drawable);
+
+  gegl_node_connect_to (filter_node, "output",
+                        mode_node,   "aux");
+
+  gchar* dump = gegl_node_to_xml(node, "");
+  g_print("Node=%s\n", dump);
+  return node;
+}
+
+void GtkCXX::FilterLayer::sync_mode_node()
+{
+  GimpLayer* layer = GIMP_LAYER(g_object);
+  if (layer->opacity_node) {
+    GeglNode *mode_node;
+
+    mode_node = gimp_drawable_get_mode_node (GIMP_DRAWABLE (layer));
+
+    switch (layer->mode) {
+      case GIMP_DISSOLVE_MODE:
+      case GIMP_BEHIND_MODE:
+      case GIMP_MULTIPLY_MODE:
+      case GIMP_SCREEN_MODE:
+      case GIMP_OVERLAY_MODE:
+      case GIMP_DIFFERENCE_MODE:
+      case GIMP_ADDITION_MODE:
+      case GIMP_SUBTRACT_MODE:
+      case GIMP_DARKEN_ONLY_MODE:
+      case GIMP_LIGHTEN_ONLY_MODE:
+      case GIMP_HUE_MODE:
+      case GIMP_SATURATION_MODE:
+      case GIMP_COLOR_MODE:
+      case GIMP_VALUE_MODE:
+      case GIMP_DIVIDE_MODE:
+      case GIMP_DODGE_MODE:
+      case GIMP_BURN_MODE:
+      case GIMP_HARDLIGHT_MODE:
+      case GIMP_SOFTLIGHT_MODE:
+      case GIMP_GRAIN_EXTRACT_MODE:
+      case GIMP_GRAIN_MERGE_MODE:
+      case GIMP_COLOR_ERASE_MODE:
+      case GIMP_ERASE_MODE:
+      case GIMP_REPLACE_MODE:
+      case GIMP_ANTI_ERASE_MODE:
+      case GIMP_SRC_IN_MODE:
+      case GIMP_DST_IN_MODE:
+      case GIMP_SRC_OUT_MODE:
+      case GIMP_DST_OUT_MODE:
+        gegl_node_set (mode_node,
+                       "operation",  "gimp:point-layer-mode",
+                       "blend-mode", layer->mode,
+                       NULL);
+        break;
+
+    default:
+      gegl_node_set (mode_node,
+                     "operation",
+                     gimp_layer_mode_to_gegl_operation (layer->mode),
+                     NULL);
+      break;
+    }
+  }
+}
+
+GeglNode* GtkCXX::FilterLayer::get_graph ()
+{
   GeglNode              *layers_node;
   GeglNode              *output;
   gint                   off_x;
   gint                   off_y;
 
-  if (private->graph)
-    return private->graph;
+  g_print("FilterLayer::get_graph\n");
 
-  private->graph = gegl_node_new ();
+  if (graph)
+    return graph;
+
+  graph = gegl_node_new ();
 
   layers_node =
-    gimp_drawable_stack_get_graph (GIMP_DRAWABLE_STACK (private->children));
+    gimp_drawable_stack_get_graph (GIMP_DRAWABLE_STACK (children));
 
-  gegl_node_add_child (private->graph, layers_node);
+  gegl_node_add_child (graph, layers_node);
 
-  gimp_item_get_offset (GIMP_ITEM (group), &off_x, &off_y);
+  gimp_item_get_offset (GIMP_ITEM (g_object), &off_x, &off_y);
 
-  private->offset_node = gegl_node_new_child (private->graph,
+  offset_node = gegl_node_new_child (graph,
                                               "operation", "gegl:translate",
                                               "x",         (gdouble) -off_x,
                                               "y",         (gdouble) -off_y,
                                               NULL);
 
   gegl_node_connect_to (layers_node,          "output",
-                        private->offset_node, "input");
+                        offset_node, "input");
 
-  output = gegl_node_get_output_proxy (private->graph, "output");
+  output = gegl_node_get_output_proxy (graph, "output");
 
-  gegl_node_connect_to (private->offset_node, "output",
+  gegl_node_connect_to (offset_node, "output",
                         output,               "input");
 
-  return private->graph;
+  return graph;
 }
 
-static GList *
-gimp_group_layer_get_layers (GimpProjectable *projectable)
+
+void GtkCXX::FilterLayer::project_region (gint          x,
+                                          gint          y,
+                                          gint          width,
+                                          gint          height,
+                                          PixelRegion  *projPR,
+                                          gboolean      combine)
 {
-  GimpGroupLayerPrivate *private = GET_PRIVATE (projectable);
+  GimpDrawable  *drawable = GIMP_DRAWABLE(g_object);
+  GimpLayer     *layer    = GIMP_LAYER (drawable);
+  GimpLayerMask *mask     = gimp_layer_get_mask (layer);
+  const gchar*   name     = gimp_object_get_name(GIMP_OBJECT(layer));
+  gint w = gimp_item_get_width(GIMP_ITEM(drawable));
+  gint h = gimp_item_get_height(GIMP_ITEM(drawable));
 
-  return gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
+//  g_print("FilterLayer::project_region:%s: (x: %d, y: %d)+(w: %d, h: %d) / (W: %d, H: %d)\n", name, x, y, width, height, w, h);
+  // copy region to tile
+  for (GList* list = updates; list; ) {
+    GList* next = g_list_next(list);
+    auto rect = (Rectangle*)list->data;
+//    g_print("  compare: %d,%d +(%d,%d) : %d\n", rect->x, rect->y, rect->width, rect->height, rect->get_refcount());
+    if (x                      <= rect->x &&
+        y                      <= rect->y &&
+        rect->x + rect->width  <= x + width &&
+        rect->y + rect->height <= y + height) {
+      projected_tiles_updated = true;
+
+      if (!projected_tiles) {
+        /*  Allocate the new tiles  */
+        GimpItem*      item     = GIMP_ITEM(g_object);
+        GimpImageType  new_type = gimp_drawable_type_with_alpha (GIMP_DRAWABLE(g_object));
+        projected_tiles         = tile_manager_new (gimp_item_get_width  (item),
+                                                    gimp_item_get_height (item),
+                                                    GIMP_IMAGE_TYPE_BYTES (new_type));
+      }
+      PixelRegion tilePR;
+      PixelRegion read_proj_PR;
+      pixel_region_init (&tilePR,       projected_tiles,
+                         rect->x, rect->y, rect->width, rect->height, TRUE);
+      pixel_region_init (&read_proj_PR, projPR->tiles,
+                         rect->x, rect->y, rect->width, rect->height, FALSE);
+      copy_region_nocow(&read_proj_PR, &tilePR);
+
+      updates = g_list_delete_link (updates, list);
+      delete rect;
+    }
+    list = next;
+  }
+  if (projected_tiles_updated) {
+    if (!updates && !filter_active) {
+      GimpImage*   image   = gimp_item_get_image(GIMP_ITEM(drawable));
+      TileManager* tiles   = gimp_drawable_get_tiles(drawable);
+      gint         image_width, image_height;
+      PixelRegion  srcPR, destPR;
+
+      image_width  = gimp_item_get_width (GIMP_ITEM(g_object));
+      image_height = gimp_item_get_height(GIMP_ITEM(g_object));
+      pixel_region_init (&destPR, tiles          , 0, 0, image_width, image_height, TRUE);
+      pixel_region_init (&srcPR , projected_tiles, 0, 0, image_width, image_height, FALSE);
+      copy_region_nocow(&srcPR, &destPR);
+
+      gimp_viewable_invalidate_preview (GIMP_VIEWABLE (drawable));
+
+      // apply filter to tile
+      Gimp*          gimp    = image->gimp;
+      GimpPDB*       pdb     = gimp->pdb;
+      GimpContext*   context = gimp_get_user_context(gimp);
+      GError*        error   = NULL;
+      GimpProcedure* proc    = gimp_pdb_lookup_procedure(pdb, "plug-in-edge");
+      GValueArray*   args    = gimp_procedure_get_arguments (proc);
+      GimpObject*    display = GIMP_OBJECT(gimp_context_get_display(context));
+      gint           n_args  = 0;
+
+      if (GIMP_IS_TEMPORARY_PROCEDURE (proc))
+      g_print("FilterLayer::project_region: progress =%p\n", GIMP_TEMPORARY_PROCEDURE (proc)->plug_in);
+
+      g_value_set_int      (&args->values[n_args++], GIMP_RUN_NONINTERACTIVE);  // run-mode
+      gimp_value_set_image (&args->values[n_args++], image);                    // image
+      gimp_value_set_item  (&args->values[n_args++], GIMP_ITEM(g_object));      // drawable
+      g_value_set_int      (&args->values[n_args++], 2);                        // amount
+      g_value_set_int      (&args->values[n_args++], 2); //wrapmode=  { WRAP (1), SMEAR (2), BLACK (3) }
+      g_value_set_int      (&args->values[n_args++], 0); //edgemode = { SOBEL (0), PREWITT (1), GRADIENT (2), ROBERTS (3), DIFFERENTIAL (4), LAPLACE (5) }
+      gimp_procedure_execute_async (proc, gimp, context,
+                                    GIMP_PROGRESS(g_object), // progress
+                                    args, // args
+                                    display, // display
+                                    NULL); //GError        **error);
+      //  gimp_pdb_execute_procedure_by_name (pdb, context, NULL, &error,
+      //                                      "plug-in-gauss",
+      //                                      G_TYPE_
+      //                                      ...);
+        //run-mode{interactive=0,noninteractive=1}, image, drawable, horizontal, vertical, method (IIR=0, RLE=1)
+
+      filter_active           = true;
+      projected_tiles_updated = false;
+    }
+  } else {
+    g_print ("FilterLayer::project_region:  not updated %d, %d +(%d, %d)\n", x, y, width, height);
+  }
+
+  if (mask && gimp_layer_mask_get_show (mask))
+    {
+      /*  If we're showing the layer mask instead of the layer...  */
+
+      PixelRegion  srcPR;
+      TileManager *temp_tiles;
+
+      gimp_drawable_init_src_region (GIMP_DRAWABLE (mask), &srcPR,
+                                     x, y, width, height,
+                                     &temp_tiles);
+
+      copy_gray_to_region (&srcPR, projPR);
+
+      if (temp_tiles)
+        tile_manager_unref (temp_tiles);
+    }
+  else
+    {
+      /*  Otherwise, normal  */
+
+      GimpImage       *image = gimp_item_get_image (GIMP_ITEM (layer));
+      PixelRegion      srcPR;
+      PixelRegion      maskPR;
+      PixelRegion     *mask_pr          = NULL;
+      const guchar    *colormap         = NULL;
+      TileManager     *temp_mask_tiles  = NULL;
+      TileManager     *temp_layer_tiles = NULL;
+      InitialMode      initial_mode;
+      CombinationMode  combination_mode;
+      gboolean         visible[MAX_CHANNELS];
+
+      if (filter_active || projected_tiles_updated) {
+//        pixel_region_init (&srcPR , projected_tiles, x, y, width, height, FALSE);
+        return;
+      } else {
+        gimp_drawable_init_src_region (drawable, &srcPR,
+                                       x, y, width, height,
+                                       &temp_layer_tiles);
+      }
+
+      if (mask && gimp_layer_mask_get_apply (mask))
+        {
+          gimp_drawable_init_src_region (GIMP_DRAWABLE (mask), &maskPR,
+                                         x, y, width, height,
+                                         &temp_mask_tiles);
+          mask_pr = &maskPR;
+        }
+
+      /*  Based on the type of the layer, project the layer onto the
+       *  projection image...
+       */
+      switch (gimp_drawable_type (drawable))
+        {
+        case GIMP_RGB_IMAGE:
+        case GIMP_GRAY_IMAGE:
+          initial_mode     = INITIAL_INTENSITY;
+          combination_mode = COMBINE_INTEN_A_INTEN;
+          break;
+
+        case GIMP_RGBA_IMAGE:
+        case GIMP_GRAYA_IMAGE:
+          initial_mode     = INITIAL_INTENSITY_ALPHA;
+          combination_mode = COMBINE_INTEN_A_INTEN_A;
+          break;
+
+        case GIMP_INDEXED_IMAGE:
+          colormap         = gimp_drawable_get_colormap (drawable),
+          initial_mode     = INITIAL_INDEXED;
+          combination_mode = COMBINE_INTEN_A_INDEXED;
+          break;
+
+        case GIMP_INDEXEDA_IMAGE:
+          colormap         = gimp_drawable_get_colormap (drawable),
+          initial_mode     = INITIAL_INDEXED_ALPHA;
+          combination_mode = COMBINE_INTEN_A_INDEXED_A;
+         break;
+
+        default:
+          g_assert_not_reached ();
+          break;
+        }
+
+      gimp_image_get_visible_array (image, visible);
+
+      if (combine)
+        {
+          combine_regions (projPR, &srcPR, projPR, mask_pr,
+                           colormap,
+                           gimp_layer_get_opacity (layer) * 255.999,
+                           gimp_layer_get_mode (layer),
+                           visible,
+                           combination_mode);
+        }
+      else
+        {
+          initial_region (&srcPR, projPR, mask_pr,
+                          colormap,
+                          gimp_layer_get_opacity (layer) * 255.999,
+                          gimp_layer_get_mode (layer),
+                          visible,
+                          initial_mode);
+        }
+
+      if (temp_layer_tiles)
+        tile_manager_unref (temp_layer_tiles);
+
+      if (temp_mask_tiles)
+        tile_manager_unref (temp_mask_tiles);
+    }
 }
 
-static gint
-gimp_group_layer_get_opacity_at (GimpPickable *pickable,
-                                 gint          x,
-                                 gint          y)
+GList* GtkCXX::FilterLayer::get_layers ()
+{
+#if 0
+  return gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (children));
+#endif
+  return NULL;
+}
+
+gint GtkCXX::FilterLayer::get_opacity_at (gint          x,
+                                          gint          y)
 {
   /* Only consider child layers as having content */
   return 0;
 }
 
-
-/*  public functions  */
-
-GimpLayer *
-gimp_group_layer_new (GimpImage *image)
-{
-  GimpGroupLayer *group;
-  GimpImageType   type;
-
-  g_return_val_if_fail (GIMP_IS_IMAGE (image), NULL);
-
-  type = gimp_image_base_type_with_alpha (image);
-
-  group = GIMP_GROUP_LAYER (gimp_drawable_new (GIMP_TYPE_GROUP_LAYER,
-                                               image, NULL,
-                                               0, 0, 1, 1,
-                                               type));
-
-  if (gimp_image_get_projection (image)->use_gegl)
-    GET_PRIVATE (group)->projection->use_gegl = TRUE;
-
-  return GIMP_LAYER (group);
+GimpProjection * GtkCXX::FilterLayer::get_projection () {
+  return projection;
 }
 
-GimpProjection *
-gimp_group_layer_get_projection (GimpGroupLayer *group)
-{
-  g_return_val_if_fail (GIMP_IS_GROUP_LAYER (group), NULL);
-
-  return GET_PRIVATE (group)->projection;
-}
-
-void
-gimp_group_layer_suspend_resize (GimpGroupLayer *group,
-                                 gboolean        push_undo)
-{
+void GtkCXX::FilterLayer::suspend_resize (gboolean        push_undo) {
   GimpItem *item;
 
-  g_return_if_fail (GIMP_IS_GROUP_LAYER (group));
-
-  item = GIMP_ITEM (group);
+  item = GIMP_ITEM (g_object);
 
   if (! gimp_item_is_attached (item))
     push_undo = FALSE;
 
   if (push_undo)
-    gimp_image_undo_push_group_layer_suspend (gimp_item_get_image (item),
-                                              NULL, group);
-
-  GET_PRIVATE (group)->suspend_resize++;
+    gimp_image_undo_push_filter_layer_suspend (gimp_item_get_image (item),
+                                              NULL, Class::Traits::cast(g_object));
+  
+  suspend_resize_++;
 }
 
-void
-gimp_group_layer_resume_resize (GimpGroupLayer *group,
-                                gboolean        push_undo)
-{
-  GimpGroupLayerPrivate *private;
+void GtkCXX::FilterLayer::resume_resize (gboolean        push_undo) {
   GimpItem              *item;
+  g_return_if_fail (suspend_resize_ > 0);
 
-  g_return_if_fail (GIMP_IS_GROUP_LAYER (group));
-
-  private = GET_PRIVATE (group);
-
-  g_return_if_fail (private->suspend_resize > 0);
-
-  item = GIMP_ITEM (group);
+  item = GIMP_ITEM (g_object);
 
   if (! gimp_item_is_attached (item))
     push_undo = FALSE;
-
   if (push_undo)
-    gimp_image_undo_push_group_layer_resume (gimp_item_get_image (item),
-                                             NULL, group);
+    gimp_image_undo_push_filter_layer_resume (gimp_item_get_image (item),
+                                             NULL, Class::Traits::cast(g_object));
+  suspend_resize_--;
 
-  private->suspend_resize--;
-
-  if (private->suspend_resize == 0)
+  if (suspend_resize_ == 0)
     {
-      gimp_group_layer_update_size (group);
+      update_size ();
     }
 }
 
 
-/*  private functions  */
-
-static void
-gimp_group_layer_child_add (GimpContainer  *container,
-                            GimpLayer      *child,
-                            GimpGroupLayer *group)
+/*  priv functions  */
+void GtkCXX::FilterLayer::on_parent_changed (GimpViewable  *viewable,
+                                             GimpViewable  *parent)
 {
-  gimp_group_layer_update (group);
+  g_print("on_parent_changed: %p ==> parent=%s\n", viewable, parent? gimp_object_get_name(parent): NULL);
+  if (child_update_conn) {
+    delete child_update_conn;
+    child_update_conn = NULL;
+  }
+  if (parent) {
+    GimpContainer* children = gimp_viewable_get_children(parent);
+    child_update_conn =
+      g_signal_connect_delegator (G_OBJECT(children), "update",
+                                  Delegator::delegator(this, &GtkCXX::FilterLayer::on_stack_update));
+  } else {
+    GimpImage*   image   = gimp_item_get_image(GIMP_ITEM(g_object));
+    GimpContainer* container = gimp_image_get_layers(image);
+    child_update_conn =
+      g_signal_connect_delegator (G_OBJECT(container), "update",
+                                  Delegator::delegator(this, &GtkCXX::FilterLayer::on_stack_update));
+  }
 }
 
-static void
-gimp_group_layer_child_remove (GimpContainer  *container,
-                               GimpLayer      *child,
-                               GimpGroupLayer *group)
-{
-  gimp_group_layer_update (group);
+void GtkCXX::FilterLayer::update () {
+  if (suspend_resize_ == 0){
+    update_size ();
+  }
 }
 
-static void
-gimp_group_layer_child_move (GimpLayer      *child,
-                             GParamSpec     *pspec,
-                             GimpGroupLayer *group)
-{
-  gimp_group_layer_update (group);
-}
-
-static void
-gimp_group_layer_child_resize (GimpLayer      *child,
-                               GimpGroupLayer *group)
-{
-  gimp_group_layer_update (group);
-}
-
-static void
-gimp_group_layer_update (GimpGroupLayer *group)
-{
-  if (GET_PRIVATE (group)->suspend_resize == 0)
-    {
-      gimp_group_layer_update_size (group);
-    }
-}
-
-static void
-gimp_group_layer_update_size (GimpGroupLayer *group)
-{
-  GimpGroupLayerPrivate *private    = GET_PRIVATE (group);
-  GimpItem              *item       = GIMP_ITEM (group);
+void GtkCXX::FilterLayer::update_size () {
+  GimpItem              *item       = GIMP_ITEM (g_object);
   gint                   old_x      = gimp_item_get_offset_x (item);
   gint                   old_y      = gimp_item_get_offset_y (item);
   gint                   old_width  = gimp_item_get_width  (item);
@@ -1061,12 +1306,12 @@ gimp_group_layer_update_size (GimpGroupLayer *group)
   gint                   height     = 1;
   gboolean               first      = TRUE;
   GList                 *list;
-
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (private->children));
+#if 0
+  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (children));
        list;
        list = g_list_next (list))
     {
-      GimpItem *child = list->data;
+      GimpItem *child = GIMP_ITEM(list->data);
 
       if (first)
         {
@@ -1087,39 +1332,43 @@ gimp_group_layer_update_size (GimpGroupLayer *group)
                                 &x, &y, &width, &height);
         }
     }
+#endif
+  g_print ("%s (%s) %d, %d (%d, %d)\n",
+           G_STRFUNC, gimp_object_get_name (g_object),
+           x, y, width, height);
 
-  if (private->reallocate_projection ||
+  if (reallocate_projection ||
       x      != old_x                ||
       y      != old_y                ||
       width  != old_width            ||
       height != old_height)
     {
-      if (private->reallocate_projection ||
+      if (reallocate_projection ||
           width  != old_width            ||
           height != old_height)
         {
           TileManager *tiles;
 
-          private->reallocate_projection = FALSE;
+          reallocate_projection = FALSE;
 
           /*  temporarily change the return values of gimp_viewable_get_size()
            *  so the projection allocates itself correctly
            */
-          private->reallocate_width  = width;
-          private->reallocate_height = height;
+          reallocate_width  = width;
+          reallocate_height = height;
 
-          gimp_projectable_structure_changed (GIMP_PROJECTABLE (group));
+          gimp_projectable_structure_changed (GIMP_PROJECTABLE (g_object));
 
-          tiles = gimp_projection_get_tiles_at_level (private->projection,
+          tiles = gimp_projection_get_tiles_at_level (projection,
                                                       0, NULL);
 
-          private->reallocate_width  = 0;
-          private->reallocate_height = 0;
+          reallocate_width  = 0;
+          reallocate_height = 0;
 
-          gimp_drawable_set_tiles_full (GIMP_DRAWABLE (group),
+          gimp_drawable_set_tiles_full (GIMP_DRAWABLE (g_object),
                                         FALSE, NULL,
                                         tiles,
-                                        gimp_drawable_type (GIMP_DRAWABLE (group)),
+                                        gimp_drawable_type (GIMP_DRAWABLE (g_object)),
                                         x, y);
         }
       else
@@ -1131,70 +1380,205 @@ gimp_group_layer_update_size (GimpGroupLayer *group)
            *  in a way that happens to leave the group's width and
            *  height the same
            */
-          gimp_projectable_invalidate (GIMP_PROJECTABLE (group),
+          gimp_projectable_invalidate (GIMP_PROJECTABLE (g_object),
                                        x, y, width, height);
 
-          /*  see comment in gimp_group_layer_stack_update() below  */
-          gimp_pickable_flush (GIMP_PICKABLE (private->projection));
+          /*  see comment in gimp_filter_layer_stack_update() below  */
+          gimp_pickable_flush (GIMP_PICKABLE (projection));
         }
 
-      if (private->offset_node)
-        gegl_node_set (private->offset_node,
+      if (offset_node)
+        gegl_node_set (offset_node,
                        "x", (gdouble) -x,
                        "y", (gdouble) -y,
                        NULL);
     }
 }
 
-static void
-gimp_group_layer_stack_update (GimpDrawableStack *stack,
-                               gint               x,
-                               gint               y,
-                               gint               width,
-                               gint               height,
-                               GimpGroupLayer    *group)
+GimpProgress* GtkCXX::FilterLayer::start(const gchar* message,
+                                         gboolean     cancelable)
 {
-#if 0
-  g_printerr ("%s (%s) %d, %d (%d, %d)\n",
-              G_STRFUNC, gimp_object_get_name (group),
-              x, y, width, height);
-#endif
-
-  /*  the layer stack's update signal speaks in image coordinates,
-   *  pass to the projection as-is.
-   */
-  gimp_projectable_invalidate (GIMP_PROJECTABLE (group),
-                               x, y, width, height);
-
-  /*  flush the pickable not the projectable because flushing the
-   *  pickable will finish all invalidation on the projection so it
-   *  can be used as source (note that it will still be constructed
-   *  when the actual read happens, so this it not a performance
-   *  problem)
-   */
-  gimp_pickable_flush (GIMP_PICKABLE (GET_PRIVATE (group)->projection));
+  g_print("FilterLayer::start: %s\n", message);
+  filter_active = true;
+  return GIMP_PROGRESS(g_object);
 }
 
-static void
-gimp_group_layer_proj_update (GimpProjection *proj,
-                              gboolean        now,
-                              gint            x,
-                              gint            y,
-                              gint            width,
-                              gint            height,
-                              GimpGroupLayer *group)
+void GtkCXX::FilterLayer::end()
 {
-#if 0
-  g_printerr ("%s (%s) %d, %d (%d, %d)\n",
-              G_STRFUNC, gimp_object_get_name (group),
-              x, y, width, height);
-#endif
+  g_print("FilterLayer::end\n");
+  filter_active = false;
+  GimpItem* item   = GIMP_ITEM(g_object);
+  gint      width  = gimp_item_get_width(item);
+  gint      height = gimp_item_get_height(item);
+  gimp_drawable_update (GIMP_DRAWABLE (g_object),
+                        0, 0, width, height);
+  GimpImage*   image   = gimp_item_get_image(GIMP_ITEM(g_object));
+  gimp_image_flush (image);
+}
+
+gboolean GtkCXX::FilterLayer::is_active()
+{
+  return filter_active;
+}
+
+void GtkCXX::FilterLayer::set_text(const gchar* message)
+{
+  g_print("FilterLayer::set_text: %s\n", message);
+}
+
+void GtkCXX::FilterLayer::set_value(gdouble      percentage)
+{
+  g_print("FilterLayer::set_value: %lf\n", percentage);
+  filter_progress = percentage;
+}
+
+gdouble GtkCXX::FilterLayer::get_value()
+{
+  return filter_progress;
+}
+
+void GtkCXX::FilterLayer::pulse()
+{
+  g_print("FilterLayer::pulse\n");
+}
+
+gboolean GtkCXX::FilterLayer::message(Gimp*                gimp,
+                                      GimpMessageSeverity severity,
+                                      const gchar*        domain,
+                                      const gchar*       message)
+{
+  g_print("FilterLayer::message: %s / %s\n", domain, message);
+  return TRUE;
+}
+
+void GtkCXX::FilterLayer::on_stack_update (GimpDrawableStack *stack,
+                                           gint               x,
+                                           gint               y,
+                                           gint               width,
+                                           gint               height,
+                                           GimpItem          *item)
+{
+  if (projected_tiles && G_OBJECT(item) == g_object)
+    return;
+
+  GimpImage* image        = gimp_item_get_image(GIMP_ITEM(g_object));
+  gint       image_width  = gimp_image_get_width(image);
+  gint       image_height = gimp_image_get_height(image);
+  gint       x1           = x,
+             x2           = x + width,
+             y1           = y,
+             y2           = y + height;
+  x1 = (x1 / TILE_WIDTH ) * TILE_WIDTH;
+  y1 = (y1 / TILE_HEIGHT) * TILE_HEIGHT;
+  x2 = MIN(image_width,  ((x2 + TILE_WIDTH  - 1) / TILE_WIDTH ) * TILE_WIDTH );
+  y2 = MIN(image_height, ((y2 + TILE_HEIGHT - 1) / TILE_HEIGHT) * TILE_HEIGHT);
+
+  for (int x3 = x1; x3 < x2; x3 += TILE_WIDTH) {
+    for (int y3 = y1; y3 < y2; y3 += TILE_HEIGHT) {
+      gint w = MIN(TILE_WIDTH,  x2 - x3);
+      gint h = MIN(TILE_HEIGHT, y2 - y3);
+
+      bool found = false;
+      for (GList* list = updates; list; list = g_list_next(list)) {
+        auto rect = (Rectangle*)list->data;
+        if (rect->x == x3 && rect->y == y3 &&
+            rect->width == w && rect->height == h) {
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+//        g_print ("FilterLayer::on_stack_update ::::: added ==> %d, %d +(%d, %d)\n",
+//                 x3, y3, w, h);
+        updates = g_list_append(updates, new Rectangle(x3, y3, w, h));
+      }
+    }
+  }
+}
+
+void GtkCXX::FilterLayer::on_proj_update (GimpProjection *proj,
+                                          gboolean        now,
+                                          gint            x,
+                                          gint            y,
+                                          gint            width,
+                                          gint            height)
+{
+  g_print ("%s (%s) %d, %d (%d, %d)\n",
+           G_STRFUNC, gimp_object_get_name (g_object),
+           x, y, width, height);
 
   /*  the projection speaks in image coordinates, transform to layer
    *  coordinates when emitting our own update signal.
    */
-  gimp_drawable_update (GIMP_DRAWABLE (group),
-                        x - gimp_item_get_offset_x (GIMP_ITEM (group)),
-                        y - gimp_item_get_offset_y (GIMP_ITEM (group)),
+  gimp_drawable_update (GIMP_DRAWABLE (g_object),
+                        x - gimp_item_get_offset_x (GIMP_ITEM (g_object)),
+                        y - gimp_item_get_offset_y (GIMP_ITEM (g_object)),
                         width, height);
+}
+
+/*  public functions  */
+
+GimpLayer *
+FilterLayerInterface::new_instance (GimpImage *image)
+{
+  typedef GtkCXX::Class F;
+  GimpImageType   type;
+  GimpFilterLayer *group;
+
+  g_return_val_if_fail (GIMP_IS_IMAGE (image), NULL);
+
+  gint width  = gimp_image_get_width(image);
+  gint height = gimp_image_get_height(image);
+
+  type = gimp_image_base_type_with_alpha (image);
+
+  g_print("create instance type=%lx\n", GtkCXX::Class::Traits::get_type());
+  group = F::Traits::cast (gimp_drawable_new (GtkCXX::Class::Traits::get_type(),
+                                               image, NULL,
+                                               0, 0, width, height,
+                                               type));
+
+  g_print("new_instance::group=%p\n", group);
+
+  if (gimp_image_get_projection (image)->use_gegl)
+    F::get_private (group)->projection->use_gegl = TRUE;
+
+  return GIMP_LAYER (group);
+}
+
+FilterLayerInterface* FilterLayerInterface::cast(gpointer obj)
+{
+  typedef GtkCXX::Class F;
+  return dynamic_cast<FilterLayerInterface*>(F::get_private(obj));
+}
+
+bool FilterLayerInterface::is_instance(gpointer obj)
+{
+  return GtkCXX::Class::Traits::is_instance(obj);
+}
+
+GType gimp_filter_layer_get_type() {
+  return GtkCXX::Class::Traits::get_type();
+}
+
+GimpLayer      * gimp_filter_layer_new            (GimpImage      *image)
+{
+  return FilterLayerInterface::new_instance(image);
+}
+
+GimpProjection * gimp_filter_layer_get_projection (GimpFilterLayer *group)
+{
+  return FilterLayerInterface::cast(group)->get_projection();
+}
+
+void             gimp_filter_layer_suspend_resize (GimpFilterLayer *group,
+                                                  gboolean        push_undo)
+{
+  FilterLayerInterface::cast(group)->suspend_resize(push_undo);
+}
+void             gimp_filter_layer_resume_resize  (GimpFilterLayer *group,
+                                                  gboolean        push_undo)
+{
+  FilterLayerInterface::cast(group)->resume_resize(push_undo);
 }

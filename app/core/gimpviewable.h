@@ -60,6 +60,7 @@ struct _GimpViewableClass
   /*  signals  */
   void            (* invalidate_preview) (GimpViewable  *viewable);
   void            (* size_changed)       (GimpViewable  *viewable);
+  void            (* parent_changed)     (GimpViewable  *viewable, GimpViewable *parent);
 
   /*  virtual functions  */
   gboolean        (* get_size)           (GimpViewable  *viewable,
