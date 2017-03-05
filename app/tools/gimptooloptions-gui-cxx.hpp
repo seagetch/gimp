@@ -20,7 +20,7 @@
 
 #include "base/delegators.hpp"
 
-typedef Delegator::Delegator<void (*)(GObject*,GtkWidget**)> PopupCreateViewDelegator;
+typedef Delegator::Delegator<void, GObject*,GtkWidget**> PopupCreateViewDelegator;
 
 GtkWidget * gimp_tool_options_button_with_popup (GtkWidget                *label_widget,
                                                  PopupCreateViewDelegator* create_view);
