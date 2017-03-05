@@ -28,10 +28,10 @@ class GHashTableHolder : public ScopedPointer<GHashTable, void(GHashTable*), g_h
 public:
   GHashTableHolder(GHashTable* table) : ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>(table) {};
 
-  Data lookup(const Key data) {
-    return reinterpret_cast<Data>(g_hash_table_lookup(obj, (const gpointer)data));
+  const Data lookup(const Key key) const {
+    return (Data)(g_hash_table_lookup(obj, key));
   }
-  Data operator[](const Key data) {
+  const Data operator[](const Key data) const {
     return lookup(data);
   }
 };
@@ -155,9 +155,9 @@ public:
     g_object_set_property(object, prop_name, &value.ref());
   };
 
-  template<typename Function>
+  template<typename Ret, typename... Args>
   Delegator::Connection* connect(const gchar* event, 
-            Delegator::Delegator<Function>* delegator, 
+            Delegator::Delegator<Ret, Args...>* delegator, 
             bool after=false) 
   {
       return g_signal_connect_delegator (as_object(), event, delegator, after);
@@ -171,7 +171,7 @@ public:
 
 };
 
-template<class T>
+template<typename T>
 class GWrapper : public GObjectHolder<T>
 {
   typedef GObjectHolder<T> super;
@@ -183,6 +183,7 @@ public:
 
   operator GObject* () { return super::as_object(); };
   operator T* () { return super::ptr(); };
+  operator GTypeInstance* () { return reinterpret_cast<GTypeInstance*>(super::ptr()); }
   T* operator ->() { return super::ptr(); };
   operator bool() { return super::ptr(); };
 
@@ -192,6 +193,129 @@ public:
     super::obj = src;
     super::incref();
   };
+  
+  template<typename Ret, typename... Args>
+  class BoundMethodBase {
+  protected:
+    typedef Ret Method (T*o, Args...);
+    Method * method;
+    T* obj;
+  public:
+    BoundMethodBase(T* o, Method* m) : obj(o), method(m) {};
+    Ret call(Args... args) { return (*method)(obj, args...); };
+  };
 
+  template<typename Ret, typename... Args>
+  class BoundMethod : public BoundMethodBase<Ret, Args...> {
+    typedef Ret Method (T*o, Args...);
+  public:
+    BoundMethod(T* o, Method* m) : BoundMethodBase<Ret, Args...>(o, m) {};
+    Ret operator ()(Args... args) { return this->call(args...); };
+  };
+
+  template<typename Ret, typename... Args>
+  class BoundMethod<Ret*, Args...> : public BoundMethodBase<Ret*, Args...> {
+    typedef Ret* Method (T*o, Args...);
+  public:
+    BoundMethod(T* o, Method* m) : BoundMethodBase<Ret*, Args...>(o, m) {};
+    GWrapper<Ret> operator ()(Args... args) { return GWrapper<Ret>((*this->method)(this->obj, args...)); };
+  };
+
+  template<typename... Args>
+  class BoundMethod<void, Args...> : public BoundMethodBase<void, Args...> {
+    typedef void Method (T*o, Args...);
+  public:
+    BoundMethod(T* o, Method* m) : BoundMethodBase<void, Args...>(o, m) {};
+    void call(Args... args) { (*this->method)(this->obj, args...); };
+    void operator ()(Args... args) { call(args...); };
+  };
+  
+  template<typename Ret, typename... Args>
+  class ConstBoundMethodBase {
+  protected:
+    typedef Ret Method (const T*o, Args...);
+    Method * method;
+    const T* obj;
+  public:
+    ConstBoundMethodBase(const T* o, Method* m) : obj(o), method(m) {};
+    Ret call(Args... args) { return (*method)(obj, args...); };
+  };
+
+  template<typename Ret, typename... Args>
+  class ConstBoundMethod : public ConstBoundMethodBase<Ret, Args...> {
+    typedef Ret Method (const T*o, Args...);
+  public:
+    ConstBoundMethod(const T* o, Method* m) : ConstBoundMethodBase<Ret, Args...>(o, m) {};
+    Ret operator ()(Args... args) { return this->call(args...); };
+  };
+
+  template<typename Ret, typename... Args>
+  class ConstBoundMethod<Ret*, Args...> : public ConstBoundMethodBase<Ret*, Args...> {
+    typedef Ret* Method (const T*o, Args...);
+  public:
+    ConstBoundMethod(const T* o, Method* m) : ConstBoundMethodBase<Ret*, Args...>(o, m) {};
+    GWrapper<Ret> operator ()(Args... args) { return GWrapper<Ret>((*this->method)(this->obj, args...)); };
+  };
+  
+  template<typename... Args>
+  class ConstBoundMethod<void, Args...> : public ConstBoundMethodBase<void, Args...> {
+    typedef void Method (const T*o, Args...);
+  public:
+    ConstBoundMethod(const T* o, Method* m) : ConstBoundMethodBase<void, Args...>(o, m) {};
+    void call(Args... args) { (*this->method)(this->obj, args...); };
+    void operator()(Args... args) { call(args...); }
+  };
+
+  template<typename Ret, typename... Args>
+  BoundMethod<Ret, Args...> operator []( Ret f(T*, Args...) ) {
+    return BoundMethod<Ret, Args...>(super::obj, f);
+  };
+
+  template<typename Ret, typename... Args>
+  ConstBoundMethod<Ret, Args...> operator []( Ret f(const T*, Args...) ) {
+    return ConstBoundMethod<Ret, Args...>(super::obj, f);
+  };
+
+  GValueWrapper operator[](const gchar* name) { return this->get(name); }
 };
+
+template<class T>
+inline GWrapper<T> 
+_G(T* obj) {
+  return GWrapper<T>(obj);
+}
+
+template<typename W, typename T>
+class DelegatorProxy {
+protected:
+  W* widget;
+  T* obj;
+public:
+  DelegatorProxy(W* w, T* d) : widget(w), obj(d) { };
+
+  template<typename F>
+  DelegatorProxy connect(const gchar* name, F f) {
+    g_signal_connect_delegator (G_OBJECT(widget), name, Delegator::delegator(obj, f));
+    return *this;
+  };
+  template<typename F>
+  Delegator::Connection* connecth(const gchar* name, F f) {
+    return g_signal_connect_delegator (G_OBJECT(widget), name, Delegator::delegator(obj, f));
+  };
+};
+
+template<typename W, typename T>
+class Decorator : public DelegatorProxy<W, T> {
+public:
+  Decorator(W* w, T* d) : DelegatorProxy<W, T>(w, d) {
+    StringHolder attr = g_strdup_printf("_decorator%lx", (gulong)this->widget);
+    g_object_set_cxx_object(G_OBJECT(this->widget), attr.ptr(), this->obj);
+  };
+};
+
+template<typename W, typename T>
+DelegatorProxy<W, T> delegator(W* w, T* d) { return DelegatorProxy<W, T>(w, d); };
+
+template<typename W, typename T>
+DelegatorProxy<W, T> decorator(W* w, T* d) { return Decorator<W, T>(w, d); };
 #endif
