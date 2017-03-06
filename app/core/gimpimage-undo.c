@@ -32,6 +32,7 @@
 #include "gimpitem.h"
 #include "gimplist.h"
 #include "gimpundostack.h"
+#include "gimpfilterlayer.h"
 
 
 /*  local function prototypes  */
@@ -397,6 +398,12 @@ gimp_image_undo_push (GimpImage     *image,
   undo = g_object_newv (object_type, n_params, params);
 
   gimp_parameters_free (params, n_params);
+
+  if (GIMP_IS_DRAWABLE_UNDO(undo) && GIMP_IS_FILTER_LAYER(GIMP_ITEM_UNDO(undo)->item)) {
+    g_object_unref(undo);
+    g_print("gimp_image_undo_push: ignore GimpDrawableStack to FilterLayer\n");
+    return NULL;
+  }
 
   /*  nuke the redo stack  */
   gimp_image_undo_free_redo (image);
