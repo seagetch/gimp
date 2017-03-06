@@ -1061,8 +1061,6 @@ void GtkCXX::FilterLayer::project_region (gint          x,
       pixel_region_init (&srcPR , projected_tiles, 0, 0, image_width, image_height, FALSE);
       copy_region_nocow(&srcPR, &destPR);
 
-      gimp_viewable_invalidate_preview (GIMP_VIEWABLE (drawable));
-
       // apply filter to tile
       Gimp*          gimp    = image->gimp;
       GimpPDB*       pdb     = gimp->pdb;
@@ -1079,14 +1077,16 @@ void GtkCXX::FilterLayer::project_region (gint          x,
       g_value_set_int      (&args->values[n_args++], GIMP_RUN_NONINTERACTIVE);  // run-mode
       gimp_value_set_image (&args->values[n_args++], image);                    // image
       gimp_value_set_item  (&args->values[n_args++], GIMP_ITEM(g_object));      // drawable
-      g_value_set_int      (&args->values[n_args++], 2);                        // amount
+      g_value_set_float    (&args->values[n_args++], 2);                        // amount
       g_value_set_int      (&args->values[n_args++], 2); //wrapmode=  { WRAP (1), SMEAR (2), BLACK (3) }
       g_value_set_int      (&args->values[n_args++], 0); //edgemode = { SOBEL (0), PREWITT (1), GRADIENT (2), ROBERTS (3), DIFFERENTIAL (4), LAPLACE (5) }
+      gimp_image_undo_freeze (image);
       gimp_procedure_execute_async (proc, gimp, context,
                                     GIMP_PROGRESS(g_object), // progress
                                     args, // args
                                     display, // display
                                     NULL); //GError        **error);
+      gimp_image_undo_thaw (image);
       //  gimp_pdb_execute_procedure_by_name (pdb, context, NULL, &error,
       //                                      "plug-in-gauss",
       //                                      G_TYPE_
@@ -1097,118 +1097,110 @@ void GtkCXX::FilterLayer::project_region (gint          x,
       projected_tiles_updated = false;
     }
   } else {
-    g_print ("FilterLayer::project_region:  not updated %d, %d +(%d, %d)\n", x, y, width, height);
+//    g_print ("FilterLayer::project_region:  not updated %d, %d +(%d, %d)\n", x, y, width, height);
   }
 
-  if (mask && gimp_layer_mask_get_show (mask))
-    {
-      /*  If we're showing the layer mask instead of the layer...  */
+  if (mask && gimp_layer_mask_get_show (mask)) {
+    /*  If we're showing the layer mask instead of the layer...  */
 
-      PixelRegion  srcPR;
-      TileManager *temp_tiles;
+    PixelRegion  srcPR;
+    TileManager *temp_tiles;
 
-      gimp_drawable_init_src_region (GIMP_DRAWABLE (mask), &srcPR,
-                                     x, y, width, height,
-                                     &temp_tiles);
+    gimp_drawable_init_src_region (GIMP_DRAWABLE (mask), &srcPR,
+                                   x, y, width, height,
+                                   &temp_tiles);
 
-      copy_gray_to_region (&srcPR, projPR);
+    copy_gray_to_region (&srcPR, projPR);
 
-      if (temp_tiles)
-        tile_manager_unref (temp_tiles);
-    }
-  else
-    {
-      /*  Otherwise, normal  */
+    if (temp_tiles)
+      tile_manager_unref (temp_tiles);
+  } else {
+    /*  Otherwise, normal  */
+    GimpImage       *image = gimp_item_get_image (GIMP_ITEM (layer));
+    PixelRegion      srcPR;
+    PixelRegion      maskPR;
+    PixelRegion     *mask_pr          = NULL;
+    const guchar    *colormap         = NULL;
+    TileManager     *temp_mask_tiles  = NULL;
+    TileManager     *temp_layer_tiles = NULL;
+    InitialMode      initial_mode;
+    CombinationMode  combination_mode;
+    gboolean         visible[MAX_CHANNELS];
 
-      GimpImage       *image = gimp_item_get_image (GIMP_ITEM (layer));
-      PixelRegion      srcPR;
-      PixelRegion      maskPR;
-      PixelRegion     *mask_pr          = NULL;
-      const guchar    *colormap         = NULL;
-      TileManager     *temp_mask_tiles  = NULL;
-      TileManager     *temp_layer_tiles = NULL;
-      InitialMode      initial_mode;
-      CombinationMode  combination_mode;
-      gboolean         visible[MAX_CHANNELS];
-
-      if (filter_active || projected_tiles_updated) {
+    if (filter_active || projected_tiles_updated) {
 //        pixel_region_init (&srcPR , projected_tiles, x, y, width, height, FALSE);
-        return;
-      } else {
-        gimp_drawable_init_src_region (drawable, &srcPR,
-                                       x, y, width, height,
-                                       &temp_layer_tiles);
-      }
-
-      if (mask && gimp_layer_mask_get_apply (mask))
-        {
-          gimp_drawable_init_src_region (GIMP_DRAWABLE (mask), &maskPR,
-                                         x, y, width, height,
-                                         &temp_mask_tiles);
-          mask_pr = &maskPR;
-        }
-
-      /*  Based on the type of the layer, project the layer onto the
-       *  projection image...
-       */
-      switch (gimp_drawable_type (drawable))
-        {
-        case GIMP_RGB_IMAGE:
-        case GIMP_GRAY_IMAGE:
-          initial_mode     = INITIAL_INTENSITY;
-          combination_mode = COMBINE_INTEN_A_INTEN;
-          break;
-
-        case GIMP_RGBA_IMAGE:
-        case GIMP_GRAYA_IMAGE:
-          initial_mode     = INITIAL_INTENSITY_ALPHA;
-          combination_mode = COMBINE_INTEN_A_INTEN_A;
-          break;
-
-        case GIMP_INDEXED_IMAGE:
-          colormap         = gimp_drawable_get_colormap (drawable),
-          initial_mode     = INITIAL_INDEXED;
-          combination_mode = COMBINE_INTEN_A_INDEXED;
-          break;
-
-        case GIMP_INDEXEDA_IMAGE:
-          colormap         = gimp_drawable_get_colormap (drawable),
-          initial_mode     = INITIAL_INDEXED_ALPHA;
-          combination_mode = COMBINE_INTEN_A_INDEXED_A;
-         break;
-
-        default:
-          g_assert_not_reached ();
-          break;
-        }
-
-      gimp_image_get_visible_array (image, visible);
-
-      if (combine)
-        {
-          combine_regions (projPR, &srcPR, projPR, mask_pr,
-                           colormap,
-                           gimp_layer_get_opacity (layer) * 255.999,
-                           gimp_layer_get_mode (layer),
-                           visible,
-                           combination_mode);
-        }
-      else
-        {
-          initial_region (&srcPR, projPR, mask_pr,
-                          colormap,
-                          gimp_layer_get_opacity (layer) * 255.999,
-                          gimp_layer_get_mode (layer),
-                          visible,
-                          initial_mode);
-        }
-
-      if (temp_layer_tiles)
-        tile_manager_unref (temp_layer_tiles);
-
-      if (temp_mask_tiles)
-        tile_manager_unref (temp_mask_tiles);
+      return;
     }
+    gimp_drawable_init_src_region (drawable, &srcPR,
+                                   x, y, width, height,
+                                   &temp_layer_tiles);
+
+    gimp_viewable_invalidate_preview (GIMP_VIEWABLE (drawable));
+
+    if (mask && gimp_layer_mask_get_apply (mask)) {
+      gimp_drawable_init_src_region (GIMP_DRAWABLE (mask), &maskPR,
+                                     x, y, width, height,
+                                     &temp_mask_tiles);
+      mask_pr = &maskPR;
+    }
+
+    /*  Based on the type of the layer, project the layer onto the
+     *  projection image...
+     */
+    switch (gimp_drawable_type (drawable)) {
+    case GIMP_RGB_IMAGE:
+    case GIMP_GRAY_IMAGE:
+      initial_mode     = INITIAL_INTENSITY;
+      combination_mode = COMBINE_INTEN_A_INTEN;
+      break;
+
+    case GIMP_RGBA_IMAGE:
+    case GIMP_GRAYA_IMAGE:
+      initial_mode     = INITIAL_INTENSITY_ALPHA;
+      combination_mode = COMBINE_INTEN_A_INTEN_A;
+      break;
+
+    case GIMP_INDEXED_IMAGE:
+      colormap         = gimp_drawable_get_colormap (drawable),
+      initial_mode     = INITIAL_INDEXED;
+      combination_mode = COMBINE_INTEN_A_INDEXED;
+      break;
+
+    case GIMP_INDEXEDA_IMAGE:
+      colormap         = gimp_drawable_get_colormap (drawable),
+      initial_mode     = INITIAL_INDEXED_ALPHA;
+      combination_mode = COMBINE_INTEN_A_INDEXED_A;
+      break;
+
+    default:
+      g_assert_not_reached ();
+      break;
+    }
+
+    gimp_image_get_visible_array (image, visible);
+
+    if (combine) {
+      combine_regions (projPR, &srcPR, projPR, mask_pr,
+                       colormap,
+                       gimp_layer_get_opacity (layer) * 255.999,
+                       gimp_layer_get_mode (layer),
+                       visible,
+                       combination_mode);
+    } else {
+      initial_region (&srcPR, projPR, mask_pr,
+                      colormap,
+                      gimp_layer_get_opacity (layer) * 255.999,
+                      gimp_layer_get_mode (layer),
+                      visible,
+                      initial_mode);
+    }
+
+    if (temp_layer_tiles)
+      tile_manager_unref (temp_layer_tiles);
+
+    if (temp_mask_tiles)
+      tile_manager_unref (temp_mask_tiles);
+  }
 }
 
 GList* GtkCXX::FilterLayer::get_layers ()
@@ -1428,7 +1420,6 @@ void GtkCXX::FilterLayer::set_text(const gchar* message)
 
 void GtkCXX::FilterLayer::set_value(gdouble      percentage)
 {
-  g_print("FilterLayer::set_value: %lf\n", percentage);
   filter_progress = percentage;
 }
 
