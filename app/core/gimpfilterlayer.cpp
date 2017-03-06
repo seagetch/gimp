@@ -47,6 +47,7 @@ extern "C" {
 #include "gimpprojection.h"
 #include "gimpcontext.h"
 #include "gimpprogress.h"
+#include "gimpcontainer.h"
 
 #include "gimp-intl.h"
 #include "gimplayer.h"
@@ -1080,18 +1081,17 @@ void GtkCXX::FilterLayer::project_region (gint          x,
       g_value_set_float    (&args->values[n_args++], 2);                        // amount
       g_value_set_int      (&args->values[n_args++], 2); //wrapmode=  { WRAP (1), SMEAR (2), BLACK (3) }
       g_value_set_int      (&args->values[n_args++], 0); //edgemode = { SOBEL (0), PREWITT (1), GRADIENT (2), ROBERTS (3), DIFFERENTIAL (4), LAPLACE (5) }
-      gimp_image_undo_freeze (image);
       gimp_procedure_execute_async (proc, gimp, context,
                                     GIMP_PROGRESS(g_object), // progress
                                     args, // args
                                     display, // display
                                     NULL); //GError        **error);
-      gimp_image_undo_thaw (image);
       //  gimp_pdb_execute_procedure_by_name (pdb, context, NULL, &error,
       //                                      "plug-in-gauss",
       //                                      G_TYPE_
       //                                      ...);
         //run-mode{interactive=0,noninteractive=1}, image, drawable, horizontal, vertical, method (IIR=0, RLE=1)
+      gimp_image_flush (image);
 
       filter_active           = true;
       projected_tiles_updated = false;
@@ -1100,107 +1100,10 @@ void GtkCXX::FilterLayer::project_region (gint          x,
 //    g_print ("FilterLayer::project_region:  not updated %d, %d +(%d, %d)\n", x, y, width, height);
   }
 
-  if (mask && gimp_layer_mask_get_show (mask)) {
-    /*  If we're showing the layer mask instead of the layer...  */
+  if (filter_active || projected_tiles_updated)
+    return;
 
-    PixelRegion  srcPR;
-    TileManager *temp_tiles;
-
-    gimp_drawable_init_src_region (GIMP_DRAWABLE (mask), &srcPR,
-                                   x, y, width, height,
-                                   &temp_tiles);
-
-    copy_gray_to_region (&srcPR, projPR);
-
-    if (temp_tiles)
-      tile_manager_unref (temp_tiles);
-  } else {
-    /*  Otherwise, normal  */
-    GimpImage       *image = gimp_item_get_image (GIMP_ITEM (layer));
-    PixelRegion      srcPR;
-    PixelRegion      maskPR;
-    PixelRegion     *mask_pr          = NULL;
-    const guchar    *colormap         = NULL;
-    TileManager     *temp_mask_tiles  = NULL;
-    TileManager     *temp_layer_tiles = NULL;
-    InitialMode      initial_mode;
-    CombinationMode  combination_mode;
-    gboolean         visible[MAX_CHANNELS];
-
-    if (filter_active || projected_tiles_updated) {
-//        pixel_region_init (&srcPR , projected_tiles, x, y, width, height, FALSE);
-      return;
-    }
-    gimp_drawable_init_src_region (drawable, &srcPR,
-                                   x, y, width, height,
-                                   &temp_layer_tiles);
-
-    gimp_viewable_invalidate_preview (GIMP_VIEWABLE (drawable));
-
-    if (mask && gimp_layer_mask_get_apply (mask)) {
-      gimp_drawable_init_src_region (GIMP_DRAWABLE (mask), &maskPR,
-                                     x, y, width, height,
-                                     &temp_mask_tiles);
-      mask_pr = &maskPR;
-    }
-
-    /*  Based on the type of the layer, project the layer onto the
-     *  projection image...
-     */
-    switch (gimp_drawable_type (drawable)) {
-    case GIMP_RGB_IMAGE:
-    case GIMP_GRAY_IMAGE:
-      initial_mode     = INITIAL_INTENSITY;
-      combination_mode = COMBINE_INTEN_A_INTEN;
-      break;
-
-    case GIMP_RGBA_IMAGE:
-    case GIMP_GRAYA_IMAGE:
-      initial_mode     = INITIAL_INTENSITY_ALPHA;
-      combination_mode = COMBINE_INTEN_A_INTEN_A;
-      break;
-
-    case GIMP_INDEXED_IMAGE:
-      colormap         = gimp_drawable_get_colormap (drawable),
-      initial_mode     = INITIAL_INDEXED;
-      combination_mode = COMBINE_INTEN_A_INDEXED;
-      break;
-
-    case GIMP_INDEXEDA_IMAGE:
-      colormap         = gimp_drawable_get_colormap (drawable),
-      initial_mode     = INITIAL_INDEXED_ALPHA;
-      combination_mode = COMBINE_INTEN_A_INDEXED_A;
-      break;
-
-    default:
-      g_assert_not_reached ();
-      break;
-    }
-
-    gimp_image_get_visible_array (image, visible);
-
-    if (combine) {
-      combine_regions (projPR, &srcPR, projPR, mask_pr,
-                       colormap,
-                       gimp_layer_get_opacity (layer) * 255.999,
-                       gimp_layer_get_mode (layer),
-                       visible,
-                       combination_mode);
-    } else {
-      initial_region (&srcPR, projPR, mask_pr,
-                      colormap,
-                      gimp_layer_get_opacity (layer) * 255.999,
-                      gimp_layer_get_mode (layer),
-                      visible,
-                      initial_mode);
-    }
-
-    if (temp_layer_tiles)
-      tile_manager_unref (temp_layer_tiles);
-
-    if (temp_mask_tiles)
-      tile_manager_unref (temp_mask_tiles);
-  }
+  GIMP_DRAWABLE_CLASS(Class::parent_class)->project_region (drawable, x, y, width, height, projPR, combine);
 }
 
 GList* GtkCXX::FilterLayer::get_layers ()
@@ -1450,6 +1353,11 @@ void GtkCXX::FilterLayer::on_stack_update (GimpDrawableStack *stack,
                                            GimpItem          *item)
 {
   if (projected_tiles && G_OBJECT(item) == g_object)
+    return;
+  gint item_index = gimp_container_get_child_index(GIMP_CONTAINER(stack), GIMP_OBJECT(item));
+  gint self_index = gimp_container_get_child_index(GIMP_CONTAINER(stack), GIMP_OBJECT(g_object));
+
+  if (item_index < self_index)
     return;
 
   GimpImage* image        = gimp_item_get_image(GIMP_ITEM(g_object));
