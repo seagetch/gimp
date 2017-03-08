@@ -110,6 +110,9 @@ static const GimpLayerModeEffects layer_modes[] =
 static void   layers_new_layer_response    (GtkWidget             *widget,
                                             gint                   response_id,
                                             LayerOptionsDialog    *dialog);
+static void   layers_new_filter_layer_response    (GtkWidget             *widget,
+                                            gint                   response_id,
+                                            LayerOptionsDialog    *dialog);
 static void   layers_edit_layer_response   (GtkWidget             *widget,
                                             gint                   response_id,
                                             LayerOptionsDialog    *dialog);
@@ -387,16 +390,28 @@ void
 layers_new_filter_cmd_callback (GtkAction *action,
                                 gpointer   data)
 {
-  GimpImage *image;
-  GimpLayer *layer;
+  LayerOptionsDialog *dialog;
+  GimpImage          *image;
+  GtkWidget          *widget;
   return_if_no_image (image, data);
+  return_if_no_widget (widget, data);
 
-  layer = gimp_filter_layer_new (image);
+  dialog = layer_options_dialog_new (image, NULL,
+                                     action_data_get_context (data),
+                                     widget,
+                                     layer_name ? layer_name : _("Filter Layer"),
+                                     layer_fill_type,
+                                     _("New Filter Layer"),
+                                     "gimp-filter-layer-new",
+                                     GIMP_STOCK_LAYER,
+                                     _("Create a New Filter Layer"),
+                                     GIMP_HELP_LAYER_NEW);
 
-  gimp_image_add_layer (image, layer,
-                        GIMP_IMAGE_ACTIVE_PARENT, -1, TRUE);
+  g_signal_connect (dialog->dialog, "response",
+                    G_CALLBACK (layers_new_filter_layer_response),
+                    dialog);
 
-  gimp_image_flush (image);
+  gtk_widget_show (dialog->dialog);
 }
 
 void
@@ -1024,6 +1039,50 @@ layers_new_layer_response (GtkWidget          *widget,
                                       dialog->context,
                                       layer_fill_type);
 
+          gimp_image_add_layer (dialog->image, layer,
+                                GIMP_IMAGE_ACTIVE_PARENT, -1, TRUE);
+
+          gimp_image_flush (dialog->image);
+        }
+      else
+        {
+          g_warning ("%s: could not allocate new layer", G_STRFUNC);
+        }
+    }
+
+  gtk_widget_destroy (dialog->dialog);
+}
+
+static void
+layers_new_filter_layer_response (GtkWidget          *widget,
+                                  gint                response_id,
+                                  LayerOptionsDialog *dialog)
+{
+  if (response_id == GTK_RESPONSE_OK)
+    {
+      GimpLayer *layer;
+
+      if (layer_name)
+        g_free (layer_name);
+
+      layer_name =
+        g_strdup (gtk_entry_get_text (GTK_ENTRY (dialog->name_entry)));
+
+      dialog->xsize =
+        RINT (gimp_size_entry_get_refval (GIMP_SIZE_ENTRY (dialog->size_se),
+                                          0));
+      dialog->ysize =
+        RINT (gimp_size_entry_get_refval (GIMP_SIZE_ENTRY (dialog->size_se),
+                                          1));
+
+      layer = gimp_filter_layer_new (dialog->image,
+                                     dialog->xsize,
+                                     dialog->ysize,
+                                     layer_name,
+                                     GIMP_OPACITY_OPAQUE, GIMP_NORMAL_MODE);
+
+      if (layer)
+        {
           gimp_image_add_layer (dialog->image, layer,
                                 GIMP_IMAGE_ACTIVE_PARENT, -1, TRUE);
 

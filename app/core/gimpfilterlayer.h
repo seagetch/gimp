@@ -48,7 +48,12 @@ struct _GimpFilterLayerClass
 };
 
 GType            gimp_filter_layer_get_type       (void) G_GNUC_CONST;
-GimpLayer      * gimp_filter_layer_new            (GimpImage      *image);
+GimpLayer      * gimp_filter_layer_new            (GimpImage            *image,
+                                                   gint                  width,
+                                                   gint                  height,
+                                                   const gchar          *name,
+                                                   gdouble               opacity,
+                                                   GimpLayerModeEffects  mode);
 GimpProjection * gimp_filter_layer_get_projection (GimpFilterLayer *group);
 
 void             gimp_filter_layer_suspend_resize (GimpFilterLayer *group,
@@ -60,11 +65,15 @@ void             gimp_filter_layer_resume_resize  (GimpFilterLayer *group,
 
 class FilterLayerInterface {
 public:
-  static GimpLayer*               new_instance(GimpImage* image);
-  static FilterLayerInterface*    cast(gpointer obj);
-  static bool                     is_instance(gpointer obj);
+  static GimpLayer*               new_instance   (GimpImage*            image,
+                                                  gint                  width,
+                                                  gint                  height,
+                                                  const gchar          *name,
+                                                  gdouble               opacity,
+                                                  GimpLayerModeEffects  mode);
+  static FilterLayerInterface*    cast           (gpointer obj);
+  static bool                     is_instance    (gpointer obj);
 
-  virtual GimpProjection*         get_projection () = 0;
   virtual void                    suspend_resize (gboolean        push_undo) = 0;
   virtual void                    resume_resize  (gboolean        push_undo) = 0;
 };

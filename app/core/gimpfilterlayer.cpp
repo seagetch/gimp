@@ -75,17 +75,13 @@ typedef ClassHolder<ParentTraits, GimpFilterLayer, GimpFilterLayerClass> ClassDe
 
 struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterface
 {
-  GimpContainer  *children;
-  GimpProjection *projection;
   TileManager    *projected_tiles;
   bool            projected_tiles_updated;
   gdouble         filter_progress;
-  bool            filter_active;
+  GimpProcedure  *filter_active;
+  GList*          updates;
 
-  GeglNode       *graph;
-  GeglNode       *offset_node;
   gint            suspend_resize_;
-  gboolean        expanded;
 
   /*  hackish temp states to make the projection/tiles stuff work  */
   gboolean        reallocate_projection;
@@ -97,7 +93,6 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
     gint width, height;
     Rectangle(gint x_, gint y_, gint w_, gint h_) : x(x_), y(y_), width(w_), height(h_) {};
   };
-  GList*          updates;
 
   Delegator::Connection* child_update_conn;
   Delegator::Connection* parent_changed_conn;
@@ -124,9 +119,6 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
 
   virtual gboolean        get_size     (gint            *width,
                                         gint            *height);
-  virtual GimpContainer * get_children ();
-  virtual gboolean        get_expanded ();
-  virtual void            set_expanded (gboolean         expanded);
 
   virtual GimpItem      * duplicate    (GType            new_type);
   virtual void            convert      (GimpImage       *dest_image);
@@ -163,13 +155,7 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
 
   virtual gint64      estimate_memsize (gint             width,
                                         gint             height);
-  virtual void            convert_type (GimpImage         *dest_image,
-                                        GimpImageBaseType  new_base_type,
-                                        gboolean           push_undo);
 
-  virtual GeglNode      * get_node    ();
-  virtual GeglNode      * get_graph    ();
-  virtual GList         * get_layers   ();
   virtual void         project_region (gint          x,
                                        gint          y,
                                        gint          width,
@@ -179,6 +165,7 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   virtual gint         get_opacity_at (gint             x,
                                        gint             y);
 
+  virtual void            filter_reset ();
   virtual void            update       ();
   virtual void            update_size  ();
 
@@ -197,28 +184,26 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
                                         const gchar*       message);
 
   // Event handlers
-  virtual void            on_parent_changed (GimpViewable  *viewable,
-                                             GimpViewable  *parent);
+  virtual void       on_parent_changed (GimpViewable  *viewable,
+                                        GimpViewable  *parent);
 
-  virtual void            on_stack_update (GimpDrawableStack *stack,
-                                           gint               x,
-                                           gint               y,
-                                           gint               width,
-                                           gint               height,
-                                           GimpItem          *item);
-  virtual void            on_proj_update  (GimpProjection    *proj,
-                                           gboolean           now,
-                                           gint               x,
-                                           gint               y,
-                                           gint               width,
-                                           gint               height);
+  virtual void         on_stack_update (GimpDrawableStack *stack,
+                                        gint               x,
+                                        gint               y,
+                                        gint               width,
+                                        gint               height,
+                                        GimpItem          *item);
+  virtual void         on_proj_update  (GimpProjection    *proj,
+                                        gboolean           now,
+                                        gint               x,
+                                        gint               y,
+                                        gint               width,
+                                        gint               height);
   // Public interfaces
-  virtual GimpProjection * get_projection ();
   virtual void             suspend_resize (gboolean        push_undo);
   virtual void             resume_resize  (gboolean        push_undo);
 
 private:
-  void                    sync_mode_node ();
 };
 
 
@@ -226,7 +211,6 @@ extern const char gimp_filter_layer_name[] = "GimpFilterLayer";
 typedef ClassDefinition<gimp_filter_layer_name,
                         ClassDef,
                         FilterLayer,
-//                        Traits<GimpProjectable, GimpProjectableInterface, gimp_projectable_interface_get_type>,
                         Traits<GimpProgress, GimpProgressInterface, gimp_progress_interface_get_type>,
                         Traits<GimpPickable, GimpPickableInterface, gimp_pickable_interface_get_type> >
                         Class;
@@ -297,32 +281,27 @@ void FilterLayer::class_init(ClassDef::Class *klass)
 
   viewable_class->default_stock_id = "gtk-directory";
   Class::__(&viewable_class->get_size       ).bind<&Impl::get_size>();
-//  F::__(&viewable_class->get_children   ).bind<&Impl::get_children>();
-//  F::__(&viewable_class->set_expanded   ).bind<&Impl::set_expanded>();
-//  F::__(&viewable_class->get_expanded   ).bind<&Impl::get_expanded>();
 
   Class::__(&item_class->duplicate          ).bind<&Impl::duplicate>();
-  Class::__(&item_class->get_node           ).bind<&Impl::get_node>();
 //  F::__(&item_class->convert            ).bind<&Impl::convert>();
-//  F::__(&item_class->translate          ).bind<&Impl::translate>();
+  Class::__(&item_class->translate          ).bind<&Impl::translate>();
 //  F::__(&item_class->scale              ).bind<&Impl::scale>();
 //  F::__(&item_class->resize             ).bind<&Impl::resize>();
 //  F::__(&item_class->flip               ).bind<&Impl::flip>();
 //  F::__(&item_class->rotate             ).bind<&Impl::rotate>();
 //  F::__(&item_class->transform          ).bind<&Impl::transform>();
 
-  item_class->default_name         = _("Layer Group");
-  item_class->rename_desc          = C_("undo-type", "Rename Layer Group");
-  item_class->translate_desc       = C_("undo-type", "Move Layer Group");
-  item_class->scale_desc           = C_("undo-type", "Scale Layer Group");
-  item_class->resize_desc          = C_("undo-type", "Resize Layer Group");
-  item_class->flip_desc            = C_("undo-type", "Flip Layer Group");
-  item_class->rotate_desc          = C_("undo-type", "Rotate Layer Group");
-  item_class->transform_desc       = C_("undo-type", "Transform Layer Group");
+  item_class->default_name         = _("Filter Layer");
+  item_class->rename_desc          = C_("undo-type", "Rename Filter Layer");
+  item_class->translate_desc       = C_("undo-type", "Move Filter Layer");
+  item_class->scale_desc           = C_("undo-type", "Scale Filter Layer");
+  item_class->resize_desc          = C_("undo-type", "Resize Filter Layer");
+  item_class->flip_desc            = C_("undo-type", "Flip Filter Layer");
+  item_class->rotate_desc          = C_("undo-type", "Rotate Filter Layer");
+  item_class->transform_desc       = C_("undo-type", "Transform Filter Layer");
   Class::__(&drawable_class->project_region  ).bind<&Impl::project_region>();
 
   Class::__(&drawable_class->estimate_memsize).bind<&Impl::estimate_memsize>();
-  Class::__(&drawable_class->convert_type    ).bind<&Impl::convert_type>();
 
   ImplBase::class_init<ClassDef::Class, FilterLayer>(klass);
 }
@@ -339,6 +318,7 @@ void FilterLayer::iface_init<GimpPickableInterface>(GimpPickableInterface* iface
 template<>
 void FilterLayer::iface_init<GimpProjectableInterface> (GimpProjectableInterface *iface)
 {
+#if 0
   typedef GtkCXX::FilterLayer Impl;
   g_print("FilterLayer::iface_init<GimpProjectableInterface>\n");
   
@@ -348,8 +328,7 @@ void FilterLayer::iface_init<GimpProjectableInterface> (GimpProjectableInterface
   Class::__(&iface->get_size          ).bind(&gimp_viewable_get_size);
   Class::__(&iface->invalidate_preview).bind(gimp_viewable_invalidate_preview);
   Class::__(&iface->get_channels      ).clear();
-  //  Class::__(&iface->get_graph         ).bind<&Impl::get_graph>();
-  //  Class::__(&iface->get_layers        ).bind<&Impl::get_layers>();
+#endif
 }
 
 template<>
@@ -387,7 +366,7 @@ void GtkCXX::FilterLayer::init ()
   updates             = NULL;
   projected_tiles     = NULL;
   filter_progress     = 0;
-  filter_active       = false;
+  filter_active       = NULL;
   projected_tiles_updated = false;
 }
 
@@ -402,15 +381,6 @@ void GtkCXX::FilterLayer::finalize ()
   if (child_update_conn) {
     delete child_update_conn;
     child_update_conn = NULL;
-  }
-  if (projection) {
-    g_object_unref (projection);
-    projection = NULL;
-  }
-
-  if (graph) {
-    g_object_unref (graph);
-    graph = NULL;
   }
 
   if (projected_tiles) {
@@ -449,9 +419,6 @@ gint64 GtkCXX::FilterLayer::get_memsize (gint64     *gui_size)
 {
   gint64                 memsize = 0;
 
-  memsize += gimp_object_get_memsize (GIMP_OBJECT (children), gui_size);
-  memsize += gimp_object_get_memsize (GIMP_OBJECT (projection), gui_size);
-
   return memsize + GIMP_OBJECT_CLASS (Class::parent_class)->get_memsize (GIMP_OBJECT(g_object),
                                                                   gui_size);
 }
@@ -474,24 +441,8 @@ gboolean GtkCXX::FilterLayer::get_size (gint         *width,
   return result;
 }
 
-GimpContainer * GtkCXX::FilterLayer::get_children ()
-{
-  return children;
-}
-
-gboolean GtkCXX::FilterLayer::get_expanded ()
-{
-  return expanded;
-}
-
-void GtkCXX::FilterLayer::set_expanded (gboolean      expanded)
-{
-  this->expanded = expanded;
-}
-
 GimpItem* GtkCXX::FilterLayer::duplicate (GType     new_type)
 {
-  typedef Class F;
   GimpItem *new_item;
 
   g_return_val_if_fail (g_type_is_a (new_type, GIMP_TYPE_DRAWABLE), NULL);
@@ -500,44 +451,11 @@ GimpItem* GtkCXX::FilterLayer::duplicate (GType     new_type)
 
   if (GIMP_IS_FILTER_LAYER (new_item))
     {
-      GtkCXX::FilterLayer *new_priv = F::get_private(new_item);
+      GtkCXX::FilterLayer *new_priv = Class::get_private(new_item);
       gint                   position    = 0;
       GList                 *list;
 
       new_priv->suspend_resize (FALSE);
-
-      for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (children));
-           list;
-           list = g_list_next (list))
-        {
-          GimpItem      *child = GIMP_ITEM(list->data);
-          GimpItem      *new_child;
-          GimpLayerMask *mask;
-
-          new_child = gimp_item_duplicate (child, G_TYPE_FROM_INSTANCE (child));
-
-          gimp_object_set_name (GIMP_OBJECT (new_child),
-                                gimp_object_get_name (child));
-
-          mask = gimp_layer_get_mask (GIMP_LAYER (child));
-
-          if (mask)
-            {
-              GimpLayerMask *new_mask;
-
-              new_mask = gimp_layer_get_mask (GIMP_LAYER (new_child));
-
-              gimp_object_set_name (GIMP_OBJECT (new_mask),
-                                    gimp_object_get_name (mask));
-            }
-
-          gimp_viewable_set_parent (GIMP_VIEWABLE (new_child),
-                                    GIMP_VIEWABLE (new_item));
-
-          gimp_container_insert (new_priv->children,
-                                 GIMP_OBJECT (new_child),
-                                 position++);
-        }
 
       /*  force the projection to reallocate itself  */
       new_priv->reallocate_projection = TRUE;
@@ -571,32 +489,8 @@ void GtkCXX::FilterLayer::translate (gint      offset_x,
   GimpLayerMask         *mask;
   GList                 *list;
 
-  /*  don't push an undo here because undo will call us again  */
-  suspend_resize (FALSE);
-#if 0
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (children));
-       list;
-       list = g_list_next (list))
-    {
-      GimpItem *child = GIMP_ITEM(list->data);
-
-      gimp_item_translate (child, offset_x, offset_y, push_undo);
-    }
-
-  mask = gimp_layer_get_mask (GIMP_LAYER (g_object));
-
-  if (mask)
-    {
-      gint off_x, off_y;
-
-      gimp_item_get_offset (GIMP_ITEM(g_object), &off_x, &off_y);
-      gimp_item_set_offset (GIMP_ITEM (mask), off_x, off_y);
-
-      gimp_viewable_invalidate_preview (GIMP_VIEWABLE (mask));
-    }
-#endif
-  /*  don't push an undo here because undo will call us again  */
-  resume_resize ( FALSE);
+  filter_reset();
+  GIMP_ITEM_CLASS(Class::parent_class)->translate(GIMP_ITEM(g_object), offset_x, offset_y, push_undo);
 }
 
 void GtkCXX::FilterLayer::scale (gint                   new_width,
@@ -816,192 +710,6 @@ gint64 GtkCXX::FilterLayer::estimate_memsize (gint                width,
                                                                          height);
 }
 
-void GtkCXX::FilterLayer::convert_type (GimpImage         *dest_image,
-                                        GimpImageBaseType  new_base_type,
-                                        gboolean           push_undo)
-{
-  TileManager           *tiles;
-  GimpImageType          new_type;
-  GimpDrawable*          drawable = GIMP_DRAWABLE(g_object);
-
-  if (push_undo)
-    {
-      GimpImage *image = gimp_item_get_image (GIMP_ITEM (g_object));
-      gimp_image_undo_push_filter_layer_convert (image, NULL, Class::Traits::cast(g_object));
-    }
-
-  new_type = (GimpImageType)(GIMP_IMAGE_TYPE_FROM_BASE_TYPE (new_base_type));
-
-  if (gimp_drawable_has_alpha (drawable))
-    new_type = (GimpImageType)(GIMP_IMAGE_TYPE_WITH_ALPHA (new_type));
-
-  /*  FIXME: find a better way to do this: need to set the drawable's
-   *  type to the new values so the projection will create its tiles
-   *  with the right depth
-   */
-  GIMP_DRAWABLE(g_object)->private_->type = new_type;
-
-  gimp_projectable_structure_changed (GIMP_PROJECTABLE (g_object));
-
-  tiles = gimp_projection_get_tiles_at_level (projection,
-                                              0, NULL);
-
-  gimp_drawable_set_tiles_full (drawable,
-                                FALSE, NULL,
-                                tiles, new_type,
-                                gimp_item_get_offset_x (GIMP_ITEM (drawable)),
-                                gimp_item_get_offset_y (GIMP_ITEM (drawable)));
-}
-
-GeglNode* GtkCXX::FilterLayer::get_node ()
-{
-  GimpDrawable *drawable = GIMP_DRAWABLE (g_object);
-  GimpLayer    *layer    = GIMP_LAYER (g_object);
-  GeglNode     *node;
-  GeglNode     *offset_node;
-  GeglNode     *filter_node;
-  GeglNode     *input;
-  GeglNode     *mode_node;
-
-  g_print("FilterLayer::get_node\n");
-
-  node = GIMP_ITEM_CLASS (Class::parent_class)->get_node (GIMP_ITEM(g_object));
-  input = gegl_node_get_input_proxy (node, "input");
-
-  gegl_node_connect_to (layer->opacity_node, "output",
-                        offset_node,         "input");
-
-  g_warn_if_fail (layer->opacity_node == NULL);
-
-  layer->opacity_node = gegl_node_new_child (node,
-                                             "operation", "gegl:opacity",
-                                             "value",     layer->opacity,
-                                             NULL);
-  if (layer->mask) {
-      GeglNode *mask;
-
-      mask = gimp_drawable_get_source_node (GIMP_DRAWABLE (layer->mask));
-
-      gegl_node_connect_to (mask,                "output",
-                            layer->opacity_node, "aux");
-  }
-
-  offset_node = gimp_item_get_offset_node (GIMP_ITEM (layer));
-
-  gegl_node_connect_to (layer->opacity_node, "output",
-                        offset_node,         "input");
-
-  filter_node = gegl_node_new_child (node,
-                                     "operation", "gegl:gray",
-                                     NULL);
-  gegl_node_connect_to (offset_node, "output",
-                        filter_node, "input");
-
-  sync_mode_node();
-
-  mode_node = gimp_drawable_get_mode_node (drawable);
-
-  gegl_node_connect_to (filter_node, "output",
-                        mode_node,   "aux");
-
-  gchar* dump = gegl_node_to_xml(node, "");
-  g_print("Node=%s\n", dump);
-  return node;
-}
-
-void GtkCXX::FilterLayer::sync_mode_node()
-{
-  GimpLayer* layer = GIMP_LAYER(g_object);
-  if (layer->opacity_node) {
-    GeglNode *mode_node;
-
-    mode_node = gimp_drawable_get_mode_node (GIMP_DRAWABLE (layer));
-
-    switch (layer->mode) {
-      case GIMP_DISSOLVE_MODE:
-      case GIMP_BEHIND_MODE:
-      case GIMP_MULTIPLY_MODE:
-      case GIMP_SCREEN_MODE:
-      case GIMP_OVERLAY_MODE:
-      case GIMP_DIFFERENCE_MODE:
-      case GIMP_ADDITION_MODE:
-      case GIMP_SUBTRACT_MODE:
-      case GIMP_DARKEN_ONLY_MODE:
-      case GIMP_LIGHTEN_ONLY_MODE:
-      case GIMP_HUE_MODE:
-      case GIMP_SATURATION_MODE:
-      case GIMP_COLOR_MODE:
-      case GIMP_VALUE_MODE:
-      case GIMP_DIVIDE_MODE:
-      case GIMP_DODGE_MODE:
-      case GIMP_BURN_MODE:
-      case GIMP_HARDLIGHT_MODE:
-      case GIMP_SOFTLIGHT_MODE:
-      case GIMP_GRAIN_EXTRACT_MODE:
-      case GIMP_GRAIN_MERGE_MODE:
-      case GIMP_COLOR_ERASE_MODE:
-      case GIMP_ERASE_MODE:
-      case GIMP_REPLACE_MODE:
-      case GIMP_ANTI_ERASE_MODE:
-      case GIMP_SRC_IN_MODE:
-      case GIMP_DST_IN_MODE:
-      case GIMP_SRC_OUT_MODE:
-      case GIMP_DST_OUT_MODE:
-        gegl_node_set (mode_node,
-                       "operation",  "gimp:point-layer-mode",
-                       "blend-mode", layer->mode,
-                       NULL);
-        break;
-
-    default:
-      gegl_node_set (mode_node,
-                     "operation",
-                     gimp_layer_mode_to_gegl_operation (layer->mode),
-                     NULL);
-      break;
-    }
-  }
-}
-
-GeglNode* GtkCXX::FilterLayer::get_graph ()
-{
-  GeglNode              *layers_node;
-  GeglNode              *output;
-  gint                   off_x;
-  gint                   off_y;
-
-  g_print("FilterLayer::get_graph\n");
-
-  if (graph)
-    return graph;
-
-  graph = gegl_node_new ();
-
-  layers_node =
-    gimp_drawable_stack_get_graph (GIMP_DRAWABLE_STACK (children));
-
-  gegl_node_add_child (graph, layers_node);
-
-  gimp_item_get_offset (GIMP_ITEM (g_object), &off_x, &off_y);
-
-  offset_node = gegl_node_new_child (graph,
-                                              "operation", "gegl:translate",
-                                              "x",         (gdouble) -off_x,
-                                              "y",         (gdouble) -off_y,
-                                              NULL);
-
-  gegl_node_connect_to (layers_node,          "output",
-                        offset_node, "input");
-
-  output = gegl_node_get_output_proxy (graph, "output");
-
-  gegl_node_connect_to (offset_node, "output",
-                        output,               "input");
-
-  return graph;
-}
-
-
 void GtkCXX::FilterLayer::project_region (gint          x,
                                           gint          y,
                                           gint          width,
@@ -1013,33 +721,45 @@ void GtkCXX::FilterLayer::project_region (gint          x,
   GimpLayer     *layer    = GIMP_LAYER (drawable);
   GimpLayerMask *mask     = gimp_layer_get_mask (layer);
   const gchar*   name     = gimp_object_get_name(GIMP_OBJECT(layer));
-  gint w = gimp_item_get_width(GIMP_ITEM(drawable));
-  gint h = gimp_item_get_height(GIMP_ITEM(drawable));
+  GimpItem* item = GIMP_ITEM(g_object);
+  gint x1 = x;
+  gint y1 = y;
+  gint offset_x = gimp_item_get_offset_x(item);
+  gint offset_y = gimp_item_get_offset_y(item);
+  gint w = gimp_item_get_width(item);
+  gint h = gimp_item_get_height(item);
+  gint parent_off_x = 0;
+  gint parent_off_y = 0;
+  GimpViewable* parent = gimp_viewable_get_parent(GIMP_VIEWABLE(g_object));
+  if (parent)
+    gimp_item_get_offset(GIMP_ITEM(parent), &parent_off_x, &parent_off_y);
 
 //  g_print("FilterLayer::project_region:%s: (x: %d, y: %d)+(w: %d, h: %d) / (W: %d, H: %d)\n", name, x, y, width, height, w, h);
+//  g_print("                                parent-offset:%d,%d,  item-offset:%d,%d\n", parent_off_x, parent_off_y, offset_x, offset_y);
+//  g_print("           In projection coord: (x: %d, y: %d)\n", x + offset_x - parent_off_x, y + offset_y - parent_off_y);
   // copy region to tile
   for (GList* list = updates; list; ) {
     GList* next = g_list_next(list);
     auto rect = (Rectangle*)list->data;
-//    g_print("  compare: %d,%d +(%d,%d) : %d\n", rect->x, rect->y, rect->width, rect->height, rect->get_refcount());
-    if (x                      <= rect->x &&
-        y                      <= rect->y &&
-        rect->x + rect->width  <= x + width &&
-        rect->y + rect->height <= y + height) {
+    if (x1 + offset_x - parent_off_x <= rect->x &&
+        y1 + offset_y - parent_off_y <= rect->y &&
+        rect->x + rect->width  <= x1 + offset_x - parent_off_x + width &&
+        rect->y + rect->height <= y1 + offset_y - parent_off_y + height) {
+//      g_print("  compared rect: %d,%d +(%d,%d)\n", rect->x, rect->y, rect->width, rect->height);
+//      g_print("  In drawable coord: (x: %d, y: %d)\n", rect->x - offset_x + parent_off_x, rect->y - offset_y + parent_off_y);
       projected_tiles_updated = true;
 
       if (!projected_tiles) {
         /*  Allocate the new tiles  */
         GimpItem*      item     = GIMP_ITEM(g_object);
         GimpImageType  new_type = gimp_drawable_type_with_alpha (GIMP_DRAWABLE(g_object));
-        projected_tiles         = tile_manager_new (gimp_item_get_width  (item),
-                                                    gimp_item_get_height (item),
+        projected_tiles         = tile_manager_new (w, h,
                                                     GIMP_IMAGE_TYPE_BYTES (new_type));
       }
       PixelRegion tilePR;
       PixelRegion read_proj_PR;
       pixel_region_init (&tilePR,       projected_tiles,
-                         rect->x, rect->y, rect->width, rect->height, TRUE);
+                         rect->x + parent_off_x - offset_x, rect->y + parent_off_y - offset_y, rect->width, rect->height, TRUE);
       pixel_region_init (&read_proj_PR, projPR->tiles,
                          rect->x, rect->y, rect->width, rect->height, FALSE);
       copy_region_nocow(&read_proj_PR, &tilePR);
@@ -1050,16 +770,13 @@ void GtkCXX::FilterLayer::project_region (gint          x,
     list = next;
   }
   if (projected_tiles_updated) {
-    if (!updates && !filter_active) {
+    if (!filter_active) {
       GimpImage*   image   = gimp_item_get_image(GIMP_ITEM(drawable));
       TileManager* tiles   = gimp_drawable_get_tiles(drawable);
-      gint         image_width, image_height;
       PixelRegion  srcPR, destPR;
 
-      image_width  = gimp_item_get_width (GIMP_ITEM(g_object));
-      image_height = gimp_item_get_height(GIMP_ITEM(g_object));
-      pixel_region_init (&destPR, tiles          , 0, 0, image_width, image_height, TRUE);
-      pixel_region_init (&srcPR , projected_tiles, 0, 0, image_width, image_height, FALSE);
+      pixel_region_init (&destPR, tiles          , 0, 0, w, h, TRUE);
+      pixel_region_init (&srcPR , projected_tiles, 0, 0, w, h, FALSE);
       copy_region_nocow(&srcPR, &destPR);
 
       // apply filter to tile
@@ -1071,9 +788,6 @@ void GtkCXX::FilterLayer::project_region (gint          x,
       GValueArray*   args    = gimp_procedure_get_arguments (proc);
       GimpObject*    display = GIMP_OBJECT(gimp_context_get_display(context));
       gint           n_args  = 0;
-
-      if (GIMP_IS_TEMPORARY_PROCEDURE (proc))
-      g_print("FilterLayer::project_region: progress =%p\n", GIMP_TEMPORARY_PROCEDURE (proc)->plug_in);
 
       g_value_set_int      (&args->values[n_args++], GIMP_RUN_NONINTERACTIVE);  // run-mode
       gimp_value_set_image (&args->values[n_args++], image);                    // image
@@ -1093,8 +807,14 @@ void GtkCXX::FilterLayer::project_region (gint          x,
         //run-mode{interactive=0,noninteractive=1}, image, drawable, horizontal, vertical, method (IIR=0, RLE=1)
       gimp_image_flush (image);
 
-      filter_active           = true;
+      filter_active           = proc;
       projected_tiles_updated = false;
+    } else {
+//      g_print("FilterLayer::project_region: skip filter execution: filter_active=%p, updates=%p\n", filter_active, updates);
+//      for (GList* list = updates; list; list = g_list_next(list)) {
+//        auto r = (Rectangle*)list->data;
+//        g_print("  skipped: %d, %d + (%d, %d)\n", r->x, r->y, r->width, r->height);
+//      }
     }
   } else {
 //    g_print ("FilterLayer::project_region:  not updated %d, %d +(%d, %d)\n", x, y, width, height);
@@ -1106,23 +826,12 @@ void GtkCXX::FilterLayer::project_region (gint          x,
   GIMP_DRAWABLE_CLASS(Class::parent_class)->project_region (drawable, x, y, width, height, projPR, combine);
 }
 
-GList* GtkCXX::FilterLayer::get_layers ()
-{
-#if 0
-  return gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (children));
-#endif
-  return NULL;
-}
 
 gint GtkCXX::FilterLayer::get_opacity_at (gint          x,
                                           gint          y)
 {
   /* Only consider child layers as having content */
   return 0;
-}
-
-GimpProjection * GtkCXX::FilterLayer::get_projection () {
-  return projection;
 }
 
 void GtkCXX::FilterLayer::suspend_resize (gboolean        push_undo) {
@@ -1164,7 +873,7 @@ void GtkCXX::FilterLayer::resume_resize (gboolean        push_undo) {
 void GtkCXX::FilterLayer::on_parent_changed (GimpViewable  *viewable,
                                              GimpViewable  *parent)
 {
-  g_print("on_parent_changed: %p ==> parent=%s\n", viewable, parent? gimp_object_get_name(parent): NULL);
+//  g_print("on_parent_changed: %p ==> parent=%s\n", viewable, parent? gimp_object_get_name(parent): NULL);
   if (child_update_conn) {
     delete child_update_conn;
     child_update_conn = NULL;
@@ -1182,6 +891,19 @@ void GtkCXX::FilterLayer::on_parent_changed (GimpViewable  *viewable,
                                   Delegator::delegator(this, &GtkCXX::FilterLayer::on_stack_update));
   }
 }
+
+static void delete_rectangle(void* rect){
+  delete (GtkCXX::FilterLayer::Rectangle*)rect;
+}
+void GtkCXX::FilterLayer::filter_reset () {
+  g_print("FilterLayer::filter_reset\n");
+  gimp_progress_cancel(GIMP_PROGRESS(g_object));
+  g_list_free_full(updates, delete_rectangle);
+  updates = NULL;
+  tile_manager_unref(projected_tiles);
+  projected_tiles = NULL;
+}
+
 
 void GtkCXX::FilterLayer::update () {
   if (suspend_resize_ == 0){
@@ -1253,7 +975,7 @@ void GtkCXX::FilterLayer::update_size () {
           reallocate_height = height;
 
           gimp_projectable_structure_changed (GIMP_PROJECTABLE (g_object));
-
+#if 0
           tiles = gimp_projection_get_tiles_at_level (projection,
                                                       0, NULL);
 
@@ -1265,6 +987,7 @@ void GtkCXX::FilterLayer::update_size () {
                                         tiles,
                                         gimp_drawable_type (GIMP_DRAWABLE (g_object)),
                                         x, y);
+#endif
         }
       else
         {
@@ -1279,14 +1002,9 @@ void GtkCXX::FilterLayer::update_size () {
                                        x, y, width, height);
 
           /*  see comment in gimp_filter_layer_stack_update() below  */
-          gimp_pickable_flush (GIMP_PICKABLE (projection));
+//          gimp_pickable_flush (GIMP_PICKABLE (projection));
         }
 
-      if (offset_node)
-        gegl_node_set (offset_node,
-                       "x", (gdouble) -x,
-                       "y", (gdouble) -y,
-                       NULL);
     }
 }
 
@@ -1294,14 +1012,13 @@ GimpProgress* GtkCXX::FilterLayer::start(const gchar* message,
                                          gboolean     cancelable)
 {
   g_print("FilterLayer::start: %s\n", message);
-  filter_active = true;
   return GIMP_PROGRESS(g_object);
 }
 
 void GtkCXX::FilterLayer::end()
 {
   g_print("FilterLayer::end\n");
-  filter_active = false;
+  filter_active = NULL;
   GimpItem* item   = GIMP_ITEM(g_object);
   gint      width  = gimp_item_get_width(item);
   gint      height = gimp_item_get_height(item);
@@ -1313,7 +1030,7 @@ void GtkCXX::FilterLayer::end()
 
 gboolean GtkCXX::FilterLayer::is_active()
 {
-  return filter_active;
+  return filter_active != NULL;
 }
 
 void GtkCXX::FilterLayer::set_text(const gchar* message)
@@ -1360,22 +1077,43 @@ void GtkCXX::FilterLayer::on_stack_update (GimpDrawableStack *stack,
   if (item_index < self_index)
     return;
 
-  GimpImage* image        = gimp_item_get_image(GIMP_ITEM(g_object));
-  gint       image_width  = gimp_image_get_width(image);
-  gint       image_height = gimp_image_get_height(image);
-  gint       x1           = x,
-             x2           = x + width,
-             y1           = y,
-             y2           = y + height;
-  x1 = (x1 / TILE_WIDTH ) * TILE_WIDTH;
-  y1 = (y1 / TILE_HEIGHT) * TILE_HEIGHT;
-  x2 = MIN(image_width,  ((x2 + TILE_WIDTH  - 1) / TILE_WIDTH ) * TILE_WIDTH );
-  y2 = MIN(image_height, ((y2 + TILE_HEIGHT - 1) / TILE_HEIGHT) * TILE_HEIGHT);
+  gint parent_off_x = 0;
+  gint parent_off_y = 0;
+  GimpViewable* parent = gimp_viewable_get_parent(GIMP_VIEWABLE(g_object));
+  if (parent)
+    gimp_item_get_offset(GIMP_ITEM(parent), &parent_off_x, &parent_off_y);
+  GimpItem* self_item = GIMP_ITEM(g_object);
+  GimpImage* image = gimp_item_get_image(self_item);
+  gint item_width  = gimp_item_get_width (self_item);
+  gint item_height = gimp_item_get_height(self_item);
+  gint offset_x    = gimp_item_get_offset_x (self_item);
+  gint offset_y    = gimp_item_get_offset_y (self_item);
+  gint image_width = gimp_image_get_width(image);
+  gint image_height= gimp_image_get_height(image);
 
-  for (int x3 = x1; x3 < x2; x3 += TILE_WIDTH) {
-    for (int y3 = y1; y3 < y2; y3 += TILE_HEIGHT) {
-      gint w = MIN(TILE_WIDTH,  x2 - x3);
-      gint h = MIN(TILE_HEIGHT, y2 - y3);
+  gint       x1           = x - parent_off_x,
+             x2           = x1 + width,
+             y1           = y - parent_off_y,
+             y2           = y1 + height;
+  if (x2 < offset_x - parent_off_x ||
+      y2 < offset_y - parent_off_y ||
+      x1 > offset_x - parent_off_x + item_width ||
+      y1 > offset_y - parent_off_y + item_height )
+    return;
+
+  x1 = MAX((x1 / TILE_WIDTH ) * TILE_WIDTH,  offset_x - parent_off_x);
+  y1 = MAX((y1 / TILE_HEIGHT) * TILE_HEIGHT, offset_y - parent_off_y);
+  x2 = MIN(image_width  - parent_off_x,
+           MIN(offset_x - parent_off_x + item_width,
+               ((x2 + TILE_WIDTH  - 1) / TILE_WIDTH ) * TILE_WIDTH ));
+  y2 = MIN(image_height - parent_off_y,
+           MIN(offset_y - parent_off_y + item_height,
+               ((y2 + TILE_HEIGHT - 1) / TILE_HEIGHT) * TILE_HEIGHT));
+
+  for (int x3 = x1; x3 < x2; x3 += TILE_WIDTH - (x3 % TILE_WIDTH)) {
+    for (int y3 = y1; y3 < y2; y3 += TILE_HEIGHT - (y3 % TILE_HEIGHT)) {
+      gint w = MIN(TILE_WIDTH  - (x3 % TILE_WIDTH),  x2 - x3);
+      gint h = MIN(TILE_HEIGHT - (y3 % TILE_HEIGHT), y2 - y3);
 
       bool found = false;
       for (GList* list = updates; list; list = g_list_next(list)) {
@@ -1390,6 +1128,7 @@ void GtkCXX::FilterLayer::on_stack_update (GimpDrawableStack *stack,
       if (!found) {
 //        g_print ("FilterLayer::on_stack_update ::::: added ==> %d, %d +(%d, %d)\n",
 //                 x3, y3, w, h);
+//        g_print ("                                   parent-offset:%d,%d, item-offset:%d,%d\n", parent_off_x, parent_off_y, offset_x, offset_y);
         updates = g_list_append(updates, new Rectangle(x3, y3, w, h));
       }
     }
@@ -1419,7 +1158,12 @@ void GtkCXX::FilterLayer::on_proj_update (GimpProjection *proj,
 /*  public functions  */
 
 GimpLayer *
-FilterLayerInterface::new_instance (GimpImage *image)
+FilterLayerInterface::new_instance (GimpImage            *image,
+                                    gint                  width,
+                                    gint                  height,
+                                    const gchar          *name,
+                                    gdouble               opacity,
+                                    GimpLayerModeEffects  mode)
 {
   typedef GtkCXX::Class F;
   GimpImageType   type;
@@ -1427,21 +1171,20 @@ FilterLayerInterface::new_instance (GimpImage *image)
 
   g_return_val_if_fail (GIMP_IS_IMAGE (image), NULL);
 
-  gint width  = gimp_image_get_width(image);
-  gint height = gimp_image_get_height(image);
-
   type = gimp_image_base_type_with_alpha (image);
 
   g_print("create instance type=%lx\n", GtkCXX::Class::Traits::get_type());
   group = F::Traits::cast (gimp_drawable_new (GtkCXX::Class::Traits::get_type(),
-                                               image, NULL,
+                                               image, name,
                                                0, 0, width, height,
                                                type));
+  GimpLayer* layer = GIMP_LAYER(group);
+  opacity = CLAMP (opacity, GIMP_OPACITY_TRANSPARENT, GIMP_OPACITY_OPAQUE);
+
+  layer->opacity = opacity;
+  layer->mode    = mode;
 
   g_print("new_instance::group=%p\n", group);
-
-  if (gimp_image_get_projection (image)->use_gegl)
-    F::get_private (group)->projection->use_gegl = TRUE;
 
   return GIMP_LAYER (group);
 }
@@ -1461,14 +1204,14 @@ GType gimp_filter_layer_get_type() {
   return GtkCXX::Class::Traits::get_type();
 }
 
-GimpLayer      * gimp_filter_layer_new            (GimpImage      *image)
+GimpLayer      * gimp_filter_layer_new            (GimpImage            *image,
+                                                   gint                  width,
+                                                   gint                  height,
+                                                   const gchar          *name,
+                                                   gdouble               opacity,
+                                                   GimpLayerModeEffects  mode)
 {
-  return FilterLayerInterface::new_instance(image);
-}
-
-GimpProjection * gimp_filter_layer_get_projection (GimpFilterLayer *group)
-{
-  return FilterLayerInterface::cast(group)->get_projection();
+  return FilterLayerInterface::new_instance(image, width, height, name, opacity, mode);
 }
 
 void             gimp_filter_layer_suspend_resize (GimpFilterLayer *group,
