@@ -21,7 +21,6 @@
 
 #include <glib.h>
 #include "base/delegators.hpp"
-#include "base/glib-cxx-utils.hpp"
 
 namespace GtkCXX {
 
@@ -42,9 +41,14 @@ public:
   template<typename T>
   static gboolean is_class(T* obj) { return G_TYPE_CHECK_CLASS_TYPE(obj, get_type()); }
   template<typename T>
-  static Class* get_class(Instance* obj) { return G_TYPE_INSTANCE_GET_CLASS(obj, get_type(), Class); }
+  static Class* get_class(T* obj) { return G_TYPE_INSTANCE_GET_CLASS(obj, get_type(), Class); }
 };
 
+template<typename Instance>
+Instance* cast(gpointer p) { return reinterpret_cast<Instance*>(p); }
+
+template<typename Class>
+Class* cast_class(gpointer p) { return reinterpret_cast<Class*>(p); }
 
 template <typename _ParentTraits>
 class ClassExtension {
