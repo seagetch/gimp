@@ -18,6 +18,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "base/delegators.hpp"
+#include "base/glib-cxx-utils.hpp"
+#include "base/glib-cxx-impl.hpp"
+
 extern "C" {
 #include "config.h"
 
@@ -64,29 +68,118 @@ extern "C" {
 
 #include "gimpfilterlayer.h"
 #include "gimpfilterlayerundo.h"
-#include "base/delegators.hpp"
-#include "base/glib-cxx-utils.hpp"
-#include "base/glib-cxx-impl.hpp"
 
 
 namespace GtkCXX {
-typedef Traits<GimpLayer, GimpLayerClass, gimp_layer_get_type> ParentTraits;
-typedef ClassHolder<ParentTraits, GimpFilterLayer, GimpFilterLayerClass> ClassDef;
+typedef ClassHolder<LayerTraits, GimpFilterLayer, GimpFilterLayerClass> ClassDef;
+
+class ProcedureRunner {
+  GimpProcedure* procedure;
+  GimpProgress*  progress;
+  GValueArray*   args;
+  bool           running;
+
+public:
+  ProcedureRunner(GimpProcedure* proc, GimpProgress* prog) :
+    procedure(proc), progress(prog), running(false), args(NULL) {};
+  ~ProcedureRunner() {
+    if (args) {
+      g_value_array_free(args);
+      args = NULL;
+    }
+  }
+
+  bool is_running() { return running; };
+
+  bool setup_args(GHashTableHolder<const gchar*, GValue*>* arg_tables) {
+    if (!args)
+      args = gimp_procedure_get_arguments (procedure);
+
+    for (int i = 0; i < procedure->num_args; i ++) {
+      GParamSpec* pspec = procedure->args[i];
+      GValue* value = (arg_tables)? (*arg_tables)[g_param_spec_get_name(pspec)] : NULL;
+      if (value) {
+        g_value_copy(value, &args->values[i]);
+      } else {
+        GValue v_str = G_VALUE_INIT;
+        g_value_init(&v_str, G_TYPE_STRING);
+        g_value_transform(g_param_spec_get_default_value(pspec), &v_str);
+        g_print("FilterLayer::setup_args: %s: %s = %s\n", g_param_spec_get_name(pspec), g_type_name(G_PARAM_SPEC_VALUE_TYPE(pspec)), g_value_get_string(&v_str) );
+        g_value_copy(g_param_spec_get_default_value(pspec), &args->values[i]);
+      }
+    }
+  }
+
+  bool run(GimpItem* item) {
+    if (running)
+      return false;
+    GimpDrawable*  drawable= GIMP_DRAWABLE(item);
+    GimpImage*     image   = gimp_item_get_image(GIMP_ITEM(drawable));
+    Gimp*          gimp    = image->gimp;
+    GimpPDB*       pdb     = gimp->pdb;
+    GimpContext*   context = gimp_get_user_context(gimp);
+    GError*        error   = NULL;
+    GimpObject*    display = GIMP_OBJECT(gimp_context_get_display(context));
+    gint           n_args  = 0;
+
+    if (!args)
+      setup_args(NULL);
+
+    for (int i = 0; i < procedure->num_args; i ++) {
+
+      GParamSpec* pspec = procedure->args[i];
+      if (strcmp(g_param_spec_get_name(pspec),"run-mode") == 0) {
+        g_value_set_int(&args->values[i], GIMP_RUN_NONINTERACTIVE);
+
+      } else if (GIMP_IS_PARAM_SPEC_IMAGE_ID(pspec)) {
+        gimp_value_set_image (&args->values[i], image);
+
+      } else if (GIMP_IS_PARAM_SPEC_DRAWABLE_ID(pspec)) {
+        gimp_value_set_drawable (&args->values[i], drawable);
+
+      } else if (GIMP_IS_PARAM_SPEC_ITEM_ID(pspec)) {
+        gimp_value_set_item (&args->values[i], item);
+
+      }
+
+    }
+
+    gimp_procedure_execute_async (procedure, gimp, context,
+                                  progress, args, display,NULL);
+    gimp_image_flush (image);
+    running = true;
+    return true;
+  }
+
+  void on_end() {
+    running = false;
+  }
+
+  const char* get_procedure_name() {
+    return procedure->original_name;
+  }
+
+  GValueArray* get_args() {
+    return args? g_value_array_copy(args) : g_value_array_new(0);
+  }
+
+};
 
 struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterface
 {
-  TileManager    *projected_tiles;
-  bool            projected_tiles_updated;
-  gdouble         filter_progress;
-  GimpProcedure  *filter_active;
-  GList*          updates;
+  TileManager*     projected_tiles;
+  bool             projected_tiles_updated;
+  gdouble          filter_progress;
+  ProcedureRunner* runner;
+  ProcedureRunner* new_runner;
+  GList*           updates;
 
-  gint            suspend_resize_;
+  gint             suspend_resize_;
 
   /*  hackish temp states to make the projection/tiles stuff work  */
-  gboolean        reallocate_projection;
-  gint            reallocate_width;
-  gint            reallocate_height;
+  gboolean         reallocate_projection;
+  gint             reallocate_width;
+  gint             reallocate_height;
 
   struct Rectangle {
     gint x, y;
@@ -168,6 +261,10 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   virtual void            filter_reset ();
   virtual void            update       ();
   virtual void            update_size  ();
+
+  virtual void            set_procedure(const char* proc_name);
+  virtual const char*     get_procedure();
+  virtual GValueArray*    get_procedure_args();
 
   // For GimpProgress Interface
   virtual GimpProgress*   start        (const gchar* message,
@@ -285,11 +382,11 @@ void FilterLayer::class_init(ClassDef::Class *klass)
   Class::__(&item_class->duplicate          ).bind<&Impl::duplicate>();
 //  F::__(&item_class->convert            ).bind<&Impl::convert>();
   Class::__(&item_class->translate          ).bind<&Impl::translate>();
-//  F::__(&item_class->scale              ).bind<&Impl::scale>();
-//  F::__(&item_class->resize             ).bind<&Impl::resize>();
-//  F::__(&item_class->flip               ).bind<&Impl::flip>();
-//  F::__(&item_class->rotate             ).bind<&Impl::rotate>();
-//  F::__(&item_class->transform          ).bind<&Impl::transform>();
+  Class::__(&item_class->scale              ).bind<&Impl::scale>();
+  Class::__(&item_class->resize             ).bind<&Impl::resize>();
+  Class::__(&item_class->flip               ).bind<&Impl::flip>();
+  Class::__(&item_class->rotate             ).bind<&Impl::rotate>();
+  Class::__(&item_class->transform          ).bind<&Impl::transform>();
 
   item_class->default_name         = _("Filter Layer");
   item_class->rename_desc          = C_("undo-type", "Rename Filter Layer");
@@ -313,22 +410,6 @@ void FilterLayer::iface_init<GimpPickableInterface>(GimpPickableInterface* iface
   g_print("FilterLayer::iface_init<GimpPickableInterface>\n");
   
   Class::__(&iface->get_opacity_at).bind<&Impl::get_opacity_at>();
-}
-
-template<>
-void FilterLayer::iface_init<GimpProjectableInterface> (GimpProjectableInterface *iface)
-{
-#if 0
-  typedef GtkCXX::FilterLayer Impl;
-  g_print("FilterLayer::iface_init<GimpProjectableInterface>\n");
-  
-  Class::__(&iface->get_image         ).bind(&gimp_item_get_image);
-  Class::__(&iface->get_image_type    ).bind(&gimp_drawable_type);
-  Class::__(&iface->get_offset        ).bind(&gimp_item_get_offset);
-  Class::__(&iface->get_size          ).bind(&gimp_viewable_get_size);
-  Class::__(&iface->invalidate_preview).bind(gimp_viewable_invalidate_preview);
-  Class::__(&iface->get_channels      ).clear();
-#endif
 }
 
 template<>
@@ -366,7 +447,7 @@ void GtkCXX::FilterLayer::init ()
   updates             = NULL;
   projected_tiles     = NULL;
   filter_progress     = 0;
-  filter_active       = NULL;
+  runner              = NULL;
   projected_tiles_updated = false;
 }
 
@@ -374,6 +455,14 @@ void GtkCXX::FilterLayer::constructed ()
 {
   g_print("FilterLayer::constructed: project_tiles = %p\n", projected_tiles);
   on_parent_changed(GIMP_VIEWABLE(g_object), NULL);
+
+  // Setup ProcedureRunner object
+  set_procedure("plug-in-edge");
+  set_procedure("plug-in-gauss");
+  GHashTableHolder<const gchar*, GValue*> args = g_hash_table_new(g_str_hash, g_str_equal);
+  auto horizontal = GValueWrapper(25.0);  args.insert("horizontal", &horizontal.ref());
+  auto vertical   = GValueWrapper(25.0);  args.insert("vertical",   &vertical.ref());
+  runner->setup_args(&args);
 }
 
 void GtkCXX::FilterLayer::finalize ()
@@ -388,6 +477,11 @@ void GtkCXX::FilterLayer::finalize ()
     projected_tiles = NULL;
   }
 
+  if (runner) {
+    delete runner;
+    runner = NULL;
+  }
+
   G_OBJECT_CLASS (Class::parent_class)->finalize (g_object);
 }
 
@@ -395,24 +489,22 @@ void GtkCXX::FilterLayer::set_property (guint         property_id,
                                         const GValue *value,
                                         GParamSpec   *pspec)
 {
-  switch (property_id)
-    {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (g_object, property_id, pspec);
-      break;
-    }
+  switch (property_id) {
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (g_object, property_id, pspec);
+    break;
+  }
 }
 
 void GtkCXX::FilterLayer::get_property (guint       property_id,
                                         GValue     *value,
                                         GParamSpec *pspec)
 {
-  switch (property_id)
-    {
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (g_object, property_id, pspec);
-      break;
-    }
+  switch (property_id) {
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (g_object, property_id, pspec);
+    break;
+  }
 }
 
 gint64 GtkCXX::FilterLayer::get_memsize (gint64     *gui_size)
@@ -489,8 +581,8 @@ void GtkCXX::FilterLayer::translate (gint      offset_x,
   GimpLayerMask         *mask;
   GList                 *list;
 
-  filter_reset();
   GIMP_ITEM_CLASS(Class::parent_class)->translate(GIMP_ITEM(g_object), offset_x, offset_y, push_undo);
+  filter_reset();
 }
 
 void GtkCXX::FilterLayer::scale (gint                   new_width,
@@ -500,73 +592,9 @@ void GtkCXX::FilterLayer::scale (gint                   new_width,
                                  GimpInterpolationType  interpolation_type,
                                  GimpProgress          *progress)
 {
-  GimpLayerMask         *mask;
-  GList                 *list;
-  gdouble                width_factor;
-  gdouble                height_factor;
-  gint                   old_offset_x;
-  gint                   old_offset_y;
-
   GimpItem*              item = GIMP_ITEM(g_object);
-
-  width_factor  = (gdouble) new_width  / (gdouble) gimp_item_get_width  (item);
-  height_factor = (gdouble) new_height / (gdouble) gimp_item_get_height (item);
-
-  old_offset_x = gimp_item_get_offset_x (item);
-  old_offset_y = gimp_item_get_offset_y (item);
-
-  suspend_resize ( TRUE);
-#if 0
-  list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (children));
-
-  while (list)
-    {
-      GimpItem *child = GIMP_ITEM(list->data);
-      gint      child_width;
-      gint      child_height;
-      gint      child_offset_x;
-      gint      child_offset_y;
-
-      list = g_list_next (list);
-
-      child_width    = ROUND (width_factor  * gimp_item_get_width  (child));
-      child_height   = ROUND (height_factor * gimp_item_get_height (child));
-      child_offset_x = ROUND (width_factor  * (gimp_item_get_offset_x (child) -
-                                               old_offset_x));
-      child_offset_y = ROUND (height_factor * (gimp_item_get_offset_y (child) -
-                                               old_offset_y));
-
-      child_offset_x += new_offset_x;
-      child_offset_y += new_offset_y;
-
-      if (child_width > 0 && child_height > 0)
-        {
-          gimp_item_scale (child,
-                           child_width, child_height,
-                           child_offset_x, child_offset_y,
-                           interpolation_type, progress);
-        }
-      else if (gimp_item_is_attached (item))
-        {
-          gimp_image_remove_layer (gimp_item_get_image (item),
-                                   GIMP_LAYER (child),
-                                   TRUE, NULL);
-        }
-      else
-        {
-          gimp_container_remove (children, GIMP_OBJECT (child));
-        }
-    }
-
-  mask = gimp_layer_get_mask (GIMP_LAYER (g_object));
-
-  if (mask)
-    gimp_item_scale (GIMP_ITEM (mask),
-                     new_width, new_height,
-                     new_offset_x, new_offset_y,
-                     interpolation_type, progress);
-#endif
-  resume_resize ( TRUE);
+  GIMP_ITEM_CLASS(Class::parent_class)->scale(GIMP_ITEM(g_object), new_width, new_height, new_offset_x, new_offset_y, interpolation_type, progress);
+  filter_reset();
 }
 
 void GtkCXX::FilterLayer::resize (GimpContext *context,
@@ -575,67 +603,9 @@ void GtkCXX::FilterLayer::resize (GimpContext *context,
                                   gint         offset_x,
                                   gint         offset_y)
 {
-  GimpLayerMask         *mask;
-  GList                 *list;
-  gint                   x, y;
-
   GimpItem*              item = GIMP_ITEM(g_object);
-  x = gimp_item_get_offset_x (item) - offset_x;
-  y = gimp_item_get_offset_y (item) - offset_y;
-
-  suspend_resize ( TRUE);
-#if 0
-  list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (children));
-
-  while (list)
-    {
-      GimpItem *child = GIMP_ITEM(list->data);
-      gint      child_width;
-      gint      child_height;
-      gint      child_x;
-      gint      child_y;
-
-      list = g_list_next (list);
-
-      if (gimp_rectangle_intersect (x,
-                                    y,
-                                    new_width,
-                                    new_height,
-                                    gimp_item_get_offset_x (child),
-                                    gimp_item_get_offset_y (child),
-                                    gimp_item_get_width  (child),
-                                    gimp_item_get_height (child),
-                                    &child_x,
-                                    &child_y,
-                                    &child_width,
-                                    &child_height))
-        {
-          gint child_offset_x = gimp_item_get_offset_x (child) - child_x;
-          gint child_offset_y = gimp_item_get_offset_y (child) - child_y;
-
-          gimp_item_resize (child, context,
-                            child_width, child_height,
-                            child_offset_x, child_offset_y);
-        }
-      else if (gimp_item_is_attached (item))
-        {
-          gimp_image_remove_layer (gimp_item_get_image (item),
-                                   GIMP_LAYER (child),
-                                   TRUE, NULL);
-        }
-      else
-        {
-          gimp_container_remove (children, GIMP_OBJECT (child));
-        }
-    }
-
-  mask = gimp_layer_get_mask (GIMP_LAYER (g_object));
-
-  if (mask)
-    gimp_item_resize (GIMP_ITEM (mask), context,
-                      new_width, new_height, offset_x, offset_y);
-#endif
-  resume_resize ( TRUE);
+  GIMP_ITEM_CLASS(Class::parent_class)->resize(GIMP_ITEM(g_object), context, new_width, new_height, offset_x, offset_y);
+  filter_reset();
 }
 
 void GtkCXX::FilterLayer::flip (GimpContext         *context,
@@ -643,28 +613,7 @@ void GtkCXX::FilterLayer::flip (GimpContext         *context,
                                 gdouble              axis,
                                 gboolean             clip_result)
 {
-  GimpLayerMask         *mask;
-  GList                 *list;
-
-  suspend_resize ( TRUE);
-#if 0
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (children));
-       list;
-       list = g_list_next (list))
-    {
-      GimpItem *child = GIMP_ITEM(list->data);
-
-      gimp_item_flip (child, context,
-                      flip_type, axis, clip_result);
-    }
-
-  mask = gimp_layer_get_mask (GIMP_LAYER (g_object));
-
-  if (mask)
-    gimp_item_flip (GIMP_ITEM (mask), context,
-                    flip_type, axis, clip_result);
-#endif
-  resume_resize ( TRUE);
+  filter_reset();
 }
 
 void GtkCXX::FilterLayer::rotate (GimpContext      *context,
@@ -673,11 +622,9 @@ void GtkCXX::FilterLayer::rotate (GimpContext      *context,
                                   gdouble           center_y,
                                   gboolean          clip_result)
 {
-  GimpLayerMask         *mask;
-  GList                 *list;
-
-  suspend_resize ( TRUE);
-  resume_resize ( TRUE);
+  GimpItem*              item = GIMP_ITEM(g_object);
+  GIMP_ITEM_CLASS(Class::parent_class)->rotate(GIMP_ITEM(g_object), context, rotate_type, center_x, center_y, clip_result);
+  filter_reset();
 }
 
 void GtkCXX::FilterLayer::transform (GimpContext            *context,
@@ -688,11 +635,9 @@ void GtkCXX::FilterLayer::transform (GimpContext            *context,
                                      GimpTransformResize     clip_result,
                                      GimpProgress           *progress)
 {
-  GimpLayerMask         *mask;
-  GList                 *list;
-
-  suspend_resize ( TRUE);
-  resume_resize ( TRUE);
+  GimpItem*              item = GIMP_ITEM(g_object);
+  GIMP_ITEM_CLASS(Class::parent_class)->transform(GIMP_ITEM(g_object), context, matrix, direction, interpolation_type, recursion_level, clip_result, progress);
+  filter_reset();
 }
 
 gint64 GtkCXX::FilterLayer::estimate_memsize (gint                width,
@@ -717,27 +662,29 @@ void GtkCXX::FilterLayer::project_region (gint          x,
                                           PixelRegion  *projPR,
                                           gboolean      combine)
 {
-  GimpDrawable  *drawable = GIMP_DRAWABLE(g_object);
-  GimpLayer     *layer    = GIMP_LAYER (drawable);
-  GimpLayerMask *mask     = gimp_layer_get_mask (layer);
-  const gchar*   name     = gimp_object_get_name(GIMP_OBJECT(layer));
-  GimpItem* item = GIMP_ITEM(g_object);
-  gint x1 = x;
-  gint y1 = y;
-  gint offset_x = gimp_item_get_offset_x(item);
-  gint offset_y = gimp_item_get_offset_y(item);
-  gint w = gimp_item_get_width(item);
-  gint h = gimp_item_get_height(item);
-  gint parent_off_x = 0;
-  gint parent_off_y = 0;
-  GimpViewable* parent = gimp_viewable_get_parent(GIMP_VIEWABLE(g_object));
+  GimpDrawable  *drawable     = GIMP_DRAWABLE(g_object);
+  GimpLayer     *layer        = GIMP_LAYER (drawable);
+  GimpLayerMask *mask         = gimp_layer_get_mask (layer);
+  const gchar*   name         = gimp_object_get_name(GIMP_OBJECT(layer));
+  GimpItem*      item         = GIMP_ITEM(g_object);
+  gint           x1           = x;
+  gint           y1           = y;
+  gint           offset_x     = gimp_item_get_offset_x(item);
+  gint           offset_y     = gimp_item_get_offset_y(item);
+  gint           w            = gimp_item_get_width(item);
+  gint           h            = gimp_item_get_height(item);
+  gint           parent_off_x = 0;
+  gint           parent_off_y = 0;
+  GimpViewable*  parent       = gimp_viewable_get_parent(GIMP_VIEWABLE(g_object));
+
   if (parent)
     gimp_item_get_offset(GIMP_ITEM(parent), &parent_off_x, &parent_off_y);
 
 //  g_print("FilterLayer::project_region:%s: (x: %d, y: %d)+(w: %d, h: %d) / (W: %d, H: %d)\n", name, x, y, width, height, w, h);
 //  g_print("                                parent-offset:%d,%d,  item-offset:%d,%d\n", parent_off_x, parent_off_y, offset_x, offset_y);
 //  g_print("           In projection coord: (x: %d, y: %d)\n", x + offset_x - parent_off_x, y + offset_y - parent_off_y);
-  // copy region to tile
+
+  // Region is copied to projected tiles
   for (GList* list = updates; list; ) {
     GList* next = g_list_next(list);
     auto rect = (Rectangle*)list->data;
@@ -759,9 +706,11 @@ void GtkCXX::FilterLayer::project_region (gint          x,
       PixelRegion tilePR;
       PixelRegion read_proj_PR;
       pixel_region_init (&tilePR,       projected_tiles,
-                         rect->x + parent_off_x - offset_x, rect->y + parent_off_y - offset_y, rect->width, rect->height, TRUE);
+                         rect->x + parent_off_x - offset_x, rect->y + parent_off_y - offset_y,
+                         rect->width, rect->height, TRUE);
       pixel_region_init (&read_proj_PR, projPR->tiles,
-                         rect->x, rect->y, rect->width, rect->height, FALSE);
+                         rect->x,                           rect->y,
+                         rect->width, rect->height, FALSE);
       copy_region_nocow(&read_proj_PR, &tilePR);
 
       updates = g_list_delete_link (updates, list);
@@ -769,9 +718,10 @@ void GtkCXX::FilterLayer::project_region (gint          x,
     }
     list = next;
   }
+
+  // Filter effects is applied to updated layer image
   if (projected_tiles_updated) {
-    if (!filter_active) {
-      GimpImage*   image   = gimp_item_get_image(GIMP_ITEM(drawable));
+    if (!runner || !runner->is_running()) {
       TileManager* tiles   = gimp_drawable_get_tiles(drawable);
       PixelRegion  srcPR, destPR;
 
@@ -779,36 +729,10 @@ void GtkCXX::FilterLayer::project_region (gint          x,
       pixel_region_init (&srcPR , projected_tiles, 0, 0, w, h, FALSE);
       copy_region_nocow(&srcPR, &destPR);
 
-      // apply filter to tile
-      Gimp*          gimp    = image->gimp;
-      GimpPDB*       pdb     = gimp->pdb;
-      GimpContext*   context = gimp_get_user_context(gimp);
-      GError*        error   = NULL;
-      GimpProcedure* proc    = gimp_pdb_lookup_procedure(pdb, "plug-in-edge");
-      GValueArray*   args    = gimp_procedure_get_arguments (proc);
-      GimpObject*    display = GIMP_OBJECT(gimp_context_get_display(context));
-      gint           n_args  = 0;
-
-      g_value_set_int      (&args->values[n_args++], GIMP_RUN_NONINTERACTIVE);  // run-mode
-      gimp_value_set_image (&args->values[n_args++], image);                    // image
-      gimp_value_set_item  (&args->values[n_args++], GIMP_ITEM(g_object));      // drawable
-      g_value_set_float    (&args->values[n_args++], 2);                        // amount
-      g_value_set_int      (&args->values[n_args++], 2); //wrapmode=  { WRAP (1), SMEAR (2), BLACK (3) }
-      g_value_set_int      (&args->values[n_args++], 0); //edgemode = { SOBEL (0), PREWITT (1), GRADIENT (2), ROBERTS (3), DIFFERENTIAL (4), LAPLACE (5) }
-      gimp_procedure_execute_async (proc, gimp, context,
-                                    GIMP_PROGRESS(g_object), // progress
-                                    args, // args
-                                    display, // display
-                                    NULL); //GError        **error);
-      //  gimp_pdb_execute_procedure_by_name (pdb, context, NULL, &error,
-      //                                      "plug-in-gauss",
-      //                                      G_TYPE_
-      //                                      ...);
-        //run-mode{interactive=0,noninteractive=1}, image, drawable, horizontal, vertical, method (IIR=0, RLE=1)
-      gimp_image_flush (image);
-
-      filter_active           = proc;
+      if (runner)
+        runner->run(GIMP_ITEM(g_object));
       projected_tiles_updated = false;
+
     } else {
 //      g_print("FilterLayer::project_region: skip filter execution: filter_active=%p, updates=%p\n", filter_active, updates);
 //      for (GList* list = updates; list; list = g_list_next(list)) {
@@ -816,14 +740,51 @@ void GtkCXX::FilterLayer::project_region (gint          x,
 //        g_print("  skipped: %d, %d + (%d, %d)\n", r->x, r->y, r->width, r->height);
 //      }
     }
+
   } else {
 //    g_print ("FilterLayer::project_region:  not updated %d, %d +(%d, %d)\n", x, y, width, height);
   }
 
-  if (filter_active || projected_tiles_updated)
+  if (runner && runner->is_running() || projected_tiles_updated)
     return;
 
   GIMP_DRAWABLE_CLASS(Class::parent_class)->project_region (drawable, x, y, width, height, projPR, combine);
+}
+
+void GtkCXX::FilterLayer::set_procedure(const char* proc_name)
+{
+  if (runner) {
+    if (strcmp(proc_name, runner->get_procedure_name()) ) {
+      if (!runner->is_running()) {
+        delete runner;
+        runner = NULL;
+      }
+    } else
+      return;
+  }
+  GimpImage*     image   = gimp_item_get_image(GIMP_ITEM(g_object));
+  Gimp*          gimp    = image->gimp;
+  GimpPDB*       pdb     = gimp->pdb;
+  GimpProcedure* proc    = gimp_pdb_lookup_procedure(pdb, proc_name);
+  ProcedureRunner* r     = new ProcedureRunner(proc, GIMP_PROGRESS(g_object));
+  if (runner)
+    new_runner = r;
+  else {
+    runner     = r;
+    filter_reset();
+  }
+}
+
+const char* GtkCXX::FilterLayer::get_procedure()
+{
+  if (runner)
+    return runner->get_procedure_name();
+  return "";
+}
+
+GValueArray* GtkCXX::FilterLayer::get_procedure_args()
+{
+  return (runner)? runner->get_args() : g_value_array_new(0);
 }
 
 
@@ -1018,7 +979,15 @@ GimpProgress* GtkCXX::FilterLayer::start(const gchar* message,
 void GtkCXX::FilterLayer::end()
 {
   g_print("FilterLayer::end\n");
-  filter_active = NULL;
+  runner->on_end();
+  if (new_runner) {
+    delete runner;
+    runner      = new_runner;
+    new_runner = NULL;
+    filter_reset();
+    return;
+  }
+//  filter_active = NULL;
   GimpItem* item   = GIMP_ITEM(g_object);
   gint      width  = gimp_item_get_width(item);
   gint      height = gimp_item_get_height(item);
@@ -1030,7 +999,8 @@ void GtkCXX::FilterLayer::end()
 
 gboolean GtkCXX::FilterLayer::is_active()
 {
-  return filter_active != NULL;
+  return runner && runner->is_running();
+//  return filter_active != NULL;
 }
 
 void GtkCXX::FilterLayer::set_text(const gchar* message)
@@ -1191,8 +1161,7 @@ FilterLayerInterface::new_instance (GimpImage            *image,
 
 FilterLayerInterface* FilterLayerInterface::cast(gpointer obj)
 {
-  typedef GtkCXX::Class F;
-  return dynamic_cast<FilterLayerInterface*>(F::get_private(obj));
+  return dynamic_cast<FilterLayerInterface*>(GtkCXX::Class::get_private(obj));
 }
 
 bool FilterLayerInterface::is_instance(gpointer obj)
