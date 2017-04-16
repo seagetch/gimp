@@ -62,4 +62,18 @@ public:
   };
 };
 
+template<class T>
+class Nullable
+{
+  T* ptr;
+public:
+  Nullable(T* src) : ptr(src) { };
+  operator const T*() { return ptr(); }
+  operator T&() { if(ptr) return *ptr; return T(); }
+  T& operator=(T& val) { if(ptr) *ptr = val; return val; };
+  T operator=(T val) { if(ptr) *ptr = val; return val; };
+};
+
+template<class T>
+Nullable<T> nullable(T* src) { return Nullable<T>(src); }
 #endif
