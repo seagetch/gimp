@@ -216,6 +216,8 @@ public:
       disconnect();
   }
   
+  bool is_valid() { return handler_id > 0; }
+
   void disconnect() {
     if (target && closure) {
       gulong handler_id = g_signal_handler_find(gpointer(target), G_SIGNAL_MATCH_CLOSURE, 0, 0, closure, NULL, NULL);
