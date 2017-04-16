@@ -142,7 +142,12 @@ void            gimp_procedure_execute_async      (GimpProcedure    *procedure,
 
 gint            gimp_procedure_name_compare       (GimpProcedure    *proc1,
                                                    GimpProcedure    *proc2);
-
-
+#ifdef __cplusplus
+extern "C++" {
+  namespace GtkCXX {
+    typedef Traits<GimpProcedure, GimpProcedureClass, gimp_procedure_get_type> ProcedureTraits;
+  };
+};
+#endif
 
 #endif  /*  __GIMP_PROCEDURE_H__  */
