@@ -67,7 +67,11 @@ gimp_param_spec_duplicate (GParamSpec *pspec)
                                      spec->default_value,
                                      pspec->flags);
 
+#ifdef GEGL_IS_PARAM_SEPC_MUTILINE
           if (GEGL_IS_PARAM_SPEC_MULTILINE (pspec))
+#else
+          if (gegl_param_spec_get_property_key(pspec, "multiline"))
+#endif
             {
               g_param_spec_set_qdata (new, multiline_quark,
                                       GINT_TO_POINTER (TRUE));

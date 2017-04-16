@@ -54,6 +54,8 @@ libappwidgets_a_sources = \
 	gimpcairo-wilber.h		\
 	gimpcellrendererdashes.c	\
 	gimpcellrendererdashes.h	\
+	gimpcellrendererpopup.cpp	\
+	gimpcellrendererpopup.h	\
 	gimpcellrendererviewable.c	\
 	gimpcellrendererviewable.h	\
 	gimpchanneltreeview.c		\
@@ -423,7 +425,9 @@ libappwidgets_a_sources = \
 	gtkhwrapbox.c			\
 	gtkhwrapbox.h		\
 	gimpmypaintbrusheditor.cpp		\
-	gimpmypaintbrusheditor.h
+	gimpmypaintbrusheditor.h	\
+	popupper.cpp				\
+	popupper.h
 
 libappwidgets_a_built_sources = widgets-enums.c
 

@@ -42,6 +42,7 @@ G_BEGIN_DECLS
 #define GIMP_STOCK_PASTE_INTO               "gimp-paste-into"
 #define GIMP_STOCK_RESET                    "gimp-reset"
 #define GIMP_STOCK_VISIBLE                  "gimp-visible"
+#define GIMP_STOCK_LAYER_MENU               "gimp-layer-menu"
 
 #define GIMP_STOCK_GRADIENT_LINEAR               "gimp-gradient-linear"
 #define GIMP_STOCK_GRADIENT_BILINEAR             "gimp-gradient-bilinear"

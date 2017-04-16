@@ -47,6 +47,7 @@
 
 #include "gimpactiongroup.h"
 #include "gimpcellrendererviewable.h"
+#include "gimpcellrendererpopup.h"
 #include "gimpcontainertreestore.h"
 #include "gimpcontainerview.h"
 #include "gimpdnd.h"
@@ -69,8 +70,10 @@ struct _GimpLayerTreeViewPriv
 
   gint             model_column_mask;
   gint             model_column_mask_visible;
+  gint             model_column_dropdown;
 
   GtkCellRenderer *mask_cell;
+  GtkCellRenderer *dropdown;
 
   PangoAttrList   *italic_attrs;
   PangoAttrList   *bold_attrs;
@@ -261,6 +264,11 @@ gimp_layer_tree_view_init (GimpLayerTreeView *view)
                                            &tree_view->n_model_columns,
                                            G_TYPE_BOOLEAN);
 
+  view->priv->model_column_dropdown =
+    gimp_container_tree_store_columns_add (tree_view->model_columns,
+                                           &tree_view->n_model_columns,
+                                           G_TYPE_BOOLEAN);
+
   /*  Paint mode menu  */
 
   view->priv->paint_mode_menu = gimp_paint_mode_menu_new (FALSE, FALSE);
@@ -334,9 +342,22 @@ gimp_layer_tree_view_constructed (GObject *object)
   GimpContainerTreeView *tree_view  = GIMP_CONTAINER_TREE_VIEW (object);
   GimpLayerTreeView     *layer_view = GIMP_LAYER_TREE_VIEW (object);
   GtkWidget             *button;
+  GtkTreeViewColumn     *column;
 
   if (G_OBJECT_CLASS (parent_class)->constructed)
     G_OBJECT_CLASS (parent_class)->constructed (object);
+
+  column = gtk_tree_view_column_new ();
+  gtk_tree_view_insert_column (tree_view->view, column, 0);
+
+  layer_view->priv->dropdown = gimp_cell_renderer_popup_new();
+  g_object_set (layer_view->priv->dropdown,
+                "xpad", 0,
+                "ypad", 0,
+                NULL);
+  gtk_tree_view_column_pack_start (column, layer_view->priv->dropdown, FALSE);
+  gimp_container_tree_view_add_misc_cell (tree_view,
+                                          layer_view->priv->dropdown);
 
   layer_view->priv->mask_cell = gimp_cell_renderer_viewable_new ();
   gtk_tree_view_column_pack_start (tree_view->main_column,

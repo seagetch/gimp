@@ -384,7 +384,6 @@ gimp_cell_renderer_viewable_clicked (GimpCellRendererViewable *cell,
                                      const gchar              *path,
                                      GdkModifierType           state)
 {
-
   g_return_if_fail (GIMP_IS_CELL_RENDERER_VIEWABLE (cell));
   g_return_if_fail (path != NULL);
 

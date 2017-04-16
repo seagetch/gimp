@@ -33,10 +33,11 @@
 #include "core/gimpmarshal.h"
 #include "core/gimppalette.h"
 
+#include "widgets/gimppopupbutton.h"
+
 #include "gimpdnd.h"
 #include "gimpview.h"
 #include "gimppaletteview.h"
-#include "gimppopupbutton.h"
 #include "gimpfgbgeditor.h"
 #include "gimpviewrendererpalette.h"
 

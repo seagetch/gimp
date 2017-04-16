@@ -229,6 +229,7 @@ typedef struct _GimpViewRendererVectors      GimpViewRendererVectors;
 /*  cell renderers  */
 
 typedef struct _GimpCellRendererDashes       GimpCellRendererDashes;
+typedef struct _GimpCellRendererPopup        GimpCellRendererPopup;
 typedef struct _GimpCellRendererViewable     GimpCellRendererViewable;
 
 

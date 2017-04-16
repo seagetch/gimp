@@ -35,6 +35,7 @@
 #include "core/gimpviewable.h"
 
 #include "gimpcellrendererviewable.h"
+#include "gimpcellrendererpopup.h"
 #include "gimpcontainertreestore.h"
 #include "gimpcontainertreeview.h"
 #include "gimpcontainertreeview-dnd.h"
@@ -489,6 +490,16 @@ gimp_container_tree_view_add_renderer_cell (GimpContainerTreeView *tree_view,
 
   gimp_container_tree_store_add_renderer_cell (GIMP_CONTAINER_TREE_STORE (tree_view->model),
                                                cell);
+}
+
+void
+gimp_container_tree_view_add_misc_cell (GimpContainerTreeView *tree_view,
+                                            GtkCellRenderer       *cell)
+{
+  g_return_if_fail (GIMP_IS_CONTAINER_TREE_VIEW (tree_view));
+
+  tree_view->priv->misc_cells = g_list_prepend (tree_view->priv->misc_cells,
+                                                cell);
 }
 
 void
@@ -997,6 +1008,7 @@ gimp_container_tree_view_button_press (GtkWidget             *widget,
       GimpCellRendererToggle   *toggled_cell = NULL;
       GimpCellRendererViewable *clicked_cell = NULL;
       GtkCellRenderer          *edit_cell    = NULL;
+      GtkCellRenderer          *misc_cell    = NULL;
       GdkRectangle              column_area;
       GtkTreeIter               iter;
       gboolean                  handled = TRUE;
@@ -1079,6 +1091,12 @@ gimp_container_tree_view_button_press (GtkWidget             *widget,
                                                     tree_view->priv->editable_cells,
                                                     column, &column_area,
                                                     bevent->x, bevent->y);
+      if (! toggled_cell && ! clicked_cell && !edit_cell)
+        misc_cell =
+          gimp_container_tree_view_find_click_cell (widget,
+                                                    tree_view->priv->misc_cells,
+                                                    column, &column_area,
+                                                    bevent->x, bevent->y);
 
       g_object_ref (tree_view);
 
@@ -1137,21 +1155,36 @@ gimp_container_tree_view_button_press (GtkWidget             *widget,
                                                            &iter,
                                                            FALSE, FALSE);
 
-                  if (toggled_cell || clicked_cell)
+                  if (toggled_cell || clicked_cell || misc_cell)
                     {
                       gchar *path_str = gtk_tree_path_to_string (path);
 
                       if (toggled_cell)
                         {
+                        g_print("gimp_container_tree_view_button_press: call toggle-clicked.\n");
                           gimp_cell_renderer_toggle_clicked (toggled_cell,
                                                              path_str,
                                                              bevent->state);
                         }
                       else if (clicked_cell)
                         {
+                        g_print("gimp_container_tree_view_button_press: call viewable-clicked.\n");
                           gimp_cell_renderer_viewable_clicked (clicked_cell,
                                                                path_str,
                                                                bevent->state);
+                        }
+                      else if (misc_cell)
+                        {
+                          GdkRectangle background_area;
+                          GtkAllocation allocation;
+                          g_print("gimp_container_tree_view_button_press: (%s): call misc-activated.\n", G_OBJECT_TYPE_NAME(widget));
+                          gtk_tree_view_get_cell_area (tree_view->view, path,
+                                                       column, &background_area);
+                          gtk_widget_get_allocation(GTK_WIDGET(tree_view->view), &allocation);
+                          background_area.x     = 0;
+                          background_area.width = allocation.width;
+                          handled = TRUE;
+                          gimp_cell_renderer_popup_clicked (GIMP_CELL_RENDERER_POPUP(misc_cell), G_OBJECT(widget), path_str, &background_area);
                         }
 
                       g_free (path_str);

@@ -54,7 +54,6 @@
 #include "widgets/gimpuimanager.h"
 #include "widgets/gimpview.h"
 #include "widgets/gimptooloptionstoolbar.h"
-#include "widgets/gimppopupbutton.h"
 
 #include "gimpdisplay.h"
 #include "gimpdisplay-foreach.h"

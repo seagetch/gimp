@@ -133,6 +133,7 @@ static const GtkStockItem gimp_stock_items[] =
   { GIMP_STOCK_PASTE_INTO,     N_("Paste Into"),      0, 0, LIBGIMP_DOMAIN },
   { GIMP_STOCK_RESET,          N_("_Reset"),          0, 0, LIBGIMP_DOMAIN },
   { GIMP_STOCK_VISIBLE,        N_("Visible"),         0, 0, LIBGIMP_DOMAIN },
+  { GIMP_STOCK_LAYER_MENU,     N_("Layer menu"),      0, 0, LIBGIMP_DOMAIN },
 
   { GIMP_STOCK_GRADIENT_LINEAR,               NULL,   0, 0, LIBGIMP_DOMAIN },
   { GIMP_STOCK_GRADIENT_BILINEAR,             NULL,   0, 0, LIBGIMP_DOMAIN },
@@ -453,6 +454,7 @@ gimp_stock_button_pixbufs[] =
 
   { GIMP_STOCK_LINKED,                   stock_linked_20                   },
   { GIMP_STOCK_VISIBLE,                  stock_eye_20                      },
+  { GIMP_STOCK_LAYER_MENU,               stock_layer_menu_16               },
 
   { GIMP_STOCK_MOVE_TO_SCREEN,           stock_move_to_screen_24           },
 
@@ -587,6 +589,7 @@ gimp_stock_menu_pixbufs[] =
 
   { GIMP_STOCK_LINKED,                   stock_linked_12                   },
   { GIMP_STOCK_VISIBLE,                  stock_eye_12                      },
+  { GIMP_STOCK_LAYER_MENU,               stock_layer_menu_16               },
 
   { GIMP_STOCK_SELECTION_ALL,            stock_selection_all_16            },
   { GIMP_STOCK_SELECTION_NONE,           stock_selection_none_16           },
