@@ -43,7 +43,6 @@
 #include "widgets/gimppropwidgets.h"
 #include "widgets/gimpcontainereditor.h"
 #include "widgets/gimpcontainerview.h"
-#include "widgets/gimppopupbutton.h"
 #include "widgets/gimpcontainerbox.h"
 #include "widgets/gimpdynamicsoutputeditor.h"
 

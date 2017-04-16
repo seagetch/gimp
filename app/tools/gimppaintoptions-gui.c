@@ -35,7 +35,6 @@
 #include "widgets/gimpspinscale.h"
 #include "widgets/gimpviewablebox.h"
 #include "widgets/gimpwidgets-constructors.h"
-#include "widgets/gimppopupbutton.h"
 
 #include "widgets/gimpwidgets-utils.h"
 
