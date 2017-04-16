@@ -15,6 +15,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "base/delegators.hpp"
+#include "base/glib-cxx-impl.hpp"
+#include "base/glib-cxx-utils.hpp"
+
 extern "C" {
 #include "config.h"
 
@@ -52,7 +56,6 @@ extern "C" {
 #include "gimp-intl.h"
 };
 
-#include "base/delegators.hpp"
 #include "gimpmypaintcore.hpp"
 #include "gimpmypaintcore-surface.hpp"
 #include "core/gimpmypaintbrush-private.hpp"
