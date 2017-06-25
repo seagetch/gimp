@@ -30,7 +30,14 @@ extern "C" {
 #include "widgets-types.h"
 #include "core/gimpdashpattern.h"
 #include "core/gimpmarshal.h"
+#include "core/gimp.h"
+#include "core/gimpimage.h"
 #include "core/gimplayer.h"
+
+#include "pdb/gimppdb-query.h"
+#include "pdb/gimppdb.h"
+#include "pdb/gimpprocedure.h"
+#include "plug-in/gimppluginprocedure.h"
 
 #include "libgimpwidgets/gimpwidgets.h"
 #include "libgimpbase/gimpbase.h"
@@ -40,6 +47,8 @@ extern "C" {
 #include "gimphelp-ids.h"
 #include "gimpspinscale.h"
 };
+
+#include "base/glib-cxx-def-utils.hpp"
 
 #include "gimpcellrendererpopup.h"
 #include "popupper.h"
@@ -54,183 +63,333 @@ class PopupWindow {
     NUM_ARGS
   };
   GWrapper<GimpLayer> layer;
+  GWrapper<GtkWidget> mode_select;
+  GWrapper<GtkWidget> filter_select;
+  GWrapper<GtkWidget> filter_edit;
 
-  GtkWidget* create_mode_view(const gchar* title, GtkTreeModel* model) {
-    GtkWidget* result = gtk_tree_view_new_with_model(model);
-    auto tree_view = _G(result);
-    auto column    = _G(gtk_tree_view_column_new_with_attributes (title,
-                                                        gtk_cell_renderer_text_new(),
-                                                        "text", LABEL,
-                                                        NULL));
+  GtkWidget* create_label_tree_view(const gchar* title, GtkTreeModel* model) {
+    GtkWidget* result    = gtk_tree_view_new_with_model(model);
+    auto       tree_view = _G(result);
+    auto       column    = _G(gtk_tree_view_column_new_with_attributes (title,
+        gtk_cell_renderer_text_new(),
+        "text", LABEL,
+        NULL));
     tree_view[gtk_tree_view_append_column](column.ptr());
     return tree_view.ptr();
   };
 
-  void add_mode(GWrapper<GtkTreeStore> store, GtkTreeIter* iter, GtkTreeIter* parent, GimpLayerModeEffects value, const gchar* label = NULL) {
-    const gchar *desc;
+  void add_proc(GWrapper<GtkTreeStore> store, GtkTreeIter* iter, GtkTreeIter* parent, GimpPlugInProcedure* proc, const gchar* label = NULL) {
+    const gchar* desc = proc? proc->menu_label : label;
+    g_print("PopupWindow::add_proc: desc=%s, parent=%p, proc=%s\n", desc, parent, proc? GIMP_PROCEDURE(proc)->original_name: "(null)");
+    store [gtk_tree_store_append] (iter, parent);
+    gtk_tree_store_set (GTK_TREE_STORE(store.ptr()), iter, VALUE, proc? GIMP_PROCEDURE(proc)->original_name: "", LABEL, _(desc), -1);
+  };
 
+  bool is_allowed_proc_path(gchar* menu_path) {
+    static const gchar* white_list_prefix[] = {
+        "<Image>/Filters/",
+        "<Image>/Colors/",
+        NULL
+    };
+    static const gchar* black_list_prefix[] = {
+        "<Image>/Filters/Animation",
+        "<Image>/Filters/Render",
+        "<Image>/Filters/Language",
+        "<Image>/Filters/Web",
+        NULL
+    };
+    for (const gchar** i = white_list_prefix; *i; i ++) {
+      if (strncmp(menu_path, *i, strlen(*i)) == 0) {
+        bool result = true;
+        for (const gchar** j = black_list_prefix; *j; j ++) {
+          if (strncmp(menu_path, *j, strlen(*j)) == 0) {
+            result = false;
+            break;
+          }
+        }
+        if (result)
+          return true;
+      }
+    }
+    return false;
+  }
+
+  GtkWidget* create_filter_list(GWrapper<GimpLayer> layer) {
+    auto             store    = _G(gtk_tree_store_new(NUM_ARGS, G_TYPE_STRING, G_TYPE_STRING));
+    auto             pdb      = _G( layer [gimp_item_get_image] ().ptr()->gimp->pdb );
+    gint             num_procs;
+    gchar**          procs;
+    gboolean query = pdb [gimp_pdb_query] (".*", ".*", ".*", ".*", ".*", ".*", ".*", &num_procs, &procs, NULL);
+
+    GHashTableHolder<gchar*, GtkTreeIter*> tree_map = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+
+    for (int i = 0; i < num_procs; i ++) {
+      gchar*         proc_name        = procs[i];
+      GimpProcedure* proc             = pdb [gimp_pdb_lookup_procedure] (proc_name);
+
+      g_free(proc_name);
+
+      if (!proc || !GIMP_IS_PLUG_IN_PROCEDURE(proc)) continue;
+
+      GimpPlugInProcedure* plugin_proc = GIMP_PLUG_IN_PROCEDURE(proc);
+      for (GList* l = plugin_proc->menu_paths; l; l = g_list_next(l)) {
+        gchar* path = (gchar*)l->data;
+
+        if (is_allowed_proc_path(path)) {
+
+          // Registers procedure for filter selection list.
+          StringListHolder path_list    = g_strsplit(path, "/", -1);
+          GStringHolder    current_path = g_string_new("");
+          GtkTreeIter*     parent       = NULL;
+
+          // Traverses appropriate GtkTreeIter folder for menu_path
+          for (int p = 0; path_list[p]; p ++) {
+            if (p == 0) continue;
+            g_string_append_c(current_path.ptr(), '/');
+            g_string_append(current_path.ptr(), path_list[p]);
+            if (tree_map[current_path.str()])
+              parent = tree_map[current_path.str()];
+            else {
+              GtkTreeIter* cur_iter = g_new0(GtkTreeIter, 1);
+              add_proc(store, cur_iter, parent, NULL, path_list[p]);
+              tree_map.insert(g_strdup(current_path.str()), cur_iter);
+              parent = cur_iter;
+            }
+          }
+
+          // Registers filter
+          GtkTreeIter proc_iter;
+          add_proc(store, &proc_iter, parent, plugin_proc);
+          break;
+        }
+      }
+
+    }
+    g_free(procs);
+
+    filter_select = create_label_tree_view(_("Procedures"), GTK_TREE_MODEL(store.ptr()));
+    return filter_select;
+  }
+
+  void on_filter_list_changed(GtkWidget* widget) {
+    GtkTreeModel* model     = NULL;
+    GtkTreeIter   iter;
+    gchar*        proc_name = NULL;
+
+    auto selection = _G(widget);
+    selection [gtk_tree_selection_get_selected] (&model, &iter);
+    gtk_tree_model_get (model, &iter, VALUE, &proc_name, -1);
+    if (proc_name && strlen(proc_name) > 0) {
+      g_print("CHANGED: proc_name=%s\n", proc_name);
+      update_filter_edit(proc_name);
+    }
+  }
+
+  void update_filter_edit(gchar* proc_name) {
+    auto           pdb  = _G( layer [gimp_item_get_image] ().ptr()->gimp->pdb );
+    GimpProcedure* proc = pdb [gimp_pdb_lookup_procedure] (proc_name);
+
+    if (!GIMP_IS_PLUG_IN_PROCEDURE(proc)) return;
+
+    GListHolder children( filter_edit [gtk_container_get_children] () );
+    for(GList* iter = children.ptr(); iter != NULL; iter = g_list_next(iter))
+      gtk_widget_destroy(GTK_WIDGET(iter->data));
+
+    for (int j = 0; j < proc->num_args; j ++) {
+      GParamSpec*  pspec         = proc->args[j];
+      const gchar* arg_blurb     = g_param_spec_get_blurb(pspec);
+      GType        arg_type      = G_PARAM_SPEC_TYPE(pspec);
+      const gchar* arg_type_name = G_PARAM_SPEC_TYPE_NAME(pspec);
+
+      if (GIMP_IS_PARAM_SPEC_IMAGE_ID(pspec) ||
+          GIMP_IS_PARAM_SPEC_DRAWABLE_ID(pspec) ||
+          GIMP_IS_PARAM_SPEC_ITEM_ID(pspec) ||
+          strcmp(g_param_spec_get_name(pspec), "run-mode") == 0)
+        continue;
+
+      with (filter_edit, [&](auto it) {
+        it.pack_start ( gtk_label_new(_(arg_blurb)), FALSE, FALSE, 0, [&](auto arg_name_label) {
+          arg_name_label [gtk_widget_show] ();
+        });
+        it.pack_start ( gtk_label_new(_(arg_type_name)), FALSE, FALSE, 0, [&](auto arg_type_label) {
+          arg_type_label [gtk_widget_show] ();
+        });
+      });
+    }
+  }
+
+  GtkWidget* create_filter_edit(GWrapper<GimpLayer> layer) {
+    filter_edit = with (gtk_box_new(GTK_ORIENTATION_VERTICAL, 0), [&](auto vbox) {
+      vbox [gtk_widget_show] ();
+    });
+    return filter_edit;
+  }
+
+  GtkWidget* create_paint_mode_list() {
     static GEnumClass* klass = G_ENUM_CLASS(g_type_class_ref(GIMP_TYPE_LAYER_MODE_EFFECTS));
+    auto               store = _G(gtk_tree_store_new(NUM_ARGS, G_TYPE_STRING, GIMP_TYPE_LAYER_MODE_EFFECTS));
 
-    if ((gint)value >= 0) {
-      GEnumValue* v = g_enum_get_value (klass, (gint) value);
-      desc = gimp_enum_value_get_desc (klass, v);
-    } else
-      desc = label;
+    auto group = [&](GtkTreeIter* parent, const gchar* label, auto f) {
+      GtkTreeIter iter;
+      g_print("PopupWindow::add_mode: desc=%s, value=%d\n", label, -1);
+      store [gtk_tree_store_append] (&iter, parent);
+      gtk_tree_store_set (GTK_TREE_STORE(store.ptr()), &iter, VALUE, -1, LABEL, label, -1);
+      f(&iter);
+    };
 
-    g_print("PopupWindow::add_mode: desc=%s, value=%d\n", desc, (gint)value);
-    store[gtk_tree_store_append] (iter, parent);
-    gtk_tree_store_set (GTK_TREE_STORE(store.ptr()), iter, VALUE, value, LABEL, desc, -1);
+    auto mode  = [&](GtkTreeIter* parent, GimpLayerModeEffects value) {
+      GtkTreeIter  iter;
+      GEnumValue*  v    = g_enum_get_value (klass, (gint) value);
+      const gchar* desc = _(gimp_enum_value_get_desc (klass, v));
+      g_print("PopupWindow::add_mode: desc=%s, value=%d\n", desc, (gint)value);
+      store [gtk_tree_store_append] (&iter, parent);
+      gtk_tree_store_set (GTK_TREE_STORE(store.ptr()), &iter, VALUE, value, LABEL, desc, -1);
+    };
+
+    group(NULL, _("Normal"), [&](auto parent) {
+      mode( parent, GIMP_NORMAL_MODE);
+      mode( parent, GIMP_DISSOLVE_MODE);
+    });
+    group(NULL, _("Lighten"), [&](auto parent) {
+      mode( parent, GIMP_LIGHTEN_ONLY_MODE);
+      mode( parent, GIMP_SCREEN_MODE);
+      mode( parent, GIMP_DODGE_MODE);
+      mode( parent, GIMP_ADDITION_MODE);
+    });
+    group(NULL, _("Darken"), [&](auto parent) {
+      mode( parent, GIMP_DARKEN_ONLY_MODE);
+      mode( parent, GIMP_MULTIPLY_MODE);
+      mode( parent, GIMP_BURN_MODE);
+    });
+    group(NULL, _("Emphasis"), [&](auto parent) {
+      mode( parent, GIMP_OVERLAY_MODE);
+      mode( parent, GIMP_SOFTLIGHT_MODE);
+      mode( parent, GIMP_HARDLIGHT_MODE);
+    });
+    group(NULL, _("Inversion"), [&](auto parent) {
+      mode( parent, GIMP_DIFFERENCE_MODE);
+      mode( parent, GIMP_SUBTRACT_MODE);
+      mode( parent, GIMP_GRAIN_EXTRACT_MODE);
+      mode( parent, GIMP_GRAIN_MERGE_MODE);
+      mode( parent, GIMP_DIVIDE_MODE);
+    });
+    group(NULL, _("Color"), [&](auto parent) {
+      mode( parent, GIMP_HUE_MODE);
+      mode( parent, GIMP_SATURATION_MODE);
+      mode( parent, GIMP_COLOR_MODE);
+      mode( parent, GIMP_VALUE_MODE);
+    });
+    group(NULL, _("Masking"), [&](auto parent) {
+      mode( parent, GIMP_SRC_IN_MODE);
+      mode( parent, GIMP_DST_IN_MODE);
+      mode( parent, GIMP_SRC_OUT_MODE);
+      mode( parent, GIMP_DST_OUT_MODE);
+    });
+
+    mode_select = create_label_tree_view(_("Mode"), GTK_TREE_MODEL(store.ptr()));
+    return mode_select;
   };
 
 public:
-  GtkWidget* create_filter_list() {
-    return gtk_label_new("FilterLayer");
-  }
-  GtkWidget* create_paint_mode_list() {
-    GtkWidget    *combo;
-    GtkTreeIter   top, child;
-
-    auto store = _G(gtk_tree_store_new(NUM_ARGS, G_TYPE_STRING, GIMP_TYPE_LAYER_MODE_EFFECTS));
-    add_mode(store, &top, NULL, (GimpLayerModeEffects)-1, _("Normal"));
-    add_mode(store, &child, &top, GIMP_NORMAL_MODE);
-    add_mode(store, &child, &top, GIMP_DISSOLVE_MODE);
-    add_mode(store, &top, NULL, (GimpLayerModeEffects)-1, _("Lighten"));
-    add_mode(store, &child, &top, GIMP_LIGHTEN_ONLY_MODE);
-    add_mode(store, &child, &top, GIMP_SCREEN_MODE);
-    add_mode(store, &child, &top, GIMP_DODGE_MODE);
-    add_mode(store, &child, &top, GIMP_ADDITION_MODE);
-    add_mode(store, &top, NULL, (GimpLayerModeEffects)-1, _("Darken"));
-    add_mode(store, &child, &top, GIMP_DARKEN_ONLY_MODE);
-    add_mode(store, &child, &top, GIMP_MULTIPLY_MODE);
-    add_mode(store, &child, &top, GIMP_BURN_MODE);
-    add_mode(store, &top, NULL, (GimpLayerModeEffects)-1, _("Emphasis"));
-    add_mode(store, &child, &top, GIMP_OVERLAY_MODE);
-    add_mode(store, &child, &top, GIMP_SOFTLIGHT_MODE);
-    add_mode(store, &child, &top, GIMP_HARDLIGHT_MODE);
-    add_mode(store, &top, NULL, (GimpLayerModeEffects)-1, _("Inversion"));
-    add_mode(store, &child, &top, GIMP_DIFFERENCE_MODE);
-    add_mode(store, &child, &top, GIMP_SUBTRACT_MODE);
-    add_mode(store, &child, &top, GIMP_GRAIN_EXTRACT_MODE);
-    add_mode(store, &child, &top, GIMP_GRAIN_MERGE_MODE);
-    add_mode(store, &child, &top, GIMP_DIVIDE_MODE);
-    add_mode(store, &top, NULL, (GimpLayerModeEffects)-1, _("Color"));
-    add_mode(store, &child, &top, GIMP_HUE_MODE);
-    add_mode(store, &child, &top, GIMP_SATURATION_MODE);
-    add_mode(store, &child, &top, GIMP_COLOR_MODE);
-    add_mode(store, &child, &top, GIMP_VALUE_MODE);
-    add_mode(store, &top, NULL, (GimpLayerModeEffects)-1, _("Masking"));
-    add_mode(store, &child, &top, GIMP_SRC_IN_MODE);
-    add_mode(store, &child, &top, GIMP_DST_IN_MODE);
-    add_mode(store, &child, &top, GIMP_SRC_OUT_MODE);
-    add_mode(store, &child, &top, GIMP_DST_OUT_MODE);
-
-    combo = create_mode_view(_("Mode"), GTK_TREE_MODEL(store.ptr()));
-    return combo;
-  };
-
   void create_view(GtkWidget* widget, GtkWidget** result, gpointer data) {
     PangoAttribute        *attr;
 
     layer = GIMP_LAYER(data);
-    *result = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    auto vbox = _G(*result);
-    {
-      auto hbox = _G(gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0));
-      vbox[gtk_box_pack_start](hbox.ptr(), TRUE, FALSE, 0);
-      hbox[gtk_widget_show]();
+    *result = with (gtk_box_new(GTK_ORIENTATION_VERTICAL, 0), [&](auto vbox) {
+      vbox.pack_start (gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0), TRUE, FALSE, 0, [&](auto hbox) {
+        hbox [gtk_widget_show] ();
 
+        /*  Opacity scale  */
 
-      /*  Opacity scale  */
+        g_print("opacity adjustment\n");
+        hbox.pack_start(gimp_spin_scale_new (
+            with (gtk_adjustment_new (100.0, 0.0, 100.0, 1.0, 10.0, 0.0),[&](auto it) {
+//              it.connect("value-changed", Delegator::delegator(this, &PopupWindow::));
+            }), _("Opacity"), 1), TRUE, TRUE, 0, [&](auto it) {
+          it [gimp_help_set_help_data] (NULL, GIMP_HELP_LAYER_DIALOG_OPACITY_SCALE);
+        });
+        /*  Lock alpha toggle  */
+        hbox.pack_start (gtk_toggle_button_new(), FALSE, FALSE, 0, [&] (auto it) {
+          it [gtk_widget_show] ();
+//          it.connect("toggled", Delegator::delegator(this, &PopupWindow::));
+          it [gimp_help_set_help_data] ( _("Lock alpha channel"), GIMP_HELP_LAYER_DIALOG_LOCK_ALPHA_BUTTON);
 
-      g_print("opacity adjustment\n");
-      auto opacity_adjustment =
-          _G(gtk_adjustment_new (100.0, 0.0, 100.0,
-                                1.0, 10.0, 0.0));
-      g_print("scale spin button\n");
-      auto scale = _G(gimp_spin_scale_new ((GtkAdjustment*)opacity_adjustment, _("Opacity"), 1));
-      scale[gimp_help_set_help_data] (NULL,
-                                      GIMP_HELP_LAYER_DIALOG_OPACITY_SCALE);
-      hbox[gtk_box_pack_start] (scale.ptr(), TRUE, FALSE, 0);
-  /*
-      g_signal_connect (opacity_adjustment, "value-changed",
-                        G_CALLBACK (gimp_layer_tree_view_opacity_scale_changed),
-                        view);
-  */
-      /*  Lock alpha toggle  */
-      g_print("Lock alpha\n");
-      auto lock_alpha_toggle = _G(gtk_toggle_button_new ());
-      g_print("Pack start lock alpha\n");
-      hbox[gtk_box_pack_start] (lock_alpha_toggle.ptr(),
-                                FALSE, FALSE, 0);
-      lock_alpha_toggle[gtk_widget_show] ();
-  /*
-      g_signal_connect (lock_alpha_toggle, "toggled",
-                        G_CALLBACK (gimp_layer_tree_view_lock_alpha_button_toggled),
-                        view);
-  */
-      lock_alpha_toggle[gimp_help_set_help_data] ( _("Lock alpha channel"),
-                               GIMP_HELP_LAYER_DIALOG_LOCK_ALPHA_BUTTON);
+          auto icon_size = GTK_ICON_SIZE_BUTTON;
+          it.add (gtk_image_new_from_stock (GIMP_STOCK_TRANSPARENCY, icon_size), [&](auto image) {
+            image [gtk_widget_show] ();
+          });
+        });
+        /*
+            view->priv->italic_attrs = pango_attr_list_new ();
+            attr = pango_attr_style_new (PANGO_STYLE_ITALIC);
+            attr->start_index = 0;
+            attr->end_index   = -1;
+            pango_attr_list_insert (view->priv->italic_attrs, attr);
 
-      g_print("Icon size\n");
-      auto icon_size = GTK_ICON_SIZE_BUTTON;
+            view->priv->bold_attrs = pango_attr_list_new ();
+            attr = pango_attr_weight_new (PANGO_WEIGHT_BOLD);
+            attr->start_index = 0;
+            attr->end_index   = -1;
+            pango_attr_list_insert (view->priv->bold_attrs, attr);
+        */
+      });
+      vbox.pack_start (gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0), TRUE, TRUE, 0, [&](auto hbox) {
+        hbox [gtk_widget_show] ();
 
-      g_print("image\n");
-      auto image = _G(gtk_image_new_from_stock (GIMP_STOCK_TRANSPARENCY, icon_size));
-      g_print("add image to \n");
-      lock_alpha_toggle[gtk_container_add] (image.ptr());
-      image[gtk_widget_show] ();
-      vbox[gtk_widget_show_all]();
-  /*
-      view->priv->italic_attrs = pango_attr_list_new ();
-      attr = pango_attr_style_new (PANGO_STYLE_ITALIC);
-      attr->start_index = 0;
-      attr->end_index   = -1;
-      pango_attr_list_insert (view->priv->italic_attrs, attr);
+        /*  Paint mode menu  */
+        g_print("create paint_mode_menu\n");
+        hbox.pack_start (gtk_scrolled_window_new(NULL, NULL), TRUE, TRUE, 0, [&](auto it) {
+          it [gtk_widget_show]();
+          it.add (this->create_paint_mode_list(), [&](auto it) {
+            it [gimp_help_set_help_data] (NULL, GIMP_HELP_LAYER_DIALOG_PAINT_MODE_MENU);
+            it [gtk_tree_view_expand_all] ();
+            it [gtk_widget_show]();
+//            it.connect("changed", Delegator::delegator(this, &PopupWindow::));
+          });
+          GtkRequisition req;
+          vbox[gtk_widget_get_requisition](&req);
 
-      view->priv->bold_attrs = pango_attr_list_new ();
-      attr = pango_attr_weight_new (PANGO_WEIGHT_BOLD);
-      attr->start_index = 0;
-      attr->end_index   = -1;
-      pango_attr_list_insert (view->priv->bold_attrs, attr);
-  */
-    }
-    {
-      auto hbox = _G(gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0));
-      vbox[gtk_box_pack_start](hbox.ptr(), TRUE, TRUE, 0);
-      hbox[gtk_widget_show]();
+          req.width  = MAX(req.width, 150);
+          req.height = MAX(req.height, 200);
+          it [gtk_widget_set_size_request] (req.width, req.height);
+        });
 
-      /*  Paint mode menu  */
-      g_print("create paint_mode_menu\n");
-      auto scrolled_window = _G(gtk_scrolled_window_new(NULL, NULL));
-      hbox[gtk_box_pack_start] (scrolled_window.ptr(), TRUE, TRUE, 0);
-      auto paint_mode_menu = _G(create_paint_mode_list());
-  /*
-      gimp_int_combo_box_connect (GIMP_INT_COMBO_BOX (view->priv->paint_mode_menu),
-                                  GIMP_NORMAL_MODE,
-                                  G_CALLBACK (gimp_layer_tree_view_paint_mode_menu_callback),
-                                  view);
-  */
-      paint_mode_menu[gimp_help_set_help_data] (NULL,
-                               GIMP_HELP_LAYER_DIALOG_PAINT_MODE_MENU);
-      paint_mode_menu[gtk_tree_view_expand_all]();
-      scrolled_window[gtk_container_add](paint_mode_menu.ptr());
-      scrolled_window[gtk_widget_show]();
-      paint_mode_menu[gtk_widget_show]();
+        if (FilterLayerInterface::is_instance(layer)) {
+          auto filter_layer = FilterLayerInterface::cast(layer);
 
-      GtkRequisition req;
-      vbox[gtk_widget_get_requisition](&req);
+          hbox.pack_start (gtk_scrolled_window_new(NULL, NULL), TRUE, TRUE, 0, [&](auto it) {
+            it [gtk_widget_show] ();
+            GtkRequisition req;
+            vbox [gtk_widget_get_requisition] (&req);
+            req.width  = MAX(req.width, 200);
+            req.height = MAX(req.height, 300);
+            it [gtk_widget_set_size_request] (req.width, req.height);
 
-      req.width = MAX(req.width, 150);
-      req.height = MAX(req.height, 200);
-      scrolled_window[gtk_widget_set_size_request](req.width, req.height);
+            it.add (this->create_filter_list(layer), [&](auto it) {
+              it [gtk_widget_show] ();
+              it [gtk_tree_view_expand_all] ();
+              auto selection = it [gtk_tree_view_get_selection] ();
+              selection.connect("changed", Delegator::delegator(this, &PopupWindow::on_filter_list_changed));
+            });
+          });
 
-      if (FilterLayerInterface::is_instance(layer)) {
-        auto filter_layer = FilterLayerInterface::cast(layer);
-        GtkWidget* filter_layer_edit = create_filter_list();
-        _G(filter_layer_edit)[gtk_widget_show]();
-        hbox[gtk_box_pack_start] (filter_layer_edit, TRUE, TRUE, 0);
-      }
-    }
+          hbox.pack_start (gtk_scrolled_window_new(NULL, NULL), TRUE, TRUE, 0, [&](auto it) {
+            it [gtk_widget_show] ();
+            GtkRequisition req;
+            vbox [gtk_widget_get_requisition] (&req);
+            req.width  = MAX(req.width, 200);
+            req.height = MAX(req.height, 300);
+            it[gtk_widget_set_size_request](req.width, req.height);
+
+            it.add (this->create_filter_edit(layer), [&](auto it) {
+              it [gtk_widget_show] ();
+            });
+          });
+        }
+      });
+
+      vbox [gtk_widget_show_all] ();
+    });
   };
 };
 //////////////////////////////////////////////////////////////////////////////////////////////
