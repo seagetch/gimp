@@ -319,5 +319,11 @@ gboolean        gimp_item_mask_intersect     (GimpItem           *item,
 gboolean        gimp_item_is_in_set          (GimpItem           *item,
                                               GimpItemSet         set);
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-impl.hpp"
+__DECLARE_GTK_CAST__(GimpItem, GIMP_ITEM, gimp_item);
+};
+#endif
 
 #endif /* __GIMP_ITEM_H__ */

@@ -78,7 +78,8 @@ public:
   virtual void                    resume_resize  (gboolean        push_undo) = 0;
 };
 
+#include "base/glib-cxx-impl.hpp"
+__DECLARE_GTK_CAST__(GimpFilterLayer, GIMP_FILTER_LAYER, gimp_filter_layer);
 #endif
-
 
 #endif /* __GIMP_FILTER_LAYER_H__ */

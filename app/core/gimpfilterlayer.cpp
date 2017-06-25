@@ -19,8 +19,8 @@
  */
 
 #include "base/delegators.hpp"
-#include "base/glib-cxx-utils.hpp"
 #include "base/glib-cxx-impl.hpp"
+#include "base/glib-cxx-utils.hpp"
 
 extern "C" {
 #include "config.h"
@@ -71,7 +71,7 @@ extern "C" {
 
 
 namespace GtkCXX {
-typedef ClassHolder<LayerTraits, GimpFilterLayer, GimpFilterLayerClass> ClassDef;
+typedef ClassHolder<GimpLayerTraits, GimpFilterLayer, GimpFilterLayerClass> ClassDef;
 
 class ProcedureRunner {
   GimpProcedure* procedure;

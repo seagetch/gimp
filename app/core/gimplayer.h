@@ -138,11 +138,12 @@ void            gimp_layer_set_lock_alpha      (GimpLayer            *layer,
 gboolean        gimp_layer_get_lock_alpha      (const GimpLayer      *layer);
 gboolean        gimp_layer_can_lock_alpha      (const GimpLayer      *layer);
 
+
 #ifdef __cplusplus
 extern "C++" {
-  namespace GtkCXX {
-    typedef Traits<GimpLayer, GimpLayerClass, gimp_layer_get_type> LayerTraits;
-  };
+#include "base/glib-cxx-impl.hpp"
+__DECLARE_GTK_CAST__(GimpLayer, GIMP_LAYER, gimp_layer);
 };
 #endif
+
 #endif /* __GIMP_LAYER_H__ */
