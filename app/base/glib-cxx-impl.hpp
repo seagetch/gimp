@@ -200,7 +200,14 @@ public:
   IFace* cast() { return IFace::cast(g_object); }
 };
 
-
-
 };
+
+#define __DECLARE_GTK_CAST__(klass, caster, cast_lower)                                              \
+extern "C++"{                                                                                        \
+  namespace GtkCXX {                                                                                 \
+    typedef Traits<klass, klass##Class, cast_lower##_get_type> klass##Traits;                        \
+    template<> inline klass* cast<klass>(gpointer ptr) { return caster(ptr); };                      \
+    template<> inline klass##Class* cast<klass##Class>(gpointer ptr) { return caster##_CLASS(ptr); };\
+  }                                                                                                  \
+}
 #endif

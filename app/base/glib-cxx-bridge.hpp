@@ -1,26 +1,19 @@
-/*
- * gtk-cxx-utils.hpp
- *
- *  Created on: 2017/04/09
- *      Author: seagetch
- */
-
 #ifndef APP_BASE_GLIB_CXX_BRIDGE_HPP_
 #define APP_BASE_GLIB_CXX_BRIDGE_HPP_
 
+#ifdef __cplusplus
+
 extern "C" {
-#ifdef HAVE_GTK_H
-#include <gtk.h>
-#endif
+#include <gtk/gtk.h>
 }
 #include "base/glib-cxx-impl.hpp"
 
-namespace GtkCXX {
-#ifdef HAVE_GTK_H
-template<> inline cast<GtkTreeStore>(gpointer ptr) { return GTK_TREE_STORE(ptr); }
-template<> inline cast<GtkLayer>(gpointer ptr) { return GTK_LAYER(ptr); }
-template<> inline cast<GtkWidget>(gpointer ptr) { return GTK_WIDGET(ptr); }
-#endif
-};
+__DECLARE_GTK_CAST__(GtkTreeStore, GTK_TREE_STORE, gtk_tree_store);
+__DECLARE_GTK_CAST__(GtkWidget, GTK_WIDGET, gtk_widget);
+__DECLARE_GTK_CAST__(GtkContainer, GTK_CONTAINER, gtk_container);
+__DECLARE_GTK_CAST__(GtkBox, GTK_BOX, gtk_box);
+__DECLARE_GTK_CAST__(GtkScrolledWindow, GTK_SCROLLED_WINDOW, gtk_scrolled_window);
+
+#endif /* __cplusplus */
 
 #endif /* APP_BASE_GLIB_CXX_BRIDGE_HPP_ */
