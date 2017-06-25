@@ -10,7 +10,6 @@ extern "C" {
 #include "base/scopeguard.hpp"
 #include "base/delegators.hpp"
 #include "base/glib-cxx-impl.hpp"
-#include "base/glib-cxx-bridge.hpp"
 
 class MemoryHolder : public ScopedPointer<gchar, void(gpointer), g_free>
 {
@@ -26,6 +25,24 @@ public:
   StringHolder(gchar* str) : ScopedPointer<gchar, void(gpointer), g_free>(str) {};
 };
 
+class StringListHolder : public ScopedPointer<gchar*, void(gchar**), g_strfreev>
+{
+public:
+  StringListHolder(gchar** list) : ScopedPointer<gchar*, void(gchar**), g_strfreev>(list) {};
+};
+
+template<typename T>
+void g_string_free_all(T* str) { g_string_free((GString*)str, TRUE); }
+class GStringHolder : public ScopedPointer<GString, void(GString*), g_string_free_all<GString> > 
+{
+public:
+  GStringHolder(GString* str) : ScopedPointer<GString, void(GString*), g_string_free_all<GString> >(str) {};
+  const gchar* str()    const { return obj->str; };
+  const gint   length() const { return obj->len; };
+  gchar* str()    { return obj->str; };
+  gint   length() { return obj->len; };
+};
+
 template<typename Key, typename Data>
 class GHashTableHolder : public ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>
 {
@@ -33,10 +50,10 @@ public:
   GHashTableHolder(GHashTable* table) : ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>(table) {};
 
   const Data lookup(const Key key) const {
-    return (Data)(g_hash_table_lookup(obj, key));
+    return (Data)(g_hash_table_lookup(obj, (const gpointer) key));
   }
-  const Data operator[](const Key data) const {
-    return lookup(data);
+  const Data operator[](const Key key) const {
+    return lookup(key);
   }
   bool insert(const Key key, Data value) {
     g_hash_table_insert(ptr(), (gpointer)key, (gpointer)value);
@@ -290,11 +307,15 @@ public:
   };
 
   GValueWrapper operator[](const gchar* name) { return this->get(name); }
+  template<typename D>
+  Delegator::Connection* connect(const gchar* signal_name, D d) {
+    return g_signal_connect_delegator(G_OBJECT(super::obj), signal_name, d);
+  }
+
 };
 
 template<class T>
-inline GWrapper<T> 
-_G(T* obj) {
+inline GWrapper<T> _G(T* obj) {
   return GWrapper<T>(obj);
 }
 
