@@ -383,7 +383,7 @@ void GtkCXX::Popup::show_over(GtkWidget *widget, GdkRectangle* cell_area)
   self[gtk_widget_size_request] (&requisition);
 
   _widget[gtk_widget_get_allocation] (&allocation);
-  _widget[gtk_widget_get_window]()[gdk_window_get_origin] (&orig_x, &orig_y);
+  _G( _widget[gtk_widget_get_window]() ) [gdk_window_get_origin] (&orig_x, &orig_y);
 
   if (! _widget[gtk_widget_get_has_window] ())
     {
