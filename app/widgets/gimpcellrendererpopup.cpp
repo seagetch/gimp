@@ -26,6 +26,7 @@ extern "C" {
 #include <config.h>
 #include <gegl.h>
 #include <gtk/gtk.h>
+#include <gdk/gdkpixbuf.h>
 
 #include "widgets-types.h"
 #include "core/gimpdashpattern.h"
@@ -60,6 +61,7 @@ class PopupWindow {
   enum {
     LABEL,
     VALUE,
+    PIXBUF,
     NUM_ARGS
   };
   GWrapper<GimpLayer> layer;
@@ -68,21 +70,38 @@ class PopupWindow {
   GWrapper<GtkWidget> filter_edit;
 
   GtkWidget* create_label_tree_view(const gchar* title, GtkTreeModel* model) {
-    GtkWidget* result    = gtk_tree_view_new_with_model(model);
-    auto       tree_view = _G(result);
-    auto       column    = _G(gtk_tree_view_column_new_with_attributes (title,
-        gtk_cell_renderer_text_new(),
-        "text", LABEL,
-        NULL));
-    tree_view[gtk_tree_view_append_column](column.ptr());
-    return tree_view.ptr();
+    auto tree_view = _G(gtk_tree_view_new_with_model(model));
+#if 0
+    with (gtk_tree_view_column_new_with_attributes (
+            " ", gtk_cell_renderer_pixbuf_new(),
+            "pixbuf", PIXBUF,
+            NULL), [&](auto column) {
+      tree_view [gtk_tree_view_append_column] (column.ptr());
+    });
+#endif
+    with (gtk_tree_view_column_new_with_attributes (
+            title, gtk_cell_renderer_text_new(),
+            "text", LABEL,
+            NULL), [&](auto column) {
+      tree_view [gtk_tree_view_append_column] (column.ptr());
+    });
+
+    return tree_view;
   };
 
   void add_proc(GWrapper<GtkTreeStore> store, GtkTreeIter* iter, GtkTreeIter* parent, GimpPlugInProcedure* proc, const gchar* label = NULL) {
-    const gchar* desc = proc? proc->menu_label : label;
-    g_print("PopupWindow::add_proc: desc=%s, parent=%p, proc=%s\n", desc, parent, proc? GIMP_PROCEDURE(proc)->original_name: "(null)");
+    const gchar* desc = label;
+    const gchar* stock_id = NULL;
+    GdkPixbuf* pixbuf = NULL;
+    if (proc) {
+      desc = _G(proc) [gimp_plug_in_procedure_get_label] ();
+      stock_id = _G(proc) [gimp_plug_in_procedure_get_stock_id] ();
+      pixbuf = _G(proc) [gimp_plug_in_procedure_get_pixbuf] ();
+      gtk_image_new_from_stock (stock_id, GTK_ICON_SIZE_BUTTON);
+    }
+    g_print("PopupWindow::add_proc: desc=%s, pixbuf=%p, stock=%s, proc=%s\n", desc, pixbuf, stock_id, proc? GIMP_PROCEDURE(proc)->original_name: "(null)");
     store [gtk_tree_store_append] (iter, parent);
-    gtk_tree_store_set (GTK_TREE_STORE(store.ptr()), iter, VALUE, proc? GIMP_PROCEDURE(proc)->original_name: "", LABEL, _(desc), -1);
+    gtk_tree_store_set (GTK_TREE_STORE(store.ptr()), iter, VALUE, proc? GIMP_PROCEDURE(proc)->original_name: "", LABEL, _(desc), PIXBUF, pixbuf, -1);
   };
 
   bool is_allowed_proc_path(gchar* menu_path) {
@@ -96,6 +115,9 @@ class PopupWindow {
         "<Image>/Filters/Render",
         "<Image>/Filters/Language",
         "<Image>/Filters/Web",
+        "<Image>/Filters/Alpha to Logo",
+        "<Image>/Filters/Combine",
+        "<Image>/Filters/Decor",
         NULL
     };
     for (const gchar** i = white_list_prefix; *i; i ++) {
@@ -115,8 +137,8 @@ class PopupWindow {
   }
 
   GtkWidget* create_filter_list(GWrapper<GimpLayer> layer) {
-    auto             store    = _G(gtk_tree_store_new(NUM_ARGS, G_TYPE_STRING, G_TYPE_STRING));
-    auto             pdb      = _G( layer [gimp_item_get_image] ().ptr()->gimp->pdb );
+    auto             store    = _G(gtk_tree_store_new(NUM_ARGS, G_TYPE_STRING, G_TYPE_STRING, GDK_TYPE_PIXBUF));
+    auto             pdb      = _G( layer [gimp_item_get_image] ()->gimp->pdb );
     gint             num_procs;
     gchar**          procs;
     gboolean query = pdb [gimp_pdb_query] (".*", ".*", ".*", ".*", ".*", ".*", ".*", &num_procs, &procs, NULL);
@@ -130,6 +152,15 @@ class PopupWindow {
       g_free(proc_name);
 
       if (!proc || !GIMP_IS_PLUG_IN_PROCEDURE(proc)) continue;
+      bool use_image = false, use_drawable = false;
+      for (int j = 0; j < proc->num_args; j ++) {
+        GParamSpec*  pspec         = proc->args[j];
+        if (GIMP_IS_PARAM_SPEC_IMAGE_ID(pspec))
+          use_image = true;
+        if (GIMP_IS_PARAM_SPEC_DRAWABLE_ID(pspec))
+          use_drawable = true;
+      }
+      if (!use_image || !use_drawable) continue;
 
       GimpPlugInProcedure* plugin_proc = GIMP_PLUG_IN_PROCEDURE(proc);
       for (GList* l = plugin_proc->menu_paths; l; l = g_list_next(l)) {
@@ -167,7 +198,7 @@ class PopupWindow {
     }
     g_free(procs);
 
-    filter_select = create_label_tree_view(_("Procedures"), GTK_TREE_MODEL(store.ptr()));
+    filter_select = create_label_tree_view(_("Effects"), GTK_TREE_MODEL(store.ptr()));
     return filter_select;
   }
 
@@ -186,36 +217,60 @@ class PopupWindow {
   }
 
   void update_filter_edit(gchar* proc_name) {
-    auto           pdb  = _G( layer [gimp_item_get_image] ().ptr()->gimp->pdb );
+    auto           pdb  = _G( layer [gimp_item_get_image] ()->gimp->pdb );
     GimpProcedure* proc = pdb [gimp_pdb_lookup_procedure] (proc_name);
 
     if (!GIMP_IS_PLUG_IN_PROCEDURE(proc)) return;
+
+    auto plug_in_proc = _G(GIMP_PLUG_IN_PROCEDURE(proc));
 
     GListHolder children( filter_edit [gtk_container_get_children] () );
     for(GList* iter = children.ptr(); iter != NULL; iter = g_list_next(iter))
       gtk_widget_destroy(GTK_WIDGET(iter->data));
 
-    for (int j = 0; j < proc->num_args; j ++) {
-      GParamSpec*  pspec         = proc->args[j];
-      const gchar* arg_blurb     = g_param_spec_get_blurb(pspec);
-      GType        arg_type      = G_PARAM_SPEC_TYPE(pspec);
-      const gchar* arg_type_name = G_PARAM_SPEC_TYPE_NAME(pspec);
+    with (filter_edit, [&](auto vbox) {
+      GtkRequisition req = { 200, -1 };
 
-      if (GIMP_IS_PARAM_SPEC_IMAGE_ID(pspec) ||
-          GIMP_IS_PARAM_SPEC_DRAWABLE_ID(pspec) ||
-          GIMP_IS_PARAM_SPEC_ITEM_ID(pspec) ||
-          strcmp(g_param_spec_get_name(pspec), "run-mode") == 0)
-        continue;
-
-      with (filter_edit, [&](auto it) {
-        it.pack_start ( gtk_label_new(_(arg_blurb)), FALSE, FALSE, 0, [&](auto arg_name_label) {
-          arg_name_label [gtk_widget_show] ();
-        });
-        it.pack_start ( gtk_label_new(_(arg_type_name)), FALSE, FALSE, 0, [&](auto arg_type_label) {
-          arg_type_label [gtk_widget_show] ();
-        });
+      vbox.pack_start ( gtk_label_new(""), FALSE, TRUE, 4, [&](auto it) {
+        it [gtk_widget_show] ();
+        it [gtk_label_set_line_wrap] (TRUE);
+        it [gtk_widget_set_size_request] (req.width, req.height);
+        const gchar* label = plug_in_proc [gimp_plug_in_procedure_get_label] ();
+        StringHolder markup = g_markup_printf_escaped ("<span font_weight=\"bold\" size=\"larger\">%s</span>", label);
+        it [gtk_label_set_markup] (markup.ptr());
       });
-    }
+      vbox.pack_start ( gtk_label_new(plug_in_proc [gimp_plug_in_procedure_get_blurb]()), FALSE, TRUE, 0, [&](auto it) {
+        it [gtk_widget_show] ();
+        it [gtk_label_set_line_wrap] (TRUE);
+        it [gtk_widget_set_size_request] (req.width, req.height);
+      });
+      vbox.pack_start ( gtk_hseparator_new(), FALSE, TRUE, 3, [&](auto it) {
+        it [gtk_widget_show] ();
+      });
+      for (int j = 0; j < proc->num_args; j ++) {
+        GParamSpec*  pspec         = proc->args[j];
+        const gchar* arg_blurb     = g_param_spec_get_blurb(pspec);
+        GType        arg_type      = G_PARAM_SPEC_TYPE(pspec);
+        const gchar* arg_type_name = G_PARAM_SPEC_TYPE_NAME(pspec);
+
+        if (GIMP_IS_PARAM_SPEC_IMAGE_ID(pspec) ||
+            GIMP_IS_PARAM_SPEC_DRAWABLE_ID(pspec) ||
+            GIMP_IS_PARAM_SPEC_ITEM_ID(pspec) ||
+            strcmp(g_param_spec_get_name(pspec), "run-mode") == 0)
+          continue;
+
+        vbox.pack_start ( gtk_label_new(_(arg_blurb)), FALSE, FALSE, 0, [&](auto label) {
+          label [gtk_widget_show] ();
+          label [gtk_label_set_line_wrap] (TRUE);
+          label [gtk_widget_set_size_request] (req.width, req.height);
+        });
+        vbox.pack_start ( gtk_label_new(_(arg_type_name)), FALSE, FALSE, 0, [&](auto label) {
+          label [gtk_widget_show] ();
+          label [gtk_label_set_line_wrap] (TRUE);
+          label [gtk_widget_set_size_request] (req.width, req.height);
+        });
+      }
+    });
   }
 
   GtkWidget* create_filter_edit(GWrapper<GimpLayer> layer) {
@@ -227,13 +282,13 @@ class PopupWindow {
 
   GtkWidget* create_paint_mode_list() {
     static GEnumClass* klass = G_ENUM_CLASS(g_type_class_ref(GIMP_TYPE_LAYER_MODE_EFFECTS));
-    auto               store = _G(gtk_tree_store_new(NUM_ARGS, G_TYPE_STRING, GIMP_TYPE_LAYER_MODE_EFFECTS));
+    auto               store = _G( gtk_tree_store_new(NUM_ARGS, G_TYPE_STRING, GIMP_TYPE_LAYER_MODE_EFFECTS, GDK_TYPE_PIXBUF) );
 
     auto group = [&](GtkTreeIter* parent, const gchar* label, auto f) {
       GtkTreeIter iter;
       g_print("PopupWindow::add_mode: desc=%s, value=%d\n", label, -1);
       store [gtk_tree_store_append] (&iter, parent);
-      gtk_tree_store_set (GTK_TREE_STORE(store.ptr()), &iter, VALUE, -1, LABEL, label, -1);
+      gtk_tree_store_set (GTK_TREE_STORE(store.ptr()), &iter, VALUE, -1, LABEL, label, PIXBUF, NULL, -1);
       f(&iter);
     };
 
@@ -243,7 +298,7 @@ class PopupWindow {
       const gchar* desc = _(gimp_enum_value_get_desc (klass, v));
       g_print("PopupWindow::add_mode: desc=%s, value=%d\n", desc, (gint)value);
       store [gtk_tree_store_append] (&iter, parent);
-      gtk_tree_store_set (GTK_TREE_STORE(store.ptr()), &iter, VALUE, value, LABEL, desc, -1);
+      gtk_tree_store_set (GTK_TREE_STORE(store.ptr()), &iter, VALUE, value, LABEL, desc, PIXBUF, NULL, -1);
     };
 
     group(NULL, _("Normal"), [&](auto parent) {
@@ -368,7 +423,7 @@ public:
             it.add (this->create_filter_list(layer), [&](auto it) {
               it [gtk_widget_show] ();
               it [gtk_tree_view_expand_all] ();
-              auto selection = it [gtk_tree_view_get_selection] ();
+              auto selection = _G( it [gtk_tree_view_get_selection] () );
               selection.connect("changed", Delegator::delegator(this, &PopupWindow::on_filter_list_changed));
             });
           });
@@ -379,10 +434,13 @@ public:
             vbox [gtk_widget_get_requisition] (&req);
             req.width  = MAX(req.width, 200);
             req.height = MAX(req.height, 300);
-            it[gtk_widget_set_size_request](req.width, req.height);
+            it [gtk_widget_set_size_request] (req.width, req.height);
+            it [gtk_scrolled_window_set_policy] (GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
-            it.add (this->create_filter_edit(layer), [&](auto it) {
+            it.add_with_viewport (this->create_filter_edit(layer), [&](auto it) {
+              GtkRequisition req = { 200, -1 };
               it [gtk_widget_show] ();
+              it [gtk_widget_set_size_request] (req.width, req.height);
             });
           });
         }
