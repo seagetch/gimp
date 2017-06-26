@@ -243,14 +243,6 @@ public:
     Ret operator ()(Args... args) { return this->call(args...); };
   };
 
-  template<typename Ret, typename C, typename... Args>
-  class BoundMethod<Ret*, C, Args...> : public BoundMethodBase<Ret*, C, Args...> {
-    typedef Ret* Method (C*o, Args...);
-  public:
-    BoundMethod(C* o, Method* m) : BoundMethodBase<Ret*, C, Args...>(o, m) {};
-    GWrapper<Ret> operator ()(Args... args) { return GWrapper<Ret>((*this->method)(this->obj, args...)); };
-  };
-
   template<typename C, typename... Args>
   class BoundMethod<void, C, Args...> : public BoundMethodBase<void, C, Args...> {
     typedef void Method (C*o, Args...);
@@ -279,14 +271,6 @@ public:
     Ret operator ()(Args... args) { return this->call(args...); };
   };
 
-  template<typename Ret, typename C, typename... Args>
-  class ConstBoundMethod<Ret*, C, Args...> : public ConstBoundMethodBase<Ret*, C, Args...> {
-    typedef Ret* Method (const C*o, Args...);
-  public:
-    ConstBoundMethod(const C* o, Method* m) : ConstBoundMethodBase<Ret*, C, Args...>(o, m) {};
-    GWrapper<Ret> operator ()(Args... args) { return GWrapper<Ret>((*this->method)(this->obj, args...)); };
-  };
-  
   template<typename C, typename... Args>
   class ConstBoundMethod<void, C, Args...> : public ConstBoundMethodBase<void, C, Args...> {
     typedef void Method (const C*o, Args...);
