@@ -15,6 +15,7 @@ extern "C" {
 #include <gtk/gtkscrolledwindow.h>
 }
 #include "base/glib-cxx-bridge.hpp"
+#include <functional>
 
 template<typename T>
 class GDefineWrapper : public GWrapper<T>
@@ -23,6 +24,7 @@ class GDefineWrapper : public GWrapper<T>
 public:
   GDefineWrapper() : super(NULL) { };
   GDefineWrapper(T* object) : super(object) { };
+  GDefineWrapper(const GWrapper<T>& src) : super (src.ptr()) { }
   GDefineWrapper(const GDefineWrapper& src) : super (src.obj) { }
 
   operator T* () { return (T*)(*(super*)this); };
@@ -30,7 +32,7 @@ public:
   T* operator ->() { return (T*)(*(super*)this); };
   operator bool() { return bool(*(super*)this); };
 
-  void operator = (T* src) { ((super*)this) = src; }
+  void operator = (T* src) { (*(super*)this) = src; }
   template<typename Ret, typename C, typename... Args>
   auto operator []( Ret f(C*, Args...) ) { return (*(super*)this)[f]; };
   template<typename Ret, typename C, typename... Args>
@@ -38,6 +40,36 @@ public:
   GValueWrapper operator[](const gchar* name) { return (*(super*)this)[name]; }
 
   // Helpers for easy GUI definition.
+  struct Packer {
+    GDefineWrapper& wrapper;
+    bool start, expand, fill;
+    unsigned int padding;
+    Packer(GDefineWrapper& w, bool s, bool e, bool f, unsigned int p) :
+      wrapper(w), start(s), expand(e), fill(f), padding(p) {};
+    template<typename T2, typename F>
+    Packer& operator ()(T2* child, F init) {
+      if (start)
+        wrapper [gtk_box_pack_start] (GTK_WIDGET(child), expand, fill, padding);
+      else
+        wrapper [gtk_box_pack_end] (GTK_WIDGET(child), expand, fill, padding);
+      init(GDefineWrapper<T2>(child));
+      return *this;
+    };
+    Packer& pack_start(bool expand, bool fill, unsigned int padding) {
+      this->start   = true;
+      this->expand  = expand;
+      this->fill    = fill;
+      this->padding = padding;
+      return *this;
+    }
+    Packer& pack_end(bool expand, bool fill, unsigned int padding) {
+      this->start   = false;
+      this->expand  = expand;
+      this->fill    = fill;
+      this->padding = padding;
+      return *this;
+    }
+  };
   template<typename T2>
   void pack_start(T2* child, gboolean expand, gboolean fill, guint padding) {
     (*this)[gtk_box_pack_start](GTK_WIDGET(child), expand, fill, padding);
@@ -46,6 +78,9 @@ public:
   void pack_start(T2* child, gboolean expand, gboolean fill, guint padding, F init) {
     pack_start<T2>(child, expand, fill, padding);
     init(GDefineWrapper<T2>(child));
+  }
+  auto pack_start(bool expand, bool fill, unsigned int padding) {
+    return Packer(*this, true, expand, fill, padding);
   }
 
   template<typename T2>
@@ -56,6 +91,9 @@ public:
   void pack_end(T2* child, gboolean expand, gboolean fill, guint padding, F init) {
     pack_end<T2>(child, expand, fill, padding);
     init(GDefineWrapper<T2>(child));
+  }
+  auto pack_end(bool expand, bool fill, unsigned int padding) {
+    return Packer(*this, false, expand, fill, padding);
   }
 
   template<typename T2>
