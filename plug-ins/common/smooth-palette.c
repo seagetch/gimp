@@ -69,8 +69,8 @@ query (void)
     { GIMP_PDB_DRAWABLE, "drawable",   "Input drawable"               },
     { GIMP_PDB_INT32,    "width",      "Width"                        },
     { GIMP_PDB_INT32,    "height",     "Height"                       },
-    { GIMP_PDB_INT32,    "ntries",     "Search Depth"                 },
-    { GIMP_PDB_INT32,    "show-image", "Show Image?"                  }
+    { GIMP_PDB_INT32,    "ntries",     "Search Depth [1, 1024]"       },
+    { GIMP_PDB_INT32,    "show-image", "Show Image? (bool)"           }
   };
 
   static const GimpParamDef return_vals[] =

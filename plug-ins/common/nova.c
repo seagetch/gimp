@@ -151,12 +151,12 @@ query (void)
     { GIMP_PDB_INT32,    "run-mode",  "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
     { GIMP_PDB_IMAGE,    "image",     "Input image (unused)" },
     { GIMP_PDB_DRAWABLE, "drawable",  "Input drawable" },
-    { GIMP_PDB_INT32,    "xcenter",   "X coordinates of the center of supernova" },
-    { GIMP_PDB_INT32,    "ycenter",   "Y coordinates of the center of supernova" },
+    { GIMP_PDB_INT32,    "xcenter",   "<Center of Nova>X coordinates (x,y)" },
+    { GIMP_PDB_INT32,    "ycenter",   "<Center of Nova>Y coordinates (x,y)" },
     { GIMP_PDB_COLOR,    "color",     "Color of supernova" },
-    { GIMP_PDB_INT32,    "radius",    "Radius of supernova" },
-    { GIMP_PDB_INT32,    "nspoke",    "Number of spokes" },
-    { GIMP_PDB_INT32,    "randomhue", "Random hue" }
+    { GIMP_PDB_INT32,    "radius",    "Radius of supernova (1 - 100)" },
+    { GIMP_PDB_INT32,    "nspoke",    "Number of spokes (1 - 1024)" },
+    { GIMP_PDB_INT32,    "randomhue", "Random hue (0 - 360)" }
   };
 
   gimp_install_procedure (PLUG_IN_PROC,

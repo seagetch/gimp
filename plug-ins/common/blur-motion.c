@@ -147,10 +147,10 @@ query (void)
     { GIMP_PDB_IMAGE,    "image",     "Input image" },
     { GIMP_PDB_DRAWABLE, "drawable",  "Input drawable" },
     { GIMP_PDB_INT32,    "type",      "Type of motion blur { LINEAR (0), RADIAL (1), ZOOM (2) }" },
-    { GIMP_PDB_INT32,    "length",    "Length" },
-    { GIMP_PDB_INT32,    "angle",     "Angle" },
-    { GIMP_PDB_FLOAT,    "center-x",  "Center X (optional)" },
-    { GIMP_PDB_FLOAT,    "center-y",  "Center Y (optional)" },
+    { GIMP_PDB_INT32,    "length",    "Length (1..256)" },
+    { GIMP_PDB_INT32,    "angle",     "Angle (degrees)" },
+    { GIMP_PDB_FLOAT,    "center-x",  "<Center>X (optional) (x, y)" },
+    { GIMP_PDB_FLOAT,    "center-y",  "<Center>Y (optional) (x, y)" },
   };
 
   gimp_install_procedure (PLUG_IN_PROC,

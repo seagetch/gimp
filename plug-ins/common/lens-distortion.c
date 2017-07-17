@@ -101,12 +101,12 @@ query (void)
       { GIMP_PDB_INT32,    "run-mode",    "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
       { GIMP_PDB_IMAGE,    "image",       "Input image (unused)" },
       { GIMP_PDB_DRAWABLE, "drawable",    "Input drawable" },
-      { GIMP_PDB_FLOAT,    "offset-x",    "Effect centre offset in X" },
-      { GIMP_PDB_FLOAT,    "offset-y",    "Effect centre offset in Y" },
-      { GIMP_PDB_FLOAT,    "main-adjust", "Amount of second-order distortion" },
-      { GIMP_PDB_FLOAT,    "edge-adjust", "Amount of fourth-order distortion" },
-      { GIMP_PDB_FLOAT,    "rescale",     "Rescale overall image size" },
-      { GIMP_PDB_FLOAT,    "brighten",    "Adjust brightness in corners" }
+      { GIMP_PDB_FLOAT,    "offset-x",    "<Effect centre offset> X" },
+      { GIMP_PDB_FLOAT,    "offset-y",    "<Effect centre offset> Y" },
+      { GIMP_PDB_FLOAT,    "main-adjust", "<Amount of distortion>Main [-100.0, 100.0]" },
+      { GIMP_PDB_FLOAT,    "edge-adjust", "<Amount of distortion>Edge [-100.0, 100.0]" },
+      { GIMP_PDB_FLOAT,    "rescale",     "Rescale overall image size [-100.0, 100.0]" },
+      { GIMP_PDB_FLOAT,    "brighten",    "Adjust brightness in corners [-100, 100.0]" }
     };
 
   gimp_install_procedure (PLUG_IN_PROC,

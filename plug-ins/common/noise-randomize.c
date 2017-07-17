@@ -195,7 +195,7 @@ query (void)
     { GIMP_PDB_FLOAT,    "rndm_pct",    "Randomization percentage (1.0 - 100.0)" },
     { GIMP_PDB_FLOAT,    "rndm_rcount", "Repeat count (1.0 - 100.0)" },
     { GIMP_PDB_INT32,    "randomize",   "Use random seed { TRUE, FALSE }" },
-    { GIMP_PDB_INT32,    "seed",        "Seed value (used only if randomize is FALSE)" }
+    { GIMP_PDB_INT32,    "seed",        "[Random seed](used only if randomize == FALSE)" }
   };
 
   const gchar *hurl_blurb =

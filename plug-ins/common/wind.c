@@ -165,7 +165,7 @@ query (void)
     { GIMP_PDB_IMAGE,    "image",     "Input image (unused)" },
     { GIMP_PDB_DRAWABLE, "drawable",  "Input drawable" },
     { GIMP_PDB_INT32,    "threshold", "Controls where blending will be done >= 0" },
-    { GIMP_PDB_INT32,    "direction", "Left or Right: 0 or 1" },
+    { GIMP_PDB_INT32,    "direction", "Left or Right: { LEFT(0), RIGHT(1) }" },
     { GIMP_PDB_INT32,    "strength",  "Controls the extent of the blending > 1" },
     { GIMP_PDB_INT32,    "algorithm", "Algorithm { WIND (0), BLAST (1) }" },
     { GIMP_PDB_INT32,    "edge",      "Edge behavior { BOTH (0), LEADING (1), TRAILING (2) }" }

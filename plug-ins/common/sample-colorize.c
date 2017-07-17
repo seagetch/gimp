@@ -247,17 +247,17 @@ query (void)
   {
     { GIMP_PDB_INT32, "run-mode", "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
     { GIMP_PDB_IMAGE, "image", "Input image (unused)" },
-    { GIMP_PDB_DRAWABLE, "dst-drawable", "The drawable to be colorized (Type GRAY* or RGB*)" },
+    { GIMP_PDB_DRAWABLE, "drawable", "The drawable to be colorized (Type GRAY* or RGB*)" },
     { GIMP_PDB_DRAWABLE, "sample-drawable", "Sample drawable (should be of Type RGB or RGBA)" },
     { GIMP_PDB_INT32, "hold-inten", "hold brightness intensity levels (TRUE, FALSE)" },
     { GIMP_PDB_INT32, "orig-inten", "TRUE: hold brightness of original intensity levels. FALSE: Hold Intensity of input levels" },
     { GIMP_PDB_INT32, "rnd-subcolors", "TRUE: Use all subcolors of same intensity, FALSE: use only one color per intensity" },
     { GIMP_PDB_INT32, "guess-missing", "TRUE: guess samplecolors for the missing intensity values FALSE: use only colors found in the sample" },
-    { GIMP_PDB_INT32, "in-low",   "intensity of lowest input (0 <= in_low <= 254)" },
-    { GIMP_PDB_INT32, "in-high",  "intensity of highest input (1 <= in_high <= 255)" },
+    { GIMP_PDB_INT32, "in-low",   "<In>intensity of lowest input (0 <= in_low <= 254)" },
+    { GIMP_PDB_INT32, "in-high",  "<In>intensity of highest input (1 <= in_high <= 255)" },
     { GIMP_PDB_FLOAT, "gamma",  "gamma correction factor (0.1 <= gamma <= 10) where 1.0 is linear" },
-    { GIMP_PDB_INT32, "out-low",   "lowest sample color intensity (0 <= out_low <= 254)" },
-    { GIMP_PDB_INT32, "out-high",  "highest sample color intensity (1 <= out_high <= 255)" }
+    { GIMP_PDB_INT32, "out-low",   "<Out>lowest sample color intensity (0 <= out_low <= 254)" },
+    { GIMP_PDB_INT32, "out-high",  "<Out>highest sample color intensity (1 <= out_high <= 255)" }
   };
 
   static gchar *help_string =

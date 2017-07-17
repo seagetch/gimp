@@ -160,15 +160,15 @@ query (void)
     { GIMP_PDB_IMAGE,    "image",      "Input image (unused)" },
     { GIMP_PDB_DRAWABLE, "drawable",   "Input drawable" },
     { GIMP_PDB_INT32,    "monochrome", "Monochrome { TRUE, FALSE }" },
-    { GIMP_PDB_FLOAT,    "rr-gain",    "Set the red gain for the red channel" },
-    { GIMP_PDB_FLOAT,    "rg-gain",    "Set the green gain for the red channel" },
-    { GIMP_PDB_FLOAT,    "rb-gain",    "Set the blue gain for the red channel" },
-    { GIMP_PDB_FLOAT,    "gr-gain",    "Set the red gain for the green channel" },
-    { GIMP_PDB_FLOAT,    "gg-gain",    "Set the green gain for the green channel" },
-    { GIMP_PDB_FLOAT,    "gb-gain",    "Set the blue gain for the green channel" },
-    { GIMP_PDB_FLOAT,    "br-gain",    "Set the red gain for the blue channel" },
-    { GIMP_PDB_FLOAT,    "bg-gain",    "Set the green gain for the blue channel" },
-    { GIMP_PDB_FLOAT,    "bb-gain",    "Set the blue gain for the blue channel" }
+    { GIMP_PDB_FLOAT,    "rr-gain",    "<Red channel>red gain for the red channel [-2, 2]" },
+    { GIMP_PDB_FLOAT,    "rg-gain",    "<Red channel>green gain for the red channel [-2, 2]" },
+    { GIMP_PDB_FLOAT,    "rb-gain",    "<Red channel>blue gain for the red channel [-2, 2]" },
+    { GIMP_PDB_FLOAT,    "gr-gain",    "<Green channel>red gain for the green channel [-2, 2]" },
+    { GIMP_PDB_FLOAT,    "gg-gain",    "<Green channel>green gain for the green channel [-2, 2]" },
+    { GIMP_PDB_FLOAT,    "gb-gain",    "<Green channel>blue gain for the green channel [-2, 2]" },
+    { GIMP_PDB_FLOAT,    "br-gain",    "<Blue channel>red gain for the blue channel [-2, 2]" },
+    { GIMP_PDB_FLOAT,    "bg-gain",    "<Blue channel>green gain for the blue channel [-2, 2]" },
+    { GIMP_PDB_FLOAT,    "bb-gain",    "<Blue channel>blue gain for the blue channel [-2, 2]" }
   };
 
   gimp_install_procedure (PLUG_IN_PROC,

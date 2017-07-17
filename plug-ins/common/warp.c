@@ -220,7 +220,7 @@ query (void)
     { GIMP_PDB_FLOAT,    "angle",        "Angle of gradient vector rotation" },
     { GIMP_PDB_INT32,    "wrap-type",    "Edge behavior: { WRAP (0), SMEAR (1), BLACK (2), COLOR (3) }" },
     { GIMP_PDB_DRAWABLE, "mag-map",      "Magnitude control map" },
-    { GIMP_PDB_INT32,    "mag-use",      "Use magnitude map: { FALSE (0), TRUE (1) }" },
+    { GIMP_PDB_INT32,    "mag-use",      "Use magnitude map: { FALSE, TRUE }" },
     { GIMP_PDB_INT32,    "substeps",     "Substeps between image updates" },
     { GIMP_PDB_INT32,    "grad-map",     "Gradient control map" },
     { GIMP_PDB_FLOAT,    "grad-scale",   "Scaling factor for gradient map (0=don't use)" },

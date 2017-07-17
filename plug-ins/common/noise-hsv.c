@@ -93,7 +93,7 @@ query (void)
     { GIMP_PDB_INT32,    "run-mode",            "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
     { GIMP_PDB_IMAGE,    "image",               "Input image (not used)" },
     { GIMP_PDB_DRAWABLE, "drawable",            "Input drawable" },
-    { GIMP_PDB_INT32,    "holdness",            "convolution strength" },
+    { GIMP_PDB_INT32,    "holdness",            "convolution strength [1, 8]" },
     { GIMP_PDB_INT32,    "hue-distance",        "scattering of hue angle [0,180]" },
     { GIMP_PDB_INT32,    "saturation-distance", "distribution distance on saturation axis [0,255]" },
     { GIMP_PDB_INT32,    "value-distance",      "distribution distance on value axis [0,255]" }

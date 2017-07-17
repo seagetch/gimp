@@ -120,12 +120,12 @@ query (void)
     { GIMP_PDB_INT32,    "run-mode",    "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
     { GIMP_PDB_IMAGE,    "image",       "Input image (unused)" },
     { GIMP_PDB_DRAWABLE, "drawable",    "Input drawable" },
-    { GIMP_PDB_INT32,    "independent", "Noise in channels independent" },
-    { GIMP_PDB_INT32,    "correlated",  "Noise correlated (i.e. multiplicative not additive)" },
-    { GIMP_PDB_FLOAT,    "noise-1",     "Noise in the first channel (red, gray)" },
-    { GIMP_PDB_FLOAT,    "noise-2",     "Noise in the second channel (green, gray_alpha)" },
-    { GIMP_PDB_FLOAT,    "noise-3",     "Noise in the third channel (blue)" },
-    { GIMP_PDB_FLOAT,    "noise-4",     "Noise in the fourth channel (alpha)" }
+    { GIMP_PDB_INT32,    "independent", "Noise in channels independent { TRUE, FALSE }" },
+    { GIMP_PDB_INT32,    "correlated",  "Noise correlated (i.e. multiplicative not additive) { TRUE, FALSE }" },
+    { GIMP_PDB_FLOAT,    "noise-1",     "Noise in the first channel (red, gray) [0.0, 1.0]" },
+    { GIMP_PDB_FLOAT,    "noise-2",     "Noise in the second channel (green, gray_alpha) [0.0, 1.0]" },
+    { GIMP_PDB_FLOAT,    "noise-3",     "Noise in the third channel (blue) [0.0, 1.0]" },
+    { GIMP_PDB_FLOAT,    "noise-4",     "Noise in the fourth channel (alpha) [0.0, 1.0]" }
   };
 
   static const GimpParamDef noisify_args[] =
@@ -133,11 +133,11 @@ query (void)
     { GIMP_PDB_INT32,    "run-mode",    "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
     { GIMP_PDB_IMAGE,    "image",       "Input image (unused)" },
     { GIMP_PDB_DRAWABLE, "drawable",    "Input drawable" },
-    { GIMP_PDB_INT32,    "independent", "Noise in channels independent" },
-    { GIMP_PDB_FLOAT,    "noise-1",     "Noise in the first channel (red, gray)" },
-    { GIMP_PDB_FLOAT,    "noise-2",     "Noise in the second channel (green, gray_alpha)" },
-    { GIMP_PDB_FLOAT,    "noise-3",     "Noise in the third channel (blue)" },
-    { GIMP_PDB_FLOAT,    "noise-4",     "Noise in the fourth channel (alpha)" }
+    { GIMP_PDB_INT32,    "independent", "Noise in channels independent { TRUE, FALSE }" },
+    { GIMP_PDB_FLOAT,    "noise-1",     "Noise in the first channel (red, gray) [0.0, 1.0]" },
+    { GIMP_PDB_FLOAT,    "noise-2",     "Noise in the second channel (green, gray_alpha) [0.0, 1.0]" },
+    { GIMP_PDB_FLOAT,    "noise-3",     "Noise in the third channel (blue) [0.0, 1.0]" },
+    { GIMP_PDB_FLOAT,    "noise-4",     "Noise in the fourth channel (alpha) [0.0, 1.0]" }
   };
 
 

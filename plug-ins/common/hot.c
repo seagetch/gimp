@@ -199,7 +199,7 @@ query (void)
     { GIMP_PDB_IMAGE,    "image",     "The Image" },
     { GIMP_PDB_DRAWABLE, "drawable",  "The Drawable" },
     { GIMP_PDB_INT32,    "mode",      "Mode { NTSC (0), PAL (1) }" },
-    { GIMP_PDB_INT32,    "action",    "The action to perform" },
+    { GIMP_PDB_INT32,    "action",    "The action to perform { lum redux (0), sat redux(1), flag(2) }" },
     { GIMP_PDB_INT32,    "new-layer", "Create a new layer { TRUE, FALSE }" }
   };
 

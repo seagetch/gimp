@@ -105,14 +105,15 @@ query (void)
   static const GimpParamDef args[] =
   {
     { GIMP_PDB_INT32,    "run-mode", "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
-    { GIMP_PDB_IMAGE,    "img",      "The Image to Filter" },
-    { GIMP_PDB_DRAWABLE, "drw",      "The Drawable" },
-    { GIMP_PDB_FLOAT,    "alpha",    "The amount of the filter to apply" },
-    { GIMP_PDB_FLOAT,    "radius",   "The filter radius" },
-    { GIMP_PDB_INT32,    "filter",   "The Filter to Run, "
-                                     "0 - alpha trimmed mean; "
-                                     "1 - optimal estimation (alpha controls noise variance); "
-                                     "2 - edge enhancement" }
+    { GIMP_PDB_IMAGE,    "image",    "The Image to Filter" },
+    { GIMP_PDB_DRAWABLE, "drawable", "The Drawable" },
+    { GIMP_PDB_FLOAT,    "alpha",    "The amount of the filter to apply [0.0, 1.0]" },
+    { GIMP_PDB_FLOAT,    "radius",   "The filter radius [0.0, 1.0]" },
+    { GIMP_PDB_INT32,    "filter",   "The Filter to Run, {"
+                                     "alpha trimmed mean(0), "
+                                     "optimal estimation (alpha controls noise variance) (1), "
+                                     "edge enhancement (2)"
+                                     " }"}
   };
 
   gimp_install_procedure (PLUG_IN_PROC,

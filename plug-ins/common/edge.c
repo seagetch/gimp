@@ -132,7 +132,7 @@ query (void)
     { GIMP_PDB_INT32,    "run-mode", "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
     { GIMP_PDB_IMAGE,    "image",    "Input image (unused)" },
     { GIMP_PDB_DRAWABLE, "drawable", "Input drawable" },
-    { GIMP_PDB_FLOAT,    "amount",   "Edge detection amount" },
+    { GIMP_PDB_FLOAT,    "amount",   "Edge detection amount (1.0 - 10.0)" },
     { GIMP_PDB_INT32,    "wrapmode", "Edge detection behavior { WRAP (1), SMEAR (2), BLACK (3) }" },
     { GIMP_PDB_INT32,    "edgemode", "Edge detection algorithm { SOBEL (0), PREWITT (1), GRADIENT (2), ROBERTS (3), DIFFERENTIAL (4), LAPLACE (5) }" }
   };

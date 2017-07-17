@@ -280,7 +280,7 @@ query (void)
     { GIMP_PDB_IMAGE,    "image",          "Input image (unused)"         },
     { GIMP_PDB_DRAWABLE, "drawable",       "Input drawable"               },
     { GIMP_PDB_STRING,   "decompose-type", NULL                           },
-    { GIMP_PDB_INT32,    "layers-mode",    "Create channels as layers in a single image" }
+    { GIMP_PDB_INT32,    "layers-mode",    "Create channels as layers in a single image(TRUE/FALSE)" }
   };
   static const GimpParamDef return_vals[] =
   {
@@ -293,7 +293,7 @@ query (void)
   GString *type_desc;
   int i;
 
-  type_desc = g_string_new ("What to decompose: ");
+  type_desc = g_string_new ("What to decompose: { ");
   g_string_append_c (type_desc, '"');
   g_string_append (type_desc, extract[0].type);
   g_string_append_c (type_desc, '"');
@@ -305,6 +305,7 @@ query (void)
       g_string_append (type_desc, extract[i].type);
       g_string_append_c (type_desc, '"');
     }
+  g_string_append (type_desc, " }");
 
   args[3].description = type_desc->str;
 

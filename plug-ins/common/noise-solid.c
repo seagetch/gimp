@@ -168,8 +168,8 @@ query (void)
     { GIMP_PDB_INT32,    "turbulent", "Make a turbulent noise { TRUE, FALSE }" },
     { GIMP_PDB_INT32,    "seed",      "Random seed" },
     { GIMP_PDB_INT32,    "detail",    "Detail level (0 - 15)" },
-    { GIMP_PDB_FLOAT,    "xsize",     "Horizontal texture size" },
-    { GIMP_PDB_FLOAT,    "ysize",     "Vertical texture size" }
+    { GIMP_PDB_FLOAT,    "xsize",     "<Texture size> X-size (x, y)" },
+    { GIMP_PDB_FLOAT,    "ysize",     "<Texture size> Y-size (x, y)" }
   };
 
   gimp_install_procedure (PLUG_IN_PROC,

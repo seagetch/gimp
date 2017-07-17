@@ -835,13 +835,13 @@ plugin_query (void)
     { GIMP_PDB_IMAGE,    "image",            "Input image"                    },
     { GIMP_PDB_DRAWABLE, "drawable",         "Input drawable"                 },
     { GIMP_PDB_INT32,    "tile-size",        "Tile size (pixels)"             },
-    { GIMP_PDB_FLOAT,    "move-max",         "Max move rate (%)"              },
-    { GIMP_PDB_INT32,    "fractional-type",  "0:Background 1:Ignore 2:Force"  },
+    { GIMP_PDB_FLOAT,    "move-max",         "Max move rate (in %)"           },
+    { GIMP_PDB_INT32,    "fractional-type",  "Fractional type { Background (0), Ignore (1), Force (2) }"  },
     { GIMP_PDB_INT32,    "wrap-around",      "Wrap around (bool)"             },
     { GIMP_PDB_INT32,    "centering",        "Centering (bool)"               },
-    { GIMP_PDB_INT32,    "background-type",  "0:Transparent 1:Inverted 2:Image? 3:FG 4:BG 5:Color"                  },
-    { GIMP_PDB_INT32,    "background-color", "Background color (for bg-type 5)" },
-    { GIMP_PDB_INT32,    "background-alpha", "Opacity (for bg-type 5)"        }
+    { GIMP_PDB_INT32,    "background-type",  "Background type { Transparent (0), Inverted (1), Image? (2), FG color (3), BG color (4), Custom Color (5) }" },
+    { GIMP_PDB_INT32,    "background-color", "Background color (used only if background-type == 5)" },
+    { GIMP_PDB_INT32,    "background-alpha", "Opacity (used only if background-type == 5)"        }
   };
 
   gimp_install_procedure (PLUG_IN_PROC,

@@ -158,8 +158,8 @@ query (void)
     { GIMP_PDB_DRAWABLE, "drawable",       "Input drawable" },
     { GIMP_PDB_FLOAT,    "amount-x",       "Displace multiplier for X or radial direction" },
     { GIMP_PDB_FLOAT,    "amount-y",       "Displace multiplier for Y or tangent (degrees) direction" },
-    { GIMP_PDB_INT32,    "do-x",           "Displace in X or radial direction?" },
-    { GIMP_PDB_INT32,    "do-y",           "Displace in Y or tangent direction?" },
+    { GIMP_PDB_INT32,    "do-x",           "Displace in X or radial direction? { TRUE, FALSE }" },
+    { GIMP_PDB_INT32,    "do-y",           "Displace in Y or tangent direction? { TRUE, FALSE }" },
     { GIMP_PDB_DRAWABLE, "displace-map-x", "Displacement map for X or radial direction" },
     { GIMP_PDB_DRAWABLE, "displace-map-y", "Displacement map for Y or tangent direction" },
     { GIMP_PDB_INT32,    "displace-type",  "Edge behavior { WRAP (1), SMEAR (2), BLACK (3) }" }

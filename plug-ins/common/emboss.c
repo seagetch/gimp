@@ -117,8 +117,8 @@ query (void)
     { GIMP_PDB_DRAWABLE, "drawable",  "The Drawable"                  },
     { GIMP_PDB_FLOAT,    "azimuth",   "The Light Angle (degrees)"     },
     { GIMP_PDB_FLOAT,    "elevation", "The Elevation Angle (degrees)" },
-    { GIMP_PDB_INT32,    "depth",     "The Filter Width"              },
-    { GIMP_PDB_INT32,    "emboss",    "Emboss or Bumpmap"             }
+    { GIMP_PDB_INT32,    "depth",     "The Filter Width (1-100)"      },
+    { GIMP_PDB_INT32,    "emboss",    "Emboss type{ Emboss (1), Bumpmap (0) }" }
   };
 
   gimp_install_procedure (PLUG_IN_PROC,

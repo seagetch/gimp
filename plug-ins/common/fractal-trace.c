@@ -103,13 +103,13 @@ query (void)
     { GIMP_PDB_INT32,    "run-mode",     "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
     { GIMP_PDB_IMAGE,    "image",        "Input image (unused)"             },
     { GIMP_PDB_DRAWABLE, "drawable",     "Input drawable"                   },
-    { GIMP_PDB_FLOAT,    "xmin",         "xmin fractal image delimiter"     },
-    { GIMP_PDB_FLOAT,    "xmax",         "xmax fractal image delimiter"     },
-    { GIMP_PDB_FLOAT,    "ymin",         "ymin fractal image delimiter"     },
-    { GIMP_PDB_FLOAT,    "ymax",         "ymax fractal image delimiter"     },
+    { GIMP_PDB_FLOAT,    "xmin",         "xmin fractal image delimiter (-50.0 <= xmin <= 50.0)" },
+    { GIMP_PDB_FLOAT,    "xmax",         "xmax fractal image delimiter (-50.0 <= xmax <= 50.0)" },
+    { GIMP_PDB_FLOAT,    "ymin",         "ymin fractal image delimiter (-50.0 <= ymin <= 50.0)"     },
+    { GIMP_PDB_FLOAT,    "ymax",         "ymax fractal image delimiter (-50.0 <= ymax <= 50.0)"     },
     { GIMP_PDB_INT32,    "depth",        "Trace depth"                      },
     { GIMP_PDB_INT32,    "outside-type", "Outside type "
-                                         "{ WRAP (0), TRANS (1), BLACK (2), WHITE (3) }" }
+                                         "{ WRAP (0), TRANSPARENT (1), BLACK (2), WHITE (3) }" }
   };
 
   gimp_install_procedure (PLUG_IN_PROC,

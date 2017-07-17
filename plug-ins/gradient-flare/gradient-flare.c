@@ -785,14 +785,14 @@ plugin_query (void)
     { GIMP_PDB_STRING,   "gflare-name", "The name of GFlare" },
     { GIMP_PDB_INT32,    "xcenter",  "X coordinate of center of GFlare" },
     { GIMP_PDB_INT32,    "ycenter",  "Y coordinate of center of GFlare" },
-    { GIMP_PDB_FLOAT,    "radius",   "Radius of GFlare (pixel)" },
-    { GIMP_PDB_FLOAT,    "rotation", "Rotation of GFlare (degree)" },
-    { GIMP_PDB_FLOAT,    "hue",      "Hue rotation of GFlare (degree)" },
+    { GIMP_PDB_FLOAT,    "radius",   "Radius of GFlare (pixel) [0, 200]" },
+    { GIMP_PDB_FLOAT,    "rotation", "Rotation of GFlare (degree) [-180, 180]" },
+    { GIMP_PDB_FLOAT,    "hue",      "Hue rotation of GFlare (degree) [-180, 180]" },
     { GIMP_PDB_FLOAT,    "vangle",   "Vector angle for second flares (degree)" },
     { GIMP_PDB_FLOAT,    "vlength",  "Vector length for second flares (percentage to Radius)" },
     { GIMP_PDB_INT32,    "use-asupsample", "Whether it uses or not adaptive supersampling while rendering (boolean)" },
-    { GIMP_PDB_INT32,    "asupsample-max-depth", "Max depth for adaptive supersampling"},
-    { GIMP_PDB_FLOAT,    "asupsample-threshold", "Threshold for adaptive supersampling"}
+    { GIMP_PDB_INT32,    "asupsample-max-depth", "Max depth for adaptive supersampling [1, 10]"},
+    { GIMP_PDB_FLOAT,    "asupsample-threshold", "Threshold for adaptive supersampling [0.0, 4.0]"}
   };
 
   const gchar *help_string =

@@ -493,19 +493,19 @@ query (void)
     { GIMP_PDB_INT32,      "smoothing", "Smoothing { TRUE, FALSE }"},
     { GIMP_PDB_INT32,      "antialias", "Antialias { TRUE, FALSE }"},
     { GIMP_PDB_INT32,      "work-on-copy", "{ TRUE, FALSE } TRUE: copy the drawable and bend the copy"},
-    { GIMP_PDB_INT32,      "curve-type", " { 0, 1 } 0 == smooth (use 17 points), 1 == freehand (use 256 val_y) "},
-    { GIMP_PDB_INT32,      "argc-upper-point-x", "{2 <= argc <= 17} "},
-    { GIMP_PDB_FLOATARRAY, "upper-point-x", "array of 17 x point_koords { 0.0 <= x <= 1.0 or -1 for unused point }"},
-    { GIMP_PDB_INT32,      "argc-upper-point-y", "{2 <= argc <= 17} "},
-    { GIMP_PDB_FLOATARRAY, "upper-point-y", "array of 17 y point_koords { 0.0 <= y <= 1.0 or -1 for unused point }"},
-    { GIMP_PDB_INT32,      "argc-lower_point-x", "{2 <= argc <= 17} "},
-    { GIMP_PDB_FLOATARRAY, "lower-point-x", "array of 17 x point_koords { 0.0 <= x <= 1.0 or -1 for unused point }"},
-    { GIMP_PDB_INT32,      "argc-lower-point-y", "{2 <= argc <= 17} "},
-    { GIMP_PDB_FLOATARRAY, "lower_point_y", "array of 17 y point_koords { 0.0 <= y <= 1.0 or -1 for unused point }"},
-    { GIMP_PDB_INT32,      "argc-upper-val-y", "{ 256 } "},
-    { GIMP_PDB_INT8ARRAY,  "upper-val-y",   "array of 256 y freehand koord { 0 <= y <= 255 }"},
-    { GIMP_PDB_INT32,      "argc-lower-val-y", "{ 256 } "},
-    { GIMP_PDB_INT8ARRAY,  "lower-val-y",   "array of 256 y freehand koord { 0 <= y <= 255 }"}
+    { GIMP_PDB_INT32,      "curve-type", "Curve type { Smooth [use 17 points] (0), Freehand [use 256 val_y] (1) } "},
+    { GIMP_PDB_INT32,      "argc-upper-point-x", "<Upper-X>(2 <= argc <= 17) (curve) [only if curve-type == 0]"},
+    { GIMP_PDB_FLOATARRAY, "upper-point-x",      "<Upper-X>array of 17 x point_koords ( 0.0 <= x <= 1.0 or -1 for unused point ) (curve) [only if curve-type == 0]"},
+    { GIMP_PDB_INT32,      "argc-upper-point-y", "<Upper-Y>(2 <= argc <= 17) (curve) [only if curve-type == 0]"},
+    { GIMP_PDB_FLOATARRAY, "upper-point-y",      "<Upper-Y>array of 17 y point_koords ( 0.0 <= y <= 1.0 or -1 for unused point ) (curve) [only if curve-type == 0]"},
+    { GIMP_PDB_INT32,      "argc-lower_point-x", "<Lower-X>(2 <= argc <= 17) (curve) [only if curve-type == 0]"},
+    { GIMP_PDB_FLOATARRAY, "lower-point-x",      "<Lower-X>array of 17 x point_koords ( 0.0 <= x <= 1.0 or -1 for unused point ) (curve) [only if curve-type == 0]"},
+    { GIMP_PDB_INT32,      "argc-lower-point-y", "<Lower-Y>(2 <= argc <= 17) (curve) [only if curve-type == 0]"},
+    { GIMP_PDB_FLOATARRAY, "lower_point_y",      "<Lower-Y>array of 17 y point_koords ( 0.0 <= y <= 1.0 or -1 for unused point ) (curve) [only if curve-type == 0]"},
+    { GIMP_PDB_INT32,      "argc-upper-val-y",   "<Upper-Y>(0 - 256)  [only if curve-type == 1]"},
+    { GIMP_PDB_INT8ARRAY,  "upper-val-y",        "<Upper-Y>array of 256 y freehand koord ( 0 <= y <= 255 ) [only if curve-type == 1]"},
+    { GIMP_PDB_INT32,      "argc-lower-val-y",   "<Lower-Y>(0 - 256)  [only if curve-type == 1]"},
+    { GIMP_PDB_INT8ARRAY,  "lower-val-y",        "<Lower-Y>array of 256 y freehand koord ( 0 <= y <= 255 ) [only if curve-type == 1]"}
   };
 
   static const GimpParamDef return_vals[] =

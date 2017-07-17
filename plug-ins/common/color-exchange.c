@@ -107,15 +107,15 @@ query (void)
     { GIMP_PDB_INT32,    "run-mode",        "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
     { GIMP_PDB_IMAGE,    "image",           "Input image"        },
     { GIMP_PDB_DRAWABLE, "drawable",        "Input drawable"     },
-    { GIMP_PDB_INT8,     "from-red",        "Red value (from)"   },
-    { GIMP_PDB_INT8,     "from-green",      "Green value (from)" },
-    { GIMP_PDB_INT8,     "from-blue",       "Blue value (from)"  },
-    { GIMP_PDB_INT8,     "to-red",          "Red value (to)"     },
-    { GIMP_PDB_INT8,     "to-green",        "Green value (to)"   },
-    { GIMP_PDB_INT8,     "to-blue",         "Blue value (to)"    },
-    { GIMP_PDB_INT8,     "red-threshold",   "Red threshold"      },
-    { GIMP_PDB_INT8,     "green-threshold", "Green threshold"    },
-    { GIMP_PDB_INT8,     "blue-threshold",  "Blue threshold"     }
+    { GIMP_PDB_INT8,     "from-red",        "<Red value> (from)"   },
+    { GIMP_PDB_INT8,     "from-green",      "<Green value> (from)" },
+    { GIMP_PDB_INT8,     "from-blue",       "<Blue value> (from)"  },
+    { GIMP_PDB_INT8,     "to-red",          "<Red value> (to)"     },
+    { GIMP_PDB_INT8,     "to-green",        "<Green value> (to)"   },
+    { GIMP_PDB_INT8,     "to-blue",         "<Blue value> (to)"    },
+    { GIMP_PDB_INT8,     "red-threshold",   "<Red value> threshold"      },
+    { GIMP_PDB_INT8,     "green-threshold", "<Green value> threshold"    },
+    { GIMP_PDB_INT8,     "blue-threshold",  "<Blue value> threshold"     }
   };
 
   gimp_install_procedure (PLUG_IN_PROC,

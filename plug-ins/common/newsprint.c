@@ -487,21 +487,21 @@ query (void)
     { GIMP_PDB_IMAGE,    "image",      "Input image (unused)" },
     { GIMP_PDB_DRAWABLE, "drawable",   "Input drawable" },
 
-    { GIMP_PDB_INT32,    "cell-width", "Screen cell width in pixels" },
+    { GIMP_PDB_INT32,    "cell-width", "Screen cell width in pixels (3-100)" },
 
     { GIMP_PDB_INT32,    "colorspace", "Separate to { GRAYSCALE (0), RGB (1), CMYK (2), LUMINANCE (3) }" },
     { GIMP_PDB_INT32,    "k-pullout",  "Percentage of black to pullout (CMYK only)" },
 
-    { GIMP_PDB_FLOAT,    "gry-ang",    "Grey/black screen angle (degrees)" },
-    { GIMP_PDB_INT32,    "gry-spotfn", "Grey/black spot function { DOTS (0), LINES (1), DIAMONDS (2), EUCLIDIAN-DOT (3), PS-DIAMONDS (4) }" },
-    { GIMP_PDB_FLOAT,    "red-ang",    "Red/cyan screen angle (degrees)" },
-    { GIMP_PDB_INT32,    "red-spotfn", "Red/cyan spot function (values as gry-spotfn)" },
-    { GIMP_PDB_FLOAT,    "grn-ang",    "Green/magenta screen angle (degrees)" },
-    { GIMP_PDB_INT32,    "grn-spotfn", "Green/magenta spot function (values as gry-spotfn)" },
-    { GIMP_PDB_FLOAT,    "blu-ang",    "Blue/yellow screen angle (degrees)" },
-    { GIMP_PDB_INT32,    "blu-spotfn", "Blue/yellow spot function (values as gry-spotfn)" },
+    { GIMP_PDB_FLOAT,    "gry-ang",    "<Grey/Black> screen angle (degrees)" },
+    { GIMP_PDB_INT32,    "gry-spotfn", "<Grey/Black> spot function { DOTS (0), LINES (1), DIAMONDS (2), EUCLIDIAN-DOT (3), PS-DIAMONDS (4) }" },
+    { GIMP_PDB_FLOAT,    "red-ang",    "<Red/Cyan> screen angle (degrees)" },
+    { GIMP_PDB_INT32,    "red-spotfn", "<Red/Cyan> spot function { DOTS (0), LINES (1), DIAMONDS (2), EUCLIDIAN-DOT (3), PS-DIAMONDS (4) }" },
+    { GIMP_PDB_FLOAT,    "grn-ang",    "<Green/Magenta> screen angle (degrees)" },
+    { GIMP_PDB_INT32,    "grn-spotfn", "<Green/Magenta> spot function { DOTS (0), LINES (1), DIAMONDS (2), EUCLIDIAN-DOT (3), PS-DIAMONDS (4) }" },
+    { GIMP_PDB_FLOAT,    "blu-ang",    "<Blue/Yellow> screen angle (degrees)" },
+    { GIMP_PDB_INT32,    "blu-spotfn", "<Blue/Yellow> spot function { DOTS (0), LINES (1), DIAMONDS (2), EUCLIDIAN-DOT (3), PS-DIAMONDS (4) }" },
 
-    { GIMP_PDB_INT32,    "oversample", "how many times to oversample spot fn" }
+    { GIMP_PDB_INT32,    "oversample", "how many times to oversample spot fn (1-15)" }
   };
 
   gimp_install_procedure (PLUG_IN_PROC,

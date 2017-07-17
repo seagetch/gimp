@@ -186,14 +186,14 @@ query (void)
     { GIMP_PDB_INT32,      "run-mode",    "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
     { GIMP_PDB_IMAGE,      "image",       "Input image (unused)" },
     { GIMP_PDB_DRAWABLE,   "drawable",    "Input drawable" },
-    { GIMP_PDB_INT32,      "argc-matrix", "The number of elements in the following array. Should be always 25." },
-    { GIMP_PDB_FLOATARRAY, "matrix",      "The 5x5 convolution matrix" },
-    { GIMP_PDB_INT32,      "alpha-alg",   "Enable weighting by alpha channel" },
+    { GIMP_PDB_INT32,      "argc-matrix", "<Matrix>The number of elements in the following array. { FIXED (25) }" },
+    { GIMP_PDB_FLOATARRAY, "matrix",      "<Matrix>The 5x5 convolution matrix" },
+    { GIMP_PDB_INT32,      "alpha-alg",   "Enable weighting by alpha channel { TRUE, FALSE }" },
     { GIMP_PDB_FLOAT,      "divisor",     "Divisor" },
     { GIMP_PDB_FLOAT,      "offset",      "Offset" },
 
-    { GIMP_PDB_INT32,      "argc-channels", "The number of elements in following array. Should be always 5." },
-    { GIMP_PDB_INT32ARRAY, "channels",      "Mask of the channels to be filtered" },
+    { GIMP_PDB_INT32,      "argc-channels", "<Channels>The number of elements in following array. { FIXED (5) }" },
+    { GIMP_PDB_INT32ARRAY, "channels",      "<Channels>Mask of the channels to be filtered" },
     { GIMP_PDB_INT32,      "bmode",         "Mode for treating image borders { EXTEND (0), WRAP (1), CLEAR (2) }" },
   };
 

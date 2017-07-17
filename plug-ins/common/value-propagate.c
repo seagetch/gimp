@@ -221,12 +221,12 @@ query (void)
     { GIMP_PDB_INT32,    "run-mode",            "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
     { GIMP_PDB_IMAGE,    "image",               "Input image (not used)" },
     { GIMP_PDB_DRAWABLE, "drawable",            "Input drawable" },
-    { GIMP_PDB_INT32,    "propagate-mode",      "propagate 0:white, 1:black, 2:middle value 3:foreground to peak, 4:foreground, 5:background, 6:opaque, 7:transparent" },
+    { GIMP_PDB_INT32,    "propagate-mode",      "propagate { white(0), black(1), middle value(2), foreground to peak(3), foreground(4), background(5), opaque(6), transparent(7) }" },
     { GIMP_PDB_INT32,    "propagating-channel", "channels which values are propagated" },
     { GIMP_PDB_FLOAT,    "propagating-rate",    "0.0 <= propagatating_rate <= 1.0" },
     { GIMP_PDB_INT32,    "direction-mask",      "0 <= direction-mask <= 15" },
-    { GIMP_PDB_INT32,    "lower-limit",         "0 <= lower-limit <= 255" },
-    { GIMP_PDB_INT32,    "upper-limit",         "0 <= upper-limit <= 255" }
+    { GIMP_PDB_INT32,    "lower-limit",         "<Limit> 0 <= lower-limit <= 255" },
+    { GIMP_PDB_INT32,    "upper-limit",         "<Limit> 0 <= upper-limit <= 255" }
   };
 
   gimp_install_procedure (VPROPAGATE_PROC,

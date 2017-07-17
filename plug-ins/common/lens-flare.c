@@ -175,8 +175,8 @@ query (void)
     { GIMP_PDB_INT32,    "run-mode", "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
     { GIMP_PDB_IMAGE,    "image",    "Input image (unused)" },
     { GIMP_PDB_DRAWABLE, "drawable", "Input drawable"       },
-    { GIMP_PDB_INT32,    "pos-x",    "X-position"           },
-    { GIMP_PDB_INT32,    "pos-y",    "Y-position"           }
+    { GIMP_PDB_INT32,    "pos-x",    "<Flare center>X-position (x,y)" },
+    { GIMP_PDB_INT32,    "pos-y",    "<Flare center>Y-position (x,y)" }
   };
 
   gimp_install_procedure (PLUG_IN_PROC,

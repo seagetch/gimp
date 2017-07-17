@@ -110,11 +110,11 @@ query (void)
     { GIMP_PDB_INT32,    "run-mode",   "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
     { GIMP_PDB_IMAGE,    "image",      "The Image"                    },
     { GIMP_PDB_DRAWABLE, "drawable",   "The Drawable"                 },
-    { GIMP_PDB_FLOAT,    "amplitude",  "The Amplitude of the Waves"   },
-    { GIMP_PDB_FLOAT,    "phase",      "The Phase of the Waves"       },
-    { GIMP_PDB_FLOAT,    "wavelength", "The Wavelength of the Waves"  },
-    { GIMP_PDB_INT32,    "type",       "Type of waves, black/smeared" },
-    { GIMP_PDB_INT32,    "reflective", "Use Reflection"               }
+    { GIMP_PDB_FLOAT,    "amplitude",  "The Amplitude of the Waves (0-101)" },
+    { GIMP_PDB_FLOAT,    "phase",      "The Phase of the Waves (degrees)" },
+    { GIMP_PDB_FLOAT,    "wavelength", "The Wavelength of the Waves (0.1-50.0)"  },
+    { GIMP_PDB_INT32,    "type",       "Type of waves { SMEARED (0), BLACK (1) }" },
+    { GIMP_PDB_INT32,    "reflective", "Use Reflection { TRUE, FALSE }" }
   };
 
   gimp_install_procedure (PLUG_IN_PROC,

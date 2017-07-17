@@ -146,10 +146,10 @@ query (void)
     { GIMP_PDB_INT32,    "run-mode",    "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }"        },
     { GIMP_PDB_IMAGE,    "image",       "Input image (unused)"                },
     { GIMP_PDB_DRAWABLE, "drawable",    "Input drawable"                      },
-    { GIMP_PDB_INT32,    "scale",       "Biggest scale value"                 },
-    { GIMP_PDB_INT32,    "nscales",     "Number of scales"                    },
-    { GIMP_PDB_INT32,    "scales-mode", "Retinex distribution through scales" },
-    { GIMP_PDB_FLOAT,    "cvar",        "Variance value"                      }
+    { GIMP_PDB_INT32,    "scale",       "Biggest scale value (16..256)"       },
+    { GIMP_PDB_INT32,    "nscales",     "Number of scales (0..8)"             },
+    { GIMP_PDB_INT32,    "scales-mode", "Retinex distribution through scales { Uniform (0), Low (1), High (2) }" },
+    { GIMP_PDB_FLOAT,    "cvar",        "Variance value (0..4)"               }
   };
 
   gimp_install_procedure (PLUG_IN_PROC,

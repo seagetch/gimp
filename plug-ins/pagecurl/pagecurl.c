@@ -199,12 +199,12 @@ query (void)
     { GIMP_PDB_INT32,    "run-mode",    "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
     { GIMP_PDB_IMAGE,    "image",       "Input image"                          },
     { GIMP_PDB_DRAWABLE, "drawable",    "Input drawable"                       },
-    { GIMP_PDB_INT32,    "colors",      "FG- and BG-Color (0), Current gradient (1), Current gradient reversed (2)" },
+    { GIMP_PDB_INT32,    "colors",      "Color mode {FG- and BG-Color (0), Current gradient (1), Current gradient reversed (2)}" },
     { GIMP_PDB_INT32,    "edge",
-        "Edge to curl (1-4, clockwise, starting in the lower right edge)"   },
-    { GIMP_PDB_INT32,    "orientation", "Vertical (0), Horizontal (1)"         },
+        "Edge to curl { Lower right(1), Lower left(2), Upper left(3), Upper right(4) }"   },
+    { GIMP_PDB_INT32,    "orientation", "Orientation { Vertical (0), Horizontal (1) }"         },
     { GIMP_PDB_INT32,    "shade",
-        "Shade the region under the curl (1) or not (0)"                    },
+        "Shade the region under the curl  { TRUE, FALSE }"                    },
   };
 
   static const GimpParamDef return_vals[] =

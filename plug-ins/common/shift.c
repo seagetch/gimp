@@ -94,7 +94,7 @@ query (void)
     { GIMP_PDB_IMAGE,    "image",        "Input image (unused)"             },
     { GIMP_PDB_DRAWABLE, "drawable",     "Input drawable"                   },
     { GIMP_PDB_INT32,    "shift-amount", "shift amount (0 <= shift_amount_x <= 200)" },
-    { GIMP_PDB_INT32,    "orientation",  "vertical, horizontal orientation" }
+    { GIMP_PDB_INT32,    "orientation",  "orientation { Horizontal (1), Vertical (0) }" }
   };
 
   gimp_install_procedure (PLUG_IN_PROC,

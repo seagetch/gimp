@@ -78,17 +78,29 @@ static TileVals tvals =
 
 MAIN ()
 
+static const gchar* sized_label(const gchar* label) {
+  gchar digit[1024];
+  int digit_len = sprintf(digit, "%d", GIMP_MAX_IMAGE_SIZE);
+  gchar* result = NULL;
+  result = g_new0(gchar, strlen(label) + digit_len + 6 + 1);
+  strcpy(result, label);
+  strcat(result, " (1..");
+  strcat(result, digit);
+  strcat(result, ")");
+  return result;
+}
+
 static void
 query (void)
 {
-  static const GimpParamDef args[] =
+  const GimpParamDef args[] =
   {
     { GIMP_PDB_INT32,    "run-mode",  "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
     { GIMP_PDB_IMAGE,    "image",      "Input image (unused)"        },
     { GIMP_PDB_DRAWABLE, "drawable",   "Input drawable"              },
-    { GIMP_PDB_INT32,    "new-width",  "New (tiled) image width"     },
-    { GIMP_PDB_INT32,    "new-height", "New (tiled) image height"    },
-    { GIMP_PDB_INT32,    "new-image",  "Create a new image?"         }
+    { GIMP_PDB_INT32,    "new-width",  sized_label("New (tiled) image width")    },
+    { GIMP_PDB_INT32,    "new-height", sized_label("New (tiled) image height")    },
+    { GIMP_PDB_INT32,    "new-image",  "Create a new image? {TRUE, FALSE}" }
   };
 
   static const GimpParamDef return_vals[] =

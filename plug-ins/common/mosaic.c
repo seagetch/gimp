@@ -349,14 +349,14 @@ query (void)
     { GIMP_PDB_FLOAT,    "tile-height",      "Apparent height of each tile (in pixels)" },
     { GIMP_PDB_FLOAT,    "tile-spacing",     "Inter-tile spacing (in pixels)" },
     { GIMP_PDB_FLOAT,    "tile-neatness",    "Deviation from perfectly formed tiles (0.0 - 1.0)" },
-    { GIMP_PDB_INT32,    "tile-allow-split", "Allows splitting tiles at hard edges" },
+    { GIMP_PDB_INT32,    "tile-allow-split", "Allows splitting tiles at hard edges (bool)" },
     { GIMP_PDB_FLOAT,    "light-dir",        "Direction of light-source (in degrees)" },
     { GIMP_PDB_FLOAT,    "color-variation",  "Magnitude of random color variations (0.0 - 1.0)" },
-    { GIMP_PDB_INT32,    "antialiasing",     "Enables smoother tile output at the cost of speed" },
-    { GIMP_PDB_INT32,    "color-averaging",  "Tile color based on average of subsumed pixels" },
+    { GIMP_PDB_INT32,    "antialiasing",     "Enables smoother tile output at the cost of speed (bool)" },
+    { GIMP_PDB_INT32,    "color-averaging",  "Tile color based on average of subsumed pixels (bool)" },
     { GIMP_PDB_INT32,    "tile-type",        "Tile geometry { SQUARES (0), HEXAGONS (1), OCTAGONS (2), TRIANGLES (3) }" },
     { GIMP_PDB_INT32,    "tile-surface",     "Surface characteristics { SMOOTH (0), ROUGH (1) }" },
-    { GIMP_PDB_INT32,    "grout-color",      "Grout color (black/white or fore/background) { BW (0), FG-BG (1) }" }
+    { GIMP_PDB_INT32,    "grout-color",      "Grout color { Black/White (0), FG color/BG color (1) }" }
   };
 
   gimp_install_procedure (PLUG_IN_PROC,

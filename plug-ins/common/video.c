@@ -1762,6 +1762,7 @@ static VideoValues vvals =
 
 /* Declare local functions.
  */
+static const gchar* pattern_str (void);
 static void      query  (void);
 static void      run    (const gchar      *name,
                          gint              nparams,
@@ -1790,17 +1791,43 @@ const GimpPlugInInfo PLUG_IN_INFO =
 
 MAIN ()
 
+static const gchar*
+pattern_str(void)
+{
+  gchar* result = NULL;
+  int i = 0;
+  const gchar* initial_str = "Type of RGB patterns";
+  int str_length = strlen(initial_str + 5);
+  for (i = 0; i < MAX_PATTERNS; i ++) {
+    str_length += strlen(_(pattern_name[i])) + 6;
+  }
+
+  result = malloc(str_length + 1);
+  strcpy(result, initial_str);
+  strcat(result, " { ");
+  for (i = 0; i < MAX_PATTERNS; i ++) {
+    char index[4];
+    strcat(result, _(pattern_name[i]));
+    sprintf(index, "(%d)", i);
+    strcat(result, index);
+    if (i < MAX_PATTERNS - 1)
+      strcat(result, ", ");
+  }
+  strcat(result, " }");
+  return result;
+}
+
 static void
 query (void)
 {
-  static const GimpParamDef args[] =
+  const GimpParamDef args[] =
   {
     { GIMP_PDB_INT32,    "run-mode",       "The run mode { RUN-INTERACTIVE (0), RUN-NONINTERACTIVE (1) }" },
     { GIMP_PDB_IMAGE,    "image",          "Input image (unused)"         },
     { GIMP_PDB_DRAWABLE, "drawable",       "Input drawable"               },
-    { GIMP_PDB_INT32,    "pattern-number", "Type of RGB pattern to use"   },
-    { GIMP_PDB_INT32,    "additive",       "Whether the function adds the result to the original image" },
-    { GIMP_PDB_INT32,    "rotated",        "Whether to rotate the RGB pattern by ninety degrees" }
+    { GIMP_PDB_INT32,    "pattern-number", pattern_str()   },
+    { GIMP_PDB_INT32,    "additive",       "Function adds the result to the original image {TRUE, FALSE}" },
+    { GIMP_PDB_INT32,    "rotated",        "Rotate the RGB pattern by ninety degrees {TRUE, FALSE}" }
   };
 
   gimp_install_procedure (PLUG_IN_PROC,
