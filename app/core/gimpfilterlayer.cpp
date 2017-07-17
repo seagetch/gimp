@@ -95,6 +95,8 @@ public:
     if (!args)
       args = gimp_procedure_get_arguments (procedure);
 
+    if (!arg_tables)
+      return true;
     for (int i = 0; i < procedure->num_args; i ++) {
       GParamSpec* pspec = procedure->args[i];
       GValue* value = (arg_tables)? (*arg_tables)[g_param_spec_get_name(pspec)] : NULL;
@@ -108,6 +110,7 @@ public:
         g_value_copy(g_param_spec_get_default_value(pspec), &args->values[i]);
       }
     }
+    return true;
   }
 
   bool run(GimpItem* item) {
@@ -121,6 +124,9 @@ public:
     GError*        error   = NULL;
     GimpObject*    display = GIMP_OBJECT(gimp_context_get_display(context));
     gint           n_args  = 0;
+
+    if (!procedure)
+      return false;
 
     if (!args)
       setup_args(NULL);
@@ -156,11 +162,21 @@ public:
   }
 
   const char* get_procedure_name() {
-    return procedure->original_name;
+    return (procedure)? procedure->original_name : "";
   }
 
-  GValueArray* get_args() {
-    return args? g_value_array_copy(args) : g_value_array_new(0);
+  GValue get_arg(int index) {
+    if (!procedure || index >= procedure->num_args)
+      return G_VALUE_INIT;
+    setup_args(NULL);
+    return args->values[index];
+  }
+
+  void set_arg(int index, GValue value) {
+    if (!procedure || index >= procedure->num_args)
+      return;
+    setup_args(NULL);
+    g_value_copy(&value, &args->values[index]);
   }
 
 };
@@ -264,7 +280,8 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
 
   virtual void            set_procedure(const char* proc_name);
   virtual const char*     get_procedure();
-  virtual GValueArray*    get_procedure_args();
+  virtual GValue          get_procedure_arg(int index);
+  virtual void            set_procedure_arg(int index, GValue value);
 
   // For GimpProgress Interface
   virtual GimpProgress*   start        (const gchar* message,
@@ -782,9 +799,17 @@ const char* GtkCXX::FilterLayer::get_procedure()
   return "";
 }
 
-GValueArray* GtkCXX::FilterLayer::get_procedure_args()
+GValue GtkCXX::FilterLayer::get_procedure_arg(int index)
 {
-  return (runner)? runner->get_args() : g_value_array_new(0);
+  if (runner)
+    runner->get_arg(index);
+  return  G_VALUE_INIT;
+}
+
+void GtkCXX::FilterLayer::set_procedure_arg(int index, GValue value)
+{
+  if (runner)
+    runner->set_arg(index, value);
 }
 
 

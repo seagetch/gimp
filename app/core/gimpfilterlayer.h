@@ -76,6 +76,11 @@ public:
 
   virtual void                    suspend_resize (gboolean        push_undo) = 0;
   virtual void                    resume_resize  (gboolean        push_undo) = 0;
+
+  virtual void                    set_procedure(const char* proc_name) = 0;
+  virtual const char*             get_procedure() = 0;
+  virtual GValue                  get_procedure_arg(int index) = 0;
+  virtual void                    set_procedure_arg(int index, GValue value) = 0;
 };
 
 #include "base/glib-cxx-impl.hpp"

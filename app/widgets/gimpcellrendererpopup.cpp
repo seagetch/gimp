@@ -40,6 +40,7 @@ extern "C" {
 #include "pdb/gimpprocedure.h"
 #include "plug-in/gimppluginprocedure.h"
 
+#include "libgimpcolor/gimpcolor.h"
 #include "libgimpwidgets/gimpwidgets.h"
 #include "libgimpbase/gimpbase.h"
 
@@ -47,6 +48,8 @@ extern "C" {
 #include "gimpwidgets-constructors.h"
 #include "gimphelp-ids.h"
 #include "gimpspinscale.h"
+#include "gimpcolorpanel.h"
+
 };
 
 #include "base/glib-cxx-def-utils.hpp"
@@ -70,23 +73,20 @@ class PopupWindow {
   GWrapper<GtkWidget> filter_edit;
 
   GtkWidget* create_label_tree_view(const gchar* title, GtkTreeModel* model) {
-    auto tree_view = _G(gtk_tree_view_new_with_model(model));
+    return with (gtk_tree_view_new_with_model(model), [&title] (auto tree_view) {
 #if 0
-    with (gtk_tree_view_column_new_with_attributes (
+      tree_view [gtk_tree_view_append_column] (
+        gtk_tree_view_column_new_with_attributes (
             " ", gtk_cell_renderer_pixbuf_new(),
             "pixbuf", PIXBUF,
-            NULL), [&](auto column) {
-      tree_view [gtk_tree_view_append_column] (column.ptr());
-    });
+            NULL));
 #endif
-    with (gtk_tree_view_column_new_with_attributes (
+      tree_view [gtk_tree_view_append_column] (
+        gtk_tree_view_column_new_with_attributes (
             title, gtk_cell_renderer_text_new(),
             "text", LABEL,
-            NULL), [&](auto column) {
-      tree_view [gtk_tree_view_append_column] (column.ptr());
+            NULL));
     });
-
-    return tree_view;
   };
 
   void add_proc(GWrapper<GtkTreeStore> store, GtkTreeIter* iter, GtkTreeIter* parent, GimpPlugInProcedure* proc, const gchar* label = NULL) {
@@ -176,14 +176,14 @@ class PopupWindow {
           // Traverses appropriate GtkTreeIter folder for menu_path
           for (int p = 0; path_list[p]; p ++) {
             if (p == 0) continue;
-            g_string_append_c(current_path.ptr(), '/');
-            g_string_append(current_path.ptr(), path_list[p]);
-            if (tree_map[current_path.str()])
-              parent = tree_map[current_path.str()];
+            current_path += '/';
+            current_path += path_list[p];
+            if (tree_map[current_path])
+              parent = tree_map[current_path];
             else {
               GtkTreeIter* cur_iter = g_new0(GtkTreeIter, 1);
               add_proc(store, cur_iter, parent, NULL, path_list[p]);
-              tree_map.insert(g_strdup(current_path.str()), cur_iter);
+              tree_map.insert(g_strdup(current_path), cur_iter);
               parent = cur_iter;
             }
           }
@@ -216,7 +216,7 @@ class PopupWindow {
     }
   }
 
-  void update_filter_edit(gchar* proc_name) {
+  void update_filter_edit(const gchar* proc_name) {
     auto           pdb  = _G( layer [gimp_item_get_image] ()->gimp->pdb );
     GimpProcedure* proc = pdb [gimp_pdb_lookup_procedure] (proc_name);
 
@@ -228,47 +228,448 @@ class PopupWindow {
     for(GList* iter = children.ptr(); iter != NULL; iter = g_list_next(iter))
       gtk_widget_destroy(GTK_WIDGET(iter->data));
 
+    auto f = FilterLayerInterface::cast(layer.ptr());
+
     with (filter_edit, [&](auto vbox) {
       GtkRequisition req = { 200, -1 };
 
-      vbox.pack_start ( gtk_label_new(""), FALSE, TRUE, 4, [&](auto it) {
-        it [gtk_widget_show] ();
-        it [gtk_label_set_line_wrap] (TRUE);
-        it [gtk_widget_set_size_request] (req.width, req.height);
-        const gchar* label = plug_in_proc [gimp_plug_in_procedure_get_label] ();
-        StringHolder markup = g_markup_printf_escaped ("<span font_weight=\"bold\" size=\"larger\">%s</span>", label);
-        it [gtk_label_set_markup] (markup.ptr());
-      });
-      vbox.pack_start ( gtk_label_new(plug_in_proc [gimp_plug_in_procedure_get_blurb]()), FALSE, TRUE, 0, [&](auto it) {
-        it [gtk_widget_show] ();
-        it [gtk_label_set_line_wrap] (TRUE);
-        it [gtk_widget_set_size_request] (req.width, req.height);
-      });
-      vbox.pack_start ( gtk_hseparator_new(), FALSE, TRUE, 3, [&](auto it) {
-        it [gtk_widget_show] ();
-      });
+      vbox.pack_start(false, true, 4) (
+        gtk_label_new(""), [&](auto it) {
+          it [gtk_widget_show] ();
+          it [gtk_label_set_line_wrap] (TRUE);
+          it [gtk_widget_set_size_request] (req.width, req.height);
+          const gchar* label = plug_in_proc [gimp_plug_in_procedure_get_label] ();
+          StringHolder markup = g_markup_printf_escaped ("<span font_weight=\"bold\" size=\"larger\">%s</span>", label);
+          it [gtk_label_set_markup] (markup.ptr());
+        }
+      ).pack_start(false, true, 0) (
+        gtk_label_new(plug_in_proc [gimp_plug_in_procedure_get_blurb]()), [&](auto it) {
+          it [gtk_widget_show] ();
+          it [gtk_label_set_line_wrap] (TRUE);
+          it [gtk_widget_set_size_request] (req.width, req.height);
+        }
+      ).pack_start(false, true, 3) (
+        gtk_hseparator_new(), [&](auto it) {
+          it [gtk_widget_show] ();
+        }
+      );
+
+      GHashTableHolder<gchar*, GimpFrame*> frames = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+
       for (int j = 0; j < proc->num_args; j ++) {
         GParamSpec*  pspec         = proc->args[j];
-        const gchar* arg_blurb     = g_param_spec_get_blurb(pspec);
+        StringHolder arg_name      = g_strdup(g_param_spec_get_name(pspec));
+        StringHolder arg_blurb     = g_strdup(pspec->_blurb);
         GType        arg_type      = G_PARAM_SPEC_TYPE(pspec);
         const gchar* arg_type_name = G_PARAM_SPEC_TYPE_NAME(pspec);
 
-        if (GIMP_IS_PARAM_SPEC_IMAGE_ID(pspec) ||
-            GIMP_IS_PARAM_SPEC_DRAWABLE_ID(pspec) ||
-            GIMP_IS_PARAM_SPEC_ITEM_ID(pspec) ||
-            strcmp(g_param_spec_get_name(pspec), "run-mode") == 0)
+        g_print("param=%s [%s]\n   %s\n", arg_name.ptr(), arg_type_name, arg_blurb.ptr());
+
+        static const gchar* GROUP_PATTERN  = "^<([^>]*)>";
+
+        static const gchar* ENUM_PATTERN   = "{ *(([^,]+ *,)* *[^,]+) *}";
+        static const gchar* RANGE_PATTERN  = "((-?\\d+(\\.\\d*)?)\\s*<=)|(<=\\s*(-?\\d+(\\.\\d*)?))";
+        static const gchar* RANGE_PATTERN2 = "\\[\\s*(-?\\d+(\\.\\d*)?)\\s*,\\s*(-?\\d+(\\.\\d*)?)\\s*\\]";
+        static const gchar* RANGE_PATTERN3 = "\\(\\s*(-?\\d+(\\.\\d*)?)\\s*(-|(to)|(\\.\\.))\\s*((-?\\d+(\\.\\d*)?)|(->))\\s*\\)";
+        static const gchar* BOOL_PATTERN   = "(\\(TRUE\\s*[/,]\\s*FALSE\\))|(\\(bool(ean)?\\))";
+        static const gchar* BOOL_PATTERN2  = "TRUE:([^,]+),?\\s*FALSE:([^,]+)";
+        static const gchar* DEGREE_PATTERN = "([Aa]ngle)|(\\((in )?degrees?\\))";
+        static const gchar* PERCENTILE_PATTERN = "(in %)|([Pp]ercent)";
+
+        if ((GIMP_IS_PARAM_SPEC_IMAGE_ID(pspec) && strcmp(arg_name,"image") == 0) ||
+            (GIMP_IS_PARAM_SPEC_DRAWABLE_ID(pspec) && strcmp(arg_name, "drawable") == 0) ||
+//            GIMP_IS_PARAM_SPEC_ITEM_ID(pspec) ||
+            strcmp(arg_name, "run-mode") == 0)
           continue;
 
-        vbox.pack_start ( gtk_label_new(_(arg_blurb)), FALSE, FALSE, 0, [&](auto label) {
-          label [gtk_widget_show] ();
-          label [gtk_label_set_line_wrap] (TRUE);
-          label [gtk_widget_set_size_request] (req.width, req.height);
+        GDefineWrapper<GtkWidget> box = vbox;
+
+        auto group_pattern = Regex(GROUP_PATTERN);
+        group_pattern.match(arg_blurb, [&](auto matched) {
+          StringHolder group = matched[1];
+          if(!group) return;
+
+          auto frame = _G(frames[group]);
+          if (!frame) {
+            frame = _G(gimp_frame_new(_(group)));
+
+            vbox.pack_start(false, true, 0) (
+              frame.ptr(), [] (auto fr) {
+                fr [gtk_widget_show] ();
+                fr.add(gtk_box_new(GTK_ORIENTATION_VERTICAL, 0), [](auto it) {
+                  it [gtk_widget_show] ();
+                });
+              }
+            );
+
+            frames.insert(g_strdup(group), frame.ptr());
+          }
+
+          GListWrapper<GtkWidget*> children = frame [gtk_container_get_children] ();
+          box = children[0];
+          arg_blurb = group_pattern.replace(arg_blurb, "");
         });
-        vbox.pack_start ( gtk_label_new(_(arg_type_name)), FALSE, FALSE, 0, [&](auto label) {
-          label [gtk_widget_show] ();
-          label [gtk_label_set_line_wrap] (TRUE);
-          label [gtk_widget_set_size_request] (req.width, req.height);
-        });
+
+        // Double value
+        if (G_IS_PARAM_SPEC_DOUBLE(pspec)) {
+          GParamSpecDouble* dpspec         = G_PARAM_SPEC_DOUBLE(pspec);
+//          GValue            value     = f->get_procedure_arg(j);
+//          double            cur_value = g_value_get_double(&value);
+          double            spec_min_value = dpspec->minimum;
+          double            spec_max_value = dpspec->maximum;
+          double            spec_default   = dpspec->default_value;
+          double            max_value      = spec_min_value;
+          double            min_value      = spec_max_value;
+          double            cur_value      = spec_default;
+          gchar*            desc           = NULL;
+
+          regex_case(arg_blurb).
+            when(RANGE_PATTERN, [&](auto matched){
+              if (matched.count() > 4) {
+                max_value = g_ascii_strtod(matched[5], NULL);
+                g_print("max: %le\n", max_value);
+              } else if (matched.count() > 1) {
+                min_value = g_ascii_strtod(matched[2], NULL);
+                g_print("min: %le\n", min_value);
+              }
+              desc = Regex(RANGE_PATTERN).replace(arg_blurb, "");
+            }).
+            when(RANGE_PATTERN2, [&](auto matched){
+              min_value = g_ascii_strtod(matched[1], NULL);
+              max_value = g_ascii_strtod(matched[3], NULL);
+              g_print("min: %le , max: %le\n", min_value, max_value);
+              desc = Regex(RANGE_PATTERN2).replace(arg_blurb, "");
+            }).
+            when(RANGE_PATTERN3, [&](auto matched){
+              min_value = g_ascii_strtod(matched[1], NULL);
+              if (!matched[9] || strlen(matched[9]) == 0)
+                max_value = g_ascii_strtod(matched[7], NULL);
+              g_print("min: %le , max: %le\n", min_value, max_value);
+              desc = Regex(RANGE_PATTERN3).replace(arg_blurb, "");
+            }).
+            when(DEGREE_PATTERN, [&](auto matched) {
+              min_value = 0;
+              max_value = 360;
+              g_print("matched=%s, degree\n", matched[0]);
+              desc = Regex(RANGE_PATTERN3).replace(arg_blurb, "");
+            }).
+            when(PERCENTILE_PATTERN, [&](auto matched) {
+              min_value = 0;
+              max_value = 100;
+              g_print("matched=%s, percentile\n", matched[0]);
+            });
+          bool is_infinity_range = false;
+          if (max_value == spec_min_value) {
+            is_infinity_range = true;
+            max_value         = spec_max_value;
+          }
+          if (min_value == spec_max_value) {
+            is_infinity_range = true;
+            min_value         = spec_min_value;
+          }
+          if (!desc) desc = g_strdup(arg_blurb.ptr());
+
+          g_print("range: %le - %le\n", min_value, max_value);
+
+          if (is_infinity_range) {
+            box.pack_start(false, true, 2) (
+              gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0), [&](auto hbox) {
+                hbox [gtk_widget_show] ();
+                hbox.pack_start(false, false, 0) (
+                  gtk_label_new (_(desc)), [&](auto it) {
+                    it [gtk_widget_show] ();
+                    it [gtk_widget_set_tooltip_text] (_(desc));
+                    it [gtk_widget_set_size_request] (70, -1);
+                  }
+                ).pack_end(true, true, 0) (
+                  gtk_spin_button_new (
+                    with (gtk_adjustment_new (cur_value, min_value, max_value, 1.0, 10.0, 0.0),[&](auto it) {
+  //                    it.connect("value-changed", Delegator::delegator([&layer](GtkWidget* o){}));
+                    }), 1, 1),
+                  [&desc](auto it) {
+                    it [gtk_widget_show] ();
+                  }
+                );
+              }
+            );
+
+          } else {
+            box.pack_start(false, true, 2) (
+              gimp_spin_scale_new (
+                with (gtk_adjustment_new (cur_value, min_value, max_value, 1.0, 10.0, 0.0),[&](auto it) {
+  //                    it.connect("value-changed", Delegator::delegator([&layer](GtkWidget* o){}));
+                }),
+                _(desc), 1),
+              [&desc](auto it) {
+                it [gtk_widget_show] ();
+                it [gtk_widget_set_tooltip_text] (_(desc));
+              });
+          }
+          g_free(desc);
+
+        // Int32 value
+        } else if (GIMP_IS_PARAM_SPEC_INT32(pspec) || GIMP_IS_PARAM_SPEC_INT8(pspec)) {
+
+          gchar*       desc           = NULL;
+          bool         constructed    = false;
+          bool         check          = false;
+          int          spec_min_value = 0;
+          int          spec_max_value = 0;
+          int          spec_default   = 0;
+          if (GIMP_IS_PARAM_SPEC_INT32(pspec)) {
+            auto ipspec    = G_PARAM_SPEC_INT(pspec);
+            spec_min_value = ipspec->minimum;
+            spec_max_value = ipspec->maximum;
+            spec_default   = ipspec->default_value;
+          } else {
+            auto ipspec    = G_PARAM_SPEC_UINT(pspec);
+            spec_min_value = ipspec->minimum;
+            spec_max_value = ipspec->maximum;
+            spec_default   = ipspec->default_value;
+          }
+          int          max_value      = spec_min_value;
+          int          min_value      = spec_max_value;
+
+          regex_case(arg_blurb).
+
+            when(ENUM_PATTERN, [&] (auto matched) {
+              g_print("Matched_FULL=%s, matched = %d, count=%d\n", matched[0], (bool)matched, matched.count());
+              if (!matched[0])
+                return;
+
+              StringListHolder list =
+                  g_regex_split_simple ("\\s*,\\s*", matched[1], GRegexCompileFlags(0), GRegexMatchFlags(0));
+
+              int count = 0;
+              for (gchar** w = list.ptr(); *w; w++, count ++);
+              gchar** str_list = g_new0(gchar*, count + 1);
+              GtkWidget* combo = NULL;
+
+              for (int i = 0; i < count; i ++) {
+                g_print("(%d): %s\n", i, list.ptr()[i]);
+                gint32 value =0;
+                gchar* label = NULL;
+                regex_case(list.ptr()[i]).
+                  when ("(.*) *\\(([0-9]+)\\)", [&](auto submatched) {
+                    value = (gint32)g_ascii_strtoll(submatched[2], NULL, 10);
+                    label = submatched[1];
+                  }).
+                  when ("(TRUE)|(FALSE)", [&] (auto submatched) {
+                    check = true;
+                  });
+                if (!check) {
+                  if (!combo) {
+                    combo = gimp_int_combo_box_new(_(label), value, NULL);
+                  } else {
+                  gimp_int_combo_box_append(GIMP_INT_COMBO_BOX(combo),
+                      GIMP_INT_STORE_VALUE, value,
+                      GIMP_INT_STORE_LABEL, _(label),
+                      -1);
+                  }
+                }
+                g_free(label);
+              }
+
+              StringHolder desc2 = Regex(ENUM_PATTERN).replace(arg_blurb, "");
+
+              if (check) {
+                box.pack_start(false, true, 2) (
+                  gtk_check_button_new_with_label (desc2), [](auto it) {
+                    it [gtk_widget_show] ();
+                  }
+                );
+              } else {
+                box.pack_start(false, true, 2) (
+                  gtk_label_new(desc2), [] (auto it) {
+                    it [gtk_label_set_line_wrap] (TRUE);
+                    it [gtk_misc_set_alignment] (0, 0);
+                    it [gtk_widget_show] ();
+                  }
+                )(
+                  combo, [&spec_default](auto it) {
+                    it [gtk_widget_show] ();
+                    it [gimp_int_combo_box_set_active] (spec_default);
+                  }
+                );
+              }
+              constructed = true;
+
+            }).
+            when(BOOL_PATTERN, [&](auto matched){
+              StringHolder desc2 = Regex(BOOL_PATTERN).replace(arg_blurb, "");
+              box.pack_start(false, true, 2) (
+                gtk_check_button_new_with_label (desc2), [](auto it) {
+                  it [gtk_widget_show] ();
+                }
+              );
+              constructed = true;
+            }).
+            when(BOOL_PATTERN2, [&](auto matched){
+              box.pack_start(false, true, 2) (
+                gtk_label_new(arg_name), [] (auto it) {
+                  it [gtk_label_set_line_wrap] (TRUE);
+                  it [gtk_widget_show] ();
+                }
+              )(
+                gimp_int_combo_box_new(matched[1], TRUE, matched[2], FALSE, NULL),
+                [](auto it) {
+                  it [gtk_widget_show] ();
+                }
+              );
+              constructed = true;
+            }).
+            when(RANGE_PATTERN, [&](auto matched){
+              if (matched.count() > 4) {
+                max_value = (gint32)g_ascii_strtod(matched[5], NULL);
+                g_print("max: %d\n", max_value);
+              } else if (matched.count() > 1) {
+                min_value = (gint32)g_ascii_strtod(matched[2], NULL);
+                g_print("min: %d\n", min_value);
+              }
+              desc = Regex(RANGE_PATTERN).replace(arg_blurb, "");
+            }).
+            when(RANGE_PATTERN2, [&](auto matched){
+              min_value = (gint32)g_ascii_strtod(matched[1], NULL);
+              max_value = (gint32)g_ascii_strtod(matched[3], NULL);
+              g_print("min: %d , max: %d\n", min_value, max_value);
+              desc = Regex(RANGE_PATTERN2).replace(arg_blurb, "");
+            }).
+            when(RANGE_PATTERN3, [&](auto matched){
+              min_value = (gint32)g_ascii_strtod(matched[1], NULL);
+              if (!matched[9] || strlen(matched[9]) == 0)
+                max_value = (gint32)g_ascii_strtod(matched[7], NULL);
+              g_print("min: %d , max: %d\n", min_value, max_value);
+              desc = Regex(RANGE_PATTERN3).replace(arg_blurb, "");
+            }).
+            when(PERCENTILE_PATTERN, [&](auto matched) {
+              min_value = 0;
+              max_value = 100;
+              g_print("matched=%s, percentile\n", matched[0]);
+            });
+
+          if (!constructed) {
+            bool is_infinity_range = false;
+            if (max_value == spec_min_value) {
+              is_infinity_range = true;
+              max_value         = spec_max_value;
+            }
+            if (min_value == spec_max_value) {
+              is_infinity_range = true;
+              min_value         = spec_min_value;
+            }
+
+//            GValue value = f->get_procedure_arg(j);
+//            int cur_value = g_value_get_int(&value);
+            int cur_value = spec_default;
+
+            if (!desc)
+              desc = g_strdup(arg_blurb.ptr());
+
+            g_print("range: %d - %d\n", min_value, max_value);
+
+            if (is_infinity_range) {
+              box.pack_start(false, true, 2) (
+                gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0), [&](auto hbox) {
+                  hbox [gtk_widget_show] ();
+                  hbox.pack_start(false, false, 0) (
+                    gtk_label_new (_(desc)), [&](auto it) {
+                      it [gtk_widget_show] ();
+                      it [gtk_widget_set_tooltip_text] (_(desc));
+                      it [gtk_widget_set_size_request] (70, -1);
+                    }
+                  ).pack_end(true, true, 0) (
+                    gtk_spin_button_new (
+                      with (gtk_adjustment_new (cur_value, min_value, max_value, 1.0, 10.0, 0.0),[&](auto it) {
+    //                    it.connect("value-changed", Delegator::delegator([&layer](GtkWidget* o){}));
+                      }), 1, 0),
+                    [&desc](auto it) {
+                      it [gtk_widget_show] ();
+                    }
+                  );
+                }
+              );
+
+            } else {
+              box.pack_start (false, true, 2)(
+                gimp_spin_scale_new (
+                  with (gtk_adjustment_new (cur_value, min_value, max_value, 1.0, 10.0, 0.0),[&](auto it) {
+    //                    it.connect("value-changed", Delegator::delegator([&layer](GtkWidget* o){}));
+                  }), _(desc), 1),
+                [&desc](auto it) {
+                  it [gtk_widget_set_tooltip_text] (_(desc));
+                  it [gtk_widget_show] ();
+                }
+              );
+            }
+
+            g_free(desc);
+          }
+
+        } else if (GIMP_IS_PARAM_SPEC_RGB(pspec)) {
+          const GValue*  value = g_param_spec_get_default_value(pspec);
+          GimpRGB* rgb = NULL;
+          GimpRGB color;
+          gimp_value_get_rgb(value, rgb);
+          if (!rgb) {
+            gimp_rgba_set (&color, 0.0, 0.0, 0.0, 1.0);
+            rgb = &color;
+          }
+          box.pack_start (false, true, 0) (
+            gtk_label_new(_(arg_blurb)), [&req](auto label) {
+              label [gtk_widget_show] ();
+              label [gtk_label_set_line_wrap] (TRUE);
+              label [gtk_widget_set_size_request] (req.width, req.height);
+            }
+          )(
+            gimp_color_panel_new (_(arg_blurb), rgb, GIMP_COLOR_AREA_SMALL_CHECKS, 128, 24), [](auto label) {
+              label [gtk_widget_show] ();
+            }
+          );
+
+        } else if (G_IS_PARAM_SPEC_STRING(pspec)) {
+          box.pack_start (false, true, 0) (
+            gtk_label_new(_(arg_blurb)), [&req](auto label) {
+              label [gtk_widget_show] ();
+              label [gtk_label_set_line_wrap] (TRUE);
+              label [gtk_widget_set_size_request] (req.width, req.height);
+            }
+          )(
+            gtk_entry_new(), [](auto label) {
+              label [gtk_widget_show] ();
+            }
+          );
+
+        } else if (GIMP_IS_PARAM_SPEC_INT8_ARRAY(pspec)) {
+          box.pack_start (false, true, 0) (
+            gtk_label_new(_(arg_blurb)), [&req](auto label) {
+              label [gtk_widget_show] ();
+              label [gtk_label_set_line_wrap] (TRUE);
+              label [gtk_widget_set_size_request] (req.width, req.height);
+            }
+          )(
+            gtk_label_new(_(arg_type_name)), [&req](auto label) {
+              label [gtk_widget_show] ();
+              label [gtk_label_set_line_wrap] (TRUE);
+              label [gtk_widget_set_size_request] (req.width, req.height);
+            }
+          );
+
+        } else{
+          box.pack_start (false, true, 0) (
+            gtk_label_new(_(arg_blurb)), [&req](auto label) {
+              label [gtk_widget_show] ();
+              label [gtk_label_set_line_wrap] (TRUE);
+              label [gtk_widget_set_size_request] (req.width, req.height);
+            }
+          )(
+            gtk_label_new(_(arg_type_name)), [&req](auto label) {
+              label [gtk_widget_show] ();
+              label [gtk_label_set_line_wrap] (TRUE);
+              label [gtk_widget_set_size_request] (req.width, req.height);
+            }
+          );
+        }
+
       }
     });
   }
@@ -351,102 +752,123 @@ public:
 
     layer = GIMP_LAYER(data);
     *result = with (gtk_box_new(GTK_ORIENTATION_VERTICAL, 0), [&](auto vbox) {
-      vbox.pack_start (gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0), TRUE, FALSE, 0, [&](auto hbox) {
-        hbox [gtk_widget_show] ();
+      vbox.pack_start (true, false, 0) (
+        gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0), [&](auto hbox) {
+          hbox [gtk_widget_show] ();
 
-        /*  Opacity scale  */
+          /*  Opacity scale  */
 
-        g_print("opacity adjustment\n");
-        hbox.pack_start(gimp_spin_scale_new (
-            with (gtk_adjustment_new (100.0, 0.0, 100.0, 1.0, 10.0, 0.0),[&](auto it) {
-//              it.connect("value-changed", Delegator::delegator(this, &PopupWindow::));
-            }), _("Opacity"), 1), TRUE, TRUE, 0, [&](auto it) {
-          it [gimp_help_set_help_data] (NULL, GIMP_HELP_LAYER_DIALOG_OPACITY_SCALE);
-        });
-        /*  Lock alpha toggle  */
-        hbox.pack_start (gtk_toggle_button_new(), FALSE, FALSE, 0, [&] (auto it) {
-          it [gtk_widget_show] ();
-//          it.connect("toggled", Delegator::delegator(this, &PopupWindow::));
-          it [gimp_help_set_help_data] ( _("Lock alpha channel"), GIMP_HELP_LAYER_DIALOG_LOCK_ALPHA_BUTTON);
-
-          auto icon_size = GTK_ICON_SIZE_BUTTON;
-          it.add (gtk_image_new_from_stock (GIMP_STOCK_TRANSPARENCY, icon_size), [&](auto image) {
-            image [gtk_widget_show] ();
-          });
-        });
-        /*
-            view->priv->italic_attrs = pango_attr_list_new ();
-            attr = pango_attr_style_new (PANGO_STYLE_ITALIC);
-            attr->start_index = 0;
-            attr->end_index   = -1;
-            pango_attr_list_insert (view->priv->italic_attrs, attr);
-
-            view->priv->bold_attrs = pango_attr_list_new ();
-            attr = pango_attr_weight_new (PANGO_WEIGHT_BOLD);
-            attr->start_index = 0;
-            attr->end_index   = -1;
-            pango_attr_list_insert (view->priv->bold_attrs, attr);
-        */
-      });
-      vbox.pack_start (gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0), TRUE, TRUE, 0, [&](auto hbox) {
-        hbox [gtk_widget_show] ();
-
-        /*  Paint mode menu  */
-        g_print("create paint_mode_menu\n");
-        hbox.pack_start (gtk_scrolled_window_new(NULL, NULL), TRUE, TRUE, 0, [&](auto it) {
-          it [gtk_widget_show]();
-          it.add (this->create_paint_mode_list(), [&](auto it) {
-            it [gimp_help_set_help_data] (NULL, GIMP_HELP_LAYER_DIALOG_PAINT_MODE_MENU);
-            it [gtk_tree_view_expand_all] ();
-            it [gtk_widget_show]();
-//            it.connect("changed", Delegator::delegator(this, &PopupWindow::));
-          });
-          GtkRequisition req;
-          vbox[gtk_widget_get_requisition](&req);
-
-          req.width  = MAX(req.width, 150);
-          req.height = MAX(req.height, 200);
-          it [gtk_widget_set_size_request] (req.width, req.height);
-        });
-
-        if (FilterLayerInterface::is_instance(layer)) {
-          auto filter_layer = FilterLayerInterface::cast(layer);
-
-          hbox.pack_start (gtk_scrolled_window_new(NULL, NULL), TRUE, TRUE, 0, [&](auto it) {
-            it [gtk_widget_show] ();
-            GtkRequisition req;
-            vbox [gtk_widget_get_requisition] (&req);
-            req.width  = MAX(req.width, 200);
-            req.height = MAX(req.height, 300);
-            it [gtk_widget_set_size_request] (req.width, req.height);
-
-            it.add (this->create_filter_list(layer), [&](auto it) {
+          g_print("opacity adjustment\n");
+          hbox.pack_start(true, true, 0) (
+            gimp_spin_scale_new (
+              with (gtk_adjustment_new (100.0, 0.0, 100.0, 1.0, 10.0, 0.0),[&](auto it) {
+  //              it.connect("value-changed", Delegator::delegator(this, &PopupWindow::));
+              }),
+              _("Opacity"), 1),
+            [](auto it) {
+              it [gimp_help_set_help_data] (NULL, GIMP_HELP_LAYER_DIALOG_OPACITY_SCALE);
+            }
+          ).pack_start (false, false, 0) (
+            /*  Lock alpha toggle  */
+            gtk_toggle_button_new(), [&] (auto it) {
               it [gtk_widget_show] ();
-              it [gtk_tree_view_expand_all] ();
-              auto selection = _G( it [gtk_tree_view_get_selection] () );
-              selection.connect("changed", Delegator::delegator(this, &PopupWindow::on_filter_list_changed));
-            });
-          });
+    //          it.connect("toggled", Delegator::delegator(this, &PopupWindow::));
+              it [gimp_help_set_help_data] ( _("Lock alpha channel"), GIMP_HELP_LAYER_DIALOG_LOCK_ALPHA_BUTTON);
 
-          hbox.pack_start (gtk_scrolled_window_new(NULL, NULL), TRUE, TRUE, 0, [&](auto it) {
-            it [gtk_widget_show] ();
-            GtkRequisition req;
-            vbox [gtk_widget_get_requisition] (&req);
-            req.width  = MAX(req.width, 200);
-            req.height = MAX(req.height, 300);
-            it [gtk_widget_set_size_request] (req.width, req.height);
-            it [gtk_scrolled_window_set_policy] (GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+              auto icon_size = GTK_ICON_SIZE_BUTTON;
+              it.add (gtk_image_new_from_stock (GIMP_STOCK_TRANSPARENCY, icon_size), [&](auto image) {
+                image [gtk_widget_show] ();
+              });
+            }
+          );
+          /*
+              view->priv->italic_attrs = pango_attr_list_new ();
+              attr = pango_attr_style_new (PANGO_STYLE_ITALIC);
+              attr->start_index = 0;
+              attr->end_index   = -1;
+              pango_attr_list_insert (view->priv->italic_attrs, attr);
 
-            it.add_with_viewport (this->create_filter_edit(layer), [&](auto it) {
-              GtkRequisition req = { 200, -1 };
-              it [gtk_widget_show] ();
-              it [gtk_widget_set_size_request] (req.width, req.height);
-            });
-          });
+              view->priv->bold_attrs = pango_attr_list_new ();
+              attr = pango_attr_weight_new (PANGO_WEIGHT_BOLD);
+              attr->start_index = 0;
+              attr->end_index   = -1;
+              pango_attr_list_insert (view->priv->bold_attrs, attr);
+          */
         }
-      });
+      ).pack_start (true, true, 0) (
+        gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0), [&](auto hbox) {
+          hbox [gtk_widget_show] ();
 
+          /*  Paint mode menu  */
+          g_print("create paint_mode_menu\n");
+          hbox.pack_start (true, true, 0) (gtk_scrolled_window_new(NULL, NULL), [&](auto it) {
+            it [gtk_widget_show] ();
+            it.add (this->create_paint_mode_list(), [](auto it) {
+              it [gimp_help_set_help_data] (NULL, GIMP_HELP_LAYER_DIALOG_PAINT_MODE_MENU);
+              it [gtk_tree_view_expand_all] ();
+              it [gtk_widget_show] ();
+  //            it.connect("changed", Delegator::delegator(this, &PopupWindow::));
+            });
+            GtkRequisition req;
+            vbox[gtk_widget_get_requisition](&req);
+
+            req.width  = MAX(req.width, 150);
+            req.height = MAX(req.height, 200);
+            it [gtk_widget_set_size_request] (req.width, req.height);
+          });
+
+          if (FilterLayerInterface::is_instance(layer)) {
+            auto filter_layer = FilterLayerInterface::cast(layer);
+
+            hbox.pack_start (true, true, 0)(
+              gtk_scrolled_window_new(NULL, NULL), [&](auto it) {
+                it [gtk_widget_show] ();
+                GtkRequisition req;
+                vbox [gtk_widget_get_requisition] (&req);
+                req.width  = MAX(req.width, 200);
+                req.height = MAX(req.height, 300);
+                it [gtk_widget_set_size_request] (req.width, req.height);
+
+                it.add (this->create_filter_list(layer), [this](auto it) {
+                  it [gtk_widget_show] ();
+                  it [gtk_tree_view_expand_all] ();
+                  auto selection = _G( it [gtk_tree_view_get_selection] () );
+                  selection.connect("changed", Delegator::delegator(this, &PopupWindow::on_filter_list_changed));
+                });
+              }
+            )(
+              gtk_scrolled_window_new(NULL, NULL), [&](auto it) {
+                it [gtk_widget_show] ();
+                GtkRequisition req;
+                vbox [gtk_widget_get_requisition] (&req);
+                req.width  = MAX(req.width, 200);
+                req.height = MAX(req.height, 300);
+                it [gtk_widget_set_size_request] (req.width, req.height);
+                it [gtk_scrolled_window_set_policy] (GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+
+                it.add_with_viewport (this->create_filter_edit(layer), [&](auto it) {
+                  GtkRequisition req = { 200, -1 };
+                  it [gtk_widget_show] ();
+                  it [gtk_widget_set_size_request] (req.width, req.height);
+                });
+              }
+            );
+
+          }
+
+        }
+      );
       vbox [gtk_widget_show_all] ();
+
+      if (FilterLayerInterface::is_instance(layer)) {
+        auto filter_layer = FilterLayerInterface::cast(layer.ptr());
+        const gchar* proc_name = filter_layer->get_procedure();
+
+        if (strlen(proc_name)) {
+          // FIXME: select filter_list
+          this->update_filter_edit(proc_name);
+        }
+      }
     });
   };
 };

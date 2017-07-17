@@ -144,9 +144,8 @@ gint            gimp_procedure_name_compare       (GimpProcedure    *proc1,
                                                    GimpProcedure    *proc2);
 #ifdef __cplusplus
 extern "C++" {
-  namespace GtkCXX {
-    typedef Traits<GimpProcedure, GimpProcedureClass, gimp_procedure_get_type> ProcedureTraits;
-  };
+#include "base/glib-cxx-impl.hpp"
+__DECLARE_GTK_CAST__(GimpProcedure, GIMP_PROCEDURE, gimp_procedure);
 };
 #endif
 
