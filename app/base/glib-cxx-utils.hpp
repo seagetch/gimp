@@ -23,6 +23,14 @@ class StringHolder : public ScopedPointer<gchar, void(gpointer), g_free>
 {
 public:
   StringHolder(gchar* str) : ScopedPointer<gchar, void(gpointer), g_free>(str) {};
+  StringHolder& operator =(gchar* str) {
+    if (obj == str)
+      return *this;
+    if (obj)
+      g_free(obj);
+    obj = str;
+    return *this;
+  };
 };
 
 class StringListHolder : public ScopedPointer<gchar*, void(gchar**), g_strfreev>
@@ -41,11 +49,29 @@ public:
   const gint   length() const { return obj->len; };
   gchar* str()    { return obj->str; };
   gint   length() { return obj->len; };
+
+  operator gchar*() { return str(); }
+
+  GStringHolder& operator += (const gchar* val) {
+    g_string_append(obj, val);
+    return *this;
+  };
+
+  GStringHolder& operator += (const gchar val) {
+    g_string_append_c(obj, val);
+    return *this;
+  };
+
 };
 
 template<typename Key, typename Data>
 class GHashTableHolder : public ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>
 {
+  template<typename F>
+  static void foreach_callback(gpointer key, gpointer data, gpointer user) {
+    F* func = reinterpret_cast<F*>(user);
+    (*func)((Key)key, (Data)data);
+  };
 public:
   GHashTableHolder(GHashTable* table) : ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>(table) {};
 
@@ -58,6 +84,76 @@ public:
   bool insert(const Key key, Data value) {
     g_hash_table_insert(ptr(), (gpointer)key, (gpointer)value);
   }
+  template<typename F>
+  void each(F each_func) {
+    g_hash_table_foreach (obj, foreach_callback<F>, &each_func);
+  }
+};
+
+class Regex : public ScopedPointer<GRegex, void(GRegex*), g_regex_unref>
+{
+public:
+  class Matched : public ScopedPointer<GMatchInfo, void(GMatchInfo*), g_match_info_unref> {
+    bool matched;
+  public:
+    Matched(GMatchInfo* info) : ScopedPointer<GMatchInfo, void(GMatchInfo*), g_match_info_unref>(info), matched(true) {};
+    Matched(Matched& src) : ScopedPointer<GMatchInfo, void(GMatchInfo*), g_match_info_unref>(src.obj), matched(true) { g_match_info_ref(obj); };
+    gchar* operator [](int index) const { return g_match_info_fetch(obj, index); };
+    operator bool() {
+      return obj && matched && (matched = g_match_info_matches(obj));
+    };
+    int count() const { return g_match_info_get_match_count(obj); }
+    Matched& operator ++(int) {
+      matched = matched && g_match_info_next(obj, NULL);
+      return *this;
+    }
+  };
+  Regex(GRegex* regex) : ScopedPointer<GRegex, void(GRegex*), g_regex_unref>(regex) {};
+  Regex(const gchar* pattern) : ScopedPointer<GRegex, void(GRegex*), g_regex_unref>(
+      g_regex_new(pattern, (GRegexCompileFlags)G_REGEX_OPTIMIZE, (GRegexMatchFlags)0, NULL )) {};
+  Matched match(gchar* str) {
+    GMatchInfo* info;
+    g_regex_match(obj, str, (GRegexMatchFlags)0, &info);
+    return Matched(info);
+  };
+  template<typename F>
+  bool match(gchar* str, F matched_callback) {
+    GMatchInfo* info;
+    g_regex_match(obj, str, (GRegexMatchFlags)0, &info);
+    Matched matched(info);
+    bool result = false;
+    while (matched) {
+      result = true;
+      matched_callback(matched);
+      matched ++;
+    }
+    return result;
+  };
+  gchar* replace(const gchar* str, const gchar* replace_str) {
+    return g_regex_replace(obj, str, -1, 0, replace_str, GRegexMatchFlags(0), NULL);
+  }
+};
+
+class regex_case {
+  StringHolder str;
+  bool matched;
+public:
+  regex_case(const gchar* s) : str(g_strdup(s)), matched(false) { };
+  regex_case& when(Regex& regex, std::function<void(Regex::Matched&)> callback) {
+    if (!matched)
+      matched = (regex.match(str, callback));
+    return *this;
+  };
+
+  regex_case& when(const gchar* pattern, std::function<void(Regex::Matched&)> callback) {
+    auto regex = Regex(pattern);
+    return when(regex, callback);
+  };
+
+  void otherwise(std::function<void()> callback) {
+    if (!matched)
+      callback();
+  };
 };
 
 class GValueWrapper 
@@ -142,10 +238,21 @@ public:
   operator const GObject*() const { return G_OBJECT(g_value_get_object(&value)); };
 };
 
+inline GValueWrapper _G(GValue src) { return GValueWrapper(src); }
+
 class GListHolder : public ScopedPointer<GList, void(GList*), g_list_free>
 {
 public:
   GListHolder(GList* list) : ScopedPointer<GList, void(GList*), g_list_free>(list) {};
+};
+
+template<class T>
+class GListWrapper : public GListHolder {
+public:
+  GListWrapper(GList* list) : GListHolder(list) { };
+  T operator[](int index) {
+    return T(g_list_nth_data(obj, index));
+  }
 };
 
 template<class T>
@@ -295,7 +402,6 @@ public:
   Delegator::Connection* connect(const gchar* signal_name, D d) {
     return g_signal_connect_delegator(G_OBJECT(super::obj), signal_name, d);
   }
-
 };
 
 template<class T>

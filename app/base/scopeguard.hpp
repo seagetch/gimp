@@ -28,6 +28,7 @@ bool is_null(const T mem) { return !mem; };
 template<class T, typename Destructor, Destructor* f>
 class ScopedPointer : public ScopeGuard<T*, Destructor, f, is_null<T*> > {
 public:
+  ScopedPointer() : ScopeGuard<T*, Destructor, f, is_null<T*> >(NULL) {};
   ScopedPointer(T* ptr) : ScopeGuard<T*, Destructor, f, is_null<T*> >(ptr) {};
   T* ptr() { return ScopeGuard<T*, Destructor, f, is_null<T*> >::ref(); };
   T* operator ->() { return ptr(); };
