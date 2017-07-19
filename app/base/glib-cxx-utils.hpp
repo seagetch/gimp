@@ -22,6 +22,7 @@ public:
 class StringHolder : public ScopedPointer<gchar, void(gpointer), g_free>
 {
 public:
+  StringHolder() : ScopedPointer<gchar, void(gpointer), g_free>() {};
   StringHolder(gchar* str) : ScopedPointer<gchar, void(gpointer), g_free>(str) {};
   StringHolder& operator =(gchar* str) {
     if (obj == str)
@@ -36,6 +37,7 @@ public:
 class StringListHolder : public ScopedPointer<gchar*, void(gchar**), g_strfreev>
 {
 public:
+  StringListHolder() : ScopedPointer<gchar*, void(gchar**), g_strfreev>(NULL) {};
   StringListHolder(gchar** list) : ScopedPointer<gchar*, void(gchar**), g_strfreev>(list) {};
 };
 
@@ -449,4 +451,5 @@ DelegatorProxy<W, T>* delegator(W* w, T* d) { return new DelegatorProxy<W, T>(w,
 
 template<typename W, typename T>
 DelegatorProxy<W, T>* decorator(W* w, T* d) { return new Decorator<W, T>(w, d); };
+
 #endif
