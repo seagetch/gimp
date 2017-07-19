@@ -169,6 +169,10 @@ public:
     if (!procedure || index >= procedure->num_args)
       return G_VALUE_INIT;
     setup_args(NULL);
+    GValue b;
+    g_value_init (&b, G_TYPE_STRING);
+    g_value_transform (&args->values[index], &b);
+    g_print("get_arg(%d):%s\n", index, g_value_get_string(&b));
     return args->values[index];
   }
 
@@ -176,7 +180,7 @@ public:
     if (!procedure || index >= procedure->num_args)
       return;
     setup_args(NULL);
-    g_value_copy(&value, &args->values[index]);
+    g_value_transform(&value, &args->values[index]);
   }
 
 };
@@ -278,7 +282,7 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   virtual void            update       ();
   virtual void            update_size  ();
 
-  virtual void            set_procedure(const char* proc_name);
+  virtual void            set_procedure(const char* proc_name, GValueArray* args = NULL);
   virtual const char*     get_procedure();
   virtual GValue          get_procedure_arg(int index);
   virtual void            set_procedure_arg(int index, GValue value);
@@ -768,7 +772,7 @@ void GtkCXX::FilterLayer::project_region (gint          x,
   GIMP_DRAWABLE_CLASS(Class::parent_class)->project_region (drawable, x, y, width, height, projPR, combine);
 }
 
-void GtkCXX::FilterLayer::set_procedure(const char* proc_name)
+void GtkCXX::FilterLayer::set_procedure(const char* proc_name, GValueArray* args)
 {
   if (runner) {
     if (strcmp(proc_name, runner->get_procedure_name()) ) {
@@ -776,14 +780,19 @@ void GtkCXX::FilterLayer::set_procedure(const char* proc_name)
         delete runner;
         runner = NULL;
       }
-    } else
-      return;
+    }
   }
   GimpImage*     image   = gimp_item_get_image(GIMP_ITEM(g_object));
   Gimp*          gimp    = image->gimp;
   GimpPDB*       pdb     = gimp->pdb;
   GimpProcedure* proc    = gimp_pdb_lookup_procedure(pdb, proc_name);
   ProcedureRunner* r     = new ProcedureRunner(proc, GIMP_PROGRESS(g_object));
+
+  if (args) {
+    for (int i = 0; i < proc->num_args; i ++)
+      r->set_arg(i, args->values[i]);
+  }
+
   if (runner)
     new_runner = r;
   else {
