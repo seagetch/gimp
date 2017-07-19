@@ -31,6 +31,12 @@ public:
       return delegator->emit(args...);
     return Ret();
   }
+
+  typedef Ret (*Callback)(Args..., gpointer);
+  Callback _callback() {
+    return &callback;
+  };
+
 };
 
 template<typename... Args>
@@ -50,6 +56,12 @@ public:
     if (delegator->is_enabled())
       delegator->emit(args...);
   }
+
+  typedef void (*Callback)(Args..., gpointer);
+  Callback _callback() {
+    return &callback;
+  };
+
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -193,6 +205,7 @@ delegator(std::function<Ret (Args...)> f)
 {
   return new CXXFunctionDelegator<Ret, Args...>(f);
 }
+
 ///////////////////////////////////////////////////////////////////////////////
 class Connection {
   gulong    handler_id;
@@ -265,7 +278,7 @@ g_signal_connect_delegator (GObject* target,
                             bool after=false)
 {
   GClosure *closure;  
-  closure = g_cclosure_new (G_CALLBACK ((&Delegator::Delegator<Ret, Args...>::callback)),
+  closure = g_cclosure_new (G_CALLBACK (delegator->_callback()),
                             (gpointer)delegator, 
                             closure_destroy_notify<Delegator::Delegator<Ret, Args...> >);
   gulong handler_id = g_signal_connect_closure (target, event, closure, after);
