@@ -162,61 +162,64 @@ public:
   };
 };
 
-class Value : ScopeGuard<GValue*, void(GValue*), g_value_unset>
+class Value : ScopedPointer<GValue*, void(GValue*), g_value_unset>
 {
 public:
-  Value(GValue* src) : ScopeGuard<GValue*, void(GValue*), g_value_unset>(src) {};
+  Value(GValue* src) : ScopedPointer<GValue*, void(GValue*), g_value_unset>(src) {};
+  Value(Value&& src) : ScopedPointer<GValue*, void(GValue*), g_value_unset>(src.obj) {
+    src.obj = NULL;
+  };
   GType type() { return G_VALUE_TYPE(obj); };
   operator const gchar() const {
-    GValue value;
+    GValue value = G_VALUE_INIT;
     g_value_init(&value, G_TYPE_CHAR);
     g_value_transform(obj, &value);
     return g_value_get_schar(&value);
   };
   operator const bool() const {
-    GValue value;
+    GValue value = G_VALUE_INIT;
     g_value_init(&value, G_TYPE_BOOLEAN);
     g_value_transform(obj, &value);
     return g_value_get_boolean(&value);
   };
   operator const gint() const {
-    GValue value;
+    GValue value = G_VALUE_INIT;
     g_value_init(&value, G_TYPE_INT);
     g_value_transform(obj, &value);
     return g_value_get_int(&value);
   };
   operator const guint() const {
-    GValue value;
+    GValue value = G_VALUE_INIT;
     g_value_init(&value, G_TYPE_UINT);
     g_value_transform(obj, &value);
     return g_value_get_uint(&value);
   };
   operator const glong() const {
-    GValue value;
+    GValue value = G_VALUE_INIT;
     g_value_init(&value, G_TYPE_LONG);
     g_value_transform(obj, &value);
     return g_value_get_long(&value);
   };
   operator const gulong() const {
-    GValue value;
+    GValue value = G_VALUE_INIT;
     g_value_init(&value, G_TYPE_ULONG);
     g_value_transform(obj, &value);
     return g_value_get_ulong(&value);
   };
   operator const gfloat() const {
-    GValue value;
+    GValue value = G_VALUE_INIT;
     g_value_init(&value, G_TYPE_FLOAT);
     g_value_transform(obj, &value);
     return g_value_get_float(&value);
   };
   operator const gdouble() const {
-    GValue value;
+    GValue value = G_VALUE_INIT;
     g_value_init(&value, G_TYPE_DOUBLE);
     g_value_transform(obj, &value);
     return g_value_get_double(&value);
   };
   operator const gchar*() const {
-    GValue value;
+    GValue value = G_VALUE_INIT;
     g_value_init(&value, G_TYPE_STRING);
     g_value_transform(obj, &value);
     return g_value_get_string(&value);
@@ -234,7 +237,12 @@ private:
   GValue self;
   Value wrapper;
 public:
-  Variant(const GValue& src) : self(src), wrapper(&self) { };
+  Variant(const GValue& src) : wrapper(&self) {
+    GValue default_value = G_VALUE_INIT;
+    self = default_value;
+    g_value_init(&self, G_VALUE_TYPE(&src));
+    g_value_copy(&src, &self);
+  };
   Variant(gchar val) : wrapper(&self) {
     GValue default_value = G_VALUE_INIT;
     self = default_value;
