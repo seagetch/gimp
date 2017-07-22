@@ -162,11 +162,11 @@ public:
   };
 };
 
-class Value : ScopedPointer<GValue*, void(GValue*), g_value_unset>
+class Value : ScopedPointer<GValue, void(GValue*), g_value_unset>
 {
 public:
-  Value(GValue* src) : ScopedPointer<GValue*, void(GValue*), g_value_unset>(src) {};
-  Value(Value&& src) : ScopedPointer<GValue*, void(GValue*), g_value_unset>(src.obj) {
+  Value(GValue* src) : ScopedPointer<GValue, void(GValue*), g_value_unset>(src) {};
+  Value(Value&& src) : ScopedPointer<GValue, void(GValue*), g_value_unset>(src.obj) {
     src.obj = NULL;
   };
   GType type() { return G_VALUE_TYPE(obj); };
