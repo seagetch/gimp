@@ -68,6 +68,8 @@ extern "C" {
 #include "gimpmypaintbrush-private.hpp"
 #include "base/glib-cxx-utils.hpp"
 
+using namespace GLib;
+
 #define BRUSHFILE_JSON_VERSION 3
 #define CURRENT_BRUSHFILE_VERSION 3
 
@@ -75,7 +77,7 @@ extern "C" {
 
 class MyPaintBrushReader {
   private:
-  GWrapper<GimpMypaintBrush> result;
+  GLib::ObjectWrapper<GimpMypaintBrush> result;
   GHashTable       *raw_pair;
   gint64            version;
   
@@ -148,8 +150,8 @@ MyPaintBrushReader::load_brush (GimpContext  *context,
                        const gchar  *filename,
                        GError      **error)
 {
-  StringHolder basename  = g_path_get_basename (filename);
-  StringHolder brushname = g_strndup(basename.ptr(), 
+  CString basename  = g_path_get_basename (filename);
+  CString brushname = g_strndup(basename.ptr(),
                                      strlen(basename.ptr()) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION));
   version = 0;  
 
@@ -164,9 +166,9 @@ MyPaintBrushReader::load_brush (GimpContext  *context,
   }
   dump();
   
-  StringHolder filename_dup  = g_strndup(filename, 
+  CString filename_dup  = g_strndup(filename,
                                          strlen(filename) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION));
-  StringHolder icon_filename = g_strconcat (filename_dup.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION, NULL);
+  CString icon_filename = g_strconcat (filename_dup.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION, NULL);
   g_print ("Read Icon: %s\n", icon_filename.ptr());
   load_icon (icon_filename.ptr());
   GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
@@ -222,9 +224,9 @@ MyPaintBrushReader::dump ()
 bool
 MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
 {
-  GWrapper<JsonParser> parser = json_parser_new();
+  ObjectWrapper<JsonParser> parser = json_parser_new();
   JsonNode* root;
-  GWrapper<JsonReader> reader;
+  ObjectWrapper<JsonReader> reader;
   GError* jerror = NULL;
   json_parser_load_from_file(parser, filename, &jerror);
   *error = NULL;
@@ -253,11 +255,11 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
   bool brushname_result = json_reader_read_member(reader, "parent_brush_name");
   if (brushname_result) {
     if (strlen(json_reader_get_string_value(reader)) > 0) {
-      StringHolder uq_value = g_strdup(json_reader_get_string_value(reader));
+      CString uq_value = g_strdup(json_reader_get_string_value(reader));
       priv->set_parent_brush_name(uq_value);
       result.set("name", uq_value.ptr());
     } else {
-      StringHolder name = g_strdup(result.get("name"));
+      CString name = g_strdup(result.get("name"));
       priv->set_parent_brush_name(name.ptr());
     }
   }
@@ -273,9 +275,9 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
   //settings
   bool settings_result = json_reader_read_member(reader, "settings");
   if (settings_result) {
-    GHashTableHolder<const gchar*, MyPaintBrushSettings*> settings_dict = 
+    HashTable<const gchar*, MyPaintBrushSettings*> settings_dict =
       mypaint_brush_get_brush_settings_dict ();
-    GHashTableHolder<const gchar*, MyPaintBrushInputSettings*> inputs_dict =
+    HashTable<const gchar*, MyPaintBrushInputSettings*> inputs_dict =
       mypaint_brush_get_input_settings_dict ();
 
     bool element_result;
@@ -341,7 +343,7 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
   //switches
   bool switch_result = json_reader_read_member(reader, "switches");
   if (switch_result) {
-    GHashTableHolder<const gchar*, MyPaintBrushSwitchSettings*> switches_dict =
+    HashTable<const gchar*, MyPaintBrushSwitchSettings*> switches_dict =
       mypaint_brush_get_brush_switch_settings_dict ();
     gint count = json_reader_count_members(reader);
     const char* key;
@@ -362,7 +364,7 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
   //texts
   bool text_result = json_reader_read_member(reader, "texts");
   if (text_result) {
-    GHashTableHolder<const gchar*, MyPaintBrushTextSettings*> text_dict = 
+    HashTable<const gchar*, MyPaintBrushTextSettings*> text_dict =
       mypaint_brush_get_brush_text_settings_dict ();
     gint count = json_reader_count_members(reader);
     const char* key;
@@ -406,7 +408,7 @@ MyPaintBrushReader::read_file_v2 (const gchar *filename, GError **error)
   
   while (g_io_channel_read_line (config_stream, &line, &line_len, &line_term_pos, error) != G_IO_STATUS_EOF)
     {
-      StringHolder line_holder(line);
+      CString line_holder(line);
       if (!line)
         break;
       
@@ -545,11 +547,11 @@ void
 MyPaintBrushReader::parse_raw_v2 (
                   gint64            version)
 {
-  GHashTableHolder<const gchar*, MyPaintBrushSettings*> settings_dict = 
+  HashTable<const gchar*, MyPaintBrushSettings*> settings_dict =
     mypaint_brush_get_brush_settings_dict ();
-  GHashTableHolder<const gchar*, MyPaintBrushInputSettings*> inputs_dict = 
+  HashTable<const gchar*, MyPaintBrushInputSettings*> inputs_dict =
     mypaint_brush_get_input_settings_dict ();
-  GHashTableHolder<const gchar*, MyPaintBrushSettingMigrate*> migrate_dict = 
+  HashTable<const gchar*, MyPaintBrushSettingMigrate*> migrate_dict =
     mypaint_brush_get_setting_migrate_dict ();
   GHashTableIter    raw_pair_iter;
   gpointer          raw_key, raw_value;
@@ -564,14 +566,14 @@ MyPaintBrushReader::parse_raw_v2 (
       
       if (strcmp (key, "parent_brush_name") == 0)
         {
-          StringHolder uq_value = unquote (value);
+          CString uq_value = unquote (value);
           priv->set_parent_brush_name(uq_value);
           result.set("name", uq_value.ptr());
           goto next_pair;
         }
       else if (strcmp (key, "group") == 0)
         {
-          StringHolder uq_value = unquote (value);
+          CString uq_value = unquote (value);
           priv->set_group(value);
           goto next_pair;
         }

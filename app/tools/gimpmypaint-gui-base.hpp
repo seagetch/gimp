@@ -33,15 +33,15 @@ protected:
     GtkWidget* widget;
     gchar*   property_name;
     gchar*   internal_name;
-    Delegator::Connection* notify_handler;
-    Delegator::Connection* value_changed_handler;
+    Delegators::Connection* notify_handler;
+    Delegators::Connection* value_changed_handler;
 
   public:
     MypaintOptionsPropertyGUIPrivate(GimpMypaintOptions* opts,
                                      GHashTable* dict,
                                      const gchar* name) 
     {
-      StringHolder name_replaced(mypaint_brush_signal_name_to_internal_name(name));
+      CString name_replaced(mypaint_brush_signal_name_to_internal_name(name));
 
       setting = reinterpret_cast<MyPaintBrushSettings*>(g_hash_table_lookup(dict, name_replaced.ptr()));
       if (!setting) {

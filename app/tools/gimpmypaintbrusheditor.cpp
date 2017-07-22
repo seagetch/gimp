@@ -97,12 +97,12 @@ class CurveViewActions {
   GtkAdjustment*             x_max_adj;
   GtkAdjustment*             y_max_adj;
   GtkAdjustment*             y_min_adj;
-  CXXPointer<Delegator::Connection>     options_notify_handler;
-  CXXPointer<Delegator::Connection>     curve_notify_handler;
-  CXXPointer<Delegator::Connection>     x_min_adj_changed_handler;
-  CXXPointer<Delegator::Connection>     x_max_adj_changed_handler;
-  CXXPointer<Delegator::Connection>     y_max_adj_changed_handler;
-  CXXPointer<Delegator::Connection>     y_min_adj_changed_handler;
+  CXXPointer<Delegators::Connection>     options_notify_handler;
+  CXXPointer<Delegators::Connection>     curve_notify_handler;
+  CXXPointer<Delegators::Connection>     x_min_adj_changed_handler;
+  CXXPointer<Delegators::Connection>     x_max_adj_changed_handler;
+  CXXPointer<Delegators::Connection>     y_max_adj_changed_handler;
+  CXXPointer<Delegators::Connection>     y_min_adj_changed_handler;
   static const int         MAXIMUM_NUM_POINTS = 8;
 
 public:
@@ -117,7 +117,7 @@ public:
                    GtkAdjustment* y_min_adj_,
                    GtkAdjustment* y_max_adj_) 
   {
-    GHashTableHolder<gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict();               
+    HashTable<gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict();
     receiver      = receiver_;
     options       = opts;
 //      setting_index = setting_index_;
@@ -132,14 +132,14 @@ public:
 
     g_object_set_cxx_object(G_OBJECT(tree_view), "behavior", this);
 
-    g_signal_connect_delegator (G_OBJECT(tree_sel), "changed", Delegator::delegator(this, &CurveViewActions::selected));
-    g_signal_connect_delegator (G_OBJECT(toggle), "toggled", Delegator::delegator(this, &CurveViewActions::toggled));
+    g_signal_connect_delegator (G_OBJECT(tree_sel), "changed", Delegators::delegator(this, &CurveViewActions::selected));
+    g_signal_connect_delegator (G_OBJECT(toggle), "toggled", Delegators::delegator(this, &CurveViewActions::toggled));
 
-    options_notify_handler      = g_signal_connect_delegator (G_OBJECT(options), "notify", Delegator::delegator(this, &CurveViewActions::notify_options));
-    x_min_adj_changed_handler   = g_signal_connect_delegator (G_OBJECT(x_min_adj), "value-changed", Delegator::delegator(this, &CurveViewActions::value_changed));
-    x_max_adj_changed_handler   = g_signal_connect_delegator (G_OBJECT(x_max_adj), "value-changed", Delegator::delegator(this, &CurveViewActions::value_changed));
-    y_min_adj_changed_handler   = g_signal_connect_delegator (G_OBJECT(y_min_adj), "value-changed", Delegator::delegator(this, &CurveViewActions::value_changed));
-    y_max_adj_changed_handler   = g_signal_connect_delegator (G_OBJECT(y_max_adj), "value-changed", Delegator::delegator(this, &CurveViewActions::value_changed));
+    options_notify_handler      = g_signal_connect_delegator (G_OBJECT(options), "notify", Delegators::delegator(this, &CurveViewActions::notify_options));
+    x_min_adj_changed_handler   = g_signal_connect_delegator (G_OBJECT(x_min_adj), "value-changed", Delegators::delegator(this, &CurveViewActions::value_changed));
+    x_max_adj_changed_handler   = g_signal_connect_delegator (G_OBJECT(x_max_adj), "value-changed", Delegators::delegator(this, &CurveViewActions::value_changed));
+    y_min_adj_changed_handler   = g_signal_connect_delegator (G_OBJECT(y_min_adj), "value-changed", Delegators::delegator(this, &CurveViewActions::value_changed));
+    y_max_adj_changed_handler   = g_signal_connect_delegator (G_OBJECT(y_max_adj), "value-changed", Delegators::delegator(this, &CurveViewActions::value_changed));
     curve_notify_handler        = NULL;
   };
   
@@ -200,7 +200,7 @@ public:
   }
   
   MyPaintBrushInputSettings* get_input_setting(gchar* input_name) {
-    GHashTableHolder<gchar*, MyPaintBrushInputSettings*> input_settings_dict(mypaint_brush_get_input_settings_dict());
+    HashTable<gchar*, MyPaintBrushInputSettings*> input_settings_dict(mypaint_brush_get_input_settings_dict());
     return input_settings_dict[input_name];
   }
   
@@ -264,7 +264,7 @@ public:
     gimp_curve_view_set_curve (curve_view,
                                  curve, &color);
     curve_notify_handler = g_signal_connect_delegator(G_OBJECT(curve), "notify::points",
-                                                      Delegator::delegator(this, &CurveViewActions::notify_curve));      
+                                                      Delegators::delegator(this, &CurveViewActions::notify_curve));
     
     update_range_parameters();        
 
@@ -358,7 +358,7 @@ public:
   
   
   void update_list() {
-    GHashTableHolder<gchar*, MyPaintBrushInputSettings*> input_settings_dict = mypaint_brush_get_input_settings_dict();
+    HashTable<gchar*, MyPaintBrushInputSettings*> input_settings_dict = mypaint_brush_get_input_settings_dict();
     GtkTreeIter iter;
     g_return_if_fail (gtk_tree_model_get_iter_first(model, &iter));
     do {
@@ -410,7 +410,7 @@ public:
           get_mapping_range(mapping, input_setting->index, &xmin, &xmax, &ymin, &ymax);
         
         bool is_used = mapping && (ymin != ymax || ymax != 0.0);
-        StringHolder signal_name = mypaint_brush_internal_name_to_signal_name(brush_setting->internal_name);
+        CString signal_name = mypaint_brush_internal_name_to_signal_name(brush_setting->internal_name);
         if (!is_used) {
           GimpVector2 points[] = {
             {input_setting->hard_minimum, 0},
@@ -493,7 +493,7 @@ public:
     }
     
     if (count > 1 || count == 0) {
-      StringHolder signal_name = mypaint_brush_internal_name_to_signal_name(brush_setting->internal_name);
+      CString signal_name = mypaint_brush_internal_name_to_signal_name(brush_setting->internal_name);
       gimp_mypaint_options_set_mapping_point(options, signal_name, input_setting->index, count, points);
     }
   }
@@ -564,7 +564,7 @@ public:
 void 
 CurveViewCreator::create_view(GObject* button, GtkWidget** result) 
 {
-  GHashTableHolder<const gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict();
+  HashTable<const gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict();
   GListHolder      inputs               (mypaint_brush_get_input_settings());
   
   MyPaintBrushSettings* setting = brush_settings_dict[brush_setting_name];
@@ -579,8 +579,8 @@ CurveViewCreator::create_view(GObject* button, GtkWidget** result)
   gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(list_view), FALSE);
 
   {  
-    GObjectHolder<GObject> list_store = G_OBJECT(gtk_list_store_new(3, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_STRING));
-    gtk_tree_view_set_model (GTK_TREE_VIEW(list_view), GTK_TREE_MODEL(list_store.as_object()));
+    auto list_store = _G(gtk_list_store_new(3, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_STRING));
+    gtk_tree_view_set_model (GTK_TREE_VIEW(list_view), GTK_TREE_MODEL(list_store.ptr()));
   }
   
   GtkListStore* store = GTK_LIST_STORE( gtk_tree_view_get_model( GTK_TREE_VIEW(list_view) ) );
@@ -702,7 +702,7 @@ MypaintBrushEditorPrivate::create() {
     MypaintBrushSettingGroup* group =
       (MypaintBrushSettingGroup*)iter->data;
 
-    StringHolder bold_title(g_strdup_printf("<b>%s</b>", group->display_name));    
+    CString bold_title(g_strdup_printf("<b>%s</b>", group->display_name));
     GtkWidget* group_expander;
     
     if (type == EXPANDER) {
@@ -723,7 +723,7 @@ MypaintBrushEditorPrivate::create() {
       switch (entry->type) {
         case G_TYPE_DOUBLE: {
           MyPaintBrushSettings* s = entry->f;
-          StringHolder prop_name(mypaint_brush_internal_name_to_signal_name(s->internal_name));
+          CString prop_name(mypaint_brush_internal_name_to_signal_name(s->internal_name));
           g_print("%s : type=double\n", prop_name.ptr());
 
           GtkWidget* h;
@@ -752,7 +752,7 @@ MypaintBrushEditorPrivate::create() {
             CurveViewCreator* create_view = new CurveViewCreator(options, s->internal_name);
             button2 = 
               gimp_tool_options_button_with_popup(gtk_label_new("..."),
-                                                  Delegator::delegator(create_view, &CurveViewCreator::create_view),
+                                                  Delegators::delegator(create_view, &CurveViewCreator::create_view),
                                                   create_view);
             gtk_widget_set_tooltip_text(button2, _("Add input value mapping"));
             //g_signal_connect...(button2, "clicked", self.details_clicked_cb, adj, s)
@@ -774,7 +774,7 @@ MypaintBrushEditorPrivate::create() {
         }  
         case G_TYPE_BOOLEAN: {
           MyPaintBrushSwitchSettings* s = entry->b;
-          StringHolder prop_name(mypaint_brush_internal_name_to_signal_name(s->internal_name));
+          CString prop_name(mypaint_brush_internal_name_to_signal_name(s->internal_name));
           g_print("%s : type=boolean\n", prop_name.ptr());
           GtkWidget* h;
           h = gimp_prop_check_button_new (G_OBJECT(options), prop_name.ptr(),

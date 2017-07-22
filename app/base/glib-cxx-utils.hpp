@@ -11,6 +11,10 @@ extern "C" {
 #include "base/delegators.hpp"
 #include "base/glib-cxx-impl.hpp"
 
+using namespace Delegators;
+
+namespace GLib {
+
 class MemoryHolder : public ScopedPointer<gchar, void(gpointer), g_free>
 {
 public:
@@ -19,12 +23,12 @@ public:
   template<typename T> operator T* const() { return (T*)obj; };
 };
 
-class StringHolder : public ScopedPointer<gchar, void(gpointer), g_free>
+class CString : public ScopedPointer<gchar, void(gpointer), g_free>
 {
 public:
-  StringHolder() : ScopedPointer<gchar, void(gpointer), g_free>() {};
-  StringHolder(gchar* str) : ScopedPointer<gchar, void(gpointer), g_free>(str) {};
-  StringHolder& operator =(gchar* str) {
+  CString() : ScopedPointer<gchar, void(gpointer), g_free>() {};
+  CString(gchar* str) : ScopedPointer<gchar, void(gpointer), g_free>(str) {};
+  CString& operator =(gchar* str) {
     if (obj == str)
       return *this;
     if (obj)
@@ -34,19 +38,19 @@ public:
   };
 };
 
-class StringListHolder : public ScopedPointer<gchar*, void(gchar**), g_strfreev>
+class StringList : public ScopedPointer<gchar*, void(gchar**), g_strfreev>
 {
 public:
-  StringListHolder() : ScopedPointer<gchar*, void(gchar**), g_strfreev>(NULL) {};
-  StringListHolder(gchar** list) : ScopedPointer<gchar*, void(gchar**), g_strfreev>(list) {};
+  StringList() : ScopedPointer<gchar*, void(gchar**), g_strfreev>(NULL) {};
+  StringList(gchar** list) : ScopedPointer<gchar*, void(gchar**), g_strfreev>(list) {};
 };
 
 template<typename T>
 void g_string_free_all(T* str) { g_string_free((GString*)str, TRUE); }
-class GStringHolder : public ScopedPointer<GString, void(GString*), g_string_free_all<GString> > 
+class String : public ScopedPointer<GString, void(GString*), g_string_free_all<GString> >
 {
 public:
-  GStringHolder(GString* str) : ScopedPointer<GString, void(GString*), g_string_free_all<GString> >(str) {};
+  String(GString* str) : ScopedPointer<GString, void(GString*), g_string_free_all<GString> >(str) {};
   const gchar* str()    const { return obj->str; };
   const gint   length() const { return obj->len; };
   gchar* str()    { return obj->str; };
@@ -54,12 +58,12 @@ public:
 
   operator gchar*() { return str(); }
 
-  GStringHolder& operator += (const gchar* val) {
+  String& operator += (const gchar* val) {
     g_string_append(obj, val);
     return *this;
   };
 
-  GStringHolder& operator += (const gchar val) {
+  String& operator += (const gchar val) {
     g_string_append_c(obj, val);
     return *this;
   };
@@ -67,7 +71,7 @@ public:
 };
 
 template<typename Key, typename Data>
-class GHashTableHolder : public ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>
+class HashTable : public ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>
 {
   template<typename F>
   static void foreach_callback(gpointer key, gpointer data, gpointer user) {
@@ -75,7 +79,7 @@ class GHashTableHolder : public ScopedPointer<GHashTable, void(GHashTable*), g_h
     (*func)((Key)key, (Data)data);
   };
 public:
-  GHashTableHolder(GHashTable* table) : ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>(table) {};
+  HashTable(GHashTable* table) : ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>(table) {};
 
   const Data lookup(const Key key) const {
     return (Data)(g_hash_table_lookup(obj, (const gpointer) key));
@@ -137,7 +141,7 @@ public:
 };
 
 class regex_case {
-  StringHolder str;
+  CString str;
   bool matched;
 public:
   regex_case(const gchar* s) : str(g_strdup(s)), matched(false) { };
@@ -158,89 +162,156 @@ public:
   };
 };
 
-class GValueWrapper 
+class Value : ScopeGuard<GValue*, void(GValue*), g_value_unset>
 {
-private:
-  GValue value;
-  ScopeGuard<GValue*, void(GValue*), g_value_unset> holder;
 public:
-  GValueWrapper(GValue src) : value(src), holder(&value) {};
-  GValueWrapper(gchar val) : holder(&value) {
-    GValue default_value = G_VALUE_INIT;
-    value = default_value;
-    g_value_init(&value, G_TYPE_CHAR); 
-    g_value_set_schar(&value, val);
+  Value(GValue* src) : ScopeGuard<GValue*, void(GValue*), g_value_unset>(src) {};
+  GType type() { return G_VALUE_TYPE(obj); };
+  operator const gchar() const {
+    GValue value;
+    g_value_init(&value, G_TYPE_CHAR);
+    g_value_transform(obj, &value);
+    return g_value_get_schar(&value);
   };
-  GValueWrapper(bool val) : holder(&value) { 
-    GValue default_value = G_VALUE_INIT;
-    value = default_value;
-    g_value_init(&value, G_TYPE_BOOLEAN); 
-    g_value_set_boolean(&value, val);
+  operator const bool() const {
+    GValue value;
+    g_value_init(&value, G_TYPE_BOOLEAN);
+    g_value_transform(obj, &value);
+    return g_value_get_boolean(&value);
   };
-
-  GValueWrapper(gint32 val) : holder(&value) {
-    GValue default_value = G_VALUE_INIT;
-    value = default_value;
-    g_value_init(&value, GIMP_TYPE_INT32);
-    g_value_set_int(&value, val);
+  operator const gint() const {
+    GValue value;
+    g_value_init(&value, G_TYPE_INT);
+    g_value_transform(obj, &value);
+    return g_value_get_int(&value);
   };
-  GValueWrapper(guint32 val) : holder(&value) {
-    GValue default_value = G_VALUE_INIT;
-    value = default_value;
+  operator const guint() const {
+    GValue value;
     g_value_init(&value, G_TYPE_UINT);
-    g_value_set_int(&value, val);
+    g_value_transform(obj, &value);
+    return g_value_get_uint(&value);
   };
-  GValueWrapper(glong val) : holder(&value) { 
-    GValue default_value = G_VALUE_INIT;
-    value = default_value;
-    g_value_init(&value, G_TYPE_LONG); 
-    g_value_set_long(&value, val);
+  operator const glong() const {
+    GValue value;
+    g_value_init(&value, G_TYPE_LONG);
+    g_value_transform(obj, &value);
+    return g_value_get_long(&value);
   };
-  GValueWrapper(gulong val) : holder(&value) { 
-    GValue default_value = G_VALUE_INIT;
-    value = default_value;
-    g_value_init(&value, G_TYPE_ULONG); 
-    g_value_set_ulong(&value, val);
+  operator const gulong() const {
+    GValue value;
+    g_value_init(&value, G_TYPE_ULONG);
+    g_value_transform(obj, &value);
+    return g_value_get_ulong(&value);
   };
-  GValueWrapper(gfloat val) : holder(&value) { 
-    GValue default_value = G_VALUE_INIT;
-    value = default_value;
-    g_value_init(&value, G_TYPE_FLOAT); 
-    g_value_set_float(&value, val);
+  operator const gfloat() const {
+    GValue value;
+    g_value_init(&value, G_TYPE_FLOAT);
+    g_value_transform(obj, &value);
+    return g_value_get_float(&value);
   };
-  GValueWrapper(gdouble val) : holder(&value) { 
-    GValue default_value = G_VALUE_INIT;
-    value = default_value;
-    g_value_init(&value, G_TYPE_DOUBLE); 
-    g_value_set_double(&value, val);
+  operator const gdouble() const {
+    GValue value;
+    g_value_init(&value, G_TYPE_DOUBLE);
+    g_value_transform(obj, &value);
+    return g_value_get_double(&value);
   };
-  GValueWrapper(GObject* val) : holder(&value) { 
-    GValue default_value = G_VALUE_INIT;
-    value = default_value;
-    g_value_init(&value, G_TYPE_OBJECT); 
-    g_value_set_object(&value, val);
+  operator const gchar*() const {
+    GValue value;
+    g_value_init(&value, G_TYPE_STRING);
+    g_value_transform(obj, &value);
+    return g_value_get_string(&value);
   };
-  GValueWrapper(gchar* val) : holder(&value) { 
-    GValue default_value = G_VALUE_INIT;
-    value = default_value;
-    g_value_init(&value, G_TYPE_STRING); 
-    g_value_set_string(&value, val);
+  operator const GObject*() const {
+    return G_OBJECT(g_value_get_object(obj));
   };
-  GValue& ref() { return value; };
-  GType type() { return G_VALUE_TYPE(&value); };
-  operator const gchar() const { return g_value_get_schar(&value); };
-  operator const bool() const { return g_value_get_boolean(&value); };
-  operator const gint() const { return g_value_get_int(&value); };
-  operator const guint() const { return g_value_get_uint(&value); };
-  operator const glong() const { return g_value_get_long(&value); };
-  operator const gulong() const { return g_value_get_ulong(&value); };
-  operator const gfloat() const { return g_value_get_float(&value); };
-  operator const gdouble() const { return g_value_get_double(&value); };
-  operator const gchar*() const { return g_value_get_string(&value); };
-  operator const GObject*() const { return G_OBJECT(g_value_get_object(&value)); };
 };
 
-inline GValueWrapper _G(GValue src) { return GValueWrapper(src); }
+inline Value _G(GValue* src) { return Value(src); }
+
+class Variant
+{
+private:
+  GValue self;
+  Value wrapper;
+public:
+  Variant(const GValue& src) : self(src), wrapper(&self) { };
+  Variant(gchar val) : wrapper(&self) {
+    GValue default_value = G_VALUE_INIT;
+    self = default_value;
+    g_value_init(&self, G_TYPE_CHAR);
+    g_value_set_schar(&self, val);
+  };
+  Variant(bool val) : wrapper(&self) {
+    GValue default_value = G_VALUE_INIT;
+    self = default_value;
+    g_value_init(&self, G_TYPE_BOOLEAN);
+    g_value_set_boolean(&self, val);
+  };
+
+  Variant(gint32 val) : wrapper(&self) {
+    GValue default_value = G_VALUE_INIT;
+    self = default_value;
+    g_value_init(&self, GIMP_TYPE_INT32);
+    g_value_set_int(&self, val);
+  };
+  Variant(guint32 val) : wrapper(&self) {
+    GValue default_value = G_VALUE_INIT;
+    self = default_value;
+    g_value_init(&self, G_TYPE_UINT);
+    g_value_set_int(&self, val);
+  };
+  Variant(glong val) : wrapper(&self) {
+    GValue default_value = G_VALUE_INIT;
+    self = default_value;
+    g_value_init(&self, G_TYPE_LONG);
+    g_value_set_long(&self, val);
+  };
+  Variant(gulong val) : wrapper(&self) {
+    GValue default_value = G_VALUE_INIT;
+    self = default_value;
+    g_value_init(&self, G_TYPE_ULONG);
+    g_value_set_ulong(&self, val);
+  };
+  Variant(gfloat val) : wrapper(&self) {
+    GValue default_value = G_VALUE_INIT;
+    self = default_value;
+    g_value_init(&self, G_TYPE_FLOAT);
+    g_value_set_float(&self, val);
+  };
+  Variant(gdouble val) : wrapper(&self) {
+    GValue default_value = G_VALUE_INIT;
+    self = default_value;
+    g_value_init(&self, G_TYPE_DOUBLE);
+    g_value_set_double(&self, val);
+  };
+  Variant(GObject* val) : wrapper(&self) {
+    GValue default_value = G_VALUE_INIT;
+    self = default_value;
+    g_value_init(&self, G_TYPE_OBJECT);
+    g_value_set_object(&self, val);
+  };
+  Variant(gchar* val) : wrapper(&self) {
+    GValue default_value = G_VALUE_INIT;
+    self = default_value;
+    g_value_init(&self, G_TYPE_STRING);
+    g_value_set_string(&self, val);
+  };
+  GValue& ref() { return self; };
+  GType type() { return G_VALUE_TYPE(&self); };
+
+  operator const gchar() const { return gchar(wrapper); };
+  operator const bool() const { return bool(wrapper); };
+  operator const gint() const { return gint(wrapper); };
+  operator const guint() const { return guint(wrapper); };
+  operator const glong() const { return glong(wrapper); };
+  operator const gulong() const { return gulong(wrapper); };
+  operator const gfloat() const { return gfloat(wrapper); };
+  operator const gdouble() const { return gdouble(wrapper); };
+  operator const gchar*() const { return (const gchar*)wrapper; };
+  operator const GObject*() const { return (const GObject*)wrapper; };
+};
+
+inline Variant _G(const GValue& src) { return Variant(src); }
 
 class GListHolder : public ScopedPointer<GList, void(GList*), g_list_free>
 {
@@ -258,14 +329,15 @@ public:
 };
 
 template<class T>
-class GObjectHolder : public ScopedPointer<T, void(gpointer), g_object_unref>
+class Object : public ScopedPointer<T, void(gpointer), g_object_unref>
 {
   typedef ScopedPointer<T, void(gpointer), g_object_unref> super;
 public:
-  GObjectHolder() : super(NULL) {};
-  GObjectHolder(T* object) : super(object) {};
+  Object() : super(NULL) {};
+  Object(T* object) : super(object) {};
 
   GObject* as_object() { return G_OBJECT(super::obj); }
+  const GObject* as_object() const { return G_OBJECT(super::obj); }
   void incref() { g_object_ref(as_object()); };
   void decref() { g_object_unref(as_object()); };
   void freeze() { g_object_freeze_notify(as_object()); };
@@ -273,7 +345,7 @@ public:
 
   struct InvalidIndex { const gchar* name; InvalidIndex(const gchar* n) : name(n) {;}; };
   
-  GValueWrapper get(const gchar* prop_name) {
+  Variant get(const gchar* prop_name) {
     GObject* object = as_object();
     GObjectClass* class_obj = G_OBJECT_GET_CLASS(object);
     GParamSpec *pspec = g_object_class_find_property (class_obj, prop_name);
@@ -284,14 +356,14 @@ public:
     return result;
   };
 
-  void set(const gchar* prop_name, GValueWrapper value) {
+  void set(const gchar* prop_name, Variant&& value) {
     GObject* object = as_object();
     g_object_set_property(object, prop_name, &value.ref());
   };
 
   template<typename Ret, typename... Args>
-  Delegator::Connection* connect(const gchar* event, 
-            Delegator::Delegator<Ret, Args...>* delegator, 
+  Delegators::Connection* connect(const gchar* event,
+            Delegators::Delegator<Ret, Args...>* delegator,
             bool after=false) 
   {
       return g_signal_connect_delegator (as_object(), event, delegator, after);
@@ -306,23 +378,23 @@ public:
 };
 
 template<typename T>
-class GWrapper : public GObjectHolder<T>
+class ObjectWrapper : public Object<T>
 {
-  typedef GObjectHolder<T> super;
+  typedef Object<T> super;
 public:
-  GWrapper() : super(NULL) { };
-  GWrapper(T* object) : super(object) { 
+  ObjectWrapper() : super(NULL) { };
+  ObjectWrapper(T* object) : super(object) {
     super::incref();
   };
-  GWrapper(const GWrapper& src) : super (src.obj) {
+  ObjectWrapper(const ObjectWrapper& src) : super (src.obj) {
     super::incref();
   }
 
   operator GObject* () { return super::as_object(); };
   operator T* () { return super::ptr(); };
   template<typename G>
-  operator G* () { return GtkCXX::cast<G>(super::obj); };
-  operator GTypeInstance* () { return GtkCXX::cast<GTypeInstance>(super::ptr()); }
+  operator G* () { return GLib::cast<G>(super::obj); };
+  operator GTypeInstance* () { return GLib::cast<GTypeInstance>(super::ptr()); }
   T* operator ->() { return super::ptr(); };
   operator bool() { return super::ptr(); };
 
@@ -391,24 +463,32 @@ public:
 
   template<typename Ret, typename C, typename... Args>
   BoundMethod<Ret, C, Args...> operator []( Ret f(C*, Args...) ) {
-    return BoundMethod<Ret, C, Args...>(GtkCXX::cast<C>(super::obj), f);
+    return BoundMethod<Ret, C, Args...>(GLib::cast<C>(super::obj), f);
   };
 
   template<typename Ret, typename C, typename... Args>
   ConstBoundMethod<Ret, C, Args...> operator []( Ret f(const C*, Args...) ) {
-    return ConstBoundMethod<Ret, C, Args...>(GtkCXX::cast<C>(super::obj), f);
+    return ConstBoundMethod<Ret, C, Args...>(GLib::cast<C>(super::obj), f);
   };
 
-  GValueWrapper operator[](const gchar* name) { return this->get(name); }
+  class GValueAssigner {
+    ObjectWrapper* owner;
+    const gchar* name;
+  public:
+    GValueAssigner(ObjectWrapper* o, const gchar* n) : owner(o), name(n) { };
+    void operator =(const Variant&& value) { owner->set(name, value); }
+  };
+//  GValueAssigner operator [](const gchar* name) { return GValueAssigner(this); }
+  Variant operator[] (const gchar* name) { return this->get(name); }
   template<typename D>
-  Delegator::Connection* connect(const gchar* signal_name, D d) {
+  Delegators::Connection* connect(const gchar* signal_name, D d) {
     return g_signal_connect_delegator(G_OBJECT(super::obj), signal_name, d);
   }
 };
 
 template<class T>
-inline GWrapper<T> _G(T* obj) {
-  return GWrapper<T>(obj);
+inline ObjectWrapper<T> _G(T* obj) {
+  return ObjectWrapper<T>(obj);
 }
 
 template<typename W, typename T>
@@ -422,12 +502,12 @@ public:
 
   template<typename F>
   DelegatorProxy connect(const gchar* name, F f) {
-    g_signal_connect_delegator (G_OBJECT(widget), name, Delegator::delegator(obj, f));
+    g_signal_connect_delegator (G_OBJECT(widget), name, Delegators::delegator(obj, f));
     return *this;
   };
   template<typename F>
-  Delegator::Connection* connecth(const gchar* name, F f) {
-    return g_signal_connect_delegator (G_OBJECT(widget), name, Delegator::delegator(obj, f));
+  Delegators::Connection* connecth(const gchar* name, F f) {
+    return g_signal_connect_delegator (G_OBJECT(widget), name, Delegators::delegator(obj, f));
   };
 };
 
@@ -435,7 +515,7 @@ template<typename W, typename T>
 class Decorator : public DelegatorProxy<W, T> {
 public:
   Decorator(W* w, T* d) : DelegatorProxy<W, T>(w, d) {
-    StringHolder attr = g_strdup_printf("_decorator%lx", (gulong)this->obj);
+    CString attr = g_strdup_printf("_decorator%lx", (gulong)this->obj);
     g_object_set_cxx_object(G_OBJECT(this->widget), attr.ptr(), this);
   };
   virtual ~Decorator() {
@@ -452,4 +532,5 @@ DelegatorProxy<W, T>* delegator(W* w, T* d) { return new DelegatorProxy<W, T>(w,
 template<typename W, typename T>
 DelegatorProxy<W, T>* decorator(W* w, T* d) { return new Decorator<W, T>(w, d); };
 
+};
 #endif

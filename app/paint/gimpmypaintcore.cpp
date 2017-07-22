@@ -117,7 +117,7 @@ void GimpMypaintCore::stroke_to (GimpDrawable* drawable,
       option_changed_handler = NULL;
     }
     this->options = options;
-    option_changed_handler = g_signal_connect_delegator(G_OBJECT(options), "notify", Delegator::delegator(this, &GimpMypaintCore::option_changed));
+    option_changed_handler = g_signal_connect_delegator(G_OBJECT(options), "notify", Delegators::delegator(this, &GimpMypaintCore::option_changed));
   }
   
   // Prepare Brush.

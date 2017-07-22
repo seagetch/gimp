@@ -72,11 +72,13 @@ extern "C" {
 
 #define CURRENT_BRUSHFILE_VERSION 3
 
+using namespace GLib;
+
 /*  local function prototypes  */
 
 class MypaintBrushWriter {
 private:
-  GWrapper<GimpMypaintBrush> source;
+  GLib::ObjectWrapper<GimpMypaintBrush> source;
   gint64            version;
   
   void write_file (GError **error);
@@ -128,14 +130,14 @@ MypaintBrushWriter::save_brush (GError      **error)
   if (!filename)
     return false;
 
-  StringHolder dirname       = g_path_get_dirname (filename);
-  StringHolder basename      = g_path_get_basename (filename);
-  StringHolder brushname(g_strndup(basename.ptr(), strlen(basename.ptr()) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION)));
-  StringHolder icon_filename(g_strconcat(brushname.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION, NULL));
-  StringHolder icon_fullpath(g_build_filename(dirname.ptr(), icon_filename.ptr(), NULL));
+  CString dirname       = g_path_get_dirname (filename);
+  CString basename      = g_path_get_basename (filename);
+  CString brushname(g_strndup(basename.ptr(), strlen(basename.ptr()) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION)));
+  CString icon_filename(g_strconcat(brushname.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION, NULL));
+  CString icon_fullpath(g_build_filename(dirname.ptr(), icon_filename.ptr(), NULL));
 
 //  ScopedPointer<FILE, int(FILE*), fclose> file(g_fopen (filename, "wb"));
-  GWrapper<JsonGenerator> generator = json_generator_new();
+  ObjectWrapper<JsonGenerator> generator = json_generator_new();
   JsonNode* root = build_json();
   json_generator_set_root(generator, root);
   json_generator_to_file(generator, filename, NULL);
@@ -149,7 +151,7 @@ MypaintBrushWriter::save_brush (GError      **error)
 bool
 MypaintBrushWriter::is_default(gchar* name)
 {
-  GHashTableHolder<gchar*, MyPaintBrushSettings*> settings_dict(mypaint_brush_get_brush_settings_dict ());
+  HashTable<gchar*, MyPaintBrushSettings*> settings_dict(mypaint_brush_get_brush_settings_dict ());
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(source->p);
 
   MyPaintBrushSettings* setting = settings_dict[name];
@@ -168,7 +170,7 @@ JsonNode*
 MypaintBrushWriter::build_json()
 {
   g_return_val_if_fail(source.ptr() != NULL, NULL);
-  GWrapper<JsonBuilder> builder = json_builder_new();
+  ObjectWrapper<JsonBuilder> builder = json_builder_new();
   json_builder_begin_object(builder);
   
   const gchar* filename = gimp_data_get_filename (GIMP_DATA(source.ptr()));
@@ -177,7 +179,7 @@ MypaintBrushWriter::build_json()
   GListHolder switches = mypaint_brush_get_brush_switch_settings ();
   GListHolder texts    = mypaint_brush_get_brush_text_settings ();
   GListHolder inputs   = mypaint_brush_get_input_settings ();
-  StringHolder brush_name = g_strdup(source.get("name"));
+  CString brush_name = g_strdup(source.get("name"));
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(source->p);
 
   // version
@@ -272,7 +274,7 @@ MypaintBrushWriter::write_file (GError** error)
   GListHolder switches          = mypaint_brush_get_brush_switch_settings ();
   GListHolder texts             = mypaint_brush_get_brush_text_settings ();
   GListHolder inputs            = mypaint_brush_get_input_settings ();
-  StringHolder name             = g_strdup(source.get("name"));
+  CString name             = g_strdup(source.get("name"));
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(source->p);
   ScopedPointer<FILE, int(FILE*), fclose> f = g_fopen(filename,"w");
 

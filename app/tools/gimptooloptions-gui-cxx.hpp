@@ -19,8 +19,10 @@
 #define __GIMP_TOOL_OPTIONS_GUI_CXX_HPP__
 
 #include "base/delegators.hpp"
+using namespace Delegators;
+using namespace GLib;
 
-typedef Delegator::Delegator<void, GObject*,GtkWidget**> PopupCreateViewDelegator;
+typedef Delegators::Delegator<void, GObject*,GtkWidget**> PopupCreateViewDelegator;
 
 GtkWidget * gimp_tool_options_button_with_popup (GtkWidget                *label_widget,
                                                  PopupCreateViewDelegator* create_view);
@@ -40,7 +42,7 @@ protected:
 
   template<typename Delegator>
   void bind_to_full(GObject* target, const gchar* signal_name, Delegator* delegator) {
-    StringHolder object_id(g_strdup_printf("behavior-%s-action", signal_name));
+    CString object_id(g_strdup_printf("behavior-%s-action", signal_name));
     g_signal_connect_delegator (G_OBJECT(target), signal_name, delegator);
     g_object_set_cxx_object(G_OBJECT(target), object_id, this);
   };
@@ -57,7 +59,7 @@ protected:
   virtual void emit(GObject* event_target) {};
 
   void bind_to(GObject* target, const gchar* signal_name) {
-    bind_to_full(target, signal_name, Delegator::delegator(this, &SimpleBindAction::emit));
+    bind_to_full(target, signal_name, Delegators::delegator(this, &SimpleBindAction::emit));
   };
 
 public:
@@ -98,7 +100,7 @@ public:
     g_return_if_fail (GTK_IS_NOTEBOOK(notebook));
     g_return_if_fail (gtk_notebook_get_n_pages(notebook) >= last_page);
     gtk_notebook_set_current_page(notebook, last_page);
-    g_signal_connect_delegator(G_OBJECT(notebook), "switch-page", Delegator::delegator(this, &PageRemindAction::emit));
+    g_signal_connect_delegator(G_OBJECT(notebook), "switch-page", Delegators::delegator(this, &PageRemindAction::emit));
     g_print("PageRemindAction::set page=%d\n", last_page);
   };
 };

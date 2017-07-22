@@ -41,7 +41,7 @@ GType   gimp_filter_layer_undo_get_type (void) G_GNUC_CONST;
 #ifdef __cplusplus
 }
 #include "base/glib-cxx-impl.hpp"
-typedef GtkCXX::Traits<GimpFilterLayerUndo, GimpFilterLayerUndoClass, gimp_filter_layer_undo_get_type> FilterLayerUndoTraits;
+typedef GLib::Traits<GimpFilterLayerUndo, GimpFilterLayerUndoClass, gimp_filter_layer_undo_get_type> FilterLayerUndoTraits;
 #endif
 
 #endif /* __GIMP_FILTER_LAYER_UNDO_H__ */

@@ -17,15 +17,17 @@ extern "C" {
 #include "base/glib-cxx-bridge.hpp"
 #include <functional>
 
+namespace GLib {
+
 template<typename T>
-class GDefineWrapper : public GWrapper<T>
+class Definer : public ObjectWrapper<T>
 {
-  typedef GWrapper<T> super;
+  typedef ObjectWrapper<T> super;
 public:
-  GDefineWrapper() : super(NULL) { };
-  GDefineWrapper(T* object) : super(object) { };
-  GDefineWrapper(const GWrapper<T>& src) : super (src.ptr()) { }
-  GDefineWrapper(const GDefineWrapper& src) : super (src.obj) { }
+  Definer() : super(NULL) { };
+  Definer(T* object) : super(object) { };
+  Definer(const ObjectWrapper<T>& src) : super (src.ptr()) { }
+  Definer(const Definer& src) : super (src.obj) { }
 
   operator T* () { return (T*)(*(super*)this); };
   template<typename G> operator G* () { return (G*)(*(super*)this); };
@@ -37,14 +39,14 @@ public:
   auto operator []( Ret f(C*, Args...) ) { return (*(super*)this)[f]; };
   template<typename Ret, typename C, typename... Args>
   auto operator []( Ret f(const C*, Args...) ) { return (*(super*)this)[f]; };
-  GValueWrapper operator[](const gchar* name) { return (*(super*)this)[name]; }
+  Variant operator[](const gchar* name) { return (*(super*)this)[name]; }
 
   // Helpers for easy GUI definition.
   struct Packer {
-    GDefineWrapper& wrapper;
+    Definer& wrapper;
     bool start, expand, fill;
     unsigned int padding;
-    Packer(GDefineWrapper& w, bool s, bool e, bool f, unsigned int p) :
+    Packer(Definer& w, bool s, bool e, bool f, unsigned int p) :
       wrapper(w), start(s), expand(e), fill(f), padding(p) {};
     template<typename T2, typename F>
     Packer& operator ()(T2* child, F init) {
@@ -52,7 +54,7 @@ public:
         wrapper [gtk_box_pack_start] (GTK_WIDGET(child), expand, fill, padding);
       else
         wrapper [gtk_box_pack_end] (GTK_WIDGET(child), expand, fill, padding);
-      init(GDefineWrapper<T2>(child));
+      init(Definer<T2>(child));
       return *this;
     };
     Packer& pack_start(bool expand, bool fill, unsigned int padding) {
@@ -77,7 +79,7 @@ public:
   template<typename T2, typename F>
   void pack_start(T2* child, gboolean expand, gboolean fill, guint padding, F init) {
     pack_start<T2>(child, expand, fill, padding);
-    init(GDefineWrapper<T2>(child));
+    init(Definer<T2>(child));
   }
   auto pack_start(bool expand, bool fill, unsigned int padding) {
     return Packer(*this, true, expand, fill, padding);
@@ -90,7 +92,7 @@ public:
   template<typename T2, typename F>
   void pack_end(T2* child, gboolean expand, gboolean fill, guint padding, F init) {
     pack_end<T2>(child, expand, fill, padding);
-    init(GDefineWrapper<T2>(child));
+    init(Definer<T2>(child));
   }
   auto pack_end(bool expand, bool fill, unsigned int padding) {
     return Packer(*this, false, expand, fill, padding);
@@ -103,7 +105,7 @@ public:
   template<typename T2, typename F>
   void add(T2* child, F init) {
     add<T2>(child);
-    init(GDefineWrapper<T2>(child));
+    init(Definer<T2>(child));
   }
 
   template<typename T2>
@@ -113,28 +115,29 @@ public:
   template<typename T2, typename F>
   void add_with_viewport(T2* child, F init) {
     add_with_viewport<T2>(child);
-    init(GDefineWrapper<T2>(child));
+    init(Definer<T2>(child));
   }
 };
 
 template<class T, typename F>
-inline GDefineWrapper<T> with(T* obj, F init) {
-  auto result = GDefineWrapper<T>(obj);
+inline Definer<T> with(T* obj, F init) {
+  auto result = Definer<T>(obj);
   init(result);
   return result;
 }
 
 template<class T, typename F>
-inline GDefineWrapper<T> with(GWrapper<T> obj, F init) {
-  auto result = GDefineWrapper<T>(obj.ptr());
+inline Definer<T> with(ObjectWrapper<T> obj, F init) {
+  auto result = Definer<T>(obj.ptr());
   init(result);
   return result;
 }
 
 template<class T, typename F>
-inline GDefineWrapper<T> with(GDefineWrapper<T> obj, F init) {
+inline Definer<T> with(Definer<T> obj, F init) {
   init(obj);
   return obj;
 }
 
+};
 #endif /* APP_BASE_GLIB_CXX_DEF_UTILS_HPP_ */

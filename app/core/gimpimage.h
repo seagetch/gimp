@@ -491,5 +491,11 @@ void            gimp_image_invalidate_previews   (GimpImage          *image);
 
 const gchar   * gimp_image_get_string_untitled   (void);
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-impl.hpp"
+__DECLARE_GTK_CAST__(GimpImage, GIMP_IMAGE, gimp_image);
+};
 
+#endif
 #endif /* __GIMP_IMAGE_H__ */

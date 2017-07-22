@@ -97,7 +97,7 @@ class MypaintDetailOptionsPopupPrivate {
   GimpContainer*         container;
   GimpContext*           context;
   GtkWidget*             brush_name_entry;
-  Delegator::Connection* brush_changed_handler;
+  Delegators::Connection* brush_changed_handler;
   PageRemindAction       page_reminder;
   
 public:
@@ -172,21 +172,21 @@ MypaintDetailOptionsPopupPrivate::brush_name_edited (GObject*  object)
 void
 MypaintDetailOptionsPopupPrivate::brush_save_clicked (GObject*  object)
 {
-  GWrapper<GimpDataFactory>  factory       = context->gimp->mypaint_brush_factory;
-  GWrapper<GimpMypaintBrush> mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
+  ObjectWrapper<GimpDataFactory>  factory       = context->gimp->mypaint_brush_factory;
+  ObjectWrapper<GimpMypaintBrush> mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
 
   brush_name_edited(G_OBJECT(brush_name_entry));
-  StringHolder new_brush_name = g_strdup(mypaint_brush.get("name"));
+  CString new_brush_name = g_strdup(mypaint_brush.get("name"));
 
-  GWrapper<GimpContainer> container = gimp_data_factory_get_container(factory);
-  GWrapper<GimpBrush> matched_brush = GIMP_BRUSH(gimp_container_get_child_by_name(container, new_brush_name));
+  ObjectWrapper<GimpContainer> container = gimp_data_factory_get_container(factory);
+  ObjectWrapper<GimpBrush> matched_brush = GIMP_BRUSH(gimp_container_get_child_by_name(container, new_brush_name));
   if (matched_brush) {
     gimp_data_factory_data_delete(factory, GIMP_DATA(matched_brush.ptr()),TRUE, NULL);
   }
   GimpData* brush_copied = gimp_mypaint_brush_duplicate(GIMP_MYPAINT_BRUSH(mypaint_brush.ptr()));
   gimp_container_add(container, GIMP_OBJECT(brush_copied));
   const gchar* name = gimp_object_get_name(GIMP_OBJECT(brush_copied));
-  g_print("GimpObject::name = %s  <--> GObject.name = %s\n", name, (const gchar*)GWrapper<GimpData>(brush_copied).get("name"));
+  g_print("GimpObject::name = %s  <--> GObject.name = %s\n", name, (const gchar*)ObjectWrapper<GimpData>(brush_copied).get("name"));
   gimp_data_factory_data_save_single (factory, brush_copied, NULL);
   gimp_context_set_mypaint_brush (context, GIMP_MYPAINT_BRUSH(brush_copied));
 }
@@ -194,18 +194,18 @@ MypaintDetailOptionsPopupPrivate::brush_save_clicked (GObject*  object)
 void
 MypaintDetailOptionsPopupPrivate::brush_delete_clicked (GObject*  object)
 {
-  GWrapper<GimpMypaintBrush> mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
+  ObjectWrapper<GimpMypaintBrush> mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
 
   if ( ((GimpMypaintBrushPrivate*)mypaint_brush->p)->is_dirty() ) {
     return;
   }
 
-  StringHolder new_brush_name = g_strdup(mypaint_brush.get("name"));
+  CString new_brush_name = g_strdup(mypaint_brush.get("name"));
 
-  GWrapper<GimpDataFactory>  factory       = context->gimp->mypaint_brush_factory;
+  ObjectWrapper<GimpDataFactory>  factory       = context->gimp->mypaint_brush_factory;
 
-  GWrapper<GimpContainer> container = gimp_data_factory_get_container(factory);
-  GWrapper<GimpBrush> matched_brush = GIMP_BRUSH(gimp_container_get_child_by_name(container, new_brush_name));
+  ObjectWrapper<GimpContainer> container = gimp_data_factory_get_container(factory);
+  ObjectWrapper<GimpBrush> matched_brush = GIMP_BRUSH(gimp_container_get_child_by_name(container, new_brush_name));
   if (matched_brush) {
     gimp_data_factory_data_delete(factory, GIMP_DATA(matched_brush.ptr()),TRUE, NULL);
   }
@@ -279,8 +279,8 @@ MypaintDetailOptionsPopupPrivate::create (GObject* object,
   gtk_widget_show (brush_name_entry);
   gtk_box_pack_start(GTK_BOX(hbox), GTK_WIDGET(brush_name_entry), TRUE, TRUE, 0);
 
-  GWrapper<GimpMypaintBrush> mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
-  StringHolder name = g_strdup(mypaint_brush.get("name"));
+  ObjectWrapper<GimpMypaintBrush> mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
+  CString name = g_strdup(mypaint_brush.get("name"));
   gtk_entry_set_text(GTK_ENTRY(brush_name_entry), name);
 
   GdkPixbuf* pixbuf = 
@@ -290,7 +290,7 @@ MypaintDetailOptionsPopupPrivate::create (GObject* object,
                                  GTK_ENTRY_ICON_PRIMARY, pixbuf);
 
   g_signal_connect_delegator (G_OBJECT (brush_name_entry), "activate", 
-                              Delegator::delegator(this, &MypaintDetailOptionsPopupPrivate::brush_name_edited));
+                              Delegators::delegator(this, &MypaintDetailOptionsPopupPrivate::brush_name_edited));
 
   action_button = gimp_stock_button_new (GTK_STOCK_SAVE, NULL);
   gtk_button_set_relief (GTK_BUTTON (action_button), GTK_RELIEF_NONE);
@@ -298,7 +298,7 @@ MypaintDetailOptionsPopupPrivate::create (GObject* object,
   gtk_box_pack_end (GTK_BOX (hbox), action_button, FALSE, FALSE, 0);
 
   g_signal_connect_delegator (G_OBJECT (action_button), "clicked", 
-                              Delegator::delegator(this, &MypaintDetailOptionsPopupPrivate::brush_save_clicked));
+                              Delegators::delegator(this, &MypaintDetailOptionsPopupPrivate::brush_save_clicked));
 
   action_button = gimp_stock_button_new (GTK_STOCK_DELETE, NULL);
   gtk_button_set_relief (GTK_BUTTON (action_button), GTK_RELIEF_NONE);
@@ -306,7 +306,7 @@ MypaintDetailOptionsPopupPrivate::create (GObject* object,
   gtk_box_pack_end (GTK_BOX (hbox), action_button, FALSE, FALSE, 0);
 
   g_signal_connect_delegator (G_OBJECT (action_button), "clicked", 
-                              Delegator::delegator(this, &MypaintDetailOptionsPopupPrivate::brush_delete_clicked));
+                              Delegators::delegator(this, &MypaintDetailOptionsPopupPrivate::brush_delete_clicked));
 
 
   hbox       = gtk_hbox_new (FALSE, 1);
@@ -337,7 +337,7 @@ MypaintDetailOptionsPopupPrivate::create (GObject* object,
   brush_changed_handler = 
     g_signal_connect_delegator (G_OBJECT(context),
                                 gimp_context_type_to_signal_name (GIMP_TYPE_BRUSH),
-                                Delegator::delegator(this, &MypaintDetailOptionsPopupPrivate::brush_changed));
+                                Delegators::delegator(this, &MypaintDetailOptionsPopupPrivate::brush_changed));
 
   if (context && brush)
     brush_changed (G_OBJECT(context), GIMP_DATA(brush));
@@ -345,7 +345,7 @@ MypaintDetailOptionsPopupPrivate::create (GObject* object,
   gimp_tool_options_setup_popup_layout (children, FALSE);
   
   g_signal_connect_delegator (G_OBJECT (*result), "destroy", 
-                              Delegator::delegator(this, &MypaintDetailOptionsPopupPrivate::destroy));
+                              Delegators::delegator(this, &MypaintDetailOptionsPopupPrivate::destroy));
 
   //
   // Dynamics Editor
@@ -396,7 +396,7 @@ MypaintOptionsGUIPrivate::create ()
   GimpToolOptionsTableIncrement inc = gimp_tool_options_table_increment (is_toolbar);  
 
   tool_type = GIMP_TOOL_OPTIONS(options)->tool_info->tool_type;
-  GHashTableHolder<gchar*, MyPaintBrushSettings*> brush_settings_dict(mypaint_brush_get_brush_settings_dict());
+  HashTable<gchar*, MyPaintBrushSettings*> brush_settings_dict(mypaint_brush_get_brush_settings_dict());
 
   /*  the main table  */
   table = gimp_tool_options_table (3, is_toolbar);
@@ -451,7 +451,7 @@ MypaintOptionsGUIPrivate::create ()
       gtk_widget_show (button);
 
       g_signal_connect_delegator (G_OBJECT(button), "clicked",
-                                  Delegator::delegator(this, &MypaintOptionsGUIPrivate::reset_size));
+                                  Delegators::delegator(this, &MypaintOptionsGUIPrivate::reset_size));
 
       gimp_help_set_help_data (button,
                                _("Reset size to brush's native size"), NULL);
@@ -505,7 +505,7 @@ MypaintOptionsGUIPrivate::create ()
     MypaintDetailOptionsPopupPrivate* priv = new MypaintDetailOptionsPopupPrivate(container, context);
   
     GtkWidget* brush_button = gimp_tool_options_button_with_popup (label_widget,
-                                Delegator::delegator(priv, &MypaintDetailOptionsPopupPrivate::create),
+                                Delegators::delegator(priv, &MypaintDetailOptionsPopupPrivate::create),
                                 priv);
     gtk_box_pack_start(GTK_BOX(hbox), brush_button, FALSE, FALSE, 0);
     gtk_widget_show(brush_button);

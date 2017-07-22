@@ -30,7 +30,7 @@ protected:
   struct Rule {
     struct TokenRule { virtual bool test(const gchar* token, Matched& result) = 0; };
     struct Match: TokenRule {
-      StringHolder token;
+      String token;
       Match(const gchar* name) : token(g_strdup(name)) {}
       Match(const Match& src) : token(g_strdup(src.token)) {}
       virtual bool test(const gchar* tested_token, Matched& result) {
@@ -38,7 +38,7 @@ protected:
       }
     };
     struct Name: TokenRule {
-      StringHolder name;
+      String name;
       Name(const gchar* n) : name(g_strdup(n)) {}
       Name(const Name& src) : name(g_strdup(src.name)) {}
       virtual bool test(const gchar* tested_token, Matched& result) {
@@ -47,7 +47,7 @@ protected:
       }
     };
     struct Select: TokenRule {
-      StringHolder name;
+      String name;
       gchar** candidates;
       Select(const gchar* n, gchar** c) : name(g_strdup(n)), candidates(g_strdupv(c)) {}
       Select(const Select& src) : name(g_strdup(src.name)), candidates(g_strdupv(src.candidates)) {}
@@ -84,12 +84,12 @@ protected:
         case '<': {
             gchar* word_term = strstr(&((*token)[1]),">");
             if (word_term) {
-              StringHolder varname = strndup(&((*token)[1]), word_term - &((*token)[1]));
+              String varname = strndup(&((*token)[1]), word_term - &((*token)[1]));
 
               gchar* type_term = strstr(varname.ptr(), ":");
               if (type_term) { // Have type declaration or selection
-                StringHolder type = strndup(varname.ptr(), type_term - varname.ptr());
-                StringHolder subname = strdup(type_term + 1);
+                String type = strndup(varname.ptr(), type_term - varname.ptr());
+                String subname = strdup(type_term + 1);
                 ScopedPointer<gchar*, void (gchar**), g_strfreev> candidates(g_strsplit(type.ptr(), "|", 256));
                 g_print("register Select(%s)\n", subname.ptr());
                 rules.push_back(new Select(subname.ptr(), candidates.ptr()));

@@ -5,7 +5,7 @@
 #include <glib-object.h>
 #include <functional>
 
-namespace Delegator {
+namespace Delegators {
 
 template<typename T>
 void destroy_cxx_object_callback(gpointer ptr) {
@@ -267,34 +267,34 @@ public:
 template<typename T>
 void closure_destroy_notify(gpointer data, GClosure* closure)
 {
-  Delegator::destroy_cxx_object_callback<T>(data);
+  Delegators::destroy_cxx_object_callback<T>(data);
 }
 
 template<typename Ret, typename... Args>
-Delegator::Connection *
+Delegators::Connection *
 g_signal_connect_delegator (GObject* target, 
                             const gchar* event, 
-                            Delegator::Delegator<Ret, Args...>* delegator, 
+                            Delegators::Delegator<Ret, Args...>* delegator, 
                             bool after=false)
 {
   GClosure *closure;  
   closure = g_cclosure_new (G_CALLBACK (delegator->_callback()),
                             (gpointer)delegator, 
-                            closure_destroy_notify<Delegator::Delegator<Ret, Args...> >);
+                            closure_destroy_notify<Delegators::Delegator<Ret, Args...> >);
   gulong handler_id = g_signal_connect_closure (target, event, closure, after);
-  return new Delegator::Connection(handler_id, target, event, closure);
+  return new Delegators::Connection(handler_id, target, event, closure);
 }
 
 template<typename T>
 inline void g_object_set_cxx_object (GObject* target, const gchar* key, T* object)
 {
-  g_object_set_data_full(target, key, (gpointer)object, Delegator::destroy_cxx_object_callback<T>);
+  g_object_set_data_full(target, key, (gpointer)object, Delegators::destroy_cxx_object_callback<T>);
 }
 
 template<typename T>
 inline void g_object_set_cxx_object (GObject* target, const GQuark key, T* object)
 {
-  g_object_set_qdata_full(target, key, (gpointer)object, Delegator::destroy_cxx_object_callback<T>);
+  g_object_set_qdata_full(target, key, (gpointer)object, Delegators::destroy_cxx_object_callback<T>);
 }
 
 inline gulong

@@ -22,7 +22,7 @@
 #include <glib.h>
 #include "base/delegators.hpp"
 
-namespace GtkCXX {
+namespace GLib {
 
 template <typename _Instance,
           typename _Class, 
@@ -78,7 +78,7 @@ public:
   static GType get_type();
   typedef typename Extension::Instance Instance;
   typedef typename Extension::Class Class;
-  typedef GtkCXX::Traits<Instance, Class, &ClassDefinition::get_type> Traits;
+  typedef GLib::Traits<Instance, Class, &ClassDefinition::get_type> Traits;
 
   static void     instance_init     (Instance        *obj) {
     void* ptr = get_private(obj);
@@ -204,10 +204,10 @@ public:
 
 #define __DECLARE_GTK_CAST__(klass, caster, cast_lower)                                              \
 extern "C++"{                                                                                        \
-  namespace GtkCXX {                                                                                 \
+  namespace GLib {                                                                                 \
     typedef Traits<klass, klass##Class, cast_lower##_get_type> klass##Traits;                        \
     template<> inline klass* cast<klass>(gpointer ptr) { return caster(ptr); };                      \
     template<> inline klass##Class* cast<klass##Class>(gpointer ptr) { return caster##_CLASS(ptr); };\
-  }                                                                                                  \
-}
+  };                                                                                                 \
+};
 #endif

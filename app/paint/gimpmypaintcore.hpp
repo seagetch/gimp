@@ -40,7 +40,7 @@ class GimpMypaintCore
   GimpMypaintBrush* mypaint_brush;
   GimpMypaintOptions*     options;
 
-  Delegator::Connection* option_changed_handler;
+  Delegators::Connection* option_changed_handler;
   
   public:
   GimpMypaintCore();

@@ -40,7 +40,7 @@ extern "C" {
 
 struct FilterLayerUndo;
 
-namespace GtkCXX {
+namespace GLib {
 
 struct FilterLayerUndo : virtual public ImplBase
 {
@@ -59,10 +59,10 @@ struct FilterLayerUndo : virtual public ImplBase
 };
 
 extern const char gimp_filter_layer_undo_name[] = "GimpFilterLayerUndo";
-typedef GtkCXX::Traits<GimpItemUndo, GimpItemUndoClass, gimp_item_undo_get_type> ParentTraits;
-typedef GtkCXX::ClassDefinition<gimp_filter_layer_undo_name,
-                                GtkCXX::ClassHolder<ParentTraits, GimpFilterLayerUndo, GimpFilterLayerUndoClass>,
-                                GtkCXX::FilterLayerUndo>
+typedef GLib::Traits<GimpItemUndo, GimpItemUndoClass, gimp_item_undo_get_type> ParentTraits;
+typedef GLib::ClassDefinition<gimp_filter_layer_undo_name,
+                                GLib::ClassHolder<ParentTraits, GimpFilterLayerUndo, GimpFilterLayerUndoClass>,
+                                GLib::FilterLayerUndo>
                                 Class;
 
 GType gimp_filter_layer_undo_get_type() {
@@ -70,21 +70,21 @@ GType gimp_filter_layer_undo_get_type() {
 }
 
 void
-GtkCXX::FilterLayerUndo::class_init (GimpFilterLayerUndoClass *klass)
+GLib::FilterLayerUndo::class_init (GimpFilterLayerUndoClass *klass)
 {
   GObjectClass  *object_class = G_OBJECT_CLASS (klass);
-  Class::__(&object_class->constructed ).bind< &GtkCXX::FilterLayerUndo::constructed >();
+  Class::__(&object_class->constructed ).bind< &GLib::FilterLayerUndo::constructed >();
 
   GimpUndoClass *undo_class   = GIMP_UNDO_CLASS (klass);
-  Class::__(&undo_class->pop           ).bind< &GtkCXX::FilterLayerUndo::pop         >();
+  Class::__(&undo_class->pop           ).bind< &GLib::FilterLayerUndo::pop         >();
 
   ImplBase::class_init<GimpFilterLayerUndoClass, FilterLayerUndo>(klass);
 }
 
-void GtkCXX::FilterLayerUndo::init () {
+void GLib::FilterLayerUndo::init () {
 }
 
-void GtkCXX::FilterLayerUndo::constructed ()
+void GLib::FilterLayerUndo::constructed ()
 {
   GObject     *group;
 
@@ -110,7 +110,7 @@ void GtkCXX::FilterLayerUndo::constructed ()
     }
 }
 
-void GtkCXX::FilterLayerUndo::pop (GimpUndoMode         undo_mode,
+void GLib::FilterLayerUndo::pop (GimpUndoMode         undo_mode,
                                    GimpUndoAccumulator *accum)
 {
   GimpUndo*            undo;

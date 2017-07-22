@@ -55,6 +55,7 @@ extern "C" {
 #include "core/gimpmypaintbrush-private.hpp"
 #include "paint/gimpmypaintoptions-history.hpp"
 
+using namespace GLib;
 
 class MypaintPopupPrivate {
   static const int MYPAINT_BRUSH_VIEW_SIZE = 256;
@@ -64,8 +65,8 @@ class MypaintPopupPrivate {
   GimpContext*           context;
   GtkListStore*          store;
   PageRemindAction       page_reminder;
-  Delegator::Connection* brush_changed_handler;
-  Delegator::Connection* history_name_edited_handler;
+  Delegators::Connection* brush_changed_handler;
+  Delegators::Connection* history_name_edited_handler;
   
 public:
   MypaintPopupPrivate(GimpContainer* ctn, GimpContext* ctx) : 
@@ -137,8 +138,8 @@ MypaintPopupPrivate::update_history ()
     GtkTreeIter iter;
     GimpMypaintBrush* brush = history->get_brush(i);
     if (brush) {
-      GWrapper<GimpMypaintBrush> brush_obj = brush;
-      StringHolder name = g_strdup(brush_obj.get("name"));
+      ObjectWrapper<GimpMypaintBrush> brush_obj = brush;
+      CString name = g_strdup(brush_obj.get("name"));
       g_print("%d: brush %s\n", i, name.ptr());
       GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(brush->p);
       gtk_list_store_append(store, &iter);
@@ -282,10 +283,10 @@ MypaintPopupPrivate::create (GObject* object,
   gtk_tree_view_append_column(GTK_TREE_VIEW(history), column);
 
   g_signal_connect_delegator(G_OBJECT(renderer), "edited",
-                             Delegator::delegator(this, &MypaintPopupPrivate::history_name_edited));
+                             Delegators::delegator(this, &MypaintPopupPrivate::history_name_edited));
 
   g_signal_connect_delegator(G_OBJECT(history), "cursor-changed",
-                             Delegator::delegator(this, &MypaintPopupPrivate::history_cursor_changed));
+                             Delegators::delegator(this, &MypaintPopupPrivate::history_cursor_changed));
 
   gtk_widget_show (GTK_WIDGET (history));
   gtk_notebook_insert_page (GTK_NOTEBOOK (*result), GTK_WIDGET (history), 
@@ -297,7 +298,7 @@ MypaintPopupPrivate::create (GObject* object,
   brush_changed_handler = 
     g_signal_connect_delegator (G_OBJECT(context),
                                 gimp_context_type_to_signal_name (GIMP_TYPE_MYPAINT_BRUSH),
-                                Delegator::delegator(this, &MypaintPopupPrivate::brush_changed));
+                                Delegators::delegator(this, &MypaintPopupPrivate::brush_changed));
 
 /*
 //  g_signal_connect (brush, "notify", G_CALLBACK (notify_brush), p);
@@ -308,7 +309,7 @@ MypaintPopupPrivate::create (GObject* object,
   gimp_tool_options_setup_popup_layout (children, FALSE);
   
   g_signal_connect_delegator (G_OBJECT (*result), "destroy", 
-                              Delegator::delegator(this, &MypaintPopupPrivate::destroy));
+                              Delegators::delegator(this, &MypaintPopupPrivate::destroy));
 }
 
 extern "C" {
@@ -339,7 +340,7 @@ gimp_mypaint_brush_button_with_popup (GObject *config)
   MypaintPopupPrivate* priv = new MypaintPopupPrivate(container, context);
   
   return gimp_tool_options_button_with_popup (label_widget,
-                                               Delegator::delegator(priv, &MypaintPopupPrivate::create),
+                                               Delegators::delegator(priv, &MypaintPopupPrivate::create),
                                                priv);
 }
 };

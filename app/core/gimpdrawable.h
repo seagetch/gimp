@@ -241,5 +241,10 @@ void           gimp_drawable_attach_floating_sel (GimpDrawable       *drawable,
                                                   GimpLayer          *floating_sel);
 void           gimp_drawable_detach_floating_sel (GimpDrawable       *drawable);
 
-
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-impl.hpp"
+__DECLARE_GTK_CAST__(GimpDrawable, GIMP_DRAWABLE, gimp_drawable);
+};
+#endif
 #endif /* __GIMP_DRAWABLE_H__ */

@@ -79,6 +79,7 @@ public:
 
   virtual void                    set_procedure(const char* proc_name, GValueArray* args = NULL) = 0;
   virtual const char*             get_procedure() = 0;
+  virtual GValueArray*            get_procedure_args() = 0;
   virtual GValue                  get_procedure_arg(int index) = 0;
   virtual void                    set_procedure_arg(int index, GValue value) = 0;
 };

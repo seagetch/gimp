@@ -51,6 +51,8 @@ extern "C++" {
 #include "gimpmypaintoptions-history.hpp"
 } // extern "C++"
 
+using namespace GLib;
+
 extern "C" {
 #define DEFAULT_BRUSH_SIZE             20.0
 #define DEFAULT_BRUSH_ASPECT_RATIO     0.0
@@ -172,32 +174,32 @@ gimp_mypaint_options_init (GimpMypaintOptions *options)
                    gimp_context_type_to_signal_name (GIMP_TYPE_PATTERN),
                    G_CALLBACK(gimp_mypaint_options_texture_changed), NULL);
   {
-    StringHolder notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("brushmark_name"));
+    CString notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("brushmark_name"));
     g_signal_connect(G_OBJECT(options),
                      notify_name, G_CALLBACK(gimp_mypaint_options_prop_brushmark_updated), NULL);
   }
   {
-    StringHolder notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("use_gimp_brushmark"));
+    CString notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("use_gimp_brushmark"));
     g_signal_connect(G_OBJECT(options),
                      notify_name, G_CALLBACK(gimp_mypaint_options_prop_brushmark_updated), NULL);
   }
   {
-    StringHolder notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("brushmark_specified"));
+    CString notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("brushmark_specified"));
     g_signal_connect(G_OBJECT(options),
                      notify_name, G_CALLBACK(gimp_mypaint_options_prop_brushmark_updated), NULL);
   }
   {
-    StringHolder notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("texture_name"));
+    CString notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("texture_name"));
     g_signal_connect(G_OBJECT(options),
                      notify_name, G_CALLBACK(gimp_mypaint_options_prop_texture_updated), NULL);
   }
   {
-    StringHolder notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("use_gimp_texture"));
+    CString notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("use_gimp_texture"));
     g_signal_connect(G_OBJECT(options),
                      notify_name, G_CALLBACK(gimp_mypaint_options_prop_texture_updated), NULL);
   }
   {
-    StringHolder notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("texture_specified"));
+    CString notify_name = g_strdup_printf("notify::%s", mypaint_brush_internal_name_to_signal_name ("texture_specified"));
     g_signal_connect(G_OBJECT(options),
                      notify_name, G_CALLBACK(gimp_mypaint_options_prop_texture_updated), NULL);
   }
@@ -400,21 +402,21 @@ gimp_mypaint_options_mypaint_brush_changed (GObject *object,
   GListHolder brush_settings = mypaint_brush_get_brush_settings ();  
   for (GList* i = brush_settings.ptr(); i; i = i->next) {
     MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(i->data);
-    StringHolder signal(mypaint_brush_internal_name_to_signal_name(setting->internal_name));
+    CString signal(mypaint_brush_internal_name_to_signal_name(setting->internal_name));
     g_object_notify(object, signal.ptr());
   }
 
   GListHolder switch_settings = mypaint_brush_get_brush_switch_settings ();  
   for (GList* i = switch_settings.ptr(); i; i = i->next) {
     MyPaintBrushSwitchSettings* setting = reinterpret_cast<MyPaintBrushSwitchSettings*>(i->data);
-    StringHolder signal(mypaint_brush_internal_name_to_signal_name(setting->internal_name));
+    CString signal(mypaint_brush_internal_name_to_signal_name(setting->internal_name));
     g_object_notify(object, signal.ptr());
   }
 
   GListHolder text_settings = mypaint_brush_get_brush_text_settings ();  
   for (GList* i = brush_settings.ptr(); i; i = i->next) {
     MyPaintBrushTextSettings* setting = reinterpret_cast<MyPaintBrushTextSettings*>(i->data);
-    StringHolder signal (mypaint_brush_internal_name_to_signal_name(setting->internal_name));
+    CString signal (mypaint_brush_internal_name_to_signal_name(setting->internal_name));
     g_object_notify(object, signal.ptr());
   }
 }
@@ -422,15 +424,15 @@ gimp_mypaint_options_mypaint_brush_changed (GObject *object,
 static void
 gimp_mypaint_options_brush_changed (GObject* object, GimpData* data)
 {
-  GWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
-  GWrapper<GimpData> brush = data;
+  ObjectWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
+  ObjectWrapper<GimpData> brush = data;
 
   if (!options.get("use-gimp-brushmark") || !options.get("brushmark-specified"))
     return;
 
   options.freeze();
-  StringHolder name = g_strdup(brush.get("name"));
-  StringHolder brushmark_name = g_strdup(options.get("brushmark-name"));
+  CString name = g_strdup(brush.get("name"));
+  CString brushmark_name = g_strdup(options.get("brushmark-name"));
   if (g_strcmp0(name, brushmark_name) != 0) {
     options.set("brushmark-name", name.ptr());
   }
@@ -440,15 +442,15 @@ gimp_mypaint_options_brush_changed (GObject* object, GimpData* data)
 static void
 gimp_mypaint_options_prop_brushmark_updated (GObject* object)
 {
-  GWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
+  ObjectWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
 
   if (!options.get("use-gimp-brushmark") || !options.get("brushmark-specified"))
     return;
 
-  StringHolder brushmark_name = g_strdup(options.get("brushmark-name"));
+  CString brushmark_name = g_strdup(options.get("brushmark-name"));
 
-  GWrapper<GimpBrush> brush = gimp_context_get_brush(GIMP_CONTEXT(options.ptr()));
-  StringHolder name = g_strdup(brush? (const char*)brush.get("name"): "");
+  ObjectWrapper<GimpBrush> brush = gimp_context_get_brush(GIMP_CONTEXT(options.ptr()));
+  CString name = g_strdup(brush? (const char*)brush.get("name"): "");
 
   options.freeze();
   if (options.get("brushmark-specified") && 
@@ -456,8 +458,8 @@ gimp_mypaint_options_prop_brushmark_updated (GObject* object)
     // set current brush name as brushmark_name
     options.set("brushmark-name", name.ptr());
   } else if (brushmark_name.ptr() && g_strcmp0(name, brushmark_name) != 0) {
-    GWrapper<GimpContainer> container = gimp_data_factory_get_container(GIMP_CONTEXT(options.ptr())->gimp->brush_factory);
-    GWrapper<GimpBrush> matched_brush = GIMP_BRUSH(gimp_container_get_child_by_name(container, brushmark_name));
+    ObjectWrapper<GimpContainer> container = gimp_data_factory_get_container(GIMP_CONTEXT(options.ptr())->gimp->brush_factory);
+    ObjectWrapper<GimpBrush> matched_brush = GIMP_BRUSH(gimp_container_get_child_by_name(container, brushmark_name));
     if (matched_brush) {
       gimp_context_set_brush(GIMP_CONTEXT(options.ptr()), matched_brush);
     } else {
@@ -471,15 +473,15 @@ gimp_mypaint_options_prop_brushmark_updated (GObject* object)
 static void
 gimp_mypaint_options_texture_changed (GObject* object, GimpData* data)
 {
-  GWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
-  GWrapper<GimpData> texture = data;
+  ObjectWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
+  ObjectWrapper<GimpData> texture = data;
 
   if (!options.get("use-gimp-texture") || !options.get("texture-specified"))
     return;
 
   options.freeze();
-  StringHolder name = g_strdup(texture.get("name"));
-  StringHolder texture_name = g_strdup(options.get("texture-name"));
+  CString name = g_strdup(texture.get("name"));
+  CString texture_name = g_strdup(options.get("texture-name"));
   if (g_strcmp0(name, texture_name) != 0) {
     options.set("texture-name", name.ptr());
   }
@@ -489,15 +491,15 @@ gimp_mypaint_options_texture_changed (GObject* object, GimpData* data)
 static void
 gimp_mypaint_options_prop_texture_updated (GObject* object)
 {
-  GWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
+  ObjectWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
 
   if (!options.get("use-gimp-texture") || !options.get("texture-specified"))
     return;
 
-  StringHolder texture_name = g_strdup(options.get("texture-name"));
+  CString texture_name = g_strdup(options.get("texture-name"));
 
-  GWrapper<GimpPattern> texture = gimp_context_get_pattern(GIMP_CONTEXT(options.ptr()));
-  StringHolder name = g_strdup(texture? (const gchar*)texture.get("name"): "");
+  ObjectWrapper<GimpPattern> texture = gimp_context_get_pattern(GIMP_CONTEXT(options.ptr()));
+  CString name = g_strdup(texture? (const gchar*)texture.get("name"): "");
 
   options.freeze();
   if (options.get("texture-specified") && 
@@ -505,8 +507,8 @@ gimp_mypaint_options_prop_texture_updated (GObject* object)
     // set current pattern name as texture_name
     options.set("texture-name", name.ptr());
   } else if (texture_name.ptr() && g_strcmp0(name, texture_name) != 0) {
-    GWrapper<GimpContainer> container     = gimp_data_factory_get_container(GIMP_CONTEXT(options.ptr())->gimp->pattern_factory);
-    GWrapper<GimpPattern> matched_texture = GIMP_PATTERN(gimp_container_get_child_by_name(container, texture_name));
+    ObjectWrapper<GimpContainer> container     = gimp_data_factory_get_container(GIMP_CONTEXT(options.ptr())->gimp->pattern_factory);
+    ObjectWrapper<GimpPattern> matched_texture = GIMP_PATTERN(gimp_container_get_child_by_name(container, texture_name));
     if (matched_texture) {
       gimp_context_set_pattern(GIMP_CONTEXT(options.ptr()), matched_texture);
     } else {
@@ -529,8 +531,8 @@ gimp_mypaint_options_set_mapping_point(GimpMypaintOptions* options,
                                        guint size, 
                                        GimpVector2* points)
 {
-  GHashTableHolder<gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict ();
-  StringHolder     brush_setting_name  = mypaint_brush_signal_name_to_internal_name(prop_name);
+  HashTable<gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict ();
+  CString     brush_setting_name  = mypaint_brush_signal_name_to_internal_name(prop_name);
 
   MyPaintBrushSettings* brush_setting = brush_settings_dict[brush_setting_name];
 
@@ -562,8 +564,8 @@ gimp_mypaint_options_get_mapping_point(GimpMypaintOptions* options,
                                        GimpVector2**       points)
 {
   float x, y;
-  GHashTableHolder<gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict ();
-  StringHolder     brush_setting_name  = mypaint_brush_signal_name_to_internal_name(prop_name);
+  HashTable<gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict ();
+  CString     brush_setting_name  = mypaint_brush_signal_name_to_internal_name(prop_name);
 
   MyPaintBrushSettings* brush_setting = brush_settings_dict[brush_setting_name];
   
