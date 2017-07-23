@@ -175,10 +175,10 @@ MypaintBrushWriter::build_json()
   
   const gchar* filename = gimp_data_get_filename (GIMP_DATA(source.ptr()));
   
-  GListHolder settings = mypaint_brush_get_brush_settings ();
-  GListHolder switches = mypaint_brush_get_brush_switch_settings ();
-  GListHolder texts    = mypaint_brush_get_brush_text_settings ();
-  GListHolder inputs   = mypaint_brush_get_input_settings ();
+  List settings = mypaint_brush_get_brush_settings ();
+  List switches = mypaint_brush_get_brush_switch_settings ();
+  List texts    = mypaint_brush_get_brush_text_settings ();
+  List inputs   = mypaint_brush_get_input_settings ();
   CString brush_name = g_strdup(source.get("name"));
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(source->p);
 
@@ -270,10 +270,10 @@ MypaintBrushWriter::write_file (GError** error)
   
   const gchar* filename = gimp_data_get_filename (GIMP_DATA(source.ptr()));
   
-  GListHolder settings          = mypaint_brush_get_brush_settings ();
-  GListHolder switches          = mypaint_brush_get_brush_switch_settings ();
-  GListHolder texts             = mypaint_brush_get_brush_text_settings ();
-  GListHolder inputs            = mypaint_brush_get_input_settings ();
+  List settings          = mypaint_brush_get_brush_settings ();
+  List switches          = mypaint_brush_get_brush_switch_settings ();
+  List texts             = mypaint_brush_get_brush_text_settings ();
+  List inputs            = mypaint_brush_get_input_settings ();
   CString name             = g_strdup(source.get("name"));
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(source->p);
   ScopedPointer<FILE, int(FILE*), fclose> f = g_fopen(filename,"w");

@@ -222,7 +222,7 @@ class PopupWindow {
     if (!proc_args)
       proc_args = plug_in_proc [gimp_procedure_get_arguments] ();
 
-    GListHolder children( filter_edit [gtk_container_get_children] () );
+    List children( filter_edit [gtk_container_get_children] () );
     for(GList* iter = children.ptr(); iter != NULL; iter = g_list_next(iter))
       gtk_widget_destroy(GTK_WIDGET(iter->data));
 
@@ -1183,8 +1183,6 @@ GLib::CellRendererPopup::get_size (GtkWidget       *widget,
 
   *width  = internal_width  + 2 * xpad;
   *height = internal_height + 2 * ypad;
-
-  g_print("CellRendererPopup::get_size: %d,%d\n", *width, *height);
 }
 
 void
@@ -1208,7 +1206,6 @@ GLib::CellRendererPopup::render (GdkWindow            *window,
                                    GdkRectangle         *expose_area,
                                    GtkCellRendererState  flags)
 {
-  g_print("CellRendererPopup::render\n");
   auto          cell   = _G(GTK_CELL_RENDERER(g_object));
   auto          dashes = _G(Class::Traits::cast(g_object));
   GtkStyle*     style  = gtk_widget_get_style (widget);

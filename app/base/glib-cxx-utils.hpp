@@ -11,6 +11,9 @@ extern "C" {
 #include "base/delegators.hpp"
 #include "base/glib-cxx-impl.hpp"
 
+#include <typeinfo>
+#include <utility>
+
 using namespace Delegators;
 
 namespace GLib {
@@ -161,176 +164,198 @@ public:
       callback();
   };
 };
+template<typename T> inline GType g_type() {
+  g_error("Fallback to g_type for %s\n", typeid(T).name());
+  return G_TYPE_INVALID;
+}
+template<typename T> inline const T get_value(const GValue& src) {
+  g_error("Fallback to get_value for %s\n", typeid(T).name());
+  return T();
+}
+template<typename T> inline void set_value(GValue& src, T value) {
+  g_error("Fallback to set_value for %s\n", typeid(T).name());
+}
 
-class Value : ScopedPointer<GValue, void(GValue*), g_value_unset>
+//#define G_TYPE_INTERFACE
+template<> inline GType g_type<gchar>() { return G_TYPE_CHAR; }
+template<> inline const gchar get_value<gchar>(const GValue& src) { return g_value_get_schar(&src); }
+template<> inline void set_value<gchar>(GValue& src, gchar value) { g_value_set_schar(&src, value); }
+
+template<> inline GType g_type<guchar>() { return G_TYPE_UCHAR; }
+template<> inline const guchar get_value<guchar>(const GValue& src) { return g_value_get_uchar(&src); }
+template<> inline void set_value<guchar>(GValue& src, guchar value) { g_value_set_uchar(&src, value); }
+
+template<> inline GType g_type<bool>() { return G_TYPE_BOOLEAN; }
+template<> inline const bool get_value<bool>(const GValue& src) { return g_value_get_boolean(&src); }
+template<> inline void set_value<bool>(GValue& src, bool value) { g_value_set_boolean(&src, value); }
+
+template<> inline GType g_type<gint32>() { return G_TYPE_INT; }
+template<> inline const gint32 get_value<gint32>(const GValue& src) { return g_value_get_int(&src); }
+template<> inline void set_value<gint32>(GValue& src, gint32 value) { g_value_set_int(&src, value); }
+
+template<> inline GType g_type<guint32>() { return G_TYPE_UINT; }
+template<> inline const guint32 get_value<guint32>(const GValue& src) { return g_value_get_uint(&src); }
+template<> inline void set_value<guint32>(GValue& src, guint32 value) { g_value_set_uint(&src, value); }
+
+template<> inline GType g_type<glong>() { return G_TYPE_LONG; }
+template<> inline const glong get_value<glong>(const GValue& src) { return g_value_get_long(&src); }
+template<> inline void set_value<glong>(GValue& src, glong value) { g_value_set_long(&src, value); }
+
+template<> inline GType g_type<gulong>() { return G_TYPE_ULONG; }
+template<> inline const gulong get_value<gulong>(const GValue& src) { return g_value_get_ulong(&src); }
+template<> inline void set_value<gulong>(GValue& src, gulong value) { g_value_set_ulong(&src, value); }
+
+template<> inline GType g_type<gfloat>() { return G_TYPE_FLOAT; }
+template<> inline const gfloat get_value<gfloat>(const GValue& src) { return g_value_get_float(&src); }
+template<> inline void set_value<gfloat>(GValue& src, gfloat value) { g_value_set_float(&src, value); }
+
+template<> inline GType g_type<gdouble>() { return G_TYPE_DOUBLE; }
+template<> inline const gdouble get_value<gdouble>(const GValue& src) { return g_value_get_double(&src); }
+template<> inline void set_value<gdouble>(GValue& src, gdouble value) { g_value_set_double(&src, value); }
+
+template<> inline GType g_type<gchar*>() { return G_TYPE_STRING; }
+template<> inline gchar* const get_value<gchar*>(const GValue& src) { return (gchar* const)g_value_get_string(&src); }
+template<> inline void set_value<gchar*>(GValue& src, gchar* value) { g_value_set_string(&src, value); }
+
+template<> inline GType g_type<gpointer>() { return G_TYPE_POINTER; }
+template<> inline const gpointer get_value<gpointer>(const GValue& src) { return g_value_get_pointer(&src); }
+template<> inline void set_value<gpointer>(GValue& src, gpointer value) { g_value_set_pointer(&src, value); }
+
+template<> inline GType g_type<GObject*>() { return G_TYPE_OBJECT; }
+typedef GObject* PObject;
+template<> inline GObject* const get_value<GObject*>(const GValue& src) { return (GObject* const)G_OBJECT(g_value_get_object(&src)); }
+template<> inline void set_value<GObject*>(GValue& src, GObject* value) { g_value_set_object(&src, value); }
+
+//#define G_TYPE_INT64
+//#define G_TYPE_UINT64
+//#define G_TYPE_ENUM
+//#define G_TYPE_FLAGS
+
+template<typename _Instance>
+class FundamentalTraits {
+public:
+  typedef _Instance Instance;
+  static GType get_type() { return g_type<Instance>(); };
+  static GValue _default() {
+    GValue value = G_VALUE_INIT;
+    g_value_init(&value, get_type());
+    return value;
+  };
+
+  static const Instance cast(const GValue& src) {
+    GValue value = _default();
+    g_value_transform(&src, &value);
+    return get_value<Instance>(value);
+  };
+
+  static GValue init(Instance src) {
+    GValue value = _default();
+    set_value<Instance>(value, src);
+    return value;
+  }
+};
+
+template<bool IsOwner> inline void g_value_finalize(GValue* value) {
+  if (value) {
+    g_value_unset(value);
+    if (IsOwner)
+      g_free(value);
+  }
+};
+
+template<bool IsOwner>
+class ValueRef : public ScopedPointer<GValue, void(GValue*), g_value_finalize<IsOwner>>
 {
 public:
-  Value(GValue* src) : ScopedPointer<GValue, void(GValue*), g_value_unset>(src) {};
-  Value(Value&& src) : ScopedPointer<GValue, void(GValue*), g_value_unset>(src.obj) {
+  ValueRef(GValue* src) : ScopedPointer<GValue, void(GValue*), g_value_finalize<IsOwner> >(src) { };
+  ValueRef(ValueRef&& src) : ScopedPointer<GValue, void(GValue*), g_value_finalize<IsOwner> >(src.obj) {
     src.obj = NULL;
   };
-  GType type() { return G_VALUE_TYPE(obj); };
-  operator const gchar() const {
-    GValue value = G_VALUE_INIT;
-    g_value_init(&value, G_TYPE_CHAR);
-    g_value_transform(obj, &value);
-    return g_value_get_schar(&value);
+  GType type() { return G_VALUE_TYPE(this->obj); };
+
+  template<typename T>
+  operator const T() const {
+    return FundamentalTraits<T>::cast(*this->obj);
   };
-  operator const bool() const {
-    GValue value = G_VALUE_INIT;
-    g_value_init(&value, G_TYPE_BOOLEAN);
-    g_value_transform(obj, &value);
-    return g_value_get_boolean(&value);
-  };
-  operator const gint() const {
-    GValue value = G_VALUE_INIT;
-    g_value_init(&value, G_TYPE_INT);
-    g_value_transform(obj, &value);
-    return g_value_get_int(&value);
-  };
-  operator const guint() const {
-    GValue value = G_VALUE_INIT;
-    g_value_init(&value, G_TYPE_UINT);
-    g_value_transform(obj, &value);
-    return g_value_get_uint(&value);
-  };
-  operator const glong() const {
-    GValue value = G_VALUE_INIT;
-    g_value_init(&value, G_TYPE_LONG);
-    g_value_transform(obj, &value);
-    return g_value_get_long(&value);
-  };
-  operator const gulong() const {
-    GValue value = G_VALUE_INIT;
-    g_value_init(&value, G_TYPE_ULONG);
-    g_value_transform(obj, &value);
-    return g_value_get_ulong(&value);
-  };
-  operator const gfloat() const {
-    GValue value = G_VALUE_INIT;
-    g_value_init(&value, G_TYPE_FLOAT);
-    g_value_transform(obj, &value);
-    return g_value_get_float(&value);
-  };
-  operator const gdouble() const {
-    GValue value = G_VALUE_INIT;
-    g_value_init(&value, G_TYPE_DOUBLE);
-    g_value_transform(obj, &value);
-    return g_value_get_double(&value);
-  };
+
   operator const gchar*() const {
-    GValue value = G_VALUE_INIT;
-    g_value_init(&value, G_TYPE_STRING);
-    g_value_transform(obj, &value);
-    return g_value_get_string(&value);
+    return FundamentalTraits<gchar*>::cast(*this->obj);
   };
+
   operator const GObject*() const {
-    return G_OBJECT(g_value_get_object(obj));
+    return FundamentalTraits<GObject*>::cast(*this->obj);
   };
+
 };
 
-inline Value _G(GValue* src) { return Value(src); }
+inline ValueRef<false> _G(GValue* src) { return ValueRef<false>(src); }
 
-class Variant
+class Value : public ValueRef<true>
 {
-private:
-  GValue self;
-  Value wrapper;
 public:
-  Variant(const GValue& src) : wrapper(&self) {
+  Value(const GValue& src) : ValueRef<true>(g_new0(GValue, 1)) {
     GValue default_value = G_VALUE_INIT;
-    self = default_value;
-    g_value_init(&self, G_VALUE_TYPE(&src));
-    g_value_copy(&src, &self);
+    *obj = default_value;
+    g_value_copy(&src, obj);
   };
-  Variant(gchar val) : wrapper(&self) {
+  Value(GValue&& src) : ValueRef<true>(g_new0(GValue, 1)) {
+    *obj = src;
     GValue default_value = G_VALUE_INIT;
-    self = default_value;
-    g_value_init(&self, G_TYPE_CHAR);
-    g_value_set_schar(&self, val);
+    src = default_value;
   };
-  Variant(bool val) : wrapper(&self) {
-    GValue default_value = G_VALUE_INIT;
-    self = default_value;
-    g_value_init(&self, G_TYPE_BOOLEAN);
-    g_value_set_boolean(&self, val);
+  Value(const gchar src) : ValueRef<true>(g_new0(GValue, 1)) {
+    *obj = FundamentalTraits<gchar>::init(src);
+  };
+  Value(const guchar src) : ValueRef<true>(g_new0(GValue, 1)) {
+    *obj = FundamentalTraits<guchar>::init(src);
+  };
+  Value(const bool src) : ValueRef<true>(g_new0(GValue, 1)) {
+    *obj = FundamentalTraits<bool>::init(src);
+  };
+  Value(const gint32 src) : ValueRef<true>(g_new0(GValue, 1)) {
+    *obj = FundamentalTraits<gint32>::init(src);
+  };
+  Value(const guint32 src) : ValueRef<true>(g_new0(GValue, 1)) {
+    *obj = FundamentalTraits<guint32>::init(src);
+  };
+  Value(const glong src) : ValueRef<true>(g_new0(GValue, 1)) {
+    *obj = FundamentalTraits<glong>::init(src);
+  };
+  Value(const gulong src) : ValueRef<true>(g_new0(GValue, 1)) {
+    *obj = FundamentalTraits<gulong>::init(src);
+  };
+  Value(const gfloat src) : ValueRef<true>(g_new0(GValue, 1)) {
+    *obj = FundamentalTraits<gfloat>::init(src);
+  };
+  Value(const gdouble src) : ValueRef<true>(g_new0(GValue, 1)) {
+    *obj = FundamentalTraits<gdouble>::init(src);
+  };
+  Value(const gpointer src) : ValueRef<true>(g_new0(GValue, 1)) {
+    *obj = FundamentalTraits<gpointer>::init(src);
+  };
+  Value(const gchar* src) : ValueRef<true>(g_new0(GValue, 1)) {
+    *obj = FundamentalTraits<gchar*>::init(g_strdup(src));
+  };
+  Value(GObject* src) : ValueRef<true>(g_new0(GValue, 1)) {
+    *obj = FundamentalTraits<GObject*>::init(src);
   };
 
-  Variant(gint32 val) : wrapper(&self) {
-    GValue default_value = G_VALUE_INIT;
-    self = default_value;
-    g_value_init(&self, GIMP_TYPE_INT32);
-    g_value_set_int(&self, val);
-  };
-  Variant(guint32 val) : wrapper(&self) {
-    GValue default_value = G_VALUE_INIT;
-    self = default_value;
-    g_value_init(&self, G_TYPE_UINT);
-    g_value_set_int(&self, val);
-  };
-  Variant(glong val) : wrapper(&self) {
-    GValue default_value = G_VALUE_INIT;
-    self = default_value;
-    g_value_init(&self, G_TYPE_LONG);
-    g_value_set_long(&self, val);
-  };
-  Variant(gulong val) : wrapper(&self) {
-    GValue default_value = G_VALUE_INIT;
-    self = default_value;
-    g_value_init(&self, G_TYPE_ULONG);
-    g_value_set_ulong(&self, val);
-  };
-  Variant(gfloat val) : wrapper(&self) {
-    GValue default_value = G_VALUE_INIT;
-    self = default_value;
-    g_value_init(&self, G_TYPE_FLOAT);
-    g_value_set_float(&self, val);
-  };
-  Variant(gdouble val) : wrapper(&self) {
-    GValue default_value = G_VALUE_INIT;
-    self = default_value;
-    g_value_init(&self, G_TYPE_DOUBLE);
-    g_value_set_double(&self, val);
-  };
-  Variant(GObject* val) : wrapper(&self) {
-    GValue default_value = G_VALUE_INIT;
-    self = default_value;
-    g_value_init(&self, G_TYPE_OBJECT);
-    g_value_set_object(&self, val);
-  };
-  Variant(gchar* val) : wrapper(&self) {
-    GValue default_value = G_VALUE_INIT;
-    self = default_value;
-    g_value_init(&self, G_TYPE_STRING);
-    g_value_set_string(&self, val);
-  };
-  GValue& ref() { return self; };
-  GType type() { return G_VALUE_TYPE(&self); };
-
-  operator const gchar() const { return gchar(wrapper); };
-  operator const bool() const { return bool(wrapper); };
-  operator const gint() const { return gint(wrapper); };
-  operator const guint() const { return guint(wrapper); };
-  operator const glong() const { return glong(wrapper); };
-  operator const gulong() const { return gulong(wrapper); };
-  operator const gfloat() const { return gfloat(wrapper); };
-  operator const gdouble() const { return gdouble(wrapper); };
-  operator const gchar*() const { return (const gchar*)wrapper; };
-  operator const GObject*() const { return (const GObject*)wrapper; };
+  GValue& ref() { return *obj; };
 };
 
-inline Variant _G(const GValue& src) { return Variant(src); }
+inline Value _G(GValue&& src) { return Value(std::move(src)); }
+inline Value _G(const GValue& src) { return Value(src); }
 
-class GListHolder : public ScopedPointer<GList, void(GList*), g_list_free>
+class List : public ScopedPointer<GList, void(GList*), g_list_free>
 {
 public:
-  GListHolder(GList* list) : ScopedPointer<GList, void(GList*), g_list_free>(list) {};
+  List(GList* list) : ScopedPointer<GList, void(GList*), g_list_free>(list) {};
 };
 
 template<class T>
-class GListWrapper : public GListHolder {
+class GListWrapper : public List {
 public:
-  GListWrapper(GList* list) : GListHolder(list) { };
+  GListWrapper(GList* list) : List(list) { };
   T operator[](int index) {
     return T(g_list_nth_data(obj, index));
   }
@@ -353,7 +378,7 @@ public:
 
   struct InvalidIndex { const gchar* name; InvalidIndex(const gchar* n) : name(n) {;}; };
   
-  Variant get(const gchar* prop_name) {
+  Value get(const gchar* prop_name) {
     GObject* object = as_object();
     GObjectClass* class_obj = G_OBJECT_GET_CLASS(object);
     GParamSpec *pspec = g_object_class_find_property (class_obj, prop_name);
@@ -361,10 +386,10 @@ public:
     GValue result = G_VALUE_INIT;
     g_value_init(&result, pspec->value_type);
     g_object_get_property(object, prop_name, &result);
-    return result;
+    return Value(std::move(result));
   };
 
-  void set(const gchar* prop_name, Variant&& value) {
+  void set(const gchar* prop_name, Value value) {
     GObject* object = as_object();
     g_object_set_property(object, prop_name, &value.ref());
   };
@@ -484,10 +509,10 @@ public:
     const gchar* name;
   public:
     GValueAssigner(ObjectWrapper* o, const gchar* n) : owner(o), name(n) { };
-    void operator =(const Variant&& value) { owner->set(name, value); }
+    void operator =(const Value&& value) { owner->set(name, value); }
   };
 //  GValueAssigner operator [](const gchar* name) { return GValueAssigner(this); }
-  Variant operator[] (const gchar* name) { return this->get(name); }
+  Value operator[] (const gchar* name) { return this->get(name); }
   template<typename D>
   Delegators::Connection* connect(const gchar* signal_name, D d) {
     return g_signal_connect_delegator(G_OBJECT(super::obj), signal_name, d);

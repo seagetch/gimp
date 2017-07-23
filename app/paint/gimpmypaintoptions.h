@@ -92,4 +92,7 @@ gimp_mypaint_options_get_mapping_point(GimpMypaintOptions* options,
                                        guint*              size, 
                                        GimpVector2**       points);
 
+gboolean
+gimp_mypaint_options_is_ready(GimpMypaintOptions* options);
+
 #endif  /*  __GIMP_MYPAINT_OPTIONS_H__  */

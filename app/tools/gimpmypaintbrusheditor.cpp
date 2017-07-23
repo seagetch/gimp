@@ -565,7 +565,7 @@ void
 CurveViewCreator::create_view(GObject* button, GtkWidget** result) 
 {
   HashTable<const gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict();
-  GListHolder      inputs               (mypaint_brush_get_input_settings());
+  List      inputs               (mypaint_brush_get_input_settings());
   
   MyPaintBrushSettings* setting = brush_settings_dict[brush_setting_name];
   

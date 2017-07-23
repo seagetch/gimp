@@ -105,7 +105,7 @@ gimp_mypaint_options_class_init (GimpMypaintOptionsClass *klass)
   object_class->set_property = gimp_mypaint_options_set_property;
   object_class->get_property = gimp_mypaint_options_get_property;
 
-  GListHolder brush_settings(mypaint_brush_get_brush_settings ());
+  List brush_settings(mypaint_brush_get_brush_settings ());
   for (GList* i = brush_settings.ptr(); i; i = i->next) {
     MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(i->data);
     gchar* signal_name = mypaint_brush_internal_name_to_signal_name (setting->internal_name);
@@ -116,7 +116,7 @@ gimp_mypaint_options_class_init (GimpMypaintOptionsClass *klass)
       setting->default_value, 
       (GParamFlags)(GIMP_PARAM_STATIC_STRINGS));
   }
-  GListHolder switch_settings(mypaint_brush_get_brush_switch_settings ());
+  List switch_settings(mypaint_brush_get_brush_switch_settings ());
   for (GList* i = switch_settings.ptr(); i; i = i->next) {
     MyPaintBrushSwitchSettings* setting = reinterpret_cast<MyPaintBrushSwitchSettings*>(i->data);
     gchar* signal_name = mypaint_brush_internal_name_to_signal_name (setting->internal_name);
@@ -126,7 +126,7 @@ gimp_mypaint_options_class_init (GimpMypaintOptionsClass *klass)
       setting->default_value, 
       (GParamFlags)(GIMP_PARAM_STATIC_STRINGS));
   }
-  GListHolder text_settings(mypaint_brush_get_brush_text_settings ());
+  List text_settings(mypaint_brush_get_brush_text_settings ());
   for (GList* i = text_settings.ptr(); i; i = i->next) {
     MyPaintBrushTextSettings* setting = reinterpret_cast<MyPaintBrushTextSettings*>(i->data);
     gchar* signal_name = mypaint_brush_internal_name_to_signal_name (setting->internal_name);
@@ -250,7 +250,8 @@ gimp_mypaint_options_set_property (GObject      *object,
         priv->set_text_value (property_id - 1, g_value_get_string (value));
         break;
       }
-    }
+    } else
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
 
   } else {
     switch (property_id) {
@@ -302,7 +303,8 @@ gimp_mypaint_options_get_property (GObject    *object,
         g_value_set_string (value, text);
         break;
       }
-    }
+    } else
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
 
   } else {
     switch (property_id) {
@@ -381,7 +383,6 @@ gimp_mypaint_options_mypaint_brush_changed (GObject *object,
   g_return_if_fail (GIMP_IS_MYPAINT_OPTIONS (object));
   g_return_if_fail (GIMP_IS_MYPAINT_BRUSH (data));
 
-  g_print("GimpMpaintOptions::brush_changed\n");
   GimpMypaintOptions* options = GIMP_MYPAINT_OPTIONS(object);
   GimpData* brush_copied = gimp_mypaint_brush_duplicate(GIMP_MYPAINT_BRUSH(data));
 
@@ -399,21 +400,21 @@ gimp_mypaint_options_mypaint_brush_changed (GObject *object,
   GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(options->brush->p);
   priv->clear_dirty_flag();
   
-  GListHolder brush_settings = mypaint_brush_get_brush_settings ();  
+  List brush_settings = mypaint_brush_get_brush_settings ();  
   for (GList* i = brush_settings.ptr(); i; i = i->next) {
     MyPaintBrushSettings* setting = reinterpret_cast<MyPaintBrushSettings*>(i->data);
     CString signal(mypaint_brush_internal_name_to_signal_name(setting->internal_name));
     g_object_notify(object, signal.ptr());
   }
 
-  GListHolder switch_settings = mypaint_brush_get_brush_switch_settings ();  
+  List switch_settings = mypaint_brush_get_brush_switch_settings ();  
   for (GList* i = switch_settings.ptr(); i; i = i->next) {
     MyPaintBrushSwitchSettings* setting = reinterpret_cast<MyPaintBrushSwitchSettings*>(i->data);
     CString signal(mypaint_brush_internal_name_to_signal_name(setting->internal_name));
     g_object_notify(object, signal.ptr());
   }
 
-  GListHolder text_settings = mypaint_brush_get_brush_text_settings ();  
+  List text_settings = mypaint_brush_get_brush_text_settings ();  
   for (GList* i = brush_settings.ptr(); i; i = i->next) {
     MyPaintBrushTextSettings* setting = reinterpret_cast<MyPaintBrushTextSettings*>(i->data);
     CString signal (mypaint_brush_internal_name_to_signal_name(setting->internal_name));
@@ -444,6 +445,9 @@ gimp_mypaint_options_prop_brushmark_updated (GObject* object)
 {
   ObjectWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
 
+  if (!gimp_mypaint_options_is_ready(options.ptr()))
+    return;
+
   if (!options.get("use-gimp-brushmark") || !options.get("brushmark-specified"))
     return;
 
@@ -454,7 +458,8 @@ gimp_mypaint_options_prop_brushmark_updated (GObject* object)
 
   options.freeze();
   if (options.get("brushmark-specified") && 
-      (!brushmark_name.ptr() || strlen(brushmark_name) == 0)) {
+      (!brushmark_name.ptr() || strlen(brushmark_name) == 0) &&
+      name && strlen(name) > 0) {
     // set current brush name as brushmark_name
     options.set("brushmark-name", name.ptr());
   } else if (brushmark_name.ptr() && g_strcmp0(name, brushmark_name) != 0) {
@@ -493,6 +498,9 @@ gimp_mypaint_options_prop_texture_updated (GObject* object)
 {
   ObjectWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
 
+  if (!gimp_mypaint_options_is_ready(options.ptr()))
+    return;
+
   if (!options.get("use-gimp-texture") || !options.get("texture-specified"))
     return;
 
@@ -503,7 +511,8 @@ gimp_mypaint_options_prop_texture_updated (GObject* object)
 
   options.freeze();
   if (options.get("texture-specified") && 
-      (!texture_name.ptr() || strlen(texture_name) == 0)) {
+      (!texture_name.ptr() || strlen(texture_name) == 0) &&
+      name && strlen(name) > 0) {
     // set current pattern name as texture_name
     options.set("texture-name", name.ptr());
   } else if (texture_name.ptr() && g_strcmp0(name, texture_name) != 0) {
@@ -589,6 +598,12 @@ gimp_mypaint_options_get_mapping_point(GimpMypaintOptions* options,
   
     }
   }
+}
+
+gboolean
+gimp_mypaint_options_is_ready(GimpMypaintOptions* options)
+{
+  return options->brush ? TRUE: FALSE;
 }
 
 };

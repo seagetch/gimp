@@ -179,7 +179,7 @@ MyPaintBrushReader::load_brush (GimpContext  *context,
 void
 MyPaintBrushReader::load_defaults ()
 {
-  GListHolder settings = mypaint_brush_get_brush_settings ();
+  List settings = mypaint_brush_get_brush_settings ();
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
 
   for (GList* item = settings.ptr(); item; item = item->next) {
@@ -199,8 +199,8 @@ MyPaintBrushReader::load_defaults ()
 void
 MyPaintBrushReader::dump ()
 {
-  GListHolder settings = mypaint_brush_get_brush_settings ();
-  GListHolder inputs   = mypaint_brush_get_input_settings ();
+  List settings = mypaint_brush_get_brush_settings ();
+  List inputs   = mypaint_brush_get_input_settings ();
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
   
   for (GList* item = settings.ptr(); item; item = item->next) {
