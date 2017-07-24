@@ -19,60 +19,9 @@
 #ifndef __GLIB_CXX_IMPL_HPP__
 #define __GLIB_CXX_IMPL_HPP__
 
-#include <glib.h>
-#include "base/delegators.hpp"
-
-#include <type_traits>
+#include "base/glib-cxx-types.hpp"
 
 namespace GLib {
-
-template<typename T>
-inline GType g_type()
-{
-  T::__this_should_generate_error_on_compilation;
-  g_error("Fallback to g_type for %s\n", typeid(T).name());
-  return G_TYPE_INVALID;
-}
-
-template<typename T>
-inline auto g_class_type(const T* obj) {
-  g_error("Fallback to g_class_type for %s\n", typeid(T).name());
-  return G_TYPE_INSTANCE_GET_CLASS(obj, get_type<T>(), GTypeClass);
-}
-
-template <typename _Instance,
-          typename _Class = typename std::remove_reference<decltype(*GLib::g_class_type<_Instance>(NULL))>::type,
-          GType (*g_type)() = g_type<_Instance> >
-class Traits {
-public:
-  typedef _Instance Instance;
-  typedef _Class Class;
-  static GType get_type() { return (*g_type)(); };
-  static Instance* cast(gpointer obj) { return G_TYPE_CHECK_INSTANCE_CAST(obj, get_type(), Instance); }
-  static Class*    cast_class(gpointer klass) { return G_TYPE_CHECK_CLASS_CAST(klass, get_type(), Class); }
-  static gboolean  is_instance(gpointer obj) { return G_TYPE_CHECK_INSTANCE_TYPE(obj, get_type()); }
-  static gboolean  is_class(gpointer obj) { return G_TYPE_CHECK_CLASS_TYPE(obj, get_type()); }
-  static Class*    get_class(gpointer obj) { return G_TYPE_INSTANCE_GET_CLASS(obj, get_type(), Class); }
-};
-#if 0
-template<typename T>
-inline GType is_instance_of(gpointer ptr)
-{
-  return G_TYPE_CHECK_INSTANCE_TYPE(ptr, g_type<T>());                                       \
-}
-
-template<typename Instance>
-Instance* cast(gpointer p) {
-  g_error("Invalid use of dummy cast function for %s\n", typeid(Instance*).name());
-  return reinterpret_cast<Instance*>(p);
-}
-
-template<typename Class>
-Class* cast_class(gpointer p) {
-  g_error("Invalid use of dummy cast function for %s\n", typeid(Class*).name());
-  return reinterpret_cast<Class*>(p);
-}
-#endif
 
 template <typename _ParentTraits>
 class ClassExtension {
@@ -226,24 +175,5 @@ public:
 
 };
 
-#define __DECLARE_GTK_CLASS__(klass, _g_type_)                                                       \
-extern "C++"{                                                                                        \
-  namespace GLib {                                                                                   \
-    template<> inline GType g_type<klass>() { return _g_type_; }                                     \
-    template<> inline auto g_class_type(const klass* obj) {                                          \
-      return G_TYPE_INSTANCE_GET_CLASS(obj, get_type<klass>(), klass##Class);                        \
-    }                                                                                                \
-  };                                                                                                 \
-};
-#define __DECLARE_GTK_IFACE__(klass, cast_lower)                                                     \
-extern "C++"{                                                                                        \
-  namespace GLib {                                                                                   \
-    template<> inline GType g_type<klass>() { return cast_lower##_get_type(); }                      \
-    template<> inline auto g_class_type(const klass* obj) {                                          \
-      return G_TYPE_INSTANCE_GET_CLASS(obj, get_type<klass>(), klass##Iface);                        \
-    }                                                                                                \
-  };                                                                                                 \
-};
-#define __DECLARE_GTK_CAST__(klass, caster, cast_lower) __DECLARE_GTK_CLASS__(klass, cast_lower##_get_type())
 
 #endif

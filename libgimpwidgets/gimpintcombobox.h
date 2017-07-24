@@ -100,7 +100,7 @@ G_END_DECLS
 
 #ifdef __cplusplus
 extern "C++" {
-#include "base/glib-cxx-impl.hpp"
+#include "base/glib-cxx-types.hpp"
 __DECLARE_GTK_CLASS__(GimpIntComboBox, GIMP_TYPE_INT_COMBO_BOX);
 };
 #endif

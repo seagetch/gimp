@@ -127,7 +127,7 @@ void         gimp_container_remove_handler     (GimpContainer       *container,
 
 #ifdef __cplusplus
 extern "C++" {
-#include "base/glib-cxx-impl.hpp"
+#include "base/glib-cxx-types.hpp"
 __DECLARE_GTK_CLASS__(GimpContainer, GIMP_TYPE_CONTAINER);
 };
 #endif

@@ -321,7 +321,7 @@ gboolean        gimp_item_is_in_set          (GimpItem           *item,
 
 #ifdef __cplusplus
 extern "C++" {
-#include "base/glib-cxx-impl.hpp"
+#include "base/glib-cxx-types.hpp"
 __DECLARE_GTK_CAST__(GimpItem, GIMP_ITEM, gimp_item);
 };
 #endif

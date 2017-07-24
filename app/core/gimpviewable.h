@@ -189,7 +189,7 @@ gboolean        gimp_viewable_is_ancestor        (GimpViewable  *ancestor,
                                                   GimpViewable  *descendant);
 #ifdef __cplusplus
 extern "C++" {
-#include "base/glib-cxx-impl.hpp"
+#include "base/glib-cxx-types.hpp"
 __DECLARE_GTK_CAST__(GimpViewable, GIMP_VIEWABLE, gimp_viewable);
 };
 #endif

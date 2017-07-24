@@ -49,7 +49,7 @@ GType   gimp_item_undo_get_type (void) G_GNUC_CONST;
 
 #ifdef __cplusplus
 extern "C++" {
-#include "base/glib-cxx-impl.hpp"
+#include "base/glib-cxx-types.hpp"
 __DECLARE_GTK_CAST__(GimpItemUndo, GIMP_ITEM_UNDO, gimp_item_undo);
 };
 #endif

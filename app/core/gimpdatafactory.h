@@ -108,7 +108,7 @@ gboolean        gimp_data_factory_has_data_new_func (GimpDataFactory  *factory);
 
 #ifdef __cplusplus
 extern "C++" {
-#include "base/glib-cxx-impl.hpp"
+#include "base/glib-cxx-types.hpp"
 __DECLARE_GTK_CAST__(GimpDataFactory, GIMP_DATA_FACTORY, gimp_data_factory);
 };
 #endif

@@ -243,7 +243,7 @@ void           gimp_drawable_detach_floating_sel (GimpDrawable       *drawable);
 
 #ifdef __cplusplus
 extern "C++" {
-#include "base/glib-cxx-impl.hpp"
+#include "base/glib-cxx-types.hpp"
 __DECLARE_GTK_CLASS__(GimpDrawable, GIMP_TYPE_DRAWABLE);
 };
 #endif

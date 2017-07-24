@@ -3,13 +3,14 @@
 
 extern "C" {
 #include <glib.h>
+#include <glib-object.h>
 #include "core/core-types.h"
 #include "core/gimpparamspecs.h"
 }
 
 #include "base/scopeguard.hpp"
 #include "base/delegators.hpp"
-#include "base/glib-cxx-impl.hpp"
+#include "base/glib-cxx-types.hpp"
 
 using namespace Delegators;
 

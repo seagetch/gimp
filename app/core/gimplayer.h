@@ -141,7 +141,7 @@ gboolean        gimp_layer_can_lock_alpha      (const GimpLayer      *layer);
 
 #ifdef __cplusplus
 extern "C++" {
-#include "base/glib-cxx-impl.hpp"
+#include "base/glib-cxx-types.hpp"
 __DECLARE_GTK_CAST__(GimpLayer, GIMP_LAYER, gimp_layer);
 };
 #endif

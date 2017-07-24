@@ -356,7 +356,7 @@ void             gimp_context_template_changed    (GimpContext     *context);
 
 #ifdef __cplusplus
 extern "C++" {
-#include "base/glib-cxx-impl.hpp"
+#include "base/glib-cxx-types.hpp"
 __DECLARE_GTK_CAST__(GimpContext, GIMP_CONTEXT, gimp_context);
 };
 #endif

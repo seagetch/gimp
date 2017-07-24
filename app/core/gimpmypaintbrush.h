@@ -75,7 +75,7 @@ GimpData              * gimp_mypaint_brush_duplicate         (GimpMypaintBrush *
 
 #ifdef __cplusplus
 extern "C++" {
-#include "base/glib-cxx-impl.hpp"
+#include "base/glib-cxx-types.hpp"
 __DECLARE_GTK_CAST__(GimpMypaintBrush, GIMP_MYPAINT_BRUSH, gimp_mypaint_brush);
 };
 #endif
