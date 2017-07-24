@@ -37,14 +37,13 @@ extern "C" {
 #include "gimpfilterlayerundo.h"
 #include <type_traits>
 
-
 struct FilterLayerUndo;
 
 namespace GLib {
 
 struct FilterLayerUndo : virtual public ImplBase
 {
-  typedef FilterLayerUndoTraits Traits;
+  typedef Traits<GimpFilterLayerUndo> traits;
   FilterLayerUndo(GObject* obj) : ImplBase(obj) { };
 
   GimpImageBaseType  prev_type;
@@ -59,24 +58,24 @@ struct FilterLayerUndo : virtual public ImplBase
 };
 
 extern const char gimp_filter_layer_undo_name[] = "GimpFilterLayerUndo";
-typedef GLib::Traits<GimpItemUndo, GimpItemUndoClass, gimp_item_undo_get_type> ParentTraits;
 typedef GLib::ClassDefinition<gimp_filter_layer_undo_name,
-                                GLib::ClassHolder<ParentTraits, GimpFilterLayerUndo, GimpFilterLayerUndoClass>,
-                                GLib::FilterLayerUndo>
-                                Class;
+                              GLib::ClassHolder<GLib::Traits<GimpItemUndo>, GimpFilterLayerUndo >,
+                              GLib::FilterLayerUndo> Class;
 
 GType gimp_filter_layer_undo_get_type() {
   return Class::get_type();
 }
 
+#define bind_to_class(klass, method, impl)  Class::__(&klass->method).bind<&impl::method>()
+
 void
 GLib::FilterLayerUndo::class_init (GimpFilterLayerUndoClass *klass)
 {
   GObjectClass  *object_class = G_OBJECT_CLASS (klass);
-  Class::__(&object_class->constructed ).bind< &GLib::FilterLayerUndo::constructed >();
+  bind_to_class (object_class, constructed, GLib::FilterLayerUndo);
 
   GimpUndoClass *undo_class   = GIMP_UNDO_CLASS (klass);
-  Class::__(&undo_class->pop           ).bind< &GLib::FilterLayerUndo::pop         >();
+  bind_to_class (undo_class, pop, GLib::FilterLayerUndo);
 
   ImplBase::class_init<GimpFilterLayerUndoClass, FilterLayerUndo>(klass);
 }

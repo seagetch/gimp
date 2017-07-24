@@ -18,6 +18,7 @@
 
 #include "base/delegators.hpp"
 #include "base/scopeguard.hpp"
+#include "base/glib-cxx-bridge.hpp"
 #include "base/glib-cxx-utils.hpp"
 #include "base/glib-cxx-impl.hpp"
 #include <functional>
@@ -69,10 +70,10 @@ class PopupWindow {
     PIXBUF,
     NUM_ARGS
   };
-  ObjectWrapper<GimpLayer> layer;
-  ObjectWrapper<GtkWidget> mode_select;
-  ObjectWrapper<GtkWidget> filter_select;
-  ObjectWrapper<GtkWidget> filter_edit;
+  IObject<GimpLayer> layer;
+  IObject<GtkWidget> mode_select;
+  IObject<GtkWidget> filter_select;
+  IObject<GtkWidget> filter_edit;
   CString        proc_name;
   ScopedPointer<GValueArray, void(GValueArray*), g_value_array_free> proc_args;
 
@@ -93,7 +94,7 @@ class PopupWindow {
     });
   };
 
-  void add_proc(ObjectWrapper<GtkTreeStore> store, GtkTreeIter* iter, GtkTreeIter* parent, GimpPlugInProcedure* proc, const gchar* label = NULL) {
+  void add_proc(IObject<GtkTreeStore> store, GtkTreeIter* iter, GtkTreeIter* parent, GimpPlugInProcedure* proc, const gchar* label = NULL) {
     const gchar* desc = label;
     const gchar* stock_id = NULL;
     GdkPixbuf* pixbuf = NULL;
@@ -140,7 +141,7 @@ class PopupWindow {
     return false;
   }
 
-  GtkWidget* create_filter_list(ObjectWrapper<GimpLayer> layer) {
+  GtkWidget* create_filter_list(IObject<GimpLayer> layer) {
     auto             store    = _G(gtk_tree_store_new(NUM_ARGS, G_TYPE_STRING, G_TYPE_STRING, GDK_TYPE_PIXBUF));
     auto             pdb      = _G( layer [gimp_item_get_image] ()->gimp->pdb );
     gint             num_procs;
@@ -301,7 +302,7 @@ class PopupWindow {
             frames.insert(g_strdup(group), frame.ptr());
           }
 
-          GListWrapper<GtkWidget*> children = frame [gtk_container_get_children] ();
+          TypedList<GtkWidget*> children = frame [gtk_container_get_children] ();
           box = children[0];
           arg_blurb = group_pattern.replace(arg_blurb, "");
         });
@@ -700,7 +701,7 @@ class PopupWindow {
     });
   }
 
-  GtkWidget* create_filter_edit(ObjectWrapper<GimpLayer> layer) {
+  GtkWidget* create_filter_edit(IObject<GimpLayer> layer) {
     filter_edit = with (gtk_box_new(GTK_ORIENTATION_VERTICAL, 0), [&](auto vbox) {
       vbox [gtk_widget_show] ();
     });
@@ -987,7 +988,7 @@ public:
 //////////////////////////////////////////////////////////////////////////////////////////////
 namespace GLib {
 typedef Traits<GtkCellRenderer, GtkCellRendererClass, gtk_cell_renderer_get_type> ParentTraits;
-typedef ClassHolder<ParentTraits, GimpCellRendererPopup, GimpCellRendererPopupClass> ClassDef;
+typedef ClassHolder<ParentTraits, GimpCellRendererPopup> ClassDef;
 
 struct CellRendererPopup : virtual public ImplBase, virtual public CellRendererPopupInterface
 {

@@ -65,7 +65,8 @@ public:
                                                      GdkRectangle* cell_area) = 0;
 };
 
+#include "base/glib-cxx-impl.hpp"
+__DECLARE_GTK_CAST__(GimpCellRendererPopup, GIMP_CELL_RENDERER_POPUP, gimp_cell_renderer_popup);
 #endif
-
 
 #endif /* __GIMP_CELL_RENDERER_POPUP_H__ */

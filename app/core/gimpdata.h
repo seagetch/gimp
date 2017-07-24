@@ -116,5 +116,11 @@ gint          gimp_data_compare          (GimpData     *data1,
 
 GQuark        gimp_data_error_quark      (void) G_GNUC_CONST;
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-impl.hpp"
+__DECLARE_GTK_CAST__(GimpData, GIMP_DATA, gimp_data);
+};
+#endif
 
 #endif /* __GIMP_DATA_H__ */

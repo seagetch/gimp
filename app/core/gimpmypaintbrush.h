@@ -72,4 +72,12 @@ gboolean               gimp_mypaint_brush_want_null_motion    (GimpMypaintBrush 
                                                                const GimpCoords *last_coords,
                                                                const GimpCoords *current_coords);
 GimpData              * gimp_mypaint_brush_duplicate         (GimpMypaintBrush *mypaint_brush);
+
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-impl.hpp"
+__DECLARE_GTK_CAST__(GimpMypaintBrush, GIMP_MYPAINT_BRUSH, gimp_mypaint_brush);
+};
+#endif
+
 #endif /* __GIMP_MYPAINT_BRUSH_H__ */

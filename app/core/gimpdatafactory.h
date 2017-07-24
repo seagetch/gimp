@@ -106,5 +106,11 @@ GimpContainer * gimp_data_factory_get_container_obsolete
 Gimp          * gimp_data_factory_get_gimp          (GimpDataFactory  *factory);
 gboolean        gimp_data_factory_has_data_new_func (GimpDataFactory  *factory);
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-impl.hpp"
+__DECLARE_GTK_CAST__(GimpDataFactory, GIMP_DATA_FACTORY, gimp_data_factory);
+};
+#endif
 
 #endif  /*  __GIMP_DATA_FACTORY_H__  */

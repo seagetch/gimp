@@ -98,4 +98,11 @@ void        gimp_int_combo_box_set_sensitivity (GimpIntComboBox        *combo_bo
 
 G_END_DECLS
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-impl.hpp"
+__DECLARE_GTK_CLASS__(GimpIntComboBox, GIMP_TYPE_INT_COMBO_BOX);
+};
+#endif
+
 #endif  /* __GIMP_INT_COMBO_BOX_H__ */

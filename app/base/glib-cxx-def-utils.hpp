@@ -20,13 +20,13 @@ extern "C" {
 namespace GLib {
 
 template<typename T>
-class Definer : public ObjectWrapper<T>
+class Definer : public IObject<T>
 {
-  typedef ObjectWrapper<T> super;
+  typedef IObject<T> super;
 public:
   Definer() : super(NULL) { };
   Definer(T* object) : super(object) { };
-  Definer(const ObjectWrapper<T>& src) : super (src.ptr()) { }
+  Definer(const IObject<T>& src) : super (src.ptr()) { }
   Definer(const Definer& src) : super (src.obj) { }
 
   operator T* () { return (T*)(*(super*)this); };
@@ -127,7 +127,7 @@ inline Definer<T> with(T* obj, F init) {
 }
 
 template<class T, typename F>
-inline Definer<T> with(ObjectWrapper<T> obj, F init) {
+inline Definer<T> with(IObject<T> obj, F init) {
   auto result = Definer<T>(obj.ptr());
   init(result);
   return result;

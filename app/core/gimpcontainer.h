@@ -125,5 +125,11 @@ GQuark       gimp_container_add_handler        (GimpContainer       *container,
 void         gimp_container_remove_handler     (GimpContainer       *container,
                                                 GQuark               id);
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-impl.hpp"
+__DECLARE_GTK_CLASS__(GimpContainer, GIMP_TYPE_CONTAINER);
+};
+#endif
 
 #endif  /* __GIMP_CONTAINER_H__ */

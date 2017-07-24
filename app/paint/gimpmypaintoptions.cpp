@@ -15,6 +15,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "base/glib-cxx-impl.hpp"
+#include "base/glib-cxx-utils.hpp"
+
 extern "C" {
 #include "config.h"
 
@@ -47,7 +50,6 @@ extern "C" {
 extern "C++" {
 #include "core/gimpmypaintbrush-private.hpp"
 #include "base/scopeguard.hpp"
-#include "base/glib-cxx-utils.hpp"
 #include "gimpmypaintoptions-history.hpp"
 } // extern "C++"
 
@@ -90,7 +92,7 @@ static void    gimp_mypaint_options_texture_changed (GObject* object, GimpData* 
 static void    gimp_mypaint_options_prop_texture_updated (GObject* object);
 
 
-G_DEFINE_TYPE (GimpMypaintOptions, gimp_mypaint_options, GIMP_TYPE_TOOL_OPTIONS)
+G_DEFINE_TYPE (GimpMypaintOptions, gimp_mypaint_options, GIMP_TYPE_TOOL_OPTIONS);
 
 #define parent_class gimp_mypaint_options_parent_class
 
@@ -425,8 +427,8 @@ gimp_mypaint_options_mypaint_brush_changed (GObject *object,
 static void
 gimp_mypaint_options_brush_changed (GObject* object, GimpData* data)
 {
-  ObjectWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
-  ObjectWrapper<GimpData> brush = data;
+  auto options = _G(GIMP_MYPAINT_OPTIONS(object));
+  auto brush = _G(data);
 
   if (!options.get("use-gimp-brushmark") || !options.get("brushmark-specified"))
     return;
@@ -443,7 +445,7 @@ gimp_mypaint_options_brush_changed (GObject* object, GimpData* data)
 static void
 gimp_mypaint_options_prop_brushmark_updated (GObject* object)
 {
-  ObjectWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
+  auto options = _G(GIMP_MYPAINT_OPTIONS(object));
 
   if (!gimp_mypaint_options_is_ready(options.ptr()))
     return;
@@ -453,7 +455,7 @@ gimp_mypaint_options_prop_brushmark_updated (GObject* object)
 
   CString brushmark_name = g_strdup(options.get("brushmark-name"));
 
-  ObjectWrapper<GimpBrush> brush = gimp_context_get_brush(GIMP_CONTEXT(options.ptr()));
+  auto brush = _G(gimp_context_get_brush(GIMP_CONTEXT(options.ptr())));
   CString name = g_strdup(brush? (const char*)brush.get("name"): "");
 
   options.freeze();
@@ -463,8 +465,8 @@ gimp_mypaint_options_prop_brushmark_updated (GObject* object)
     // set current brush name as brushmark_name
     options.set("brushmark-name", name.ptr());
   } else if (brushmark_name.ptr() && g_strcmp0(name, brushmark_name) != 0) {
-    ObjectWrapper<GimpContainer> container = gimp_data_factory_get_container(GIMP_CONTEXT(options.ptr())->gimp->brush_factory);
-    ObjectWrapper<GimpBrush> matched_brush = GIMP_BRUSH(gimp_container_get_child_by_name(container, brushmark_name));
+    auto container     = _G(gimp_data_factory_get_container(GIMP_CONTEXT(options.ptr())->gimp->brush_factory));
+    auto matched_brush = _G(GIMP_BRUSH(gimp_container_get_child_by_name(container, brushmark_name)));
     if (matched_brush) {
       gimp_context_set_brush(GIMP_CONTEXT(options.ptr()), matched_brush);
     } else {
@@ -478,8 +480,8 @@ gimp_mypaint_options_prop_brushmark_updated (GObject* object)
 static void
 gimp_mypaint_options_texture_changed (GObject* object, GimpData* data)
 {
-  ObjectWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
-  ObjectWrapper<GimpData> texture = data;
+  auto options = _G(GIMP_MYPAINT_OPTIONS(object));
+  auto texture = _G(data);
 
   if (!options.get("use-gimp-texture") || !options.get("texture-specified"))
     return;
@@ -496,7 +498,7 @@ gimp_mypaint_options_texture_changed (GObject* object, GimpData* data)
 static void
 gimp_mypaint_options_prop_texture_updated (GObject* object)
 {
-  ObjectWrapper<GimpMypaintOptions> options = GIMP_MYPAINT_OPTIONS(object);
+  auto options = _G(GIMP_MYPAINT_OPTIONS(object));
 
   if (!gimp_mypaint_options_is_ready(options.ptr()))
     return;
@@ -506,7 +508,7 @@ gimp_mypaint_options_prop_texture_updated (GObject* object)
 
   CString texture_name = g_strdup(options.get("texture-name"));
 
-  ObjectWrapper<GimpPattern> texture = gimp_context_get_pattern(GIMP_CONTEXT(options.ptr()));
+  auto texture = _G(gimp_context_get_pattern(GIMP_CONTEXT(options.ptr())));
   CString name = g_strdup(texture? (const gchar*)texture.get("name"): "");
 
   options.freeze();
@@ -516,8 +518,8 @@ gimp_mypaint_options_prop_texture_updated (GObject* object)
     // set current pattern name as texture_name
     options.set("texture-name", name.ptr());
   } else if (texture_name.ptr() && g_strcmp0(name, texture_name) != 0) {
-    ObjectWrapper<GimpContainer> container     = gimp_data_factory_get_container(GIMP_CONTEXT(options.ptr())->gimp->pattern_factory);
-    ObjectWrapper<GimpPattern> matched_texture = GIMP_PATTERN(gimp_container_get_child_by_name(container, texture_name));
+    auto container       = _G(gimp_data_factory_get_container(GIMP_CONTEXT(options.ptr())->gimp->pattern_factory));
+    auto matched_texture = _G(GIMP_PATTERN(gimp_container_get_child_by_name(container, texture_name)));
     if (matched_texture) {
       gimp_context_set_pattern(GIMP_CONTEXT(options.ptr()), matched_texture);
     } else {

@@ -11,9 +11,6 @@ extern "C" {
 #include "base/delegators.hpp"
 #include "base/glib-cxx-impl.hpp"
 
-#include <typeinfo>
-#include <utility>
-
 using namespace Delegators;
 
 namespace GLib {
@@ -164,10 +161,7 @@ public:
       callback();
   };
 };
-template<typename T> inline GType g_type() {
-  g_error("Fallback to g_type for %s\n", typeid(T).name());
-  return G_TYPE_INVALID;
-}
+
 template<typename T> inline const T get_value(const GValue& src) {
   g_error("Fallback to get_value for %s\n", typeid(T).name());
   return T();
@@ -343,7 +337,7 @@ public:
   GValue& ref() { return *obj; };
 };
 
-inline Value _G(GValue&& src) { return Value(std::move(src)); }
+inline Value _G(GValue&& src) { return Value(static_cast<GValue&&>(src)); }
 inline Value _G(const GValue& src) { return Value(src); }
 
 class List : public ScopedPointer<GList, void(GList*), g_list_free>
@@ -353,9 +347,9 @@ public:
 };
 
 template<class T>
-class GListWrapper : public List {
+class TypedList : public List {
 public:
-  GListWrapper(GList* list) : List(list) { };
+  TypedList(GList* list) : List(list) { };
   T operator[](int index) {
     return T(g_list_nth_data(obj, index));
   }
@@ -373,34 +367,6 @@ public:
   const GObject* as_object() const { return G_OBJECT(super::obj); }
   void incref() { g_object_ref(as_object()); };
   void decref() { g_object_unref(as_object()); };
-  void freeze() { g_object_freeze_notify(as_object()); };
-  void thaw()   { g_object_thaw_notify(as_object()); };
-
-  struct InvalidIndex { const gchar* name; InvalidIndex(const gchar* n) : name(n) {;}; };
-  
-  Value get(const gchar* prop_name) {
-    GObject* object = as_object();
-    GObjectClass* class_obj = G_OBJECT_GET_CLASS(object);
-    GParamSpec *pspec = g_object_class_find_property (class_obj, prop_name);
-    if (!pspec) throw InvalidIndex(prop_name);
-    GValue result = G_VALUE_INIT;
-    g_value_init(&result, pspec->value_type);
-    g_object_get_property(object, prop_name, &result);
-    return Value(std::move(result));
-  };
-
-  void set(const gchar* prop_name, Value value) {
-    GObject* object = as_object();
-    g_object_set_property(object, prop_name, &value.ref());
-  };
-
-  template<typename Ret, typename... Args>
-  Delegators::Connection* connect(const gchar* event,
-            Delegators::Delegator<Ret, Args...>* delegator,
-            bool after=false) 
-  {
-      return g_signal_connect_delegator (as_object(), event, delegator, after);
-  };
 
   void operator = (T* src) {
     if (!is_null(super::obj))
@@ -411,23 +377,54 @@ public:
 };
 
 template<typename T>
-class ObjectWrapper : public Object<T>
+class IObject : public Object<T>
 {
   typedef Object<T> super;
 public:
-  ObjectWrapper() : super(NULL) { };
-  ObjectWrapper(T* object) : super(object) {
+  IObject() : super(NULL) { };
+  IObject(T* object) : super(object) {
     super::incref();
   };
-  ObjectWrapper(const ObjectWrapper& src) : super (src.obj) {
+  IObject(const IObject& src) : super (src.obj) {
     super::incref();
   }
 
+  void freeze() { g_object_freeze_notify(super::as_object()); };
+  void thaw()   { g_object_thaw_notify(super::as_object()); };
+
+  struct InvalidIndex { const gchar* name; InvalidIndex(const gchar* n) : name(n) {;}; };
+  
+  Value get(const gchar* prop_name) {
+    GObject* object = super::as_object();
+    GObjectClass* class_obj = G_OBJECT_GET_CLASS(object);
+    GParamSpec *pspec = g_object_class_find_property (class_obj, prop_name);
+    if (!pspec) throw InvalidIndex(prop_name);
+    GValue result = G_VALUE_INIT;
+    g_value_init(&result, pspec->value_type);
+    g_object_get_property(object, prop_name, &result);
+    return _G(static_cast<GValue&&>(result));
+  };
+
+  void set(const gchar* prop_name, Value value) {
+    GObject* object = super::as_object();
+    g_object_set_property(object, prop_name, &value.ref());
+  };
+
+  template<typename Ret, typename... Args>
+  Delegators::Connection* connect(const gchar* event,
+            Delegators::Delegator<Ret, Args...>* delegator,
+            bool after=false) 
+  {
+      return g_signal_connect_delegator (super::as_object(), event, delegator, after);
+  };
+
   operator GObject* () { return super::as_object(); };
   operator T* () { return super::ptr(); };
+  operator gpointer() { return super::ptr(); }
   template<typename G>
-  operator G* () { return GLib::cast<G>(super::obj); };
-  operator GTypeInstance* () { return GLib::cast<GTypeInstance>(super::ptr()); }
+  operator G* () { return GLib::Traits<G>::cast(super::obj); };
+  template<typename G>
+  operator const G* () { return GLib::Traits<G>::cast(super::obj); };
   T* operator ->() { return super::ptr(); };
   operator bool() { return super::ptr(); };
 
@@ -496,19 +493,39 @@ public:
 
   template<typename Ret, typename C, typename... Args>
   BoundMethod<Ret, C, Args...> operator []( Ret f(C*, Args...) ) {
-    return BoundMethod<Ret, C, Args...>(GLib::cast<C>(super::obj), f);
+    return BoundMethod<Ret, C, Args...>(GLib::Traits<C>::cast(super::obj), f);
   };
 
   template<typename Ret, typename C, typename... Args>
   ConstBoundMethod<Ret, C, Args...> operator []( Ret f(const C*, Args...) ) {
-    return ConstBoundMethod<Ret, C, Args...>(GLib::cast<C>(super::obj), f);
+    return ConstBoundMethod<Ret, C, Args...>(GLib::Traits<C>::cast(super::obj), f);
+  };
+
+  template<typename Ret, typename... Args>
+  BoundMethod<Ret, T, Args...> operator []( Ret f(T*, Args...) ) {
+    return BoundMethod<Ret, T, Args...>(super::obj, f);
+  };
+
+  template<typename Ret, typename... Args>
+  ConstBoundMethod<Ret, T, Args...> operator []( Ret f(const T*, Args...) ) {
+    return ConstBoundMethod<Ret, T, Args...>(super::obj, f);
+  };
+
+  template<typename Ret, typename... Args>
+  BoundMethod<Ret, void, Args...> operator []( Ret f(gpointer, Args...) ) {
+    return BoundMethod<Ret, void, Args...>(super::obj, f);
+  };
+
+  template<typename Ret, typename... Args>
+  ConstBoundMethod<Ret, void, Args...> operator []( Ret f(gconstpointer, Args...) ) {
+    return ConstBoundMethod<Ret, void, Args...>(super::obj, f);
   };
 
   class GValueAssigner {
-    ObjectWrapper* owner;
+    IObject* owner;
     const gchar* name;
   public:
-    GValueAssigner(ObjectWrapper* o, const gchar* n) : owner(o), name(n) { };
+    GValueAssigner(IObject* o, const gchar* n) : owner(o), name(n) { };
     void operator =(const Value&& value) { owner->set(name, value); }
   };
 //  GValueAssigner operator [](const gchar* name) { return GValueAssigner(this); }
@@ -520,8 +537,8 @@ public:
 };
 
 template<class T>
-inline ObjectWrapper<T> _G(T* obj) {
-  return ObjectWrapper<T>(obj);
+inline IObject<T> _G(T* obj) {
+  return IObject<T>(obj);
 }
 
 template<typename W, typename T>

@@ -138,7 +138,7 @@ MypaintPopupPrivate::update_history ()
     GtkTreeIter iter;
     GimpMypaintBrush* brush = history->get_brush(i);
     if (brush) {
-      ObjectWrapper<GimpMypaintBrush> brush_obj = brush;
+      auto brush_obj = _G(brush);
       CString name = g_strdup(brush_obj.get("name"));
       g_print("%d: brush %s\n", i, name.ptr());
       GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(brush->p);

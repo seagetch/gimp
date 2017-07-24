@@ -64,4 +64,11 @@ GtkWidget * gimp_frame_new       (const gchar *label);
 
 G_END_DECLS
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-impl.hpp"
+__DECLARE_GTK_CLASS__(GimpFrame, GIMP_TYPE_FRAME);
+};
+#endif
+
 #endif /* __GIMP_FRAME_H__ */

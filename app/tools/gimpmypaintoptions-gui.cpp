@@ -172,29 +172,29 @@ MypaintDetailOptionsPopupPrivate::brush_name_edited (GObject*  object)
 void
 MypaintDetailOptionsPopupPrivate::brush_save_clicked (GObject*  object)
 {
-  ObjectWrapper<GimpDataFactory>  factory       = context->gimp->mypaint_brush_factory;
-  ObjectWrapper<GimpMypaintBrush> mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
+  auto factory       = _G(context->gimp->mypaint_brush_factory);
+  auto mypaint_brush = _G(GIMP_MYPAINT_OPTIONS(context)->brush);
 
   brush_name_edited(G_OBJECT(brush_name_entry));
-  CString new_brush_name = g_strdup(mypaint_brush.get("name"));
+  CString new_brush_name = g_strdup(mypaint_brush["name"]);
 
-  ObjectWrapper<GimpContainer> container = gimp_data_factory_get_container(factory);
-  ObjectWrapper<GimpBrush> matched_brush = GIMP_BRUSH(gimp_container_get_child_by_name(container, new_brush_name));
+  auto container = _G(gimp_data_factory_get_container(factory));
+  auto matched_brush = _G(GIMP_BRUSH(gimp_container_get_child_by_name(container, new_brush_name)));
   if (matched_brush) {
     gimp_data_factory_data_delete(factory, GIMP_DATA(matched_brush.ptr()),TRUE, NULL);
   }
-  GimpData* brush_copied = gimp_mypaint_brush_duplicate(GIMP_MYPAINT_BRUSH(mypaint_brush.ptr()));
-  gimp_container_add(container, GIMP_OBJECT(brush_copied));
-  const gchar* name = gimp_object_get_name(GIMP_OBJECT(brush_copied));
-  g_print("GimpObject::name = %s  <--> GObject.name = %s\n", name, (const gchar*)ObjectWrapper<GimpData>(brush_copied).get("name"));
+  auto brush_copied = _G(gimp_mypaint_brush_duplicate(mypaint_brush) );
+  container [gimp_container_add] (GIMP_OBJECT(brush_copied.ptr()));
+  const gchar* name = brush_copied [gimp_object_get_name] ();
+  g_print("GimpObject::name = %s  <--> GObject.name = %s\n", name, (gchar*)brush_copied ["name"]);
   gimp_data_factory_data_save_single (factory, brush_copied, NULL);
-  gimp_context_set_mypaint_brush (context, GIMP_MYPAINT_BRUSH(brush_copied));
+  gimp_context_set_mypaint_brush (context, GIMP_MYPAINT_BRUSH(brush_copied.ptr()));
 }
 
 void
 MypaintDetailOptionsPopupPrivate::brush_delete_clicked (GObject*  object)
 {
-  ObjectWrapper<GimpMypaintBrush> mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
+  auto mypaint_brush = _G(GIMP_MYPAINT_OPTIONS(context)->brush);
 
   if ( ((GimpMypaintBrushPrivate*)mypaint_brush->p)->is_dirty() ) {
     return;
@@ -202,10 +202,10 @@ MypaintDetailOptionsPopupPrivate::brush_delete_clicked (GObject*  object)
 
   CString new_brush_name = g_strdup(mypaint_brush.get("name"));
 
-  ObjectWrapper<GimpDataFactory>  factory       = context->gimp->mypaint_brush_factory;
+  auto factory       = _G(context->gimp->mypaint_brush_factory);
+  auto container     = _G(gimp_data_factory_get_container(factory));
+  auto matched_brush = _G(GIMP_BRUSH(gimp_container_get_child_by_name(container, new_brush_name)));
 
-  ObjectWrapper<GimpContainer> container = gimp_data_factory_get_container(factory);
-  ObjectWrapper<GimpBrush> matched_brush = GIMP_BRUSH(gimp_container_get_child_by_name(container, new_brush_name));
   if (matched_brush) {
     gimp_data_factory_data_delete(factory, GIMP_DATA(matched_brush.ptr()),TRUE, NULL);
   }
@@ -279,7 +279,7 @@ MypaintDetailOptionsPopupPrivate::create (GObject* object,
   gtk_widget_show (brush_name_entry);
   gtk_box_pack_start(GTK_BOX(hbox), GTK_WIDGET(brush_name_entry), TRUE, TRUE, 0);
 
-  ObjectWrapper<GimpMypaintBrush> mypaint_brush = GIMP_MYPAINT_OPTIONS(context)->brush;
+  auto    mypaint_brush = _G(GIMP_MYPAINT_OPTIONS(context)->brush);
   CString name = g_strdup(mypaint_brush.get("name"));
   gtk_entry_set_text(GTK_ENTRY(brush_name_entry), name);
 

@@ -71,7 +71,7 @@ extern "C" {
 
 
 namespace GLib {
-typedef ClassHolder<GimpLayerTraits, GimpFilterLayer, GimpFilterLayerClass> ClassDef;
+typedef ClassHolder<Traits<GimpLayer>, GimpFilterLayer> ClassDef;
 
 class ProcedureRunner {
   GimpProcedure* procedure;
@@ -220,7 +220,7 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   FilterLayer(GObject* o) : ImplBase(o) {}
   virtual ~FilterLayer();
 
-  static void class_init(ClassDef::Class* klass);
+  static void class_init(GLib::ClassDef::Class* klass);
   template<typename IFaceClass>
   static void iface_init(IFaceClass* klass);
 
@@ -354,7 +354,7 @@ gimp_image_undo_push_filter_layer_suspend (GimpImage      *image,
   g_return_val_if_fail (Class::Traits::is_instance(group), NULL);
   g_return_val_if_fail (gimp_item_is_attached (GIMP_ITEM (group)), NULL);
 
-  return gimp_image_undo_push (image, FilterLayerUndoTraits::get_type(),
+  return gimp_image_undo_push (image, Traits<GimpFilterLayerUndo>::get_type(),
                                GIMP_UNDO_GROUP_LAYER_SUSPEND, undo_desc,
                                GimpDirtyMask(GIMP_DIRTY_ITEM | GIMP_DIRTY_DRAWABLE),
                                "item",  group,
@@ -370,7 +370,7 @@ gimp_image_undo_push_filter_layer_resume (GimpImage      *image,
   g_return_val_if_fail (Class::Traits::is_instance(group), NULL);
   g_return_val_if_fail (gimp_item_is_attached (GIMP_ITEM (group)), NULL);
 
-  return gimp_image_undo_push (image, FilterLayerUndoTraits::get_type(),
+  return gimp_image_undo_push (image, Traits<GimpFilterLayerUndo>::get_type(),
                                GIMP_UNDO_GROUP_LAYER_RESUME, undo_desc,
                                GimpDirtyMask(GIMP_DIRTY_ITEM | GIMP_DIRTY_DRAWABLE),
                                "item",  group,
@@ -386,12 +386,14 @@ gimp_image_undo_push_filter_layer_convert (GimpImage      *image,
   g_return_val_if_fail (Class::Traits::is_instance(group), NULL);
   g_return_val_if_fail (gimp_item_is_attached (GIMP_ITEM (group)), NULL);
 
-  return gimp_image_undo_push (image, FilterLayerUndoTraits::get_type(),
+  return gimp_image_undo_push (image, Traits<GimpFilterLayerUndo>::get_type(),
                                GIMP_UNDO_GROUP_LAYER_CONVERT, undo_desc,
                                GimpDirtyMask(GIMP_DIRTY_ITEM | GIMP_DIRTY_DRAWABLE),
                                "item", group,
                                NULL);
 }
+
+#define bind_to_class(klass, method, impl)  Class::__(&klass->method).bind<&impl::method>()
 
 void FilterLayer::class_init(ClassDef::Class *klass)
 {
@@ -403,23 +405,24 @@ void FilterLayer::class_init(ClassDef::Class *klass)
   GimpItemClass     *item_class        = GIMP_ITEM_CLASS (klass);
   GimpDrawableClass *drawable_class    = GIMP_DRAWABLE_CLASS (klass);
 
-  Class::__(&object_class->set_property    ).bind<&Impl::set_property>();
-  Class::__(&object_class->get_property    ).bind<&Impl::get_property>();
-  Class::__(&object_class->finalize        ).bind<&Impl::finalize>();
-  Class::__(&object_class->constructed     ).bind<&Impl::constructed>();
-  Class::__(&gimp_object_class->get_memsize).bind<&Impl::get_memsize>();
+  bind_to_class (object_class, set_property, Impl);
+  bind_to_class (object_class, get_property, Impl);
+  bind_to_class (object_class, finalize, Impl);
+  bind_to_class (object_class, constructed, Impl);
+  bind_to_class (gimp_object_class, get_memsize, Impl);
 
   viewable_class->default_stock_id = "gtk-directory";
-  Class::__(&viewable_class->get_size       ).bind<&Impl::get_size>();
+  bind_to_class (viewable_class, get_size, Impl);
 
-  Class::__(&item_class->duplicate          ).bind<&Impl::duplicate>();
-//  F::__(&item_class->convert            ).bind<&Impl::convert>();
-  Class::__(&item_class->translate          ).bind<&Impl::translate>();
-  Class::__(&item_class->scale              ).bind<&Impl::scale>();
-  Class::__(&item_class->resize             ).bind<&Impl::resize>();
-  Class::__(&item_class->flip               ).bind<&Impl::flip>();
-  Class::__(&item_class->rotate             ).bind<&Impl::rotate>();
-  Class::__(&item_class->transform          ).bind<&Impl::transform>();
+  bind_to_class (item_class, duplicate, Impl);
+  bind_to_class (item_class, translate, Impl);
+  bind_to_class (item_class, scale, Impl);
+  bind_to_class (item_class, resize, Impl);
+  bind_to_class (item_class, flip, Impl);
+  bind_to_class (item_class, rotate, Impl);
+  bind_to_class (item_class, transform, Impl);
+  bind_to_class (drawable_class, project_region, Impl);
+  bind_to_class (drawable_class, estimate_memsize, Impl);
 
   item_class->default_name         = _("Filter Layer");
   item_class->rename_desc          = C_("undo-type", "Rename Filter Layer");
@@ -429,9 +432,7 @@ void FilterLayer::class_init(ClassDef::Class *klass)
   item_class->flip_desc            = C_("undo-type", "Flip Filter Layer");
   item_class->rotate_desc          = C_("undo-type", "Rotate Filter Layer");
   item_class->transform_desc       = C_("undo-type", "Transform Filter Layer");
-  Class::__(&drawable_class->project_region  ).bind<&Impl::project_region>();
-
-  Class::__(&drawable_class->estimate_memsize).bind<&Impl::estimate_memsize>();
+  //  F::__(&item_class->convert            ).bind<&Impl::convert>();
 
   ImplBase::class_init<ClassDef::Class, FilterLayer>(klass);
 }
@@ -806,10 +807,16 @@ void GLib::FilterLayer::set_procedure(const char* proc_name, GValueArray* args)
   runner     = r;
 
   auto self = _G(g_object);
-  gint width  = self [gimp_item_get_width] ();
-  gint height = self [gimp_item_get_height] ();
+  gint width        = self [gimp_item_get_width] ();
+  gint height       = self [gimp_item_get_height] ();
+  gint parent_off_x = 0;
+  gint parent_off_y = 0;
 
-  invalidate_area(0, 0, width, height);
+  auto parent = _G( _G(g_object) [gimp_viewable_get_parent] () );
+  if (parent)
+    parent [gimp_item_get_offset] (&parent_off_x, &parent_off_y);
+
+  invalidate_area(parent_off_x, parent_off_y, width, height);
   image [gimp_image_invalidate] (0, 0, width, height, 0);
   image [gimp_image_flush] ();
 }
@@ -938,33 +945,7 @@ void GLib::FilterLayer::update_size () {
   gint                   height     = 1;
   gboolean               first      = TRUE;
   GList                 *list;
-#if 0
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (children));
-       list;
-       list = g_list_next (list))
-    {
-      GimpItem *child = GIMP_ITEM(list->data);
 
-      if (first)
-        {
-          x      = gimp_item_get_offset_x (child);
-          y      = gimp_item_get_offset_y (child);
-          width  = gimp_item_get_width    (child);
-          height = gimp_item_get_height   (child);
-
-          first = FALSE;
-        }
-      else
-        {
-          gimp_rectangle_union (x, y, width, height,
-                                gimp_item_get_offset_x (child),
-                                gimp_item_get_offset_y (child),
-                                gimp_item_get_width    (child),
-                                gimp_item_get_height   (child),
-                                &x, &y, &width, &height);
-        }
-    }
-#endif
   g_print ("%s (%s) %d, %d (%d, %d)\n",
            G_STRFUNC, gimp_object_get_name (g_object),
            x, y, width, height);
@@ -990,19 +971,7 @@ void GLib::FilterLayer::update_size () {
           reallocate_height = height;
 
           gimp_projectable_structure_changed (GIMP_PROJECTABLE (g_object));
-#if 0
-          tiles = gimp_projection_get_tiles_at_level (projection,
-                                                      0, NULL);
 
-          reallocate_width  = 0;
-          reallocate_height = 0;
-
-          gimp_drawable_set_tiles_full (GIMP_DRAWABLE (g_object),
-                                        FALSE, NULL,
-                                        tiles,
-                                        gimp_drawable_type (GIMP_DRAWABLE (g_object)),
-                                        x, y);
-#endif
         }
       else
         {
@@ -1163,64 +1132,7 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *stack,
 
   if (item_index < self_index)
     return;
-#if 0
-  gint parent_off_x = 0;
-  gint parent_off_y = 0;
-  GimpViewable* parent = gimp_viewable_get_parent(GIMP_VIEWABLE(g_object));
-  if (parent)
-    gimp_item_get_offset(GIMP_ITEM(parent), &parent_off_x, &parent_off_y);
-  GimpItem* self_item = GIMP_ITEM(g_object);
-  GimpImage* image = gimp_item_get_image(self_item);
-  gint item_width  = gimp_item_get_width (self_item);
-  gint item_height = gimp_item_get_height(self_item);
-  gint offset_x    = gimp_item_get_offset_x (self_item);
-  gint offset_y    = gimp_item_get_offset_y (self_item);
-  gint image_width = gimp_image_get_width(image);
-  gint image_height= gimp_image_get_height(image);
 
-  gint       x1           = x - parent_off_x,
-             x2           = x1 + width,
-             y1           = y - parent_off_y,
-             y2           = y1 + height;
-  if (x2 < offset_x - parent_off_x ||
-      y2 < offset_y - parent_off_y ||
-      x1 > offset_x - parent_off_x + item_width ||
-      y1 > offset_y - parent_off_y + item_height )
-    return;
-
-  x1 = MAX((x1 / TILE_WIDTH ) * TILE_WIDTH,  offset_x - parent_off_x);
-  y1 = MAX((y1 / TILE_HEIGHT) * TILE_HEIGHT, offset_y - parent_off_y);
-  x2 = MIN(image_width  - parent_off_x,
-           MIN(offset_x - parent_off_x + item_width,
-               ((x2 + TILE_WIDTH  - 1) / TILE_WIDTH ) * TILE_WIDTH ));
-  y2 = MIN(image_height - parent_off_y,
-           MIN(offset_y - parent_off_y + item_height,
-               ((y2 + TILE_HEIGHT - 1) / TILE_HEIGHT) * TILE_HEIGHT));
-
-  for (int x3 = x1; x3 < x2; x3 += TILE_WIDTH - (x3 % TILE_WIDTH)) {
-    for (int y3 = y1; y3 < y2; y3 += TILE_HEIGHT - (y3 % TILE_HEIGHT)) {
-      gint w = MIN(TILE_WIDTH  - (x3 % TILE_WIDTH),  x2 - x3);
-      gint h = MIN(TILE_HEIGHT - (y3 % TILE_HEIGHT), y2 - y3);
-
-      bool found = false;
-      for (GList* list = updates; list; list = g_list_next(list)) {
-        auto rect = (Rectangle*)list->data;
-        if (rect->x == x3 && rect->y == y3 &&
-            rect->width == w && rect->height == h) {
-          found = true;
-          break;
-        }
-      }
-
-      if (!found) {
-//        g_print ("FilterLayer::on_stack_update ::::: added ==> %d, %d +(%d, %d)\n",
-//                 x3, y3, w, h);
-//        g_print ("                                   parent-offset:%d,%d, item-offset:%d,%d\n", parent_off_x, parent_off_y, offset_x, offset_y);
-        updates = g_list_append(updates, new Rectangle(x3, y3, w, h));
-      }
-    }
-  }
-#endif
   invalidate_area(x, y, width, height);
 }
 

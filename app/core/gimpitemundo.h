@@ -47,5 +47,11 @@ struct _GimpItemUndoClass
 
 GType   gimp_item_undo_get_type (void) G_GNUC_CONST;
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-impl.hpp"
+__DECLARE_GTK_CAST__(GimpItemUndo, GIMP_ITEM_UNDO, gimp_item_undo);
+};
+#endif
 
 #endif /* __GIMP_ITEM_UNDO_H__ */

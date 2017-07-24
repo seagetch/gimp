@@ -78,7 +78,7 @@ using namespace GLib;
 
 class MypaintBrushWriter {
 private:
-  GLib::ObjectWrapper<GimpMypaintBrush> source;
+  GLib::IObject<GimpMypaintBrush> source;
   gint64            version;
   
   void write_file (GError **error);
@@ -132,15 +132,15 @@ MypaintBrushWriter::save_brush (GError      **error)
 
   CString dirname       = g_path_get_dirname (filename);
   CString basename      = g_path_get_basename (filename);
-  CString brushname(g_strndup(basename.ptr(), strlen(basename.ptr()) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION)));
-  CString icon_filename(g_strconcat(brushname.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION, NULL));
-  CString icon_fullpath(g_build_filename(dirname.ptr(), icon_filename.ptr(), NULL));
+  CString brushname     = g_strndup(basename.ptr(), strlen(basename.ptr()) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION));
+  CString icon_filename = g_strconcat(brushname.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION, NULL);
+  CString icon_fullpath = g_build_filename(dirname.ptr(), icon_filename.ptr(), NULL);
 
 //  ScopedPointer<FILE, int(FILE*), fclose> file(g_fopen (filename, "wb"));
-  ObjectWrapper<JsonGenerator> generator = json_generator_new();
+  auto generator = _G(json_generator_new());
   JsonNode* root = build_json();
-  json_generator_set_root(generator, root);
-  json_generator_to_file(generator, filename, NULL);
+  generator [json_generator_set_root] (root);
+  generator [json_generator_to_file] (filename, NULL);
   json_node_unref(root);
 
   g_print ("Write Icon: %s\n", icon_fullpath.ptr());
@@ -170,7 +170,7 @@ JsonNode*
 MypaintBrushWriter::build_json()
 {
   g_return_val_if_fail(source.ptr() != NULL, NULL);
-  ObjectWrapper<JsonBuilder> builder = json_builder_new();
+  IObject<JsonBuilder> builder = json_builder_new();
   json_builder_begin_object(builder);
   
   const gchar* filename = gimp_data_get_filename (GIMP_DATA(source.ptr()));

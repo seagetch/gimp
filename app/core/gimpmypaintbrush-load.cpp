@@ -77,7 +77,7 @@ using namespace GLib;
 
 class MyPaintBrushReader {
   private:
-  GLib::ObjectWrapper<GimpMypaintBrush> result;
+  GLib::IObject<GimpMypaintBrush> result;
   GHashTable       *raw_pair;
   gint64            version;
   
@@ -224,9 +224,8 @@ MyPaintBrushReader::dump ()
 bool
 MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
 {
-  ObjectWrapper<JsonParser> parser = json_parser_new();
+  auto parser = _G(json_parser_new());
   JsonNode* root;
-  ObjectWrapper<JsonReader> reader;
   GError* jerror = NULL;
   json_parser_load_from_file(parser, filename, &jerror);
   *error = NULL;
@@ -235,7 +234,7 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
     return false;
   }
   root = json_parser_get_root(parser);
-  reader = json_reader_new(root);
+  auto reader = _G(json_reader_new(root));
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
 
   //version

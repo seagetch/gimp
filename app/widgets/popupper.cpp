@@ -7,6 +7,7 @@
 
 
 #include "base/delegators.hpp"
+#include "base/glib-cxx-bridge.hpp"
 #include "base/glib-cxx-impl.hpp"
 #include "base/glib-cxx-utils.hpp"
 
@@ -77,8 +78,8 @@ public:
 
 namespace GLib {
 
-typedef Traits<GtkWindow, GtkWindowClass, gtk_window_get_type> ParentTraits;
-typedef ClassHolder<ParentTraits, GimpPopup, GimpPopupClass> ClassDef;
+template<> auto g_class_type(const GimpPopup* obj) { return (GimpPopupClass*)NULL; }
+typedef ClassHolder<Traits<GtkWindow>, GimpPopup> ClassDef;
 
 struct Popup : virtual public ImplBase, virtual public PopupInterface
 {
@@ -576,7 +577,7 @@ void decorate_popupper(GtkWidget* widget, CreateViewDelegator* delegator)
 ///////////////////////////////////////////////////////////////////////////////
 class ToolbarPopupViewCreator {
 private:
-  ObjectWrapper<GObject>              config;
+  IObject<GObject>              config;
   GimpPopupCreateViewCallbackExt create_view_full_handler;
   GimpPopupCreateViewCallback    create_view_handler;
   gpointer                       data;
