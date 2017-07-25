@@ -334,6 +334,7 @@ private:
                                         gint               y,
                                         gint               width,
                                         gint               height);
+  void                invalidate_layer ();
 };
 
 
@@ -806,19 +807,7 @@ void GLib::FilterLayer::set_procedure(const char* proc_name, GValueArray* args)
 
   runner     = r;
 
-  auto self = _G(g_object);
-  gint width        = self [gimp_item_get_width] ();
-  gint height       = self [gimp_item_get_height] ();
-  gint parent_off_x = 0;
-  gint parent_off_y = 0;
-
-  auto parent = _G( _G(g_object) [gimp_viewable_get_parent] () );
-  if (parent)
-    parent [gimp_item_get_offset] (&parent_off_x, &parent_off_y);
-
-  invalidate_area(parent_off_x, parent_off_y, width, height);
-  image [gimp_image_invalidate] (0, 0, width, height, 0);
-  image [gimp_image_flush] ();
+  invalidate_layer();
 }
 
 const char* GLib::FilterLayer::get_procedure()
@@ -969,7 +958,7 @@ void GLib::FilterLayer::update_size () {
            */
           reallocate_width  = width;
           reallocate_height = height;
-
+          invalidate_layer();
           gimp_projectable_structure_changed (GIMP_PROJECTABLE (g_object));
 
         }
@@ -982,13 +971,13 @@ void GLib::FilterLayer::update_size () {
            *  in a way that happens to leave the group's width and
            *  height the same
            */
+          invalidate_layer();
           gimp_projectable_invalidate (GIMP_PROJECTABLE (g_object),
                                        x, y, width, height);
 
           /*  see comment in gimp_filter_layer_stack_update() below  */
 //          gimp_pickable_flush (GIMP_PICKABLE (projection));
         }
-
     }
 }
 
@@ -1056,9 +1045,9 @@ gboolean GLib::FilterLayer::message(Gimp*                gimp,
 }
 
 void GLib::FilterLayer::invalidate_area (gint               x,
-                                           gint               y,
-                                           gint               width,
-                                           gint               height)
+                                         gint               y,
+                                         gint               width,
+                                         gint               height)
 {
   gint parent_off_x = 0;
   gint parent_off_y = 0;
@@ -1116,6 +1105,21 @@ void GLib::FilterLayer::invalidate_area (gint               x,
       }
     }
   }
+}
+
+void GLib::FilterLayer::invalidate_layer ()
+{
+  auto self         = _G(g_object);
+  auto image        = _G( gimp_item_get_image(GIMP_ITEM(g_object)) );
+  gint width        = self [gimp_item_get_width] ();
+  gint height       = self [gimp_item_get_height] ();
+  gint offset_x     = self [gimp_item_get_offset_x] ();
+  gint offset_y     = self [gimp_item_get_offset_y] ();
+
+  invalidate_area(offset_x, offset_y, width, height);
+
+  image [gimp_image_invalidate] (offset_x, offset_y, width, height, 0);
+  image [gimp_image_flush] ();
 }
 
 void GLib::FilterLayer::on_stack_update (GimpDrawableStack *stack,
