@@ -450,14 +450,14 @@ template<>
 void FilterLayer::iface_init<GimpProgressInterface>(GimpProgressInterface*iface)
 {
   typedef GLib::FilterLayer Impl;
-  Class::__(&iface->start     ).bind<&Impl::start>();
-  Class::__(&iface->end       ).bind<&Impl::end>();
-  Class::__(&iface->is_active ).bind<&Impl::is_active>();
-  Class::__(&iface->set_text  ).bind<&Impl::set_text>();
-  Class::__(&iface->set_value ).bind<&Impl::set_value>();
-  Class::__(&iface->get_value ).bind<&Impl::get_value>();
-  Class::__(&iface->pulse     ).bind<&Impl::pulse>();
-  Class::__(&iface->message   ).bind<&Impl::message>();
+  bind_to_class (iface, start, Impl);
+  bind_to_class (iface, end, Impl);
+  bind_to_class (iface, is_active, Impl);
+  bind_to_class (iface, set_text, Impl);
+  bind_to_class (iface, set_value, Impl);
+  bind_to_class (iface, get_value, Impl);
+  bind_to_class (iface, pulse, Impl);
+  bind_to_class (iface, message, Impl);
 }
 
 }; // namespace

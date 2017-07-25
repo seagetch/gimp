@@ -64,7 +64,7 @@ extern "C++"{                                                                   
   namespace GLib {                                                                                   \
     template<> inline GType g_type<klass>() { return _g_type_; }                                     \
     template<> inline auto g_class_type(const klass* obj) {                                          \
-      return G_TYPE_INSTANCE_GET_CLASS(obj, get_type<klass>(), klass##Class);                        \
+      return G_TYPE_INSTANCE_GET_CLASS(obj, g_type<klass>(), klass##Class);                          \
     }                                                                                                \
   };                                                                                                 \
 };
@@ -73,7 +73,7 @@ extern "C++"{                                                                   
   namespace GLib {                                                                                   \
     template<> inline GType g_type<klass>() { return cast_lower##_get_type(); }                      \
     template<> inline auto g_class_type(const klass* obj) {                                          \
-      return G_TYPE_INSTANCE_GET_CLASS(obj, get_type<klass>(), klass##Iface);                        \
+      return G_TYPE_INSTANCE_GET_CLASS(obj, g_type<klass>(), klass##Iface);                          \
     }                                                                                                \
   };                                                                                                 \
 };
