@@ -539,7 +539,7 @@ public:
     return result;
   }
 
-  Popupper(GtkWidget* widget, CreateViewDelegator* delegator) {
+  Popupper(GtkObject* widget, CreateViewDelegator* delegator) {
     g_print("Popupper::Popupper\n");
     create_view_delegator = delegator;
     cancel_handler = NULL;
@@ -568,7 +568,7 @@ public:
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-void decorate_popupper(GtkWidget* widget, CreateViewDelegator* delegator)
+void decorate_popupper(GtkObject* widget, CreateViewDelegator* delegator)
 {
   Popupper* popupper = new Popupper(widget, delegator);
   decorator(widget, popupper);

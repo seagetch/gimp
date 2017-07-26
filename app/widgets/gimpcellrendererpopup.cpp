@@ -987,8 +987,7 @@ public:
 };
 //////////////////////////////////////////////////////////////////////////////////////////////
 namespace GLib {
-typedef Traits<GtkCellRenderer, GtkCellRendererClass, gtk_cell_renderer_get_type> ParentTraits;
-typedef ClassHolder<ParentTraits, GimpCellRendererPopup> ClassDef;
+typedef ClassHolder<Traits<GtkCellRenderer>, GimpCellRendererPopup> ClassDef;
 
 struct CellRendererPopup : virtual public ImplBase, virtual public CellRendererPopupInterface
 {
@@ -1091,14 +1090,13 @@ void GLib::CellRendererPopup::init ()
 {
   stock_id   = g_strdup(GIMP_STOCK_LAYER_MENU);
   stock_size = GTK_ICON_SIZE_MENU;
-  g_print("CellRendererPopup::init\n");
 }
 
 void GLib::CellRendererPopup::constructed ()
 {
   PopupWindow* window_decor = new PopupWindow;
-  decorator(GTK_WIDGET(g_object), window_decor);
-  decorate_popupper(GTK_WIDGET(g_object), Delegators::delegator(window_decor, &PopupWindow::create_view));
+  decorator(g_object, window_decor);
+  decorate_popupper(GTK_OBJECT(g_object), Delegators::delegator(window_decor, &PopupWindow::create_view));
 }
 
 void GLib::CellRendererPopup::finalize ()
@@ -1322,4 +1320,3 @@ gimp_cell_renderer_popup_clicked(GimpCellRendererPopup* popup, GObject *widget, 
 {
   CellRendererPopupInterface::cast(popup)->clicked(widget, path, cell_area);
 }
-
