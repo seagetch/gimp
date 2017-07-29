@@ -7,7 +7,7 @@ extern "C" {
 #include <gdk/gdk.h>
 #include <gtk/gtk.h>
 }
-#include "base/glib-cxx-impl.hpp"
+#include "base/glib-cxx-types.hpp"
 
 __DECLARE_GTK_CAST__(GtkTreeStore, GTK_TREE_STORE, gtk_tree_store);
 __DECLARE_GTK_CAST__(GtkWidget, GTK_WIDGET, gtk_widget);

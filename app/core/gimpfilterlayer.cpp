@@ -71,8 +71,6 @@ extern "C" {
 
 
 namespace GLib {
-typedef ClassHolder<Traits<GimpLayer>, GimpFilterLayer> ClassDef;
-
 class ProcedureRunner {
   GimpProcedure* procedure;
   GimpProgress*  progress;
@@ -220,7 +218,7 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   FilterLayer(GObject* o) : ImplBase(o) {}
   virtual ~FilterLayer();
 
-  static void class_init(GLib::ClassDef::Class* klass);
+  static void class_init(Traits<GimpFilterLayer>::Class* klass);
   template<typename IFaceClass>
   static void iface_init(IFaceClass* klass);
 
@@ -339,12 +337,10 @@ private:
 
 
 extern const char gimp_filter_layer_name[] = "GimpFilterLayer";
-typedef ClassDefinition<gimp_filter_layer_name,
-                        ClassDef,
-                        FilterLayer,
-                        Traits<GimpProgress, GimpProgressInterface, gimp_progress_interface_get_type>,
-                        Traits<GimpPickable, GimpPickableInterface, gimp_pickable_interface_get_type> >
-                        Class;
+using Class = GClass<gimp_filter_layer_name,
+                     UseCStructs<GimpLayer, GimpFilterLayer>,
+                     FilterLayer,
+                     GimpProgress, GimpPickable>;
 
 static GimpUndo *
 gimp_image_undo_push_filter_layer_suspend (GimpImage      *image,
@@ -394,9 +390,10 @@ gimp_image_undo_push_filter_layer_convert (GimpImage      *image,
                                NULL);
 }
 
+
 #define bind_to_class(klass, method, impl)  Class::__(&klass->method).bind<&impl::method>()
 
-void FilterLayer::class_init(ClassDef::Class *klass)
+void FilterLayer::class_init(Traits<GimpFilterLayer>::Class *klass)
 {
   typedef FilterLayer Impl;
   g_print("FilterLayer::class_init\n");
@@ -435,7 +432,7 @@ void FilterLayer::class_init(ClassDef::Class *klass)
   item_class->transform_desc       = C_("undo-type", "Transform Filter Layer");
   //  F::__(&item_class->convert            ).bind<&Impl::convert>();
 
-  ImplBase::class_init<ClassDef::Class, FilterLayer>(klass);
+  ImplBase::class_init<Traits<GimpFilterLayer>::Class, FilterLayer>(klass);
 }
 
 template<>
@@ -448,7 +445,7 @@ void FilterLayer::iface_init<GimpPickableInterface>(GimpPickableInterface* iface
 }
 
 template<>
-void FilterLayer::iface_init<GimpProgressInterface>(GimpProgressInterface*iface)
+void FilterLayer::iface_init<GimpProgressInterface>(GimpProgressInterface* iface)
 {
   typedef GLib::FilterLayer Impl;
   bind_to_class (iface, start, Impl);
@@ -1196,6 +1193,8 @@ FilterLayerInterface::new_instance (GimpImage            *image,
 
 FilterLayerInterface* FilterLayerInterface::cast(gpointer obj)
 {
+  if (!is_instance(obj))
+    return NULL;
   return dynamic_cast<FilterLayerInterface*>(GLib::Class::get_private(obj));
 }
 

@@ -76,6 +76,11 @@ gboolean        gimp_pickable_pick_color         (GimpPickable *pickable,
                                                   gdouble       average_radius,
                                                   GimpRGB      *color,
                                                   gint         *color_index);
-
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-types.hpp"
+__DECLARE_GIMP_INTERFACE__(GimpPickable, GIMP_TYPE_PICKABLE);
+};
+#endif
 
 #endif  /* __GIMP_PICKABLE_H__ */

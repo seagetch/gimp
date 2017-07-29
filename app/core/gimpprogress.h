@@ -91,5 +91,11 @@ void           gimp_progress_update_and_flush   (gint                 min,
                                                  gint                 current,
                                                  gpointer             data);
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-types.hpp"
+__DECLARE_GIMP_INTERFACE__(GimpProgress, GIMP_TYPE_PROGRESS);
+};
+#endif
 
 #endif /* __GIMP_PROGRESS_H__ */

@@ -44,7 +44,7 @@ inline auto g_class_type(const T* obj) {
 template <typename _Instance,
           typename _Class = typename std::remove_reference<decltype(*GLib::g_class_type<_Instance>(NULL))>::type,
           GType (*g_type)() = g_type<_Instance> >
-class Traits {
+class TraitsBase {
 public:
   typedef _Instance Instance;
   typedef _Class Class;
@@ -56,6 +56,8 @@ public:
   static Class*    get_class(gpointer obj) { return G_TYPE_INSTANCE_GET_CLASS(obj, get_type(), Class); }
 };
 
+template <typename _Instance>
+class Traits : public TraitsBase<_Instance> { };
 
 };
 
@@ -74,6 +76,15 @@ extern "C++"{                                                                   
     template<> inline GType g_type<klass>() { return cast_lower##_get_type(); }                      \
     template<> inline auto g_class_type(const klass* obj) {                                          \
       return G_TYPE_INSTANCE_GET_CLASS(obj, g_type<klass>(), klass##Iface);                          \
+    }                                                                                                \
+  };                                                                                                 \
+};
+#define __DECLARE_GIMP_INTERFACE__(klass, _g_type_)                                                  \
+extern "C++"{                                                                                        \
+  namespace GLib {                                                                                   \
+    template<> inline GType g_type<klass>() { return _g_type_; }                                     \
+    template<> inline auto g_class_type(const klass* obj) {                                          \
+      return G_TYPE_INSTANCE_GET_CLASS(obj, g_type<klass>(), klass##Interface);                      \
     }                                                                                                \
   };                                                                                                 \
 };

@@ -25,8 +25,7 @@
 extern "C" {
 #endif
 
-#include "core/gimpgrouplayer.h"
-
+#include "gimplayer.h"
 
 #define GIMP_TYPE_FILTER_LAYER            (gimp_filter_layer_get_type ())
 #define GIMP_FILTER_LAYER(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), GIMP_TYPE_FILTER_LAYER, GimpFilterLayer))
@@ -35,16 +34,14 @@ extern "C" {
 #define GIMP_IS_FILTER_LAYER_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), GIMP_TYPE_FILTER_LAYER))
 #define GIMP_FILTER_LAYER_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), GIMP_TYPE_FILTER_LAYER, GimpFilterLayerClass))
 
-typedef struct _GimpFilterLayerClass GimpFilterLayerClass;
-
 struct _GimpFilterLayer
 {
   GimpLayer  parent_instance;
 };
 
-struct _GimpFilterLayerClass
+struct GimpFilterLayerClass
 {
-  GimpLayerClass  parent_class;
+  GimpLayerClass parent_class;
 };
 
 GType            gimp_filter_layer_get_type       (void) G_GNUC_CONST;
@@ -84,8 +81,11 @@ public:
   virtual void                    set_procedure_arg(int index, GValue value) = 0;
 };
 
-#include "base/glib-cxx-impl.hpp"
-__DECLARE_GTK_CAST__(GimpFilterLayer, GIMP_FILTER_LAYER, gimp_filter_layer);
+#include "base/glib-cxx-types.hpp"
+namespace GLib {
+template<> inline GType g_type<GimpFilterLayer>() { return gimp_filter_layer_get_type(); }
+template<> inline auto g_class_type<GimpFilterLayer>(const GimpFilterLayer* instance) { return GIMP_FILTER_LAYER_GET_CLASS(instance); }
+};
 #endif
 
 #endif /* __GIMP_FILTER_LAYER_H__ */

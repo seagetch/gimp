@@ -29,6 +29,10 @@ class CString : public ScopedPointer<gchar, void(gpointer), g_free>
 public:
   CString() : ScopedPointer<gchar, void(gpointer), g_free>() {};
   CString(gchar* str) : ScopedPointer<gchar, void(gpointer), g_free>(str) {};
+  CString(CString&& src) : ScopedPointer<gchar, void(gpointer), g_free>(src.obj) {
+    src.obj = NULL;
+  }
+  CString(const CString& src) : ScopedPointer<gchar, void(gpointer), g_free>(g_strdup(src.obj)) { }
   CString& operator =(gchar* str) {
     if (obj == str)
       return *this;
@@ -71,6 +75,38 @@ public:
 
 };
 
+class List : public ScopedPointer<GList, void(GList*), g_list_free>
+{
+public:
+  List(GList* list) : ScopedPointer<GList, void(GList*), g_list_free>(list) {};
+  List(List&& src) : ScopedPointer<GList, void(GList*), g_list_free>(src.obj) {
+    src.obj = NULL;
+  };
+  List(const List& src) : ScopedPointer<GList, void(GList*), g_list_free>(g_list_copy(src.obj)) { }
+};
+
+template<class T>
+class TypedList : public List {
+  template<typename F>
+  static void foreach_callback(gpointer data, gpointer user) {
+    F* func = reinterpret_cast<F*>(user);
+    (*func)(T(data));
+  };
+public:
+  TypedList(GList* list) : List(list) {};
+  TypedList(TypedList&& src) : List(src) { };
+  TypedList(const TypedList& src) : List(src) { };
+  T operator[](int index) {
+    return T(g_list_nth_data(obj, index));
+  }
+  template<typename F>
+  void each(F each_func) {
+    g_list_foreach (obj, foreach_callback<F>, &each_func);
+  }
+};
+template<typename Data>
+inline auto _G(GList* list) { return static_cast<TypedList<Data>&&>(TypedList<Data>(list)); }
+
 template<typename Key, typename Data>
 class HashTable : public ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>
 {
@@ -96,6 +132,8 @@ public:
     g_hash_table_foreach (obj, foreach_callback<F>, &each_func);
   }
 };
+template<typename Key, typename Data>
+inline auto _G(GHashTable* hashtable) { return static_cast<HashTable<Key, Data>&&>(HashTable<Key, Data>(hashtable)); }
 
 class Regex : public ScopedPointer<GRegex, void(GRegex*), g_regex_unref>
 {
@@ -164,10 +202,12 @@ public:
 };
 
 template<typename T> inline const T get_value(const GValue& src) {
+  T::__this_should_generate_error_on_compilation;
   g_error("Fallback to get_value for %s\n", typeid(T).name());
   return T();
 }
 template<typename T> inline void set_value(GValue& src, T value) {
+  T::__this_should_generate_error_on_compilation;
   g_error("Fallback to set_value for %s\n", typeid(T).name());
 }
 
@@ -341,20 +381,6 @@ public:
 inline Value _G(GValue&& src) { return Value(static_cast<GValue&&>(src)); }
 inline Value _G(const GValue& src) { return Value(src); }
 
-class List : public ScopedPointer<GList, void(GList*), g_list_free>
-{
-public:
-  List(GList* list) : ScopedPointer<GList, void(GList*), g_list_free>(list) {};
-};
-
-template<class T>
-class TypedList : public List {
-public:
-  TypedList(GList* list) : List(list) { };
-  T operator[](int index) {
-    return T(g_list_nth_data(obj, index));
-  }
-};
 
 template<class T>
 class Object : public ScopedPointer<T, void(gpointer), g_object_unref>

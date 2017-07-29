@@ -58,9 +58,9 @@ struct FilterLayerUndo : virtual public ImplBase
 };
 
 extern const char gimp_filter_layer_undo_name[] = "GimpFilterLayerUndo";
-typedef GLib::ClassDefinition<gimp_filter_layer_undo_name,
-                              GLib::ClassHolder<GLib::Traits<GimpItemUndo>, GimpFilterLayerUndo >,
-                              GLib::FilterLayerUndo> Class;
+using Class = GLib::GClass<gimp_filter_layer_undo_name,
+                           GLib::UseCStructs<GimpItemUndo, GimpFilterLayerUndo >,
+                           GLib::FilterLayerUndo>;
 
 GType gimp_filter_layer_undo_get_type() {
   return Class::get_type();

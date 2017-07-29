@@ -79,7 +79,7 @@ public:
 namespace GLib {
 
 template<> auto g_class_type(const GimpPopup* obj) { return (GimpPopupClass*)NULL; }
-typedef ClassHolder<Traits<GtkWindow>, GimpPopup> ClassDef;
+typedef UseCStructs<GtkWindow, GimpPopup> CStructs;
 
 struct Popup : virtual public ImplBase, virtual public PopupInterface
 {
@@ -96,7 +96,7 @@ struct Popup : virtual public ImplBase, virtual public PopupInterface
     GtkWidget           *view;
 public:
   Popup(GObject* obj) : ImplBase(obj) {};
-  static void      class_init           (ClassDef::Class *klass);
+  static void      class_init           (CStructs::Class *klass);
 
   virtual void     init                 ();
   virtual void     finalize             ();
@@ -126,12 +126,12 @@ public:
 guint Popup::popup_signals[LAST_SIGNAL];
 
 extern const char gimp_popup_name[] = "GimpPopup2";
-typedef ClassDefinition<gimp_popup_name, ClassDef, Popup> Class;
+typedef GClass<gimp_popup_name, CStructs, Popup> Class;
 
 
 #define bind_to_class(klass, method, impl)  Class::__(&klass->method).bind<&impl::method>()
 
-void GLib::Popup::class_init(ClassDef::Class *klass)
+void GLib::Popup::class_init(CStructs::Class *klass)
 {
   GObjectClass   *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);

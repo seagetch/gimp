@@ -223,9 +223,9 @@ class PopupWindow {
     if (!proc_args)
       proc_args = plug_in_proc [gimp_procedure_get_arguments] ();
 
-    List children( filter_edit [gtk_container_get_children] () );
-    for(GList* iter = children.ptr(); iter != NULL; iter = g_list_next(iter))
-      gtk_widget_destroy(GTK_WIDGET(iter->data));
+    _G<GtkWidget*>(filter_edit [gtk_container_get_children] ()).each([](auto widget) {
+      _G(widget) [gtk_widget_destroy] ();
+    });
 
     with (filter_edit, [&](auto vbox) {
       GtkRequisition req = { 300, -1 };
@@ -302,7 +302,7 @@ class PopupWindow {
             frames.insert(g_strdup(group), frame.ptr());
           }
 
-          TypedList<GtkWidget*> children = frame [gtk_container_get_children] ();
+          auto children = _G<GtkWidget*>( frame [gtk_container_get_children] () );
           box = children[0];
           arg_blurb = group_pattern.replace(arg_blurb, "");
         });
@@ -987,7 +987,7 @@ public:
 };
 //////////////////////////////////////////////////////////////////////////////////////////////
 namespace GLib {
-typedef ClassHolder<Traits<GtkCellRenderer>, GimpCellRendererPopup> ClassDef;
+typedef UseCStructs<GtkCellRenderer, GimpCellRendererPopup> CStructs;
 
 struct CellRendererPopup : virtual public ImplBase, virtual public CellRendererPopupInterface
 {
@@ -1011,7 +1011,7 @@ struct CellRendererPopup : virtual public ImplBase, virtual public CellRendererP
   CellRendererPopup(GObject* o) : ImplBase(o) {}
   virtual ~CellRendererPopup() {};
 
-  static void class_init(ClassDef::Class* klass);
+  static void class_init(CStructs::Class* klass);
 
   // Inherited methods
   virtual void            init         ();
@@ -1047,11 +1047,11 @@ struct CellRendererPopup : virtual public ImplBase, virtual public CellRendererP
 guint CellRendererPopup::signals[CellRendererPopup::LAST_SIGNAL] = {0};
 
 extern const char gimp_cell_renderer_popup_name[] = "GimpCellRendererPopup";
-typedef ClassDefinition<gimp_cell_renderer_popup_name, ClassDef, CellRendererPopup> Class;
+using Class = GClass<gimp_cell_renderer_popup_name, CStructs, CellRendererPopup>;
 
 #define bind_to_class(klass, method, impl)  Class::__(&klass->method).bind<&impl::method>()
 
-void CellRendererPopup::class_init(ClassDef::Class *klass)
+void CellRendererPopup::class_init(CStructs::Class *klass)
 {
   GObjectClass         *object_class = G_OBJECT_CLASS (klass);
   GtkCellRendererClass *cell_class   = GTK_CELL_RENDERER_CLASS (klass);
@@ -1081,7 +1081,7 @@ void CellRendererPopup::class_init(ClassDef::Class *klass)
                                                      (GParamFlags)(GIMP_PARAM_READWRITE | G_PARAM_CONSTRUCT)));
 
 
-  ImplBase::class_init<ClassDef::Class, CellRendererPopup>(klass);
+  ImplBase::class_init<CStructs::Class, CellRendererPopup>(klass);
 }
 
 }; // namespace

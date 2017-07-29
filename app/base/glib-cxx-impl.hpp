@@ -23,10 +23,10 @@
 
 namespace GLib {
 
-template <typename _ParentTraits>
-class ClassExtension {
+template <typename _Parent>
+class DerivedFrom {
 public:
-  typedef _ParentTraits ParentTraits;
+  using ParentTraits = Traits<_Parent>;
   struct Instance {
     typename ParentTraits::Instance parent_instance;
   };
@@ -35,23 +35,22 @@ public:
   };
 };
 
-template <typename _ParentTraits, typename _Instance>//, typename _Class = typename std::remove_reference<decltype(*GLib::g_class_type<_Instance>(NULL))>::type>
-class ClassHolder {
+template <typename _Parent, typename _Instance>//, typename _Class = typename std::remove_reference<decltype(*GLib::g_class_type<_Instance>(NULL))>::type>
+class UseCStructs {
 public:
-  using ParentTraits = _ParentTraits;
+  using ParentTraits = Traits<_Parent>;
   using Instance     = _Instance;
   using Class        = typename std::remove_reference<decltype(*GLib::g_class_type<_Instance>(NULL))>::type;
 };
 
 
-
-template <char const* name, typename Extension, typename Impl, typename... IFaces>
-class ClassDefinition {
+template <char const* name, typename CStructs, typename Impl, typename... IFaces>
+class GClass {
 public:
   static GType get_type();
-  typedef typename Extension::Instance Instance;
-  typedef typename Extension::Class Class;
-  typedef GLib::Traits<Instance, Class, &ClassDefinition::get_type> Traits;
+  typedef typename CStructs::Instance Instance;
+  typedef typename CStructs::Class Class;
+  typedef GLib::TraitsBase<Instance, Class, &GClass::get_type> Traits;
 
   static void     instance_init     (Instance        *obj) {
     void* ptr = get_private(obj);
@@ -102,6 +101,11 @@ public:
       *store = reinterpret_cast<Ret (*)(G*, Args...)>(func);
     }
 
+    template<typename R2, typename G2>
+    void operator = (R2 (*func)(G2*, Args...)) {
+      bind(func);
+    }
+
     void clear() { *store = NULL; }
   };
   template<typename Ret, typename G, typename... Args>
@@ -112,8 +116,9 @@ private:
   template <typename D>
   static void add_interface_iter(GType) {};
 
-  template<typename D, typename IFaceTraits, typename... Rest>
+  template<typename D, typename IFace, typename... Rest>
   static void add_interface_iter(GType g_define_type_id) {
+    using IFaceTraits = GLib::Traits<IFace>;
     void (*init)(typename IFaceTraits::Class* klass);
     init = &Impl::iface_init;
     const GInterfaceInfo g_implement_interface_info = {
@@ -125,33 +130,27 @@ private:
 };
 
 
-template <char const* name, typename Extension, typename Impl, typename... IFaces>
-gpointer
-ClassDefinition<name, Extension, Impl, IFaces...>::parent_class = NULL;
+template <char const* name, typename CStructs, typename Impl, typename... IFaces>
+gpointer GClass<name, CStructs, Impl, IFaces...>::parent_class = NULL;
 
-template <char const* name, typename Extension, typename Impl, typename... IFaces>
-gint
-ClassDefinition<name, Extension, Impl, IFaces...>::private_offset = 0;
+template <char const* name, typename CStructs, typename Impl, typename... IFaces>
+gint GClass<name, CStructs, Impl, IFaces...>::private_offset = 0;
 
-template <char const* name, typename Extension, typename Impl, typename... IFaces>
-GType ClassDefinition<name, Extension, Impl, IFaces...>::get_type (void) {
+template <char const* name, typename CStructs, typename Impl, typename... IFaces>
+inline GType GClass<name, CStructs, Impl, IFaces...>::get_type (void) {
   static volatile gsize g_define_type_id__volatile = 0;
   if (g_once_init_enter (&g_define_type_id__volatile)) {
     GType g_define_type_id =
-        g_type_register_static_simple (Extension::ParentTraits::get_type(),
+        g_type_register_static_simple (CStructs::ParentTraits::get_type(),
                                        g_intern_static_string (name),
                                        sizeof (Class),
                                        (GClassInitFunc) class_intern_init,
                                        sizeof (Instance),
-                                       (GInstanceInitFunc) &ClassDefinition<name, Extension, Impl, IFaces...>::instance_init,
+                                       (GInstanceInitFunc) &GClass<name, CStructs, Impl, IFaces...>::instance_init,
                                        (GTypeFlags) 0/*flags*/);
-    { /* custom code follows */
-      //#define G_IMPLEMENT_INTERFACE(TYPE_IFACE, iface_init)
-      add_interface_iter<__Dummy, IFaces...>(g_define_type_id);
-      //#define G_ADD_PRIVATE(TypeName)
-      private_offset =
-        g_type_add_instance_private (g_define_type_id, sizeof (Impl));
-    }
+    add_interface_iter<__Dummy, IFaces...>(g_define_type_id);
+    private_offset = g_type_add_instance_private (g_define_type_id, sizeof (Impl));
+
     g_once_init_leave (&g_define_type_id__volatile, g_define_type_id);
   }
   return g_define_type_id__volatile;
