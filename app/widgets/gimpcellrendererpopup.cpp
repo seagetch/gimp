@@ -796,7 +796,14 @@ public:
           hbox.pack_start(true, true, 0) (
             gimp_spin_scale_new (
               with (gtk_adjustment_new (100.0, 0.0, 100.0, 1.0, 10.0, 0.0),[&](auto it) {
-  //              it.connect("value-changed", delegator(this, &PopupWindow::));
+
+                it.connect("value-changed", delegator(std::function<void(GtkWidget*)>([this](GtkWidget* o) {
+                  g_print("Update opacity: %d\n", (gint)_G(o)["value"]);
+                  this->layer [gimp_layer_set_opacity] ((gdouble)_G(o)["value"] / 100.0, TRUE);
+                  auto image = _G( this->layer [gimp_item_get_image] () );
+                  image [gimp_image_flush] ();
+                })));
+
               }),
               _("Opacity"), 1),
             [](auto it) {
@@ -806,7 +813,9 @@ public:
             /*  Lock alpha toggle  */
             gtk_toggle_button_new(), [&] (auto it) {
               it [gtk_widget_show] ();
-    //          it.connect("toggled", delegator(this, &PopupWindow::));
+              it.connect("toggled", delegator(std::function<void(GtkWidget*)>([this](GtkWidget* o) {
+                this->layer [gimp_layer_set_lock_alpha] ( _G(o) [gtk_toggle_button_get_active] (), TRUE );
+              })));
               it [gimp_help_set_help_data] ( _("Lock alpha channel"), GIMP_HELP_LAYER_DIALOG_LOCK_ALPHA_BUTTON);
 
               auto icon_size = GTK_ICON_SIZE_BUTTON;
@@ -845,6 +854,8 @@ public:
                 gtk_tree_model_get (model, &iter, VALUE, &effect, -1);
                 if (effect > -1)
                   layer [gimp_layer_set_mode] (effect, TRUE);
+                auto image = _G( layer [gimp_item_get_image] () );
+                image [gimp_image_flush] ();
               })));
 
               // initial cursor placement.
