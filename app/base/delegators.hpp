@@ -3,6 +3,7 @@
 
 
 #include <glib-object.h>
+#include <utility>
 #include <functional>
 
 namespace Delegators {
@@ -177,7 +178,7 @@ private:
   Function   func_ref;
 
 public:
-  CXXFunctionDelegator(Function f) : func_ref(f) {};
+  CXXFunctionDelegator(Function&& f) : func_ref(f) {};
   void emit(Args... args) {
     if (func_ref)
       func_ref(args...);
@@ -201,9 +202,9 @@ delegator(Ret (*f)(Args...))
 
 template<typename Ret, typename... Args>
 inline CXXFunctionDelegator<Ret, Args...>* 
-delegator(std::function<Ret (Args...)> f)
+delegator(std::function<Ret (Args...)>&& f)
 {
-  return new CXXFunctionDelegator<Ret, Args...>(f);
+  return new CXXFunctionDelegator<Ret, Args...>(std::move(f));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
