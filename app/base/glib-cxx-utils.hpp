@@ -7,6 +7,7 @@ extern "C" {
 #include "core/core-types.h"
 #include "core/gimpparamspecs.h"
 }
+#include <iterator>
 
 #include "base/scopeguard.hpp"
 #include "base/delegators.hpp"
@@ -86,16 +87,17 @@ public:
 };
 
 template<class T>
-class TypedList : public List {
+class IList {
+  GList* obj;
   template<typename F>
   static void foreach_callback(gpointer data, gpointer user) {
     F* func = reinterpret_cast<F*>(user);
     (*func)(T(data));
   };
 public:
-  TypedList(GList* list) : List(list) {};
-  TypedList(TypedList&& src) : List(src) { };
-  TypedList(const TypedList& src) : List(src) { };
+  IList(GList* list) : obj(list) { };
+  IList(IList&& src) : obj(src.obj) { src.obj = NULL; };
+  IList(const IList& src) : obj(src.obj) { };
   T operator[](int index) {
     return T(g_list_nth_data(obj, index));
   }
@@ -103,10 +105,30 @@ public:
   void each(F each_func) {
     g_list_foreach (obj, foreach_callback<F>, &each_func);
   }
+  class Iterator {
+    GList* iter;
+  public:
+    Iterator() : iter(NULL) { }
+    Iterator(GList* list) : iter(list) { }
+    Iterator(Iterator&& src) : iter(src.iter) { src.iter = NULL; };
+    Iterator(const Iterator& src) : iter(src.iter) { };
+    bool operator == (const Iterator& left) { return iter == left.iter; }
+    bool operator != (const Iterator& left) { return !(*this == left); }
+    Iterator& operator ++() { iter = g_list_next(iter); return *this; }
+    operator T() { return reinterpret_cast<T>(iter->data); }
+    auto operator *() { return T(*this); }
+  };
+  Iterator begin() const { return Iterator(obj); }
+  Iterator end() const { return Iterator(); }
 };
 template<typename Data>
-inline auto _G(GList* list) { return static_cast<TypedList<Data>&&>(TypedList<Data>(list)); }
-
+inline auto _G(GList* list) { return static_cast<IList<Data>&&>(IList<Data>(list)); }
+};
+namespace std {
+template<typename T> auto begin(const GLib::IList<T>& list) { return list.begin(); }
+template<typename T> auto end(const GLib::IList<T>& list) { return list.end(); }
+};
+namespace GLib {
 template<typename Key, typename Data>
 class HashTable : public ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>
 {
