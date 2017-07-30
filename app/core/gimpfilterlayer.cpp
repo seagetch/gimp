@@ -790,6 +790,7 @@ void GLib::FilterLayer::set_procedure(const char* proc_name, GValueArray* args)
   if (runner) {
     delete runner;
     runner = NULL;
+    g_print("FilterLayer::set_procedure(%s), Cleanup eixsting runner.\n", proc_name);
   }
   auto           image   = _G( gimp_item_get_image(GIMP_ITEM(g_object)) );
   Gimp*          gimp    = image->gimp;
@@ -817,7 +818,7 @@ const char* GLib::FilterLayer::get_procedure()
 GValueArray* GLib::FilterLayer::get_procedure_args()
 {
   if (runner)
-    runner->get_args();
+    return runner->get_args();
   return  NULL;
 }
 

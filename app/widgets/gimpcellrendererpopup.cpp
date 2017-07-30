@@ -104,7 +104,6 @@ class PopupWindow {
       pixbuf = _G(proc) [gimp_plug_in_procedure_get_pixbuf] ();
       gtk_image_new_from_stock (stock_id, GTK_ICON_SIZE_BUTTON);
     }
-    g_print("PopupWindow::add_proc: desc=%s, pixbuf=%p, stock=%s, proc=%s\n", desc, pixbuf, stock_id, proc? GIMP_PROCEDURE(proc)->original_name: "(null)");
     store [gtk_tree_store_append] (iter, parent);
     gtk_tree_store_set (GTK_TREE_STORE(store.ptr()), iter, VALUE, proc? GIMP_PROCEDURE(proc)->original_name: "", LABEL, _(desc), PIXBUF, pixbuf, -1);
   };
@@ -168,10 +167,9 @@ class PopupWindow {
       if (!use_image || !use_drawable) continue;
 
       GimpPlugInProcedure* plugin_proc = GIMP_PLUG_IN_PROCEDURE(proc);
-      for (GList* l = plugin_proc->menu_paths; l; l = g_list_next(l)) {
-        gchar* path = (gchar*)l->data;
-
-        if (is_allowed_proc_path(path)) {
+      auto menu_paths = _G<gchar*>(plugin_proc->menu_paths);
+      for (auto path: menu_paths) {
+        if (path && is_allowed_proc_path(path)) {
 
           // Registers procedure for filter selection list.
           StringList path_list    = g_strsplit(path, "/", -1);
@@ -218,14 +216,23 @@ class PopupWindow {
 
     if (strcmp(f->get_procedure(), proc_name) == 0) {
       proc_args = f->get_procedure_args();
+      g_print("%s->get_procedure_args() = \n", proc_name);
+      if (proc_args) {
+        for (int i = 0; i < proc_args->n_values; i ++) {
+          Value v = proc_args->values[i];
+          g_print("  type=%s\n", g_type_name(v.type()));
+        }
+      } else {
+        g_print("  proc_args = NULL\n");
+      }
     } else
       proc_args = NULL;
     if (!proc_args)
       proc_args = plug_in_proc [gimp_procedure_get_arguments] ();
 
-    _G<GtkWidget*>(filter_edit [gtk_container_get_children] ()).each([](auto widget) {
+    for (auto widget : _G<GtkWidget*>(filter_edit [gtk_container_get_children] ())) {
       _G(widget) [gtk_widget_destroy] ();
-    });
+    };
 
     with (filter_edit, [&](auto vbox) {
       GtkRequisition req = { 300, -1 };
@@ -433,12 +440,13 @@ class PopupWindow {
           }
           int          max_value      = spec_min_value;
           int          min_value      = spec_max_value;
-          gint         cur_value      = spec_default;
+          gint         cur_value      = g_value_get_int(&proc_args->values[j]);
+          /*
           if (is_int32)
             cur_value = _G(proc_args->values[j]);
           else
             cur_value = _G(proc_args->values[j]);
-
+          */
           regex_case(arg_blurb).
 
             when(ENUM_PATTERN, [&] (auto matched) {
@@ -714,7 +722,6 @@ class PopupWindow {
 
     auto group = [&](GtkTreeIter* parent, const gchar* label, auto f) {
       GtkTreeIter iter;
-      g_print("PopupWindow::add_mode: desc=%s, value=%d\n", label, -1);
       store [gtk_tree_store_append] (&iter, parent);
       gtk_tree_store_set (GTK_TREE_STORE(store.ptr()), &iter, VALUE, -1, LABEL, label, PIXBUF, NULL, -1);
       f(&iter);
@@ -1224,8 +1231,6 @@ GLib::CellRendererPopup::render (GdkWindow            *window,
   toggle_rect.y      += cell_area->y + ypad;
   toggle_rect.width  -= xpad * 2;
   toggle_rect.height -= ypad * 2;
-
-  g_print("rect: %d,%d+%d,%d\n", toggle_rect.x, toggle_rect.y, toggle_rect.width, toggle_rect.height);
 
   if (toggle_rect.width <= 0 || toggle_rect.height <= 0)
     return;
