@@ -109,7 +109,8 @@ typedef enum
   PROP_LOCK_CONTENT       = 28,
   PROP_GROUP_ITEM         = 29,
   PROP_ITEM_PATH          = 30,
-  PROP_GROUP_ITEM_FLAGS   = 31
+  PROP_GROUP_ITEM_FLAGS   = 31,
+  PROP_FILTER_SPEC        = 32
 } PropType;
 
 /**
@@ -170,6 +171,21 @@ typedef enum
 {
   XCF_GROUP_ITEM_EXPANDED      = 1
 } XcfGroupItemFlagsType;
+
+typedef enum
+{
+  XCF_FILTER_END = PROP_END,
+  XCF_FILTER_UNSUPPORTED = 1,
+  XCF_FILTER_INT32,
+  XCF_FILTER_INT16,
+  XCF_FILTER_INT8,
+  XCF_FILTER_FLOAT,
+  XCF_FILTER_INT8ARRAY,
+  XCF_FILTER_FLOATARRAY,
+  XCF_FILTER_STRING,
+  XCF_FILTER_RGB,
+  XCF_FILTER_DRAWABLE
+} XcfFilterArgType;
 
 /**
 * XcfInfo:

@@ -53,10 +53,16 @@ GimpLayer      * gimp_filter_layer_new            (GimpImage            *image,
                                                    GimpLayerModeEffects  mode);
 GimpProjection * gimp_filter_layer_get_projection (GimpFilterLayer *group);
 
-void             gimp_filter_layer_suspend_resize (GimpFilterLayer *group,
+void             gimp_filter_layer_suspend_resize (GimpFilterLayer *layer,
                                                   gboolean        push_undo);
-void             gimp_filter_layer_resume_resize  (GimpFilterLayer *group,
+void             gimp_filter_layer_resume_resize  (GimpFilterLayer *layer,
                                                   gboolean        push_undo);
+const gchar*     gimp_filter_layer_get_procedure  (GimpFilterLayer* layer);
+GValueArray*     gimp_filter_layer_get_procedure_args  (GimpFilterLayer* layer);
+void             gimp_filter_layer_set_procedure  (GimpFilterLayer* layer,
+                                                   const gchar* proc_name,
+                                                   GValueArray* args);
+
 #ifdef __cplusplus
 }
 

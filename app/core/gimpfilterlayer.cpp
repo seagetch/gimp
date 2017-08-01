@@ -1208,23 +1208,47 @@ GType gimp_filter_layer_get_type() {
   return GLib::Class::Traits::get_type();
 }
 
-GimpLayer      * gimp_filter_layer_new            (GimpImage            *image,
-                                                   gint                  width,
-                                                   gint                  height,
-                                                   const gchar          *name,
-                                                   gdouble               opacity,
-                                                   GimpLayerModeEffects  mode)
+GimpLayer*
+gimp_filter_layer_new            (GimpImage            *image,
+                                  gint                  width,
+                                  gint                  height,
+                                  const gchar          *name,
+                                  gdouble               opacity,
+                                  GimpLayerModeEffects  mode)
 {
   return FilterLayerInterface::new_instance(image, width, height, name, opacity, mode);
 }
 
-void             gimp_filter_layer_suspend_resize (GimpFilterLayer *group,
-                                                  gboolean        push_undo)
+void
+gimp_filter_layer_suspend_resize (GimpFilterLayer *layer,
+                                  gboolean        push_undo)
 {
-  FilterLayerInterface::cast(group)->suspend_resize(push_undo);
+  FilterLayerInterface::cast(layer)->suspend_resize(push_undo);
 }
-void             gimp_filter_layer_resume_resize  (GimpFilterLayer *group,
-                                                  gboolean        push_undo)
+
+void
+gimp_filter_layer_resume_resize  (GimpFilterLayer *layer,
+                                  gboolean        push_undo)
 {
-  FilterLayerInterface::cast(group)->resume_resize(push_undo);
+  FilterLayerInterface::cast(layer)->resume_resize(push_undo);
+}
+
+const gchar*
+gimp_filter_layer_get_procedure  (GimpFilterLayer *layer)
+{
+  return FilterLayerInterface::cast(layer)->get_procedure ();
+}
+
+GValueArray*
+gimp_filter_layer_get_procedure_args  (GimpFilterLayer *layer)
+{
+  return FilterLayerInterface::cast(layer)->get_procedure_args ();
+}
+
+void
+gimp_filter_layer_set_procedure  (GimpFilterLayer* layer,
+                                  const gchar* proc_name,
+                                  GValueArray* args)
+{
+  FilterLayerInterface::cast(layer)->set_procedure (proc_name, args);
 }

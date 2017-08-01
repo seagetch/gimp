@@ -53,6 +53,7 @@
 #include "core/gimpprogress.h"
 #include "core/gimpselection.h"
 #include "core/gimptemplate.h"
+#include "core/gimpfilterlayer.h"
 
 #include "text/gimptextlayer.h"
 #include "text/gimptextlayer-xcf.h"
@@ -131,6 +132,7 @@ static gboolean        xcf_skip_unknown_prop  (XcfInfo      *info,
                                                gsize         size);
 static gboolean        xcf_find_layer_offset_table (XcfInfo *info,
                                                     glong    offset);
+static gboolean        xcf_load_filter_specs  (XcfInfo *info, GValueArray* value);
 
 
 #define xcf_progress_update(info) G_STMT_START  \
@@ -388,6 +390,8 @@ xcf_load_image (Gimp     *gimp,
   if (num_successful_elements == 0)
     goto hard_error;
 
+  g_print("xcf_load[%x], failed \n", info->cp);
+
   gimp_message_literal (gimp, G_OBJECT (info->progress), GIMP_MESSAGE_WARNING,
 			_("This XCF file is corrupt!  I have loaded as much "
 			  "of it as I can, but it is incomplete."));
@@ -399,6 +403,7 @@ xcf_load_image (Gimp     *gimp,
   return image;
 
  hard_error:
+ g_print("xcf_load[%x], hard error \n", info->cp);
   g_set_error_literal (error, G_FILE_ERROR, G_FILE_ERROR_FAILED,
 		       _("This XCF file is corrupt!  I could not even "
 			 "salvage any partial image data from it."));
@@ -450,6 +455,7 @@ xcf_load_image_props (XcfInfo   *info,
       switch (prop_type)
         {
         case PROP_END:
+          g_print("xcf_load[%x]: image: PROP_END\n", info->cp);
           return TRUE;
 
         case PROP_COLORMAP:
@@ -735,6 +741,7 @@ xcf_load_image_props (XcfInfo   *info,
           break;
 
         default:
+          g_print("xcf_load[%x] UNKNOWN\n");
 #ifdef GIMP_UNSTABLE
           g_printerr ("unexpected/unknown image property: %d (skipping)\n",
                       prop_type);
@@ -770,6 +777,7 @@ xcf_load_layer_props (XcfInfo    *info,
       switch (prop_type)
         {
         case PROP_END:
+          g_print("xcf_load[%x]: layer_props: PROP_END\n", info->cp - 8);
           return TRUE;
 
         case PROP_ACTIVE_LAYER:
@@ -965,6 +973,59 @@ xcf_load_layer_props (XcfInfo    *info,
           info->cp += xcf_read_int32 (info->fp, group_layer_flags, 1);
           break;
 
+        case PROP_FILTER_SPEC:
+          {
+            GimpLayer*           filter;
+            gboolean             is_active_layer;
+            gchar*               filter_name;
+            GValueArray*         proc_args = NULL;
+            gint                 width, height;
+            gchar*               layer_name = gimp_object_get_name (*layer);
+            gdouble              opacity;
+            GimpLayerModeEffects mode;
+
+            g_print("xcf_load_props: PROP_FILTER_SPEC\n");
+
+            is_active_layer = (*layer == info->active_layer);
+            if (is_active_layer)
+              info->active_layer = NULL;
+
+            if (*layer == info->floating_sel)
+              info->floating_sel = NULL;
+
+            width      = gimp_item_get_width (GIMP_ITEM(*layer));
+            height     = gimp_item_get_height (GIMP_ITEM(*layer));
+            opacity    = gimp_layer_get_opacity (GIMP_LAYER(*layer));
+            mode       = gimp_layer_get_mode(GIMP_LAYER(*layer));
+            filter     = gimp_filter_layer_new (image, width, height, layer_name, opacity, mode);
+
+            GIMP_DRAWABLE (filter)->private->type =
+              gimp_drawable_type (GIMP_DRAWABLE (*layer));
+
+            g_object_ref_sink (*layer);
+            g_object_unref (*layer);
+            *layer = filter;
+
+            if (is_active_layer)
+              info->active_layer = *layer;
+
+            /* Don't restore info->floating_sel because group layers
+             * can't be floating selections
+             */
+            /* ToDo: Read filter name / arguments */
+            proc_args = g_value_array_new(0);
+
+            g_print("xcf_load[%x] filter_name", info->cp);
+            info->cp += xcf_read_string (info->fp, &filter_name, 1);
+            g_print("=%s\n", filter_name);
+
+            if ( !xcf_load_filter_specs (info, proc_args) )
+              return FALSE;
+            gimp_filter_layer_set_procedure (GIMP_FILTER_LAYER(filter), filter_name, proc_args);
+            g_value_array_free(proc_args);
+          }
+          break;
+
         default:
 #ifdef GIMP_UNSTABLE
           g_printerr ("unexpected/unknown layer property: %d (skipping)\n",
@@ -1135,6 +1196,145 @@ xcf_load_channel_props (XcfInfo      *info,
 }
 
 static gboolean
+xcf_load_filter_specs(XcfInfo *info,
+                      GValueArray* args)
+{
+  XcfFilterArgType value_type = 0;
+  guint32 size;
+  gboolean loop = TRUE;
+  guint base = 0;
+  int index;
+
+  g_print("xcf_load_filter_specs\n");
+
+  for (index = 0; loop; index ++) {
+    GValue* value = g_new0(GValue, 1);
+    GValue default_value = G_VALUE_INIT;
+    *value = default_value;
+
+    g_print("xcf_load[%x] value_type", info->cp);
+    if (G_UNLIKELY (xcf_read_int32 (info->fp, &value_type, 1) != 4))
+      return FALSE;
+    info->cp += 4;
+
+    base = info->cp;
+
+    if (G_UNLIKELY (xcf_read_int32 (info->fp, &size, 1) != 4))
+      return FALSE;
+    info->cp += 4;
+
+    g_print("=%d\n", value_type);
+
+    switch (value_type) {
+    case XCF_FILTER_END:
+      g_print("%d:", index);
+      g_print("XCF_FILTER_END\n");
+      loop = FALSE;
+      break;
+    case XCF_FILTER_UNSUPPORTED:
+      g_print("%d:", index);
+      g_print("XCF_FILTER_UNSUPPORTED\n");
+      g_value_array_append(args, value);
+      break;
+    case XCF_FILTER_INT32:
+      g_print("%d:", index);
+      g_print("XCF_FILTER_INT32\n");
+    {
+      guint32 read_value;
+      info->cp += xcf_read_int32(info->fp, &read_value, 1);
+      g_value_init(value, G_TYPE_INT);
+      g_value_set_int(value, read_value);
+      g_value_array_append(args, value);
+    }
+      break;
+    case XCF_FILTER_INT16:
+      g_print("%d:", index);
+      g_print("XCF_FILTER_INT16\n");
+    {
+      guint32 read_value;
+      info->cp += xcf_read_int32(info->fp, &read_value, 1);
+      g_value_init(value, G_TYPE_UINT);
+      g_value_set_int(value, read_value);
+      g_value_array_append(args, value);
+    }
+      break;
+    case XCF_FILTER_INT8:
+      g_print("%d:", index);
+      g_print("XCF_FILTER_INT8\n");
+    {
+      guint8 read_value;
+      info->cp += xcf_read_int8(info->fp, &read_value, 1);
+      g_value_init(value, G_TYPE_UCHAR);
+      g_value_set_int(value, read_value);
+      g_value_array_append(args, value);
+    }
+      break;
+    case XCF_FILTER_FLOAT:
+      g_print("%d:", index);
+      g_print("XCF_FILTER_FLOAT\n");
+    {
+      gfloat read_value;
+      info->cp += xcf_read_float(info->fp, &read_value, 1);
+      g_value_init(value, G_TYPE_DOUBLE);
+      g_value_set_double(value, read_value);
+      g_value_array_append(args, value);
+    }
+      break;
+    case XCF_FILTER_INT8ARRAY:
+      g_print("%d:", index);
+      g_print("XCF_FILTER_INT8ARRAY\n");
+    {
+      // FIXME: Unsupported for now.
+      g_value_array_append(args, value);
+    }
+      break;
+    case XCF_FILTER_FLOATARRAY:
+      g_print("%d:", index);
+      g_print("XCF_FILTER_FLOATARRAY\n");
+    {
+      // FIXME: Unsupported for now.
+      g_value_array_append(args, value);
+    }
+      break;
+    case XCF_FILTER_STRING:
+      g_print("%d:", index);
+      g_print("XCF_FILTER_STRING\n");
+    {
+      gchar* string;
+      xcf_seek_pos (info, base, NULL);
+      info->cp += xcf_read_string(info->fp, &string, 1);
+      g_value_init(value, G_TYPE_STRING);
+      g_value_set_string(value, string);
+      g_value_array_append(args, value);
+    }
+      break;
+    case XCF_FILTER_RGB:
+      g_print("%d:", index);
+      g_print("XCF_FILTER_RGB\n");
+    {
+      // FIXME: Unsupported for now.
+      g_value_array_append(args, value);
+    }
+      break;
+    case XCF_FILTER_DRAWABLE:
+      g_print("%d:", index);
+      g_print("XCF_FILTER_DRAWABLE\n");
+    {
+      // FIXME: Unsupported for now.
+      g_value_array_append(args, value);
+    }
+      break;
+    default:
+      g_print("%d:", index);
+      g_print("FILTER_SPEC::UNKNOWN\n");
+      g_value_array_append(args, value);
+      break;
+    }
+  }
+  return TRUE;
+}
+
+static gboolean
 xcf_load_prop (XcfInfo  *info,
                PropType *prop_type,
                guint32  *prop_size)
@@ -1174,6 +1374,8 @@ xcf_load_layer (XcfInfo    *info,
   gboolean       is_fs_drawable;
   gchar         *name;
 
+  g_print("xcf_load_layer\n");
+
   /* check and see if this is the drawable the floating selection
    *  is attached to. if it is then we'll do the attachment in our caller.
    */
@@ -1198,8 +1400,11 @@ xcf_load_layer (XcfInfo    *info,
   /* read in the layer properties */
   if (! xcf_load_layer_props (info, image, &layer, item_path,
                               &apply_mask, &edit_mask, &show_mask,
-                              &text_layer_flags, &group_layer_flags))
+                              &text_layer_flags, &group_layer_flags)) {
+    g_print("xcf_load_layer[%x]: error: load_layer_props\n", info->cp);
     goto error;
+  } else
+    g_print("xcf_load_layer[%x]: done: load_layer_props\n", info->cp);
 
   xcf_progress_update (info);
 
@@ -1207,6 +1412,7 @@ xcf_load_layer (XcfInfo    *info,
   active   = (info->active_layer == layer);
   floating = (info->floating_sel == layer);
 
+  g_print("xcf_load_layer[%x]: before: gimp_text_layer_xcf_load_hack\n", info->cp);
   if (gimp_text_layer_xcf_load_hack (&layer))
     {
       gimp_text_layer_set_xcf_flags (GIMP_TEXT_LAYER (layer),
@@ -1218,9 +1424,13 @@ xcf_load_layer (XcfInfo    *info,
         info->floating_sel = layer;
     }
 
+  g_print("xcf_load_layer[%x]: read: hierarchy_offset", info->cp);
   /* read the hierarchy and layer mask offsets */
   info->cp += xcf_read_int32 (info->fp, &hierarchy_offset, 1);
+  g_print("  =%x\n", hierarchy_offset);
+  g_print("xcf_load_layer[%x]: read: layer_mask_offset", info->cp);
   info->cp += xcf_read_int32 (info->fp, &layer_mask_offset, 1);
+  g_print("  =%x\n", layer_mask_offset);
 
   /* read in the hierarchy (ignore it for group layers, both as an
    * optimization and because the hierarchy's extents don't match
@@ -1231,9 +1441,12 @@ xcf_load_layer (XcfInfo    *info,
       if (! xcf_seek_pos (info, hierarchy_offset, NULL))
         goto error;
 
+      g_print("xcf_load_layer[%x]: read: load_hierarchy\n", info->cp);
       if (! xcf_load_hierarchy (info,
-                                gimp_drawable_get_tiles (GIMP_DRAWABLE (layer))))
+                                gimp_drawable_get_tiles (GIMP_DRAWABLE (layer)))) {
+        g_print("xcf_load_layer[%x]: error: load_hierarchy\n", info->cp);
         goto error;
+      }
 
       xcf_progress_update (info);
     }
@@ -1247,12 +1460,16 @@ xcf_load_layer (XcfInfo    *info,
   /* read in the layer mask */
   if (layer_mask_offset != 0)
     {
-      if (! xcf_seek_pos (info, layer_mask_offset, NULL))
+      if (! xcf_seek_pos (info, layer_mask_offset, NULL)) {
+        g_print("xcf_load_layer[%x]: error: layer_mask_offset\n", info->cp);
         goto error;
+      }
 
       layer_mask = xcf_load_layer_mask (info, image);
-      if (! layer_mask)
+      if (! layer_mask) {
+        g_print("xcf_load_layer[%x]: error: ! layer_mask\n", info->cp);
         goto error;
+      }
 
       xcf_progress_update (info);
 
@@ -1276,6 +1493,7 @@ xcf_load_layer (XcfInfo    *info,
   return layer;
 
  error:
+  g_print("xcf_load_layer[%x]: error\n", info->cp);
   g_object_unref (layer);
   return NULL;
 }
@@ -1412,9 +1630,17 @@ xcf_load_hierarchy (XcfInfo     *info,
   gint    height;
   gint    bpp;
 
+  g_print("xcf_load[%x] hierarchy:: read width", info->cp);
   info->cp += xcf_read_int32 (info->fp, (guint32 *) &width, 1);
+  g_print("=%d\n", width);
+  g_print("xcf_load[%x] hierarchy:: read height", info->cp);
   info->cp += xcf_read_int32 (info->fp, (guint32 *) &height, 1);
+  g_print("=%d\n", height);
+  g_print("xcf_load[%x] hierarchy:: read bpp", info->cp);
   info->cp += xcf_read_int32 (info->fp, (guint32 *) &bpp, 1);
+  g_print("=%d\n", bpp);
+
+  g_print("tile_manager: width=%d, height=%d, bpp=%d\n", tile_manager_width(tiles), tile_manager_height(tiles), tile_manager_bpp(tiles));
 
   /* make sure the values in the file correspond to the values
    *  calculated when the TileManager was created.
@@ -1424,16 +1650,20 @@ xcf_load_hierarchy (XcfInfo     *info,
       bpp    != tile_manager_bpp (tiles))
     return FALSE;
 
+  g_print("xcf_load[%x] hierarchy:: read offset", info->cp);
   info->cp += xcf_read_int32 (info->fp, &offset, 1); /* top level */
+  g_print("=%d\n", offset);
 
   /* seek to the level offset */
   if (!xcf_seek_pos (info, offset, NULL))
     return FALSE;
 
+  g_print("xcf_load[%x] hierarchy:: xcf_load_level", info->cp);
   /* read in the level */
   if (!xcf_load_level (info, tiles))
     return FALSE;
 
+  g_print("xcf_load[%x] hierarchy:: done: xcf_load_level", info->cp);
   /* discard levels below first.
    */
 
@@ -1807,7 +2037,7 @@ xcf_load_old_path (XcfInfo   *info,
       /* Had extra type field and points are stored as doubles */
       info->cp += xcf_read_int32 (info->fp, (guint32 *) &dummy, 1);
     }
-  else if (version == 3)
+  else if (version >= 3)
     {
       guint32 dummy;
 

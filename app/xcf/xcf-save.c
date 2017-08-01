@@ -49,6 +49,8 @@
 #include "core/gimpparasitelist.h"
 #include "core/gimpprogress.h"
 #include "core/gimpsamplepoint.h"
+#include "core/gimpfilterlayer.h"
+#include "core/gimpparamspecs.h"
 
 #include "text/gimptextlayer.h"
 #include "text/gimptextlayer-xcf.h"
@@ -125,6 +127,10 @@ static gboolean xcf_save_vectors       (XcfInfo           *info,
                                         GimpImage         *image,
                                         GError           **error);
 
+static gboolean xcf_save_filter_spec_value   (XcfInfo           *info,
+                                              GimpImage         *image,
+                                              GError           **error,
+                                              GValue            *value);
 
 /* private convenience macros */
 #define xcf_write_int32_check_error(info, data, count) G_STMT_START { \
@@ -207,6 +213,8 @@ static gboolean xcf_save_vectors       (XcfInfo           *info,
  *
  * 3: Image contains a layer group.
  *
+ * 4: Image uses one of the layer modes "svg:src-in", "svg:dst-in", "svg:src-out", or "svg:dst-out".
+ *    Or image contains a filter layer.
  */
 void
 xcf_save_choose_format (XcfInfo   *info,
@@ -239,6 +247,7 @@ xcf_save_choose_format (XcfInfo   *info,
         case GIMP_DST_IN_MODE:
         case GIMP_SRC_OUT_MODE:
         case GIMP_DST_OUT_MODE:
+          g_print("Becomes save version=4\n");
           save_version = MAX (4, save_version);
           break;
 
@@ -247,8 +256,15 @@ xcf_save_choose_format (XcfInfo   *info,
         }
 
       /* need version 3 for layer trees */
-      if (gimp_viewable_get_children (GIMP_VIEWABLE (layer)))
+      if (gimp_viewable_get_children (GIMP_VIEWABLE (layer))) {
         save_version = MAX (3, save_version);
+        // FIXME: Should check against svg:dst-* or svg:src-* recursively.
+      }
+
+      if (GIMP_IS_FILTER_LAYER(layer)) {
+        g_print("Becomes save version=4\n");
+        save_version = MAX (4, save_version);
+      }
     }
 
   info->file_version = save_version;
@@ -582,6 +598,14 @@ xcf_save_layer_props (XcfInfo    *info,
                                       parasites));
     }
 
+  if (GIMP_IS_FILTER_LAYER (layer)) {
+    GimpFilterLayer* filter_layer = GIMP_FILTER_LAYER(layer);
+    const gchar* filter_name = gimp_filter_layer_get_procedure (filter_layer);
+    GValueArray* args        = gimp_filter_layer_get_procedure_args (filter_layer);
+    xcf_check_error (xcf_save_prop (info, image, PROP_FILTER_SPEC, error, filter_name, args));
+  }
+
+  g_print("xcf_save[%x]: layer_props: PROP_END\n", info->cp);
   xcf_check_error (xcf_save_prop (info, image, PROP_END, error));
 
   return TRUE;
@@ -1164,10 +1188,136 @@ xcf_save_prop (XcfInfo    *info,
         xcf_write_int32_check_error (info, &flags, 1);
       }
       break;
+
+    case PROP_FILTER_SPEC:
+      {
+        guint32 length = 0;
+        gchar* filter_name;
+        GValueArray* proc_args;
+        guint32 i;
+        guint32 base = 0, pos = 0;
+        size = 0; /* dummy */
+        filter_name = va_arg (args, gchar*);
+        proc_args   = va_arg (args, GValueArray*);
+
+        g_print("xcf_save[%x] prop_type=%u\n", info->cp, prop_type);
+        xcf_write_prop_type_check_error (info, prop_type);
+        pos  = info->cp;
+        g_print("xcf_save[%x] length=%u\n", info->cp, length);
+        xcf_write_int32_check_error (info, &length, 1);
+        base = info->cp;
+        g_print("xcf_save[%x] filter_name=%s\n", info->cp, filter_name);
+        xcf_write_string_check_error (info, (gchar **) &filter_name, 1);
+
+        for (i = 0; i < proc_args->n_values; i ++) {
+          GValue* value = &proc_args->values[i];
+          g_print("xcf_save[%x] value(%d)\n", info->cp, i);
+          xcf_check_error ( xcf_save_filter_spec_value (info, image, error, value) );
+        }
+
+        g_print("xcf_save[%x] PROP_END\n", info->cp);
+        xcf_check_error (xcf_save_prop (info, image, PROP_END, error));
+        length = info->cp - base;
+
+        xcf_check_error (xcf_seek_pos (info, pos, error));
+        g_print("xcf_save[%x] length=%u\n", info->cp, length);
+        xcf_write_int32_check_error (info, &length, 1);
+        xcf_check_error (xcf_seek_pos (info, base + length, error));
+      }
+      break;
     }
 
   va_end (args);
 
+  return TRUE;
+}
+
+static gboolean
+xcf_save_filter_spec_value   (XcfInfo           *info,
+                              GimpImage         *image,
+                              GError           **error,
+                              GValue            *value)
+{
+  XcfFilterArgType value_type = (XcfFilterArgType)0;
+  guint32 size = 0;
+  GError  *tmp_error = NULL;
+
+  if ( G_VALUE_HOLDS_DOUBLE(value) ) {
+    gfloat write_value = (gfloat)g_value_get_double(value);
+    value_type = XCF_FILTER_FLOAT;
+    size = sizeof(write_value);
+    g_print("  [%x] type=%u, value=%f\n", info->cp, value_type, write_value);
+    xcf_write_int32_check_error (info, &value_type, 1);
+    xcf_write_int32_check_error (info, &size, 1);
+    xcf_write_float_check_error (info, &write_value, 1);
+
+  } else if ( GIMP_VALUE_HOLDS_INT32(value) ) {
+    guint32 write_value = (guint32)g_value_get_int(value);
+    value_type = XCF_FILTER_INT32;
+    size = 4;
+    g_print("  [%x] type=%u, value=%u\n", info->cp, value_type, write_value);
+    xcf_write_int32_check_error (info, &value_type, 1);
+    xcf_write_int32_check_error (info, &size, 1);
+    xcf_write_int32_check_error (info, &write_value, 1);
+
+  } else if ( GIMP_VALUE_HOLDS_INT8(value) ) {
+    guint8 write_value = (guint8)g_value_get_int(value);
+    value_type = XCF_FILTER_INT8;
+    size = sizeof(gint8);
+    g_print("  [%x] type=%u, value=%u\n", info->cp, value_type, write_value);
+    xcf_write_int32_check_error (info, &value_type, 1);
+    xcf_write_int32_check_error (info, &size, 1);
+    xcf_write_int8_check_error (info, &write_value, 1);
+
+  } else if ( GIMP_VALUE_HOLDS_INT16(value) ) {
+    guint32 write_value = (guint32)g_value_get_int(value);
+    value_type = XCF_FILTER_INT16;
+    size = 2;
+    g_print("  [%x] type=%u, value=%u\n", info->cp, value_type, write_value);
+    xcf_write_int32_check_error (info, &value_type, 1);
+    xcf_write_int32_check_error (info, &size, 1);
+    xcf_write_int32_check_error (info, &write_value, 1);
+
+  } else if ( GIMP_VALUE_HOLDS_INT8_ARRAY(value) ) {
+    value_type = XCF_FILTER_INT8ARRAY;
+    // FIXME: int8 array is not supported for now.
+    g_print("  [%x] type=%u, N/A\n", info->cp, value_type);
+    xcf_write_int32_check_error (info, &value_type, 1);
+    xcf_write_int32_check_error (info, &size, 1);
+
+  } else if ( GIMP_VALUE_HOLDS_FLOAT_ARRAY(value) ) {
+    value_type = XCF_FILTER_FLOATARRAY;
+    // FIXME: float array is not supported for now.
+    g_print("  [%x] type=%u, N/A\n", info->cp, value_type);
+    xcf_write_int32_check_error (info, &value_type, 1);
+    xcf_write_int32_check_error (info, &size, 1);
+
+  } else if ( G_VALUE_HOLDS_STRING(value) ) {
+    gchar* write_value = (gchar*)g_value_get_string(value);
+    value_type = XCF_FILTER_FLOATARRAY;
+    g_print("  [%x] type=%u, value=%s\n", info->cp, value_type, write_value);
+    xcf_write_int32_check_error (info, &value_type, 1);
+    xcf_write_string_check_error (info, &write_value, 1);
+
+  } else if ( GIMP_VALUE_HOLDS_DRAWABLE_ID(value) ) {
+    value_type = XCF_FILTER_DRAWABLE;
+    // FIXME: drawable is not supported for now.
+    g_print("  [%x] type=%u, N/A\n", info->cp, value_type);
+    xcf_write_int32_check_error (info, &value_type, 1);
+    xcf_write_int32_check_error (info, &size, 1);
+
+  } else {
+    value_type = XCF_FILTER_UNSUPPORTED;
+    // skip this value.
+    g_print("  [%x] UNKNOWN\n", info->cp);
+    xcf_write_int32_check_error (info, &value_type, 1);
+    xcf_write_int32_check_error (info, &size, 1);
+
+  }
+  if (tmp_error) {
+    g_propagate_error (error, tmp_error);
+    return FALSE;
+  }
   return TRUE;
 }
 
@@ -1211,18 +1361,23 @@ xcf_save_layer (XcfInfo    *info,
   /* write out the layer properties */
   xcf_save_layer_props (info, image, layer, error);
 
+  g_print("xcf_save_layer[%x]: done: save_layer_props\n", info->cp);
   /* write out the layer tile hierarchy */
   offset = info->cp + 8;
+  g_print("xcf_save_layer[%x]: done: save_offset=%x\n", info->cp, offset);
   xcf_write_int32_check_error (info, &offset, 1);
 
   saved_pos = info->cp;
 
+  g_print("xcf_save_layer[%x]: done: save_layer_mask_offset\n", info->cp);
   /* write a zero layer mask offset */
   xcf_write_zero_int32_check_error (info, 1);
 
+  g_print("xcf_save_layer[%x]: xcf_save_hierarchy\n", info->cp);
   xcf_check_error (xcf_save_hierarchy (info,
                                        gimp_drawable_get_tiles (GIMP_DRAWABLE (layer)),
                                        error));
+  g_print("xcf_save_layer[%x]: done: xcf_save_hierarchy\n", info->cp);
 
   offset = info->cp;
 
@@ -1326,8 +1481,11 @@ xcf_save_hierarchy (XcfInfo      *info,
   height = tile_manager_height (tiles);
   bpp    = tile_manager_bpp (tiles);
 
+  g_print("xcf_save[%x] hierarchy:: write width=%d\n", info->cp, width);
   xcf_write_int32_check_error (info, (guint32 *) &width, 1);
+  g_print("xcf_save[%x] hierarchy:: write height=%d\n", info->cp, height);
   xcf_write_int32_check_error (info, (guint32 *) &height, 1);
+  g_print("xcf_save[%x] hierarchy:: write bpp=%d\n", info->cp, bpp);
   xcf_write_int32_check_error (info, (guint32 *) &bpp, 1);
 
   saved_pos = info->cp;
@@ -1340,6 +1498,7 @@ xcf_save_hierarchy (XcfInfo      *info,
   saved_pos = info->cp;
 
   /* write an empty offset table */
+  g_print("xcf_save[%x] hierarchy:: write nlevels=%d\n", info->cp, nlevels + 1);
   xcf_write_zero_int32_check_error (info, nlevels + 1);
 
   /* 'offset' is where we will write the next level */
@@ -1347,6 +1506,7 @@ xcf_save_hierarchy (XcfInfo      *info,
 
   for (i = 0; i < nlevels; i++)
     {
+    g_print("xcf_save[%x] hierarchy::level=%d\n", info->cp, i);
       /* seek back to the next slot in the offset table and write the
        * offset of the level
        */
