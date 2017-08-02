@@ -1252,10 +1252,12 @@ xcf_save_prop (XcfInfo    *info,
         g_print("xcf_save[%x] filter_name=%s\n", info->cp, filter_name);
         xcf_write_string_check_error (info, (gchar **) &filter_name, 1);
 
-        for (i = 0; i < proc_args->n_values; i ++) {
-          GValue* value = &proc_args->values[i];
-          g_print("xcf_save[%x] value(%d)\n", info->cp, i);
-          xcf_check_error ( xcf_save_filter_spec_value (info, image, error, value) );
+        if (proc_args) {
+          for (i = 0; i < proc_args->n_values; i ++) {
+            GValue* value = &proc_args->values[i];
+            g_print("xcf_save[%x] value(%d)\n", info->cp, i);
+            xcf_check_error ( xcf_save_filter_spec_value (info, image, error, value) );
+          }
         }
 
         g_print("xcf_save[%x] PROP_END\n", info->cp);

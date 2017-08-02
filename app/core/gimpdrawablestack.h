@@ -57,5 +57,11 @@ GimpContainer * gimp_drawable_stack_new       (GType              drawable_type)
 
 GeglNode      * gimp_drawable_stack_get_graph (GimpDrawableStack *stack);
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-types.hpp"
+__DECLARE_GTK_CLASS__(GimpDrawableStack, GIMP_TYPE_DRAWABLE_STACK);
+};
+#endif
 
 #endif  /*  __GIMP_DRAWABLE_STACK_H__  */

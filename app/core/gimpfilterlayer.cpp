@@ -157,6 +157,11 @@ public:
     return true;
   }
 
+  void stop() {
+    if (running)
+      gimp_progress_cancel(progress);
+  }
+
   void on_end() {
     running = false;
   }
@@ -200,6 +205,7 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   GList*           updates;
 
   gint             suspend_resize_;
+  bool             waiting_process_stack;
 
   /*  hackish temp states to make the projection/tiles stuff work  */
   gboolean         reallocate_projection;
@@ -481,6 +487,7 @@ void GLib::FilterLayer::init ()
   filter_progress     = 0;
   runner              = NULL;
   projected_tiles_updated = false;
+  waiting_process_stack = false;
 }
 
 void GLib::FilterLayer::constructed ()
@@ -745,8 +752,10 @@ void GLib::FilterLayer::project_region (gint          x,
                          rect->width, rect->height, FALSE);
       copy_region_nocow(&read_proj_PR, &tilePR);
 
-      updates = g_list_delete_link (updates, list);
-      delete rect;
+      if (!waiting_process_stack) {
+        updates = g_list_delete_link (updates, list);
+        delete rect;
+      }
     }
     list = next;
   }
@@ -761,7 +770,7 @@ void GLib::FilterLayer::project_region (gint          x,
       pixel_region_init (&srcPR , projected_tiles, 0, 0, w, h, FALSE);
       copy_region_nocow(&srcPR, &destPR);
 
-      if (runner) {
+      if (!waiting_process_stack && runner) {
         g_print("start runner\n");
         runner->run(GIMP_ITEM(g_object));
       }
@@ -1120,20 +1129,32 @@ void GLib::FilterLayer::invalidate_layer ()
   image [gimp_image_flush] ();
 }
 
-void GLib::FilterLayer::on_stack_update (GimpDrawableStack *stack,
+void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
                                            gint               x,
                                            gint               y,
                                            gint               width,
                                            gint               height,
                                            GimpItem          *item)
 {
+  waiting_process_stack = false;
   if (projected_tiles && G_OBJECT(item) == g_object)
     return;
-  gint item_index = gimp_container_get_child_index(GIMP_CONTAINER(stack), GIMP_OBJECT(item));
-  gint self_index = gimp_container_get_child_index(GIMP_CONTAINER(stack), GIMP_OBJECT(g_object));
+  auto stack = _G(_stack);
+  gint item_index = stack [gimp_container_get_child_index] (GIMP_OBJECT(item));
+  gint self_index = stack [gimp_container_get_child_index] (GIMP_OBJECT(g_object));
 
   if (item_index < self_index)
     return;
+
+  for (int i = self_index + 1; i < item_index; i ++) {
+    GimpObject* layer = stack [gimp_container_get_child_by_index] (i);
+    if (FilterLayerInterface::is_instance(layer)) {
+      waiting_process_stack = true;
+      if (runner)
+        runner->stop();
+      break;
+    }
+  }
 
   invalidate_area(x, y, width, height);
 }
