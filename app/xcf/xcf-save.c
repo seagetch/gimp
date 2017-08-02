@@ -196,6 +196,46 @@ static gboolean xcf_save_filter_spec_value   (XcfInfo           *info,
                                (gdouble) progress / (gdouble) max_progress); \
   } G_STMT_END
 
+static gint
+xcf_save_choose_format_recursive(XcfInfo* info, GimpContainer* layers) {
+  gint           save_version = 0;
+  gint           i, n_children;
+  GimpContainer* children;
+
+  if (!layers)
+    return save_version;
+
+  n_children = gimp_container_get_n_children(layers);
+
+  for (i = 0;
+       i < n_children && save_version < 4;
+       i ++) {
+    GimpLayer *layer = GIMP_LAYER (gimp_container_get_child_by_index(layers, i));
+
+    switch (gimp_layer_get_mode (layer)) {
+    case GIMP_SRC_IN_MODE:
+    case GIMP_DST_IN_MODE:
+    case GIMP_SRC_OUT_MODE:
+    case GIMP_DST_OUT_MODE:
+      g_print("Becomes save version=4\n");
+      save_version = MAX (4, save_version);
+      break;
+
+    default:
+      break;
+    }
+
+    children     = gimp_viewable_get_children (GIMP_VIEWABLE (layer));
+    save_version = MAX(save_version, xcf_save_choose_format_recursive (info, children));
+
+    if (GIMP_IS_FILTER_LAYER(layer)) {
+      g_print("Becomes save version=4\n");
+      save_version = MAX (4, save_version);
+    }
+  }
+
+  return save_version;
+};
 
 /**
  * xcf_save_choose_format:
@@ -221,6 +261,7 @@ xcf_save_choose_format (XcfInfo   *info,
                         GimpImage *image)
 {
   GList *list;
+  GimpContainer* children;
   gint   save_version = 0;  /* default to oldest */
 
   /* need version 1 for color maps */
@@ -256,8 +297,10 @@ xcf_save_choose_format (XcfInfo   *info,
         }
 
       /* need version 3 for layer trees */
-      if (gimp_viewable_get_children (GIMP_VIEWABLE (layer))) {
+      children = gimp_viewable_get_children (GIMP_VIEWABLE (layer));
+      if (children) {
         save_version = MAX (3, save_version);
+        save_version = MAX (save_version, xcf_save_choose_format_recursive (info, children));
         // FIXME: Should check against svg:dst-* or svg:src-* recursively.
       }
 
