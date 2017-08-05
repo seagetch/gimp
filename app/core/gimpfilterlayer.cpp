@@ -737,6 +737,7 @@ void GLib::FilterLayer::project_region (gint          x,
 
       if (!projected_tiles) {
         /*  Allocate the new tiles  */
+//        g_print("FilterLayer::project_region: tile_manager_new\n");
         GimpItem*      item     = GIMP_ITEM(g_object);
         GimpImageType  new_type = gimp_drawable_type_with_alpha (GIMP_DRAWABLE(g_object));
         projected_tiles         = tile_manager_new (w, h,
@@ -918,7 +919,9 @@ void GLib::FilterLayer::filter_reset () {
   gimp_progress_cancel(GIMP_PROGRESS(g_object));
   g_list_free_full(updates, delete_rectangle);
   updates = NULL;
+  g_print("FilterLayer::filter_reset: tile_manager_unref<\n");
   tile_manager_unref(projected_tiles);
+  g_print("\n>FilterLayer::filter_reset: tile_manager_unref\n");
   projected_tiles = NULL;
 }
 
@@ -1014,6 +1017,7 @@ void GLib::FilterLayer::end()
                         0, 0, width, height);
   GimpImage*   image   = gimp_item_get_image(GIMP_ITEM(g_object));
   gimp_image_flush (image);
+//  g_print("/FilterLayer::end\n");
 }
 
 gboolean GLib::FilterLayer::is_active()

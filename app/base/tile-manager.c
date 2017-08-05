@@ -134,6 +134,7 @@ tile_manager_unref (TileManager *tm)
 
   tm->ref_count--;
 
+//  g_print("tile_manager_unref<");
   if (tm->ref_count < 1)
     {
 #ifdef GIMP_UNSTABLE
@@ -156,6 +157,7 @@ tile_manager_unref (TileManager *tm)
 
       g_slice_free (TileManager, tm);
     }
+//  g_print(">tile_manager_unref\n");
 }
 
 TileManager *
@@ -226,6 +228,7 @@ tile_manager_get (TileManager *tm,
   if ((tile_num < 0) || (tile_num >= ntiles))
     return NULL;
 
+//  g_print("  g<");
   if (! tm->tiles)
     tile_manager_allocate_tiles (tm);
 
@@ -309,6 +312,7 @@ tile_manager_get (TileManager *tm,
           tile_lock (tile);
         }
     }
+//  g_print(">  ");
 
   return tile;
 }
@@ -487,6 +491,7 @@ tile_manager_map (TileManager *tm,
   g_return_if_fail (tile_num >= 0);
   g_return_if_fail (tile_num < tm->ntile_rows * tm->ntile_cols);
 
+//  g_print("tile_manager_map<");
   if (G_UNLIKELY (! tm->tiles))
     {
       g_warning ("%s: empty tile level - initializing", G_STRLOC);
@@ -522,6 +527,7 @@ tile_manager_map (TileManager *tm,
 #endif
 
   tile_attach (srctile, tm, tile_num);
+//  g_print(">tile_manager_map\n");
 
   tm->tiles[tile_num] = srctile;
 

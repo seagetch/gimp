@@ -173,6 +173,8 @@ tile_alloc (Tile *tile)
 static void
 tile_destroy (Tile *tile)
 {
+//  g_print("D:");
+
   if (G_UNLIKELY (tile->ref_count))
     {
       g_warning ("tried to destroy a ref'd tile");

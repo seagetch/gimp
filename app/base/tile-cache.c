@@ -159,6 +159,7 @@ tile_cache_insert (Tile *tile)
 
       if(tile == idle_scan_last)
 	idle_scan_last = tile->next;
+//      g_print("E:");
 
     }
   else
@@ -207,6 +208,7 @@ tile_cache_insert (Tile *tile)
 #endif
 
       cur_cache_size += tile->size;
+//      g_print("I(%d) ", cur_cache_size);
     }
 
   /* Put the tile at the end of the proper list */
@@ -279,7 +281,6 @@ tile_cache_set_size (guint64 cache_size)
 static void
 tile_cache_flush_internal (Tile *tile)
 {
-
   tile->cached = FALSE;
 
   if (PENDING_WRITE(tile))
@@ -333,6 +334,7 @@ tile_cache_zorch_next (void)
 
   if (! tile->dirty)
     {
+//      g_print("Z:");
       g_free (tile->data);
       tile->data = NULL;
 
