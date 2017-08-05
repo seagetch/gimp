@@ -44,6 +44,7 @@ extern "C" {
 
 #include "gimpimage.h"
 #include "gimpimage-undo.h"
+#include "gimpitem.h"
 #include "gimpdrawable-private.h" /* eek */
 #include "gimpdrawablestack.h"
 #include "gimppickable.h"
@@ -1152,7 +1153,7 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
 
   for (int i = self_index + 1; i < item_index; i ++) {
     GimpObject* layer = stack [gimp_container_get_child_by_index] (i);
-    if (FilterLayerInterface::is_instance(layer)) {
+    if (FilterLayerInterface::is_instance(layer) && _G(layer) [gimp_item_get_visible] ()) {
       waiting_process_stack = true;
       if (runner)
         runner->stop();
