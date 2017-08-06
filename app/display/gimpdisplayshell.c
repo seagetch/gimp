@@ -1777,7 +1777,7 @@ gimp_display_shell_flush (GimpDisplayShell *shell,
 
       toolbar_window = gimp_image_window_get_toolbar_window();
 
-      if (window != toolbar_window) {
+      if (toolbar_window && window != toolbar_window) {
         GimpUIManager* manager = gimp_image_window_get_ui_manager(toolbar_window);
         gimp_ui_manager_update( manager, shell->display);
       }
