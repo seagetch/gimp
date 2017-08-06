@@ -303,6 +303,14 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   virtual GValue          get_procedure_arg(int index);
   virtual void            set_procedure_arg(int index, GValue value);
 
+  virtual bool            is_waiting_to_be_processed() {
+    return runner && runner->is_running() ||
+           projected_tiles_updated ||
+           waiting_process_stack ||
+           updates;
+  };
+
+
   // For GimpProgress Interface
   virtual GimpProgress*   start        (const gchar* message,
                                         gboolean     cancelable);
@@ -811,7 +819,7 @@ void GLib::FilterLayer::project_region (gint          x,
 //    g_print ("FilterLayer::project_region:  not updated %d, %d +(%d, %d)\n", x, y, width, height);
   }
 
-  if (runner && runner->is_running() || projected_tiles_updated || waiting_process_stack || updates)
+  if (is_waiting_to_be_processed())
     return;
 
   GIMP_DRAWABLE_CLASS(Class::parent_class)->project_region (self, x, y, width, height, projPR, combine);
@@ -1225,6 +1233,11 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
         runner->stop();
       break;
     }
+  }
+
+  if (FilterLayerInterface::is_instance(item)) {
+    if (dynamic_cast<FilterLayer*>(FilterLayerInterface::cast(item))->is_waiting_to_be_processed())
+      waiting_process_stack = true;
   }
 
   invalidate_area(x, y, width, height);
