@@ -119,7 +119,7 @@ GQuark        gimp_data_error_quark      (void) G_GNUC_CONST;
 #ifdef __cplusplus
 extern "C++" {
 #include "base/glib-cxx-types.hpp"
-__DECLARE_GTK_CAST__(GimpData, GIMP_DATA, gimp_data);
+__DECLARE_GTK_CLASS__(GimpData, GIMP_TYPE_DATA);
 };
 #endif
 

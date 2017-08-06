@@ -19,6 +19,7 @@
  */
 
 #include "base/delegators.hpp"
+#include "base/glib-cxx-types.hpp"
 #include "base/glib-cxx-impl.hpp"
 #include "base/glib-cxx-utils.hpp"
 
@@ -204,6 +205,7 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   ProcedureRunner* runner;
   ProcedureRunner* new_runner;
   GList*           updates;
+  int              last_index;
 
   gint             suspend_resize_;
   bool             waiting_process_stack;
@@ -221,6 +223,7 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
 
   Delegators::Connection* child_update_conn;
   Delegators::Connection* parent_changed_conn;
+  Delegators::Connection* reorder_conn;
 
   FilterLayer(GObject* o) : ImplBase(o) {}
   virtual ~FilterLayer();
@@ -330,6 +333,9 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
                                         gint               y,
                                         gint               width,
                                         gint               height);
+  virtual void        on_reorder       (GimpContainer     *container,
+                                        GimpLayer         *layer,
+                                        gint               index);
   // Public interfaces
   virtual void             suspend_resize (gboolean        push_undo);
   virtual void             resume_resize  (gboolean        push_undo);
@@ -448,7 +454,7 @@ void FilterLayer::iface_init<GimpPickableInterface>(GimpPickableInterface* iface
   typedef FilterLayer Impl;
   g_print("FilterLayer::iface_init<GimpPickableInterface>\n");
   
-  Class::__(&iface->get_opacity_at).bind<&Impl::get_opacity_at>();
+  bind_to_class (iface, get_opacity_at, Impl);
 }
 
 template<>
@@ -469,6 +475,7 @@ void FilterLayer::iface_init<GimpProgressInterface>(GimpProgressInterface* iface
 
 GLib::FilterLayer::~FilterLayer()
 {
+  g_print("~FilterLayer\n");
 }
 
 void GLib::FilterLayer::init ()
@@ -483,12 +490,14 @@ void GLib::FilterLayer::init ()
   child_update_conn   = NULL;
   parent_changed_conn = g_signal_connect_delegator (G_OBJECT(g_object), "parent-changed",
                                                     Delegators::delegator(this, &GLib::FilterLayer::on_parent_changed));
+  reorder_conn        = NULL;
   updates             = NULL;
   projected_tiles     = NULL;
   filter_progress     = 0;
   runner              = NULL;
   projected_tiles_updated = false;
   waiting_process_stack = false;
+  last_index          = -1;
 }
 
 void GLib::FilterLayer::constructed ()
@@ -507,6 +516,7 @@ void GLib::FilterLayer::constructed ()
 
 void GLib::FilterLayer::finalize ()
 {
+  g_print("FilterLayer::finalize\n");
   if (child_update_conn) {
     delete child_update_conn;
     child_update_conn = NULL;
@@ -515,6 +525,11 @@ void GLib::FilterLayer::finalize ()
   if (projected_tiles) {
     tile_manager_unref(projected_tiles);
     projected_tiles = NULL;
+  }
+
+  if (reorder_conn) {
+    delete reorder_conn;
+    reorder_conn = NULL;
   }
 
   if (runner) {
@@ -702,23 +717,21 @@ void GLib::FilterLayer::project_region (gint          x,
                                           PixelRegion  *projPR,
                                           gboolean      combine)
 {
-  GimpDrawable  *drawable     = GIMP_DRAWABLE(g_object);
-  GimpLayer     *layer        = GIMP_LAYER (drawable);
-  GimpLayerMask *mask         = gimp_layer_get_mask (layer);
-  const gchar*   name         = gimp_object_get_name(GIMP_OBJECT(layer));
-  GimpItem*      item         = GIMP_ITEM(g_object);
+  auto           self         = _G(g_object);
+  GimpLayerMask *mask         = self [gimp_layer_get_mask] ();
+  const gchar*   name         = self [gimp_object_get_name] ();
   gint           x1           = x;
   gint           y1           = y;
-  gint           offset_x     = gimp_item_get_offset_x(item);
-  gint           offset_y     = gimp_item_get_offset_y(item);
-  gint           w            = gimp_item_get_width(item);
-  gint           h            = gimp_item_get_height(item);
+  gint           offset_x     = self [gimp_item_get_offset_x] ();
+  gint           offset_y     = self [gimp_item_get_offset_y] ();
+  gint           w            = self [gimp_item_get_width] ();
+  gint           h            = self [gimp_item_get_height] ();
   gint           parent_off_x = 0;
   gint           parent_off_y = 0;
   GimpViewable*  parent       = gimp_viewable_get_parent(GIMP_VIEWABLE(g_object));
 
   if (parent)
-    gimp_item_get_offset(GIMP_ITEM(parent), &parent_off_x, &parent_off_y);
+    _G(parent) [gimp_item_get_offset] (&parent_off_x, &parent_off_y);
 
 //  g_print("FilterLayer::project_region:%s: (x: %d, y: %d)+(w: %d, h: %d) / (W: %d, H: %d)\n", name, x, y, width, height, w, h);
 //  g_print("                                parent-offset:%d,%d,  item-offset:%d,%d\n", parent_off_x, parent_off_y, offset_x, offset_y);
@@ -739,8 +752,7 @@ void GLib::FilterLayer::project_region (gint          x,
       if (!projected_tiles) {
         /*  Allocate the new tiles  */
 //        g_print("FilterLayer::project_region: tile_manager_new\n");
-        GimpItem*      item     = GIMP_ITEM(g_object);
-        GimpImageType  new_type = gimp_drawable_type_with_alpha (GIMP_DRAWABLE(g_object));
+        GimpImageType  new_type = self [gimp_drawable_type_with_alpha] ();
         projected_tiles         = tile_manager_new (w, h,
                                                     GIMP_IMAGE_TYPE_BYTES (new_type));
       }
@@ -764,19 +776,28 @@ void GLib::FilterLayer::project_region (gint          x,
 
   // Filter effects is applied to updated layer image
   if (projected_tiles_updated) {
-    if (!runner || !runner->is_running()) {
-      TileManager* tiles   = gimp_drawable_get_tiles(drawable);
-      PixelRegion  srcPR, destPR;
+    if (runner && !runner->is_running()) {
+      if (!waiting_process_stack) {
+        TileManager* tiles   = self [gimp_drawable_get_tiles] ();
+        PixelRegion  srcPR, destPR;
 
-      pixel_region_init (&destPR, tiles          , 0, 0, w, h, TRUE);
-      pixel_region_init (&srcPR , projected_tiles, 0, 0, w, h, FALSE);
-      copy_region_nocow(&srcPR, &destPR);
+        pixel_region_init (&destPR, tiles          , 0, 0, w, h, TRUE);
+        pixel_region_init (&srcPR , projected_tiles, 0, 0, w, h, FALSE);
+        copy_region_nocow(&srcPR, &destPR);
 
-      if (!waiting_process_stack && runner) {
-        g_print("start runner\n");
-        runner->run(GIMP_ITEM(g_object));
+        if (!updates) {
+          g_print("--->%s: start runner\n", self [gimp_object_get_name] () );
+          runner->run(GIMP_ITEM(g_object));
+        }
+
+        auto  image   = _G(self [gimp_item_get_image] () );
+        int   iwidth  = image [gimp_image_get_width] ();
+        int   iheight = image [gimp_image_get_height] ();
+        image [gimp_image_invalidate] (0, 0, iwidth, iheight, 0);
+        image [gimp_image_flush] ();
+
+        projected_tiles_updated = false;
       }
-      projected_tiles_updated = false;
 
     } else {
 //      g_print("FilterLayer::project_region: skip filter execution: filter_active=%p, updates=%p\n", filter_active, updates);
@@ -790,10 +811,10 @@ void GLib::FilterLayer::project_region (gint          x,
 //    g_print ("FilterLayer::project_region:  not updated %d, %d +(%d, %d)\n", x, y, width, height);
   }
 
-  if (runner && runner->is_running() || projected_tiles_updated)
+  if (runner && runner->is_running() || projected_tiles_updated || waiting_process_stack || updates)
     return;
 
-  GIMP_DRAWABLE_CLASS(Class::parent_class)->project_region (drawable, x, y, width, height, projPR, combine);
+  GIMP_DRAWABLE_CLASS(Class::parent_class)->project_region (self, x, y, width, height, projPR, combine);
 }
 
 void GLib::FilterLayer::set_procedure(const char* proc_name, GValueArray* args)
@@ -890,27 +911,6 @@ void GLib::FilterLayer::resume_resize (gboolean        push_undo) {
 
 
 /*  priv functions  */
-void GLib::FilterLayer::on_parent_changed (GimpViewable  *viewable,
-                                             GimpViewable  *parent)
-{
-//  g_print("on_parent_changed: %p ==> parent=%s\n", viewable, parent? gimp_object_get_name(parent): NULL);
-  if (child_update_conn) {
-    delete child_update_conn;
-    child_update_conn = NULL;
-  }
-  if (parent) {
-    GimpContainer* children = gimp_viewable_get_children(parent);
-    child_update_conn =
-      g_signal_connect_delegator (G_OBJECT(children), "update",
-                                  Delegators::delegator(this, &GLib::FilterLayer::on_stack_update));
-  } else {
-    GimpImage*   image   = gimp_item_get_image(GIMP_ITEM(g_object));
-    GimpContainer* container = gimp_image_get_layers(image);
-    child_update_conn =
-      g_signal_connect_delegator (G_OBJECT(container), "update",
-                                  Delegators::delegator(this, &GLib::FilterLayer::on_stack_update));
-  }
-}
 
 static void delete_rectangle(void* rect){
   delete (GLib::FilterLayer::Rectangle*)rect;
@@ -1001,9 +1001,10 @@ GimpProgress* GLib::FilterLayer::start(const gchar* message,
 
 void GLib::FilterLayer::end()
 {
-  g_print("FilterLayer::end\n");
+  g_print("%s: FilterLayer::end\n", _G(g_object) [gimp_object_get_name] () );
   runner->on_end();
   if (new_runner) {
+    g_print("%s: New runner exists. run again.\n", _G(g_object) [gimp_object_get_name] () );
     delete runner;
     runner      = new_runner;
     new_runner = NULL;
@@ -1029,7 +1030,7 @@ gboolean GLib::FilterLayer::is_active()
 
 void GLib::FilterLayer::set_text(const gchar* message)
 {
-  g_print("FilterLayer::set_text: %s\n", message);
+  g_print("%s: FilterLayer::set_text: %s\n", _G(g_object) [gimp_object_get_name](), message);
 }
 
 void GLib::FilterLayer::set_value(gdouble      percentage)
@@ -1061,6 +1062,7 @@ void GLib::FilterLayer::invalidate_area (gint               x,
                                          gint               width,
                                          gint               height)
 {
+  g_print("%s: invalidate_area(%d, %d  -  %d,%d)\n", _G(g_object)[gimp_object_get_name](), x, y, width, height);
   gint parent_off_x = 0;
   gint parent_off_y = 0;
   GimpViewable* parent = gimp_viewable_get_parent(GIMP_VIEWABLE(g_object));
@@ -1134,6 +1136,41 @@ void GLib::FilterLayer::invalidate_layer ()
   image [gimp_image_flush] ();
 }
 
+
+void GLib::FilterLayer::on_parent_changed (GimpViewable  *viewable,
+                                             GimpViewable  *parent)
+{
+//  g_print("on_parent_changed: %p ==> parent=%s\n", viewable, parent? gimp_object_get_name(parent): NULL);
+  if (child_update_conn) {
+    delete child_update_conn;
+    child_update_conn = NULL;
+  }
+  if (reorder_conn) {
+    delete reorder_conn;
+    reorder_conn = NULL;
+  }
+  if (parent) {
+    GimpContainer* children = gimp_viewable_get_children(parent);
+    child_update_conn =
+      g_signal_connect_delegator (G_OBJECT(children), "update",
+                                  Delegators::delegator(this, &GLib::FilterLayer::on_stack_update));
+    reorder_conn      =
+      g_signal_connect_delegator (G_OBJECT(children), "reorder",
+                                  Delegators::delegator(this, &GLib::FilterLayer::on_reorder));
+  } else {
+    GimpImage*   image   = gimp_item_get_image(GIMP_ITEM(g_object));
+    GimpContainer* container = gimp_image_get_layers(image);
+    child_update_conn =
+      g_signal_connect_delegator (G_OBJECT(container), "update",
+                                  Delegators::delegator(this, &GLib::FilterLayer::on_stack_update));
+    reorder_conn      =
+      g_signal_connect_delegator (G_OBJECT(container), "reorder",
+                                  Delegators::delegator(this, &GLib::FilterLayer::on_reorder));
+  }
+  last_index = -1;
+  invalidate_layer();
+}
+
 void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
                                            gint               x,
                                            gint               y,
@@ -1141,19 +1178,48 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
                                            gint               height,
                                            GimpItem          *item)
 {
-  waiting_process_stack = false;
-  if (projected_tiles && G_OBJECT(item) == g_object)
+  g_print("%s: FilterLayer::on_stack_update(%s)\n", _G(g_object)[gimp_object_get_name](), _G(item)[gimp_object_get_name]());
+
+  if (projected_tiles && G_OBJECT(item) == g_object) {
+    g_print("--->%s: Ignore myself.\n", _G(g_object)[gimp_object_get_name]());
     return;
+  }
   auto stack = _G(_stack);
   gint item_index = stack [gimp_container_get_child_index] (GIMP_OBJECT(item));
   gint self_index = stack [gimp_container_get_child_index] (GIMP_OBJECT(g_object));
 
-  if (item_index < self_index)
-    return;
+  if (item_index < 0) {
+    // item is removed from stack.
+    gint n_children = stack [gimp_container_get_n_children] ();
+    GLib::FilterLayer* bottom_layer = NULL;
+    for (int i = 0; i < n_children; i ++) {
+      GimpObject* layer = stack [gimp_container_get_child_by_index] (i);
+      if (FilterLayerInterface::is_instance(layer)) {
+        auto filter = dynamic_cast<FilterLayer*>(FilterLayerInterface::cast(layer));
+        if (filter->last_index != i) {
+          // filter is below item, and index is changed.
+          break;
+        } else {
+          bottom_layer = filter;
+        }
+      }
+    }
+    if (bottom_layer) {
+      g_print("--->%s: %s is removed. invalidate %s\n", _G(g_object)[gimp_object_get_name](), _G(item)[gimp_object_get_name](), _G(bottom_layer->g_object)[gimp_object_get_name]());
+      bottom_layer->invalidate_layer();
+    }
 
+  } else if (item_index < self_index) {
+    // Item is above in the current stack. This layer is not affected by item.
+    g_print("--->%s: Updating above in stack(%d<%d). Ignore it.\n", _G(g_object)[gimp_object_get_name](), item_index, self_index);
+    return;
+  }
+
+  waiting_process_stack = false;
   for (int i = self_index + 1; i < item_index; i ++) {
     GimpObject* layer = stack [gimp_container_get_child_by_index] (i);
     if (FilterLayerInterface::is_instance(layer) && _G(layer) [gimp_item_get_visible] ()) {
+      g_print("--->%s: Wait for other filter(%s).\n", _G(g_object)[gimp_object_get_name](), _G(layer) [gimp_object_get_name] ());
       waiting_process_stack = true;
       if (runner)
         runner->stop();
@@ -1182,6 +1248,56 @@ void GLib::FilterLayer::on_proj_update (GimpProjection *proj,
                         x - gimp_item_get_offset_x (GIMP_ITEM (g_object)),
                         y - gimp_item_get_offset_y (GIMP_ITEM (g_object)),
                         width, height);
+}
+
+void GLib::FilterLayer::on_reorder (GimpContainer* _container,
+                                    GimpLayer* _layer,
+                                    gint index)
+{
+  g_print("%s,%d: FilterLayer::on_reorder(%s,%d)\n", _G(g_object)[gimp_object_get_name](), last_index, _G(_layer)[gimp_object_get_name](), index);
+  auto layer = _G(_layer);
+  auto stack = _G(_container);
+  gint item_index = stack [gimp_container_get_child_index] (GIMP_OBJECT(_layer));
+  gint self_index = stack [gimp_container_get_child_index] (GIMP_OBJECT(g_object));
+
+  if (G_OBJECT(_layer) == g_object) {
+    if (last_index < 0 || last_index < self_index) {
+      g_print("--->invalidate self(%s).\n", layer [gimp_object_get_name] ());
+      invalidate_layer();
+    }
+    else {
+      int n_children = stack [gimp_container_get_n_children] ();
+
+      for (int i = last_index; i > self_index; i --) {
+        auto it = _G( stack [gimp_container_get_child_by_index] (i) );
+        if (FilterLayerInterface::is_instance(it) && it [gimp_item_get_visible] () ) {
+          g_print("--->invalidate bottom layer(%s).\n", it [gimp_object_get_name] ());
+          reinterpret_cast<FilterLayer*>(FilterLayerInterface::cast(it))->invalidate_layer();
+          break;
+        }
+      }
+
+    }
+  } else if (item_index > self_index) {
+    bool is_at_bottom = true;
+    for (int i = item_index; i > self_index; i --) {
+      GimpObject* layer = stack [gimp_container_get_child_by_index] (i);
+      if (FilterLayerInterface::is_instance(layer) && _G(layer) [gimp_item_get_visible] ()) {
+        g_print("--->%s: Wait for other filter(%s).\n", _G(g_object)[gimp_object_get_name](), _G(layer) [gimp_object_get_name] ());
+        waiting_process_stack = true;
+        if (runner)
+          runner->stop();
+        is_at_bottom = false;
+        break;
+      }
+    }
+    if (is_at_bottom)
+      invalidate_layer();
+  } else if (item_index < self_index) {
+//    invalidate_layer();
+  }
+  last_index = self_index;
+
 }
 
 /*  public functions  */

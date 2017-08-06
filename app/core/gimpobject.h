@@ -69,6 +69,12 @@ gint          gimp_object_name_collate    (GimpObject       *object1,
                                            GimpObject       *object2);
 gint64        gimp_object_get_memsize     (GimpObject       *object,
                                            gint64           *gui_size);
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-types.hpp"
+__DECLARE_GTK_CLASS__(GimpObject, GIMP_TYPE_OBJECT);
+};
 
+#endif
 
 #endif  /* __GIMP_OBJECT_H__ */
