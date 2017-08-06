@@ -57,5 +57,11 @@ void             gimp_group_layer_suspend_resize (GimpGroupLayer *group,
 void             gimp_group_layer_resume_resize  (GimpGroupLayer *group,
                                                   gboolean        push_undo);
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-types.hpp"
+__DECLARE_GTK_CLASS__(GimpGroupLayer, GIMP_TYPE_GROUP_LAYER);
+};
+#endif
 
 #endif /* __GIMP_GROUP_LAYER_H__ */

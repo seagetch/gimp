@@ -88,5 +88,11 @@ void           gimp_projectable_invalidate_preview (GimpProjectable *projectable
 GList        * gimp_projectable_get_layers         (GimpProjectable *projectable);
 GList        * gimp_projectable_get_channels       (GimpProjectable *projectable);
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-types.hpp"
+__DECLARE_GIMP_INTERFACE__(GimpProjectable, GIMP_TYPE_PROJECTABLE);
+};
+#endif
 
 #endif  /* __GIMP_PROJECTABLE_H__ */

@@ -103,5 +103,11 @@ gint64           gimp_projection_estimate_memsize (GimpImageBaseType     type,
                                                    gint                  width,
                                                    gint                  height);
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-types.hpp"
+__DECLARE_GTK_CLASS__(GimpProjection, GIMP_TYPE_PROJECTION);
+};
+#endif
 
 #endif /*  __GIMP_PROJECTION_H__  */

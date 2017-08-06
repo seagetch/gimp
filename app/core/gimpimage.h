@@ -494,7 +494,7 @@ const gchar   * gimp_image_get_string_untitled   (void);
 #ifdef __cplusplus
 extern "C++" {
 #include "base/glib-cxx-types.hpp"
-__DECLARE_GTK_CAST__(GimpImage, GIMP_IMAGE, gimp_image);
+__DECLARE_GTK_CLASS__(GimpImage, GIMP_TYPE_IMAGE);
 };
 
 #endif

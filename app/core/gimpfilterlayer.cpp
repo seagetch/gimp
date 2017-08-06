@@ -54,6 +54,7 @@ extern "C" {
 #include "gimpcontext.h"
 #include "gimpprogress.h"
 #include "gimpcontainer.h"
+#include "gimpgrouplayer.h"
 
 #include "gimp-intl.h"
 #include "gimplayer.h"
@@ -1020,13 +1021,30 @@ void GLib::FilterLayer::end()
     return;
   }
 //  filter_active = NULL;
-  GimpItem* item   = GIMP_ITEM(g_object);
-  gint      width  = gimp_item_get_width(item);
-  gint      height = gimp_item_get_height(item);
-  gimp_drawable_update (GIMP_DRAWABLE (g_object),
-                        0, 0, width, height);
-  GimpImage*   image   = gimp_item_get_image(GIMP_ITEM(g_object));
-  gimp_image_flush (image);
+  auto self   = _G(g_object);
+  gint width  = self [gimp_item_get_width] ();
+  gint height = self [gimp_item_get_height] ();
+  gint x, y;
+  self [gimp_item_get_offset] (&x, &y);
+  self [gimp_drawable_update] (0, 0, width, height);
+#if 0
+  auto parent = _G(self [gimp_viewable_get_parent] ());
+  if (parent) {
+    auto projection = _G(parent [gimp_group_layer_get_projection]());
+    parent [gimp_projectable_invalidate_preview] ();
+    projection [gimp_projection_flush_now] ();
+  } else {
+#endif
+    auto image  = _G( self [gimp_item_get_image]() );
+    image [gimp_projectable_invalidate_preview] ();
+    auto projection = _G(image [gimp_image_get_projection] ());
+    projection [gimp_projection_flush_now] ();
+#if 0
+  }
+  auto image  = _G( self [gimp_item_get_image]() );
+#endif
+  image [gimp_image_flush] ();
+
 //  g_print("/FilterLayer::end\n");
 }
 
