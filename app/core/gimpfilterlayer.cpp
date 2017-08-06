@@ -1027,22 +1027,10 @@ void GLib::FilterLayer::end()
   gint x, y;
   self [gimp_item_get_offset] (&x, &y);
   self [gimp_drawable_update] (0, 0, width, height);
-#if 0
-  auto parent = _G(self [gimp_viewable_get_parent] ());
-  if (parent) {
-    auto projection = _G(parent [gimp_group_layer_get_projection]());
-    parent [gimp_projectable_invalidate_preview] ();
-    projection [gimp_projection_flush_now] ();
-  } else {
-#endif
-    auto image  = _G( self [gimp_item_get_image]() );
-    image [gimp_projectable_invalidate_preview] ();
-    auto projection = _G(image [gimp_image_get_projection] ());
-    projection [gimp_projection_flush_now] ();
-#if 0
-  }
   auto image  = _G( self [gimp_item_get_image]() );
-#endif
+  image [gimp_projectable_invalidate_preview] ();
+  auto projection = _G(image [gimp_image_get_projection] ());
+  projection [gimp_projection_flush_now] ();
   image [gimp_image_flush] ();
 
 //  g_print("/FilterLayer::end\n");
@@ -1150,7 +1138,7 @@ void GLib::FilterLayer::invalidate_area (gint               x,
 void GLib::FilterLayer::invalidate_layer ()
 {
   auto self         = _G(g_object);
-  auto image        = _G( gimp_item_get_image(GIMP_ITEM(g_object)) );
+  auto image        = _G( self [gimp_item_get_image] () );
   gint width        = self [gimp_item_get_width] ();
   gint height       = self [gimp_item_get_height] ();
   gint offset_x     = self [gimp_item_get_offset_x] ();
@@ -1159,6 +1147,8 @@ void GLib::FilterLayer::invalidate_layer ()
   invalidate_area(offset_x, offset_y, width, height);
 
   image [gimp_image_invalidate] (offset_x, offset_y, width, height, 0);
+  auto projection = _G(image [gimp_image_get_projection] ());
+  projection [gimp_projection_flush_now] ();
   image [gimp_image_flush] ();
 }
 
@@ -1253,7 +1243,7 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
     }
   }
 
-  if (FilterLayerInterface::is_instance(item)) {
+  if (G_OBJECT(item) != g_object && FilterLayerInterface::is_instance(item)) {
     if (dynamic_cast<FilterLayer*>(FilterLayerInterface::cast(item))->is_waiting_to_be_processed())
       waiting_process_stack = true;
   }
