@@ -921,9 +921,7 @@ void GLib::FilterLayer::filter_reset () {
   gimp_progress_cancel(GIMP_PROGRESS(g_object));
   g_list_free_full(updates, delete_rectangle);
   updates = NULL;
-  g_print("FilterLayer::filter_reset: tile_manager_unref<\n");
   tile_manager_unref(projected_tiles);
-  g_print("\n>FilterLayer::filter_reset: tile_manager_unref\n");
   projected_tiles = NULL;
 }
 
@@ -1068,7 +1066,7 @@ void GLib::FilterLayer::invalidate_area (gint               x,
                                          gint               width,
                                          gint               height)
 {
-  g_print("%s: invalidate_area(%d, %d  -  %d,%d)\n", _G(g_object)[gimp_object_get_name](), x, y, width, height);
+//  g_print("%s: invalidate_area(%d, %d  -  %d,%d)\n", _G(g_object)[gimp_object_get_name](), x, y, width, height);
   gint parent_off_x = 0;
   gint parent_off_y = 0;
   GimpViewable* parent = gimp_viewable_get_parent(GIMP_VIEWABLE(g_object));
@@ -1186,10 +1184,10 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
                                            gint               height,
                                            GimpItem          *item)
 {
-  g_print("%s: FilterLayer::on_stack_update(%s)\n", _G(g_object)[gimp_object_get_name](), _G(item)[gimp_object_get_name]());
+//  g_print("%s: FilterLayer::on_stack_update(%s)\n", _G(g_object)[gimp_object_get_name](), _G(item)[gimp_object_get_name]());
 
   if (projected_tiles && G_OBJECT(item) == g_object) {
-    g_print("--->%s: Ignore myself.\n", _G(g_object)[gimp_object_get_name]());
+//    g_print("--->%s: Ignore myself.\n", _G(g_object)[gimp_object_get_name]());
     return;
   }
   auto stack = _G(_stack);
@@ -1213,13 +1211,13 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
       }
     }
     if (bottom_layer) {
-      g_print("--->%s: %s is removed. invalidate %s\n", _G(g_object)[gimp_object_get_name](), _G(item)[gimp_object_get_name](), _G(bottom_layer->g_object)[gimp_object_get_name]());
+//      g_print("--->%s: %s is removed. invalidate %s\n", _G(g_object)[gimp_object_get_name](), _G(item)[gimp_object_get_name](), _G(bottom_layer->g_object)[gimp_object_get_name]());
       bottom_layer->invalidate_layer();
     }
 
   } else if (item_index < self_index) {
     // Item is above in the current stack. This layer is not affected by item.
-    g_print("--->%s: Updating above in stack(%d<%d). Ignore it.\n", _G(g_object)[gimp_object_get_name](), item_index, self_index);
+//    g_print("--->%s: Updating above in stack(%d<%d). Ignore it.\n", _G(g_object)[gimp_object_get_name](), item_index, self_index);
     return;
   }
 
@@ -1227,7 +1225,7 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
   for (int i = self_index + 1; i < item_index; i ++) {
     GimpObject* layer = stack [gimp_container_get_child_by_index] (i);
     if (FilterLayerInterface::is_instance(layer) && _G(layer) [gimp_item_get_visible] ()) {
-      g_print("--->%s: Wait for other filter(%s).\n", _G(g_object)[gimp_object_get_name](), _G(layer) [gimp_object_get_name] ());
+//      g_print("--->%s: Wait for other filter(%s).\n", _G(g_object)[gimp_object_get_name](), _G(layer) [gimp_object_get_name] ());
       waiting_process_stack = true;
       if (runner)
         runner->stop();
@@ -1267,7 +1265,7 @@ void GLib::FilterLayer::on_reorder (GimpContainer* _container,
                                     GimpLayer* _layer,
                                     gint index)
 {
-  g_print("%s,%d: FilterLayer::on_reorder(%s,%d)\n", _G(g_object)[gimp_object_get_name](), last_index, _G(_layer)[gimp_object_get_name](), index);
+//  g_print("%s,%d: FilterLayer::on_reorder(%s,%d)\n", _G(g_object)[gimp_object_get_name](), last_index, _G(_layer)[gimp_object_get_name](), index);
   auto layer = _G(_layer);
   auto stack = _G(_container);
   gint item_index = stack [gimp_container_get_child_index] (GIMP_OBJECT(_layer));
@@ -1275,7 +1273,7 @@ void GLib::FilterLayer::on_reorder (GimpContainer* _container,
 
   if (G_OBJECT(_layer) == g_object) {
     if (last_index < 0 || last_index < self_index) {
-      g_print("--->invalidate self(%s).\n", layer [gimp_object_get_name] ());
+//      g_print("--->invalidate self(%s).\n", layer [gimp_object_get_name] ());
       invalidate_layer();
     }
     else {
@@ -1284,7 +1282,7 @@ void GLib::FilterLayer::on_reorder (GimpContainer* _container,
       for (int i = last_index; i > self_index; i --) {
         auto it = _G( stack [gimp_container_get_child_by_index] (i) );
         if (FilterLayerInterface::is_instance(it) && it [gimp_item_get_visible] () ) {
-          g_print("--->invalidate bottom layer(%s).\n", it [gimp_object_get_name] ());
+//          g_print("--->invalidate bottom layer(%s).\n", it [gimp_object_get_name] ());
           reinterpret_cast<FilterLayer*>(FilterLayerInterface::cast(it))->invalidate_layer();
           break;
         }
@@ -1296,7 +1294,7 @@ void GLib::FilterLayer::on_reorder (GimpContainer* _container,
     for (int i = item_index; i > self_index; i --) {
       GimpObject* layer = stack [gimp_container_get_child_by_index] (i);
       if (FilterLayerInterface::is_instance(layer) && _G(layer) [gimp_item_get_visible] ()) {
-        g_print("--->%s: Wait for other filter(%s).\n", _G(g_object)[gimp_object_get_name](), _G(layer) [gimp_object_get_name] ());
+//        g_print("--->%s: Wait for other filter(%s).\n", _G(g_object)[gimp_object_get_name](), _G(layer) [gimp_object_get_name] ());
         waiting_process_stack = true;
         if (runner)
           runner->stop();
