@@ -513,14 +513,6 @@ void GLib::FilterLayer::constructed ()
 {
   g_print("FilterLayer::constructed: project_tiles = %p\n", projected_tiles);
   on_parent_changed(GIMP_VIEWABLE(g_object), NULL);
-
-  // Setup ProcedureRunner object
-  set_procedure("plug-in-edge");
-  set_procedure("plug-in-gauss");
-  HashTable<const gchar*, GValue*> args = g_hash_table_new(g_str_hash, g_str_equal);
-  auto horizontal = Value(25.0);  args.insert("horizontal", &horizontal.ref());
-  auto vertical   = Value(25.0);  args.insert("vertical",   &vertical.ref());
-  runner->setup_args(&args);
 }
 
 void GLib::FilterLayer::finalize ()
