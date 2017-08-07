@@ -129,6 +129,10 @@ gimp_paint_mode_menu_new (gboolean with_behind_mode,
                                            GIMP_SATURATION_MODE,
                                            GIMP_COLOR_MODE,
                                            GIMP_VALUE_MODE,
+                                           
+                                           GIMP_ERASE_MODE,
+                                           GIMP_REPLACE_MODE,
+                                           GIMP_ANTI_ERASE_MODE,
 
                                            GIMP_SRC_IN_MODE,
                                            GIMP_DST_IN_MODE,
@@ -153,6 +157,9 @@ gimp_paint_mode_menu_new (gboolean with_behind_mode,
   gimp_int_store_insert_separator_after (GIMP_INT_STORE (store),
                                          GIMP_VALUE_MODE, -1);
 
+  gimp_int_store_insert_separator_after (GIMP_INT_STORE (store),
+                                         GIMP_ANTI_ERASE_MODE, -1);
+
   if (with_behind_mode)
     {
       gimp_enum_store_insert_value_after (GIMP_ENUM_STORE (store),
@@ -163,6 +170,7 @@ gimp_paint_mode_menu_new (gboolean with_behind_mode,
                                           GIMP_COLOR_ERASE_MODE);
     }
 
+#if 0
   if (with_replace_modes)
     {
       gimp_enum_store_insert_value_after (GIMP_ENUM_STORE (store),
@@ -175,6 +183,7 @@ gimp_paint_mode_menu_new (gboolean with_behind_mode,
                                           GIMP_ERASE_MODE,
                                           GIMP_ANTI_ERASE_MODE);
     }
+#endif
 
   combo = gimp_enum_combo_box_new_with_model (GIMP_ENUM_STORE (store));
   g_object_unref (store);

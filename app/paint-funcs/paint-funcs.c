@@ -91,7 +91,7 @@ static const LayerMode layer_modes[] =
   { TRUE,  TRUE,  TRUE,  FALSE, },  /*  GIMP_SRC_IN_MODE        */
   { TRUE,  TRUE,  TRUE,  TRUE,  },  /*  GIMP_DST_IN_MODE        */
   { TRUE,  TRUE,  TRUE,  FALSE, },  /*  GIMP_SRC_OUT_MODE       */
-  { TRUE,  TRUE,  TRUE,  TRUE,  }   /*  GIMP_DST_OUT_MODE       */
+  { TRUE,  TRUE,  TRUE,  TRUE,  },  /*  GIMP_DST_OUT_MODE       */
 };
 
 

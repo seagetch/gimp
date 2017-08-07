@@ -769,6 +769,11 @@ class PopupWindow {
       mode( parent, GIMP_COLOR_MODE);
       mode( parent, GIMP_VALUE_MODE);
     });
+    group(NULL, _("Render"), [&](auto parent) {
+      mode( parent, GIMP_ERASE_MODE);
+      mode( parent, GIMP_REPLACE_MODE);
+      mode( parent, GIMP_ANTI_ERASE_MODE);
+    });
     group(NULL, _("Masking"), [&](auto parent) {
       mode( parent, GIMP_SRC_IN_MODE);
       mode( parent, GIMP_DST_IN_MODE);
