@@ -619,16 +619,6 @@ GimpItem* GLib::FilterLayer::duplicate (GType     new_type)
 void GLib::FilterLayer::convert (GimpImage *dest_image)
 {
   GList                 *list;
-#if 0
-  for (list = gimp_item_stack_get_item_iter (GIMP_ITEM_STACK (children));
-       list;
-       list = g_list_next (list))
-    {
-      GimpItem *child = GIMP_ITEM(list->data);
-
-      GIMP_ITEM_GET_CLASS (child)->convert (child, dest_image);
-    }
-#endif
   GIMP_ITEM_CLASS (Class::parent_class)->convert (GIMP_ITEM(g_object), dest_image);
 }
 
@@ -675,6 +665,7 @@ void GLib::FilterLayer::flip (GimpContext         *context,
                                 gboolean             clip_result)
 {
   filter_reset();
+  invalidate_layer();
 }
 
 void GLib::FilterLayer::rotate (GimpContext      *context,
@@ -971,9 +962,6 @@ void GLib::FilterLayer::update_size () {
 
           reallocate_projection = FALSE;
 
-          /*  temporarily change the return values of gimp_viewable_get_size()
-           *  so the projection allocates itself correctly
-           */
           reallocate_width  = width;
           reallocate_height = height;
           invalidate_layer();
@@ -982,16 +970,7 @@ void GLib::FilterLayer::update_size () {
       else
         {
           gimp_item_set_offset (item, x, y);
-
-          /*  invalidate the entire projection since the position of
-           *  the children relative to each other might have changed
-           *  in a way that happens to leave the group's width and
-           *  height the same
-           */
           invalidate_layer();
-//          gimp_projectable_invalidate (GIMP_PROJECTABLE (g_object),
-//                                       x, y, width, height);
-
           /*  see comment in gimp_filter_layer_stack_update() below  */
 //          gimp_pickable_flush (GIMP_PICKABLE (projection));
         }
