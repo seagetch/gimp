@@ -641,6 +641,7 @@ void GLib::FilterLayer::translate (gint      offset_x,
 
   GIMP_ITEM_CLASS(Class::parent_class)->translate(GIMP_ITEM(g_object), offset_x, offset_y, push_undo);
   filter_reset();
+  invalidate_layer();
 }
 
 void GLib::FilterLayer::scale (gint                   new_width,
@@ -653,6 +654,7 @@ void GLib::FilterLayer::scale (gint                   new_width,
   GimpItem*              item = GIMP_ITEM(g_object);
   GIMP_ITEM_CLASS(Class::parent_class)->scale(GIMP_ITEM(g_object), new_width, new_height, new_offset_x, new_offset_y, interpolation_type, progress);
   filter_reset();
+  invalidate_layer();
 }
 
 void GLib::FilterLayer::resize (GimpContext *context,
@@ -664,6 +666,7 @@ void GLib::FilterLayer::resize (GimpContext *context,
   GimpItem*              item = GIMP_ITEM(g_object);
   GIMP_ITEM_CLASS(Class::parent_class)->resize(GIMP_ITEM(g_object), context, new_width, new_height, offset_x, offset_y);
   filter_reset();
+  invalidate_layer();
 }
 
 void GLib::FilterLayer::flip (GimpContext         *context,
@@ -683,6 +686,7 @@ void GLib::FilterLayer::rotate (GimpContext      *context,
   GimpItem*              item = GIMP_ITEM(g_object);
   GIMP_ITEM_CLASS(Class::parent_class)->rotate(GIMP_ITEM(g_object), context, rotate_type, center_x, center_y, clip_result);
   filter_reset();
+  invalidate_layer();
 }
 
 void GLib::FilterLayer::transform (GimpContext            *context,
@@ -696,6 +700,7 @@ void GLib::FilterLayer::transform (GimpContext            *context,
   GimpItem*              item = GIMP_ITEM(g_object);
   GIMP_ITEM_CLASS(Class::parent_class)->transform(GIMP_ITEM(g_object), context, matrix, direction, interpolation_type, recursion_level, clip_result, progress);
   filter_reset();
+  invalidate_layer();
 }
 
 gint64 GLib::FilterLayer::estimate_memsize (gint                width,
@@ -839,7 +844,7 @@ void GLib::FilterLayer::set_procedure(const char* proc_name, GValueArray* args)
   }
 
   runner     = r;
-
+  filter_reset();
   invalidate_layer();
 }
 
@@ -957,6 +962,7 @@ void GLib::FilterLayer::update_size () {
       width  != old_width            ||
       height != old_height)
     {
+    auto self = _G(g_object);
       if (reallocate_projection ||
           width  != old_width            ||
           height != old_height)
@@ -971,8 +977,7 @@ void GLib::FilterLayer::update_size () {
           reallocate_width  = width;
           reallocate_height = height;
           invalidate_layer();
-          gimp_projectable_structure_changed (GIMP_PROJECTABLE (g_object));
-
+//          gimp_projectable_structure_changed (GIMP_PROJECTABLE (g_object));
         }
       else
         {
@@ -984,8 +989,8 @@ void GLib::FilterLayer::update_size () {
            *  height the same
            */
           invalidate_layer();
-          gimp_projectable_invalidate (GIMP_PROJECTABLE (g_object),
-                                       x, y, width, height);
+//          gimp_projectable_invalidate (GIMP_PROJECTABLE (g_object),
+//                                       x, y, width, height);
 
           /*  see comment in gimp_filter_layer_stack_update() below  */
 //          gimp_pickable_flush (GIMP_PICKABLE (projection));
@@ -1002,10 +1007,10 @@ GimpProgress* GLib::FilterLayer::start(const gchar* message,
 
 void GLib::FilterLayer::end()
 {
-  g_print("%s: FilterLayer::end\n", _G(g_object) [gimp_object_get_name] () );
+//  g_print("%s: FilterLayer::end\n", _G(g_object) [gimp_object_get_name] () );
   runner->on_end();
   if (new_runner) {
-    g_print("%s: New runner exists. run again.\n", _G(g_object) [gimp_object_get_name] () );
+//    g_print("%s: New runner exists. run again.\n", _G(g_object) [gimp_object_get_name] () );
     delete runner;
     runner      = new_runner;
     new_runner = NULL;
@@ -1142,6 +1147,13 @@ void GLib::FilterLayer::invalidate_layer ()
   gint offset_y     = self [gimp_item_get_offset_y] ();
 
   invalidate_area(offset_x, offset_y, width, height);
+
+  GimpViewable*  parent = gimp_viewable_get_parent(GIMP_VIEWABLE(g_object));
+  if (parent) {
+    auto proj = _G( GIMP_PROJECTABLE(parent) );
+    proj [gimp_projectable_invalidate] (offset_x, offset_y, width, height);
+    proj [gimp_projectable_flush] (TRUE);
+  }
 
   image [gimp_image_invalidate] (offset_x, offset_y, width, height, 0);
   auto projection = _G(image [gimp_image_get_projection] ());
