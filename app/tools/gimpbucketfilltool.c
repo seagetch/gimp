@@ -131,10 +131,10 @@ gimp_bucket_fill_tool_initialize (GimpTool     *tool,
       return FALSE;
     }
 
-  if (gimp_viewable_get_children (GIMP_VIEWABLE (drawable)))
+  if (! gimp_item_is_editable (GIMP_ITEM (drawable)))
     {
       g_set_error_literal (error, GIMP_ERROR, GIMP_FAILED,
-			   _("Cannot modify the pixels of layer groups."));
+			   _("Cannot modify the pixels of this layer."));
       return FALSE;
     }
 
@@ -257,7 +257,7 @@ gimp_bucket_fill_tool_cursor_update (GimpTool         *tool,
     {
       GimpDrawable *drawable = gimp_image_get_active_drawable (image);
 
-      if (! gimp_viewable_get_children (GIMP_VIEWABLE (drawable)) &&
+      if (gimp_item_is_editable (GIMP_ITEM (drawable)) &&
           ! gimp_item_is_content_locked (GIMP_ITEM (drawable)))
         {
           switch (options->fill_mode)

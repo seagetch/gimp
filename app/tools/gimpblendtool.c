@@ -168,10 +168,10 @@ gimp_blend_tool_initialize (GimpTool     *tool,
       return FALSE;
     }
 
-  if (gimp_viewable_get_children (GIMP_VIEWABLE (drawable)))
+  if (! gimp_item_is_editable (GIMP_ITEM (drawable)))
     {
       g_set_error_literal (error, GIMP_ERROR, GIMP_FAILED,
-			   _("Cannot modify the pixels of layer groups."));
+			   _("Cannot modify the pixels of this layer."));
       return FALSE;
     }
 
@@ -371,7 +371,7 @@ gimp_blend_tool_cursor_update (GimpTool         *tool,
   GimpCursorModifier  modifier = GIMP_CURSOR_MODIFIER_NONE;
 
   if (gimp_drawable_is_indexed (drawable)                   ||
-      gimp_viewable_get_children (GIMP_VIEWABLE (drawable)) ||
+      ! gimp_item_is_editable (GIMP_ITEM (drawable)) ||
       gimp_item_is_content_locked (GIMP_ITEM (drawable)))
     {
       modifier = GIMP_CURSOR_MODIFIER_BAD;

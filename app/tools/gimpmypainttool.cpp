@@ -414,9 +414,9 @@ gimp_mypaint_tool_motion_internal (GimpTool         *tool,
       return;
 
   // Refuse drawing if the layer is locked or hidden
-  if (gimp_viewable_get_children (GIMP_VIEWABLE (drawable))) {
+  if (! gimp_item_is_editable (GIMP_ITEM (drawable))) {
       gimp_tool_message_literal (tool, display,
-                                 _("Cannot paint on layer groups."));
+                                 _("Cannot paint on this layer."));
       return;
   }
 
@@ -561,7 +561,7 @@ gimp_mypaint_tool_cursor_update (GimpTool         *tool,
     GimpImage    *image    = gimp_display_get_image (display);
     GimpDrawable *drawable = gimp_image_get_active_drawable (image);
 
-    if (gimp_viewable_get_children (GIMP_VIEWABLE (drawable)) ||
+    if (! gimp_item_is_editable (GIMP_ITEM (drawable)) ||
       gimp_item_is_content_locked (GIMP_ITEM (drawable))) {
       modifier        = GIMP_CURSOR_MODIFIER_BAD;
       toggle_modifier = GIMP_CURSOR_MODIFIER_BAD;

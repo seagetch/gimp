@@ -274,10 +274,10 @@ gimp_image_map_tool_initialize (GimpTool     *tool,
   GimpDrawable     *drawable       = gimp_image_get_active_drawable (image);
   GimpDisplayShell *display_shell  = gimp_display_get_shell (display);
 
-  if (gimp_viewable_get_children (GIMP_VIEWABLE (drawable)))
+  if (! gimp_item_is_editable (GIMP_ITEM (drawable)))
     {
       g_set_error_literal (error, GIMP_ERROR, GIMP_FAILED,
-			   _("Cannot modify the pixels of layer groups."));
+			   _("Cannot modify the pixels of this layer."));
       return FALSE;
     }
 

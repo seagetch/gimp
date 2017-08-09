@@ -1109,7 +1109,7 @@ gimp_transform_tool_transform (GimpTransformTool *tr_tool,
   switch (options->type)
     {
     case GIMP_TRANSFORM_TYPE_LAYER:
-      if (! gimp_viewable_get_children (GIMP_VIEWABLE (tool->drawable)) &&
+      if (gimp_item_is_editable (GIMP_ITEM (tool->drawable)) &&
           ! gimp_channel_is_empty (gimp_image_get_mask (image)))
         {
           orig_tiles = gimp_drawable_transform_cut (tool->drawable,

@@ -421,10 +421,10 @@ gimp_selection_tool_start_edit (GimpSelectionTool *sel_tool,
         GimpImage    *image    = gimp_display_get_image (display);
         GimpDrawable *drawable = gimp_image_get_active_drawable (image);
 
-        if (gimp_viewable_get_children (GIMP_VIEWABLE (drawable)))
+        if (! gimp_item_is_editable (GIMP_ITEM (drawable)))
           {
             gimp_tool_message_literal (tool, display,
-                                       _("Cannot modify the pixels of layer groups."));
+                                       _("Cannot modify the pixels of this layer."));
           }
         else if (gimp_item_is_content_locked (GIMP_ITEM (drawable)))
           {

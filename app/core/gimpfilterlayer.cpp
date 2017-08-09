@@ -317,6 +317,7 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
                                         gboolean     cancelable);
   virtual void            end          ();
   virtual gboolean        is_active    ();
+  virtual gboolean        is_editable  ();
   virtual void            set_text     (const gchar* message);
   virtual void            set_value    (gdouble      percentage);
   virtual gdouble         get_value    ();
@@ -441,6 +442,7 @@ void FilterLayer::class_init(Traits<GimpFilterLayer>::Class *klass)
   bind_to_class (item_class, flip, Impl);
   bind_to_class (item_class, rotate, Impl);
   bind_to_class (item_class, transform, Impl);
+  bind_to_class (item_class, is_editable, Impl);
   bind_to_class (drawable_class, project_region, Impl);
   bind_to_class (drawable_class, estimate_memsize, Impl);
 
@@ -1030,6 +1032,11 @@ gboolean GLib::FilterLayer::is_active()
 {
   return runner && runner->is_running();
 //  return filter_active != NULL;
+}
+
+gboolean GLib::FilterLayer::is_editable()
+{
+  return FALSE;
 }
 
 void GLib::FilterLayer::set_text(const gchar* message)

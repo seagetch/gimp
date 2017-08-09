@@ -148,6 +148,7 @@ static void       gimp_item_real_resize             (GimpItem       *item,
                                                      gint            offset_y);
 static GeglNode * gimp_item_real_get_node           (GimpItem       *item);
 static void       gimp_item_sync_offset_node        (GimpItem       *item);
+static gboolean   gimp_item_real_is_editable        (GimpItem       *item);
 
 
 G_DEFINE_TYPE (GimpItem, gimp_item, GIMP_TYPE_VIEWABLE)
@@ -240,6 +241,7 @@ gimp_item_class_init (GimpItemClass *klass)
   klass->flip_desc                 = NULL;
   klass->rotate_desc               = NULL;
   klass->transform_desc            = NULL;
+  klass->is_editable               = gimp_item_real_is_editable;
 
   g_object_class_install_property (object_class, PROP_IMAGE,
                                    g_param_spec_object ("image", NULL, NULL,
@@ -637,6 +639,12 @@ gimp_item_sync_offset_node (GimpItem *item)
                    "x", (gdouble) private->offset_x,
                    "y", (gdouble) private->offset_y,
                    NULL);
+}
+
+static gboolean
+gimp_item_real_is_editable (GimpItem *item)
+{
+  return ( gimp_viewable_get_children (GIMP_VIEWABLE (item)) == NULL);
 }
 
 
@@ -2210,4 +2218,16 @@ gimp_item_is_in_set (GimpItem    *item,
     }
 
   return FALSE;
+}
+
+gboolean
+gimp_item_is_editable (GimpItem *item)
+{
+  GimpItemClass *item_class;
+
+  g_return_val_if_fail (GIMP_IS_ITEM (item), FALSE);
+
+  item_class = GIMP_ITEM_GET_CLASS (item);
+
+  return item_class->is_editable(item);
 }

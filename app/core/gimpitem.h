@@ -109,6 +109,7 @@ struct _GimpItemClass
                                           gdouble                 feather_radius_x,
                                           gdouble                 feather_radius_y);
   GeglNode      * (* get_node)           (GimpItem               *item);
+  gboolean        (* is_editable)        (GimpItem               *item);
 
 
   const gchar *default_name;
@@ -318,6 +319,8 @@ gboolean        gimp_item_mask_intersect     (GimpItem           *item,
 
 gboolean        gimp_item_is_in_set          (GimpItem           *item,
                                               GimpItemSet         set);
+
+gboolean        gimp_item_is_editable        (GimpItem           *item);
 
 #ifdef __cplusplus
 extern "C++" {
