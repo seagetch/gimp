@@ -1082,7 +1082,7 @@ layers_new_filter_layer_response (GtkWidget          *widget,
                                      dialog->xsize,
                                      dialog->ysize,
                                      layer_name,
-                                     GIMP_OPACITY_OPAQUE, GIMP_NORMAL_MODE);
+                                     GIMP_OPACITY_OPAQUE, GIMP_REPLACE_MODE);
 
       if (layer)
         {
