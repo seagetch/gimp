@@ -85,6 +85,7 @@ public:
   };
   List(const List& src) : ScopedPointer<GList, void(GList*), g_list_free>(g_list_copy(src.obj)) { }
 };
+inline auto hold(GList* list) { return static_cast<List&&>(List(list)); }
 
 template<class T>
 class IList {
@@ -121,13 +122,17 @@ public:
   Iterator begin() const { return Iterator(obj); }
   Iterator end() const { return Iterator(); }
 };
+
 template<typename Data>
-inline auto _G(GList* list) { return static_cast<IList<Data>&&>(IList<Data>(list)); }
-};
+inline auto ref(GList* list) { return static_cast<IList<Data>&&>(IList<Data>(list)); }
+
+}; // namespace GLib
+
 namespace std {
 template<typename T> auto begin(const GLib::IList<T>& list) { return list.begin(); }
 template<typename T> auto end(const GLib::IList<T>& list) { return list.end(); }
 };
+
 namespace GLib {
 template<typename Key, typename Data>
 class HashTable : public ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>
@@ -155,7 +160,7 @@ public:
   }
 };
 template<typename Key, typename Data>
-inline auto _G(GHashTable* hashtable) { return static_cast<HashTable<Key, Data>&&>(HashTable<Key, Data>(hashtable)); }
+inline auto hold(GHashTable* hashtable) { return static_cast<HashTable<Key, Data>&&>(HashTable<Key, Data>(hashtable)); }
 
 class Regex : public ScopedPointer<GRegex, void(GRegex*), g_regex_unref>
 {
@@ -345,7 +350,7 @@ public:
 
 };
 
-inline ValueRef<false> _G(GValue* src) { return ValueRef<false>(src); }
+inline ValueRef<false> ref(GValue* src) { return ValueRef<false>(src); }
 
 class Value : public ValueRef<true>
 {
@@ -400,8 +405,8 @@ public:
   GValue& ref() { return *obj; };
 };
 
-inline Value _G(GValue&& src) { return Value(static_cast<GValue&&>(src)); }
-inline Value _G(const GValue& src) { return Value(src); }
+inline Value move(GValue&& src) { return Value(static_cast<GValue&&>(src)); }
+inline Value dup(const GValue& src) { return Value(src); }
 
 
 template<class T>
@@ -451,7 +456,7 @@ public:
     GValue result = G_VALUE_INIT;
     g_value_init(&result, pspec->value_type);
     g_object_get_property(object, prop_name, &result);
-    return _G(static_cast<GValue&&>(result));
+    return move(static_cast<GValue&&>(result));
   };
 
   void set(const gchar* prop_name, Value value) {
@@ -586,7 +591,7 @@ public:
 };
 
 template<class T>
-inline IObject<T> _G(T* obj) {
+inline IObject<T> ref(T* obj) {
   return IObject<T>(obj);
 }
 

@@ -302,11 +302,11 @@ void GLib::CloneLayer::set_source(GimpLayer* layer)
 
   g_signal_connect_delegator (G_OBJECT(layer), "update",
                               Delegators::delegator(this, &GLib::CloneLayer::on_source_update));
-  auto src  = _G(layer);
+  auto src  = ref(layer);
   gint w, h;
   w = src [gimp_item_get_width] ();
   h = src [gimp_item_get_height] ();
-  auto self = _G(g_object);
+  auto self = ref(g_object);
   self [gimp_item_set_size] (w, h);
   gint width  = self [gimp_item_get_width]  ();
   gint height = self [gimp_item_get_height] ();
@@ -443,7 +443,7 @@ void GLib::CloneLayer::update () {
 }
 
 void GLib::CloneLayer::update_size () {
-  auto self       = _G(g_object);
+  auto self       = ref(g_object);
   gint     old_x      = self [gimp_item_get_offset_x] ();
   gint     old_y      = self [gimp_item_get_offset_y] ();
   gint     old_width  = self [gimp_item_get_width]  ();
@@ -455,7 +455,7 @@ void GLib::CloneLayer::update_size () {
 
   if (!source_layer)
     return;
-  auto src = _G(source_layer);
+  auto src = ref(source_layer);
   src [gimp_item_get_offset] (&x, &y);
   width  = src [gimp_item_get_width] ();
   height = src [gimp_item_get_height] ();
@@ -470,7 +470,7 @@ void GLib::CloneLayer::update_size () {
       width  != old_width   ||
       height != old_height) {
 
-    auto self = _G(g_object);
+    auto self = ref(g_object);
     if (reallocate_projection ||
         width  != old_width   ||
         height != old_height) {
@@ -498,7 +498,7 @@ void GLib::CloneLayer::invalidate_area (gint               x,
                                          gint               width,
                                          gint               height)
 {
-//  g_print("%s: invalidate_area(%d, %d  -  %d,%d)\n", _G(g_object)[gimp_object_get_name](), x, y, width, height);
+//  g_print("%s: invalidate_area(%d, %d  -  %d,%d)\n", ref(g_object)[gimp_object_get_name](), x, y, width, height);
   gint parent_off_x = 0;
   gint parent_off_y = 0;
   GimpViewable* parent = gimp_viewable_get_parent(GIMP_VIEWABLE(g_object));
@@ -535,8 +535,8 @@ void GLib::CloneLayer::invalidate_area (gint               x,
 
 void GLib::CloneLayer::invalidate_layer ()
 {
-  auto self         = _G(g_object);
-  auto image        = _G( self [gimp_item_get_image] () );
+  auto self         = ref(g_object);
+  auto image        = ref( self [gimp_item_get_image] () );
   gint width        = self [gimp_item_get_width] ();
   gint height       = self [gimp_item_get_height] ();
   gint offset_x     = self [gimp_item_get_offset_x] ();
@@ -546,13 +546,13 @@ void GLib::CloneLayer::invalidate_layer ()
 
   GimpViewable*  parent = gimp_viewable_get_parent(GIMP_VIEWABLE(g_object));
   if (parent) {
-    auto proj = _G( GIMP_PROJECTABLE(parent) );
+    auto proj = ref( GIMP_PROJECTABLE(parent) );
     proj [gimp_projectable_invalidate] (offset_x, offset_y, width, height);
     proj [gimp_projectable_flush] (TRUE);
   }
 
   image [gimp_image_invalidate] (offset_x, offset_y, width, height, 0);
-  auto projection = _G(image [gimp_image_get_projection] ());
+  auto projection = ref(image [gimp_image_get_projection] ());
   projection [gimp_projection_flush_now] ();
   image [gimp_image_flush] ();
 }
@@ -577,8 +577,8 @@ void GLib::CloneLayer::on_source_update (GimpDrawable* _source,
 
   update_size();
 
-  auto self   = _G(g_object);
-  auto source = _G(_source);
+  auto self   = ref(g_object);
+  auto source = ref(_source);
 
   /*  the projection speaks in image coordinates, transform to layer
    *  coordinates when emitting our own update signal.
@@ -613,9 +613,9 @@ void GLib::CloneLayer::on_reorder (GimpContainer* _container,
                                     GimpLayer* _layer,
                                     gint index)
 {
-//  g_print("%s,%d: CloneLayer::on_reorder(%s,%d)\n", _G(g_object)[gimp_object_get_name](), last_index, _G(_layer)[gimp_object_get_name](), index);
-  auto layer = _G(_layer);
-  auto stack = _G(_container);
+//  g_print("%s,%d: CloneLayer::on_reorder(%s,%d)\n", ref(g_object)[gimp_object_get_name](), last_index, ref(_layer)[gimp_object_get_name](), index);
+  auto layer = ref(_layer);
+  auto stack = ref(_container);
   gint item_index = stack [gimp_container_get_child_index] (GIMP_OBJECT(_layer));
   gint self_index = stack [gimp_container_get_child_index] (GIMP_OBJECT(g_object));
 
@@ -640,12 +640,12 @@ CloneLayerInterface::new_instance (GimpImage            *image,
   type = gimp_image_base_type_with_alpha (image);
 
   if (source) {
-    auto src = GLib::_G(source);
+    auto src = GLib::ref(source);
     width  = src [gimp_item_get_width] ();
     height = src [gimp_item_get_height] ();
     src [gimp_item_get_offset] (&x, &x);
   } else {
-    auto img = GLib::_G(image);
+    auto img = GLib::ref(image);
     width  = img [gimp_image_get_width] ();
     height = img [gimp_image_get_height] ();
     x = y = 0;

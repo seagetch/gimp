@@ -224,7 +224,7 @@ MyPaintBrushReader::dump ()
 bool
 MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
 {
-  auto parser = _G(json_parser_new());
+  auto parser = ref(json_parser_new());
   JsonNode* root;
   GError* jerror = NULL;
   json_parser_load_from_file(parser, filename, &jerror);
@@ -234,7 +234,7 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
     return false;
   }
   root = json_parser_get_root(parser);
-  auto reader = _G(json_reader_new(root));
+  auto reader = ref(json_reader_new(root));
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
 
   //version

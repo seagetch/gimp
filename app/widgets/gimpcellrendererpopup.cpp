@@ -99,9 +99,9 @@ class PopupWindow {
     const gchar* stock_id = NULL;
     GdkPixbuf* pixbuf = NULL;
     if (proc) {
-      desc = _G(proc) [gimp_plug_in_procedure_get_label] ();
-      stock_id = _G(proc) [gimp_plug_in_procedure_get_stock_id] ();
-      pixbuf = _G(proc) [gimp_plug_in_procedure_get_pixbuf] ();
+      desc = ref(proc) [gimp_plug_in_procedure_get_label] ();
+      stock_id = ref(proc) [gimp_plug_in_procedure_get_stock_id] ();
+      pixbuf = ref(proc) [gimp_plug_in_procedure_get_pixbuf] ();
       gtk_image_new_from_stock (stock_id, GTK_ICON_SIZE_BUTTON);
     }
     store [gtk_tree_store_append] (iter, parent);
@@ -141,8 +141,8 @@ class PopupWindow {
   }
 
   GtkWidget* create_filter_list(IObject<GimpLayer> layer) {
-    auto             store    = _G(gtk_tree_store_new(NUM_ARGS, G_TYPE_STRING, G_TYPE_STRING, GDK_TYPE_PIXBUF));
-    auto             pdb      = _G( layer [gimp_item_get_image] ()->gimp->pdb );
+    auto             store    = ref(gtk_tree_store_new(NUM_ARGS, G_TYPE_STRING, G_TYPE_STRING, GDK_TYPE_PIXBUF));
+    auto             pdb      = ref( layer [gimp_item_get_image] ()->gimp->pdb );
     gint             num_procs;
     gchar**          procs;
     gboolean query = pdb [gimp_pdb_query] (".*", ".*", ".*", ".*", ".*", ".*", ".*", &num_procs, &procs, NULL);
@@ -167,7 +167,7 @@ class PopupWindow {
       if (!use_image || !use_drawable) continue;
 
       GimpPlugInProcedure* plugin_proc = GIMP_PLUG_IN_PROCEDURE(proc);
-      auto menu_paths = _G<gchar*>(plugin_proc->menu_paths);
+      auto menu_paths = ref<gchar*>(plugin_proc->menu_paths);
       for (auto path: menu_paths) {
         if (path && is_allowed_proc_path(path)) {
 
@@ -206,13 +206,13 @@ class PopupWindow {
   }
 
   void update_filter_edit(const gchar* proc_name) {
-    auto           pdb  = _G( layer [gimp_item_get_image] ()->gimp->pdb );
+    auto           pdb  = ref( layer [gimp_item_get_image] ()->gimp->pdb );
     GimpProcedure* proc = pdb [gimp_pdb_lookup_procedure] (proc_name);
 
     if (!GIMP_IS_PLUG_IN_PROCEDURE(proc)) return;
 
     auto f            = FilterLayerInterface::cast(layer.ptr());
-    auto plug_in_proc = _G(GIMP_PLUG_IN_PROCEDURE(proc));
+    auto plug_in_proc = ref(GIMP_PLUG_IN_PROCEDURE(proc));
 
     if (strcmp(f->get_procedure(), proc_name) == 0) {
       proc_args = f->get_procedure_args();
@@ -230,8 +230,8 @@ class PopupWindow {
     if (!proc_args)
       proc_args = plug_in_proc [gimp_procedure_get_arguments] ();
 
-    for (auto widget : _G<GtkWidget*>(filter_edit [gtk_container_get_children] ())) {
-      _G(widget) [gtk_widget_destroy] ();
+    for (auto widget : ref<GtkWidget*>(filter_edit [gtk_container_get_children] ())) {
+      ref(widget) [gtk_widget_destroy] ();
     };
 
     with (filter_edit, [&](auto vbox) {
@@ -293,9 +293,9 @@ class PopupWindow {
           CString group = matched[1];
           if(!group) return;
 
-          auto frame = _G(frames[group]);
+          auto frame = ref(frames[group]);
           if (!frame) {
-            frame = _G(gimp_frame_new(_(group)));
+            frame = ref(gimp_frame_new(_(group)));
 
             vbox.pack_start(false, true, 0) (
               frame.ptr(), [] (auto fr) {
@@ -309,7 +309,7 @@ class PopupWindow {
             frames.insert(g_strdup(group), frame.ptr());
           }
 
-          auto children = _G<GtkWidget*>( frame [gtk_container_get_children] () );
+          auto children = ref<GtkWidget*>( frame [gtk_container_get_children] () );
           box = children[0];
           arg_blurb = group_pattern.replace(arg_blurb, "");
         });
@@ -388,7 +388,7 @@ class PopupWindow {
                     with (gtk_adjustment_new (cur_value, min_value, max_value, 1.0, 10.0, 0.0),[&](auto it) {
 
                       it.connect("value-changed", delegator(std::function<void(GtkWidget*)>([this,j](GtkWidget* o) {
-                        g_value_set_double(&proc_args->values[j], _G(o)["value"]);
+                        g_value_set_double(&proc_args->values[j], ref(o)["value"]);
                       })));
 
                     }), 1, 1),
@@ -405,7 +405,7 @@ class PopupWindow {
                 with (gtk_adjustment_new (cur_value, min_value, max_value, 1.0, 10.0, 0.0),[&](auto it) {
 
                   it.connect("value-changed", delegator(std::function<void(GtkWidget*)>([this,j](GtkWidget* o) {
-                    g_value_set_double(&proc_args->values[j], _G(o)["value"]);
+                    g_value_set_double(&proc_args->values[j], ref(o)["value"]);
                   })));
 
                 }),
@@ -443,9 +443,9 @@ class PopupWindow {
           gint         cur_value      = g_value_get_int(&proc_args->values[j]);
           /*
           if (is_int32)
-            cur_value = _G(proc_args->values[j]);
+            cur_value = ref(proc_args->values[j]);
           else
-            cur_value = _G(proc_args->values[j]);
+            cur_value = ref(proc_args->values[j]);
           */
           regex_case(arg_blurb).
 
@@ -496,7 +496,7 @@ class PopupWindow {
                     it [gtk_toggle_button_set_active] (cur_value);
 
                     it.connect("toggled", delegator(std::function<void(GtkWidget*)>([this,j](GtkWidget* o) {
-                      g_value_set_int(&proc_args->values[j], _G(o) [gtk_toggle_button_get_active] ());
+                      g_value_set_int(&proc_args->values[j], ref(o) [gtk_toggle_button_get_active] ());
                     })));
 
                   }
@@ -515,7 +515,7 @@ class PopupWindow {
 
                     it.connect("changed", delegator(std::function<void(GtkWidget*)>([this,j](GtkWidget* o) {
                       gint32 value;
-                      _G(o) [gimp_int_combo_box_get_active] (&value);
+                      ref(o) [gimp_int_combo_box_get_active] (&value);
                       g_value_set_int(&proc_args->values[j], value);
                     })));
 
@@ -608,7 +608,7 @@ class PopupWindow {
                       with (gtk_adjustment_new (cur_value, min_value, max_value, 1.0, 10.0, 0.0),[&](auto it) {
 
                         it.connect("value-changed", delegator(std::function<void(GtkWidget*)>([this,j](GtkWidget* o) {
-                          g_value_set_int(&proc_args->values[j], _G(o)["value"]);
+                          g_value_set_int(&proc_args->values[j], ref(o)["value"]);
                         })));
 
                       }), 1, 0),
@@ -625,7 +625,7 @@ class PopupWindow {
                   with (gtk_adjustment_new (cur_value, min_value, max_value, 1.0, 10.0, 0.0),[&](auto it) {
 
                     it.connect("value-changed", delegator(std::function<void(GtkWidget*)>([this,j](GtkWidget* o) {
-                      gdouble value = (gdouble)_G(o)["value"];
+                      gdouble value = (gdouble)ref(o)["value"];
                       g_value_set_int(&proc_args->values[j], (gint32)value);
                     })));
 
@@ -718,7 +718,7 @@ class PopupWindow {
 
   GtkWidget* create_paint_mode_list() {
     static GEnumClass* klass = G_ENUM_CLASS(g_type_class_ref(GIMP_TYPE_LAYER_MODE_EFFECTS));
-    auto               store = _G( gtk_tree_store_new(NUM_ARGS, G_TYPE_STRING, GIMP_TYPE_LAYER_MODE_EFFECTS, GDK_TYPE_PIXBUF) );
+    auto               store = ref( gtk_tree_store_new(NUM_ARGS, G_TYPE_STRING, GIMP_TYPE_LAYER_MODE_EFFECTS, GDK_TYPE_PIXBUF) );
 
     auto group = [&](GtkTreeIter* parent, const gchar* label, auto f) {
       GtkTreeIter iter;
@@ -803,9 +803,9 @@ public:
               with (gtk_adjustment_new (100.0, 0.0, 100.0, 1.0, 10.0, 0.0),[&](auto it) {
 
                 it.connect("value-changed", delegator(std::function<void(GtkWidget*)>([this](GtkWidget* o) {
-                  g_print("Update opacity: %d\n", (gint)_G(o)["value"]);
-                  this->layer [gimp_layer_set_opacity] ((gdouble)_G(o)["value"] / 100.0, TRUE);
-                  auto image = _G( this->layer [gimp_item_get_image] () );
+                  g_print("Update opacity: %d\n", (gint)ref(o)["value"]);
+                  this->layer [gimp_layer_set_opacity] ((gdouble)ref(o)["value"] / 100.0, TRUE);
+                  auto image = ref( this->layer [gimp_item_get_image] () );
                   image [gimp_image_flush] ();
                 })));
 
@@ -819,7 +819,7 @@ public:
             gtk_toggle_button_new(), [&] (auto it) {
               it [gtk_widget_show] ();
               it.connect("toggled", delegator(std::function<void(GtkWidget*)>([this](GtkWidget* o) {
-                this->layer [gimp_layer_set_lock_alpha] ( _G(o) [gtk_toggle_button_get_active] (), TRUE );
+                this->layer [gimp_layer_set_lock_alpha] ( ref(o) [gtk_toggle_button_get_active] (), TRUE );
               })));
               it [gimp_help_set_help_data] ( _("Lock alpha channel"), GIMP_HELP_LAYER_DIALOG_LOCK_ALPHA_BUTTON);
 
@@ -846,20 +846,20 @@ public:
               it [gtk_tree_view_expand_all] ();
               it [gtk_widget_show] ();
 
-              auto model     = _G(it [gtk_tree_view_get_model] ());
-              auto selection = _G(it [gtk_tree_view_get_selection] ());
+              auto model     = ref(it [gtk_tree_view_get_model] ());
+              auto selection = ref(it [gtk_tree_view_get_selection] ());
 
               // "changed" handler
               selection.connect("changed", delegator(std::function<void(GtkWidget*)>([this](auto o) {
                 GtkTreeModel* model;
                 GtkTreeIter iter;
                 GimpLayerModeEffects effect;
-                auto selection = _G(o);
+                auto selection = ref(o);
                 selection [gtk_tree_selection_get_selected] (&model, &iter);
                 gtk_tree_model_get (model, &iter, VALUE, &effect, -1);
                 if (effect > -1)
                   layer [gimp_layer_set_mode] (effect, TRUE);
-                auto image = _G( layer [gimp_item_get_image] () );
+                auto image = ref( layer [gimp_item_get_image] () );
                 image [gimp_image_flush] ();
               })));
 
@@ -912,7 +912,7 @@ public:
                         it.add (this->create_filter_list(layer), [this](auto it) {
                           it [gtk_widget_show] ();
                           it [gtk_tree_view_expand_all] ();
-                          auto selection = _G( it [gtk_tree_view_get_selection] () );
+                          auto selection = ref( it [gtk_tree_view_get_selection] () );
 
                           // "changed" handler
                           selection.connect("changed", delegator(std::function<void(GtkWidget*)>([this](auto widget) {
@@ -920,7 +920,7 @@ public:
                             GtkTreeIter   iter;
                             gchar*        proc_name = NULL;
 
-                            auto selection = _G(widget);
+                            auto selection = ref(widget);
                             selection [gtk_tree_selection_get_selected] (&model, &iter);
                             gtk_tree_model_get (model, &iter, VALUE, &proc_name, -1);
                             if (proc_name && strlen(proc_name) > 0) {
@@ -976,8 +976,8 @@ public:
 
             const gchar* proc_name = filter_layer->get_procedure();
 
-            auto model     = _G(filter_select [gtk_tree_view_get_model] ());
-            auto selection = _G(filter_select [gtk_tree_view_get_selection] ());
+            auto model     = ref(filter_select [gtk_tree_view_get_model] ());
+            auto selection = ref(filter_select [gtk_tree_view_get_selection] ());
             {
               auto callback = guard(delegator(std::function<gboolean(GtkTreeModel*, GtkTreePath*, GtkTreeIter*)>(
                   [&](auto model, auto path, auto iter)->gboolean
@@ -1165,7 +1165,7 @@ GLib::CellRendererPopup::get_size (GtkWidget       *widget,
   gfloat xalign, yalign;
   gint   xpad, ypad;
   GtkStyle *style  = gtk_widget_get_style (widget);
-  auto self = _G(g_object);
+  auto self = ref(g_object);
   auto _x_offset = nullable(x_offset);
   auto _y_offset = nullable(y_offset);
   gint pixbuf_width, pixbuf_height;
@@ -1184,7 +1184,7 @@ GLib::CellRendererPopup::get_size (GtkWidget       *widget,
   internal_height = (pixbuf_height + (gint) ypad * 2 + style->ythickness * 2);
 
   if (cell_area) {
-    gdouble align = ((_G(widget)[gtk_widget_get_direction]() == GTK_TEXT_DIR_RTL) ?
+    gdouble align = ((ref(widget)[gtk_widget_get_direction]() == GTK_TEXT_DIR_RTL) ?
                     1.0 - xalign : xalign);
 
     _x_offset = MAX(align  * (cell_area->width  - internal_width),  0) + xpad;
@@ -1219,8 +1219,8 @@ GLib::CellRendererPopup::render (GdkWindow            *window,
                                    GdkRectangle         *expose_area,
                                    GtkCellRendererState  flags)
 {
-  auto          cell   = _G(GTK_CELL_RENDERER(g_object));
-  auto          dashes = _G(Class::Traits::cast(g_object));
+  auto          cell   = ref(GTK_CELL_RENDERER(g_object));
+  auto          dashes = ref(Class::Traits::cast(g_object));
   GtkStyle*     style  = gtk_widget_get_style (widget);
   GdkRectangle  toggle_rect;
   GdkRectangle  draw_rect;

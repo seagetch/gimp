@@ -137,7 +137,7 @@ MypaintBrushWriter::save_brush (GError      **error)
   CString icon_fullpath = g_build_filename(dirname.ptr(), icon_filename.ptr(), NULL);
 
 //  ScopedPointer<FILE, int(FILE*), fclose> file(g_fopen (filename, "wb"));
-  auto generator = _G(json_generator_new());
+  auto generator = ref(json_generator_new());
   JsonNode* root = build_json();
   generator [json_generator_set_root] (root);
   generator [json_generator_to_file] (filename, NULL);

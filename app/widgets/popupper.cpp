@@ -99,9 +99,9 @@ public:
     view_border_width = 1;
 
     frame = gtk_frame_new (NULL);
-    _G(frame)[gtk_frame_set_shadow_type](GTK_SHADOW_OUT);
-    _G(g_object)[gtk_container_add] (frame);
-    _G(frame)[gtk_widget_show] ();
+    ref(frame)[gtk_frame_set_shadow_type](GTK_SHADOW_OUT);
+    ref(g_object)[gtk_container_add] (frame);
+    ref(frame)[gtk_widget_show] ();
   };
 
   virtual ~Popup() { }
@@ -205,7 +205,7 @@ gboolean GLib::Popup::on_grab_broken_event (GimpPopup* popup, GdkEventGrabBroken
 
 void GLib::Popup::map ()
 {
-  auto widget = _G(GTK_WIDGET(g_object));
+  auto widget = ref(GTK_WIDGET(g_object));
   GTK_WIDGET_CLASS (Class::parent_class)->map (widget.ptr());
 
   /*  grab with owner_events == TRUE so the popup's widgets can
@@ -247,7 +247,7 @@ gboolean GLib::Popup::button_press_event (GdkEventButton *bevent)
   if (event_widget == GTK_WIDGET(g_object)) {
       GtkAllocation allocation;
 
-      _G(g_object)[gtk_widget_get_allocation](&allocation);
+      ref(g_object)[gtk_widget_get_allocation](&allocation);
 
       /*  the event was on the popup, which can either be really on the
        *  popup or outside gimp (owner_events == TRUE, see map())
@@ -289,7 +289,7 @@ gboolean GLib::Popup::key_press_event (GdkEventKey *kevent)
 
 void GLib::Popup::cancel ()
 {
-  auto widget = _G(GTK_WIDGET (g_object));
+  auto widget = ref(GTK_WIDGET (g_object));
 
   if (gtk_grab_get_current () == widget.ptr())
     widget[gtk_grab_remove] ();
@@ -303,7 +303,7 @@ void GLib::Popup::confirm () {
 
 
 void GLib::Popup::close () {
-  auto widget = _G(GTK_WIDGET (g_object));
+  auto widget = ref(GTK_WIDGET (g_object));
 
   if (gtk_grab_get_current () == widget.ptr())
     widget[gtk_grab_remove] ();
@@ -324,13 +324,13 @@ void GLib::Popup::show (GdkScreen *screen,
   GdkRectangle    rect;
   gint            monitor;
   gint            x, y;
-  auto            self = _G(g_object);
+  auto            self = ref(g_object);
 
   g_return_if_fail (GDK_IS_SCREEN (screen));
   self[gtk_widget_size_request] (&requisition);
 
-  monitor = _G(screen)[gdk_screen_get_monitor_at_point] (targetLeft, targetTop);
-  _G(screen)[gdk_screen_get_monitor_geometry] (monitor, &rect);
+  monitor = ref(screen)[gdk_screen_get_monitor_at_point] (targetLeft, targetTop);
+  ref(screen)[gdk_screen_get_monitor_geometry] (monitor, &rect);
 
   x = targetLeft;
   if (pos == GTK_CORNER_TOP_RIGHT || pos == GTK_CORNER_BOTTOM_RIGHT) {
@@ -368,15 +368,15 @@ void GLib::Popup::show_over(GtkWidget *widget, GdkRectangle* cell_area)
   GtkAllocation   allocation;
   gint            orig_x;
   gint            orig_y;
-  auto            self    = _G(g_object);
-  auto            _widget = _G(widget);
+  auto            self    = ref(g_object);
+  auto            _widget = ref(widget);
 
   g_return_if_fail (GTK_IS_WIDGET (widget));
 
   self[gtk_widget_size_request] (&requisition);
 
   _widget[gtk_widget_get_allocation] (&allocation);
-  _G( _widget[gtk_widget_get_window]() ) [gdk_window_get_origin] (&orig_x, &orig_y);
+  ref( _widget[gtk_widget_get_window]() ) [gdk_window_get_origin] (&orig_x, &orig_y);
 
   if (! _widget[gtk_widget_get_has_window] ())
     {
@@ -400,10 +400,10 @@ void GLib::Popup::set_view (GtkWidget *view)
 {
   this->view = view;
 
-  _G(frame)[gtk_container_add] (GTK_WIDGET (view));
-  _G(view) [gtk_widget_show] ();
+  ref(frame)[gtk_container_add] (GTK_WIDGET (view));
+  ref(view) [gtk_widget_show] ();
 
-  _G(view) [gtk_widget_grab_focus] ();
+  ref(view) [gtk_widget_grab_focus] ();
 }
 /*  private functions  */
 /* no private functions */
@@ -416,7 +416,7 @@ GtkWidget* PopupInterface::new_instance (GtkWidget *view)
   widget = GTK_WIDGET(g_object_new (GLib::Class::get_type(),
                         "type", GTK_WINDOW_POPUP,
                         NULL));
-  _G(widget)[gtk_window_set_resizable] (FALSE);
+  ref(widget)[gtk_window_set_resizable] (FALSE);
 
   popup = dynamic_cast<GLib::Popup*>(PopupInterface::cast(widget));
   popup->view_border_width = 0;
@@ -461,7 +461,7 @@ public:
   }
 
   void parent_clicked(GObject* object, GObject* widget, const gchar* path_str, GdkRectangle* cell_area) {
-    g_print("Popupper::parent_clicked:%s:%s\n", (const gchar*)_G(widget)["name"], path_str);
+    g_print("Popupper::parent_clicked:%s:%s\n", (const gchar*)ref(widget)["name"], path_str);
     GtkTreeView*  tree_view = GTK_TREE_VIEW(widget);
     GtkTreeModel* model;
     GtkTreePath*  path;

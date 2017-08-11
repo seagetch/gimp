@@ -579,7 +579,7 @@ CurveViewCreator::create_view(GObject* button, GtkWidget** result)
   gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(list_view), FALSE);
 
   {  
-    auto list_store = _G(gtk_list_store_new(3, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_STRING));
+    auto list_store = ref(gtk_list_store_new(3, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_STRING));
     gtk_tree_view_set_model (GTK_TREE_VIEW(list_view), GTK_TREE_MODEL(list_store.ptr()));
   }
   
