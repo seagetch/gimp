@@ -52,27 +52,31 @@ public:
   typedef typename CStructs::Class Class;
   typedef GLib::TraitsBase<Instance, Class, &GClass::get_type> Traits;
 
-  static void     instance_init     (Instance        *obj) {
-    void* ptr = get_private(obj);
-    Impl* i = new(ptr) Impl(G_OBJECT(obj));
-    i->init();
-  }
   static gpointer parent_class;
   static gint     private_offset;
 
-#if GLIB_VERSION_MAX_ALLOWED >= GLIB_VERSION_2_38
+  static void     instance_init     (Instance        *obj) {
+    void* ptr = get_private(obj);
+    Impl* i = new(ptr) Impl(G_OBJECT(obj));
+  }
+
+  static void     instance_finalize (GObject         *obj) {
+    Impl* i = get_private(obj);
+    i->~Impl();
+    G_OBJECT_CLASS(parent_class)->finalize(obj);
+  }
+
   static void     class_intern_init (gpointer klass) {
+#if GLIB_VERSION_MAX_ALLOWED >= GLIB_VERSION_2_38
     parent_class = g_type_class_peek_parent (klass);
     if (private_offset != 0)
       g_type_class_adjust_private_offset (klass, &private_offset);
-    Impl::class_init ((Class*) klass);
-  }
 #else
-  static void     class_intern_init (gpointer klass) {
     parent_class = g_type_class_peek_parent (klass);
-    Impl::class_init ((Class*) klass);
-  }
 #endif /* GLIB_VERSION_MAX_ALLOWED >= GLIB_VERSION_2_38 */
+    Impl::class_init ((Class*) klass);
+    G_OBJECT_CLASS(klass)->finalize  = instance_finalize;
+  }
 
   template<typename G>
   static Impl* get_private(G* obj) {
@@ -158,13 +162,26 @@ inline GType GClass<name, CStructs, Impl, IFaces...>::get_type (void) {
 
 
 class ImplBase {
+protected:
+  class with_class {
+    gpointer klass;
+  public:
+    with_class(gpointer class_struct) : klass(class_struct) { };
+
+    template<typename InstanceStruct>
+    with_class& as_class(void (*callback)(typename GLib::Traits<InstanceStruct>::Class*)) {
+      typename GLib::Traits<InstanceStruct>::Class* casted_class = GLib::Traits<InstanceStruct>::cast_class(klass);
+      (*callback) (casted_class);
+      return *this;
+    }
+  };
 public:
   void* operator new(size_t s, void* mem) { return mem; };
 protected:
   GObject* g_object;
 public:
   ImplBase(GObject* obj) : g_object(obj) { };
-  virtual ~ImplBase() {};
+  virtual ~ImplBase() { };
   template<typename Class, typename Impl>
   static void class_init(Class* klass) {
   }

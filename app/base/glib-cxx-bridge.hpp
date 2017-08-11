@@ -9,6 +9,7 @@ extern "C" {
 }
 #include "base/glib-cxx-types.hpp"
 
+__DECLARE_GTK_CLASS__(GObject, G_TYPE_OBJECT);
 __DECLARE_GTK_CAST__(GtkTreeStore, GTK_TREE_STORE, gtk_tree_store);
 __DECLARE_GTK_CAST__(GtkWidget, GTK_WIDGET, gtk_widget);
 __DECLARE_GTK_CAST__(GtkContainer, GTK_CONTAINER, gtk_container);

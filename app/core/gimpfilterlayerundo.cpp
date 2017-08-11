@@ -44,13 +44,13 @@ namespace GLib {
 struct FilterLayerUndo : virtual public ImplBase
 {
   typedef Traits<GimpFilterLayerUndo> traits;
-  FilterLayerUndo(GObject* obj) : ImplBase(obj) { };
+  FilterLayerUndo(GObject* obj) : ImplBase(obj) {
+  };
 
   GimpImageBaseType  prev_type;
 
   static void class_init(GimpFilterLayerUndoClass* klass);
 
-  virtual void init();
   virtual void constructed();
   virtual void pop        (GimpUndoMode  undo_mode, GimpUndoAccumulator * accum);
 };
@@ -78,9 +78,6 @@ GLib::FilterLayerUndo::class_init (GimpFilterLayerUndoClass *klass)
   bind_to_class (undo_class, pop, GLib::FilterLayerUndo);
 
   ImplBase::class_init<GimpFilterLayerUndoClass, FilterLayerUndo>(klass);
-}
-
-void GLib::FilterLayerUndo::init () {
 }
 
 void GLib::FilterLayerUndo::constructed ()

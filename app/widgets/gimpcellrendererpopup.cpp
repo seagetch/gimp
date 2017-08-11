@@ -1031,14 +1031,26 @@ struct CellRendererPopup : virtual public ImplBase, virtual public CellRendererP
   bool        active;
 
 
-  CellRendererPopup(GObject* o) : ImplBase(o) {}
-  virtual ~CellRendererPopup() {};
+  CellRendererPopup(GObject* o) : ImplBase(o) {
+    stock_id   = g_strdup(GIMP_STOCK_LAYER_MENU);
+    stock_size = GTK_ICON_SIZE_MENU;
+  }
+
+  virtual ~CellRendererPopup() {
+    if (stock_id) {
+      g_free (stock_id);
+      stock_id = NULL;
+    }
+
+    if (pixbuf) {
+      g_object_unref (pixbuf);
+      pixbuf = NULL;
+    }
+  };
 
   static void class_init(CStructs::Class* klass);
 
   // Inherited methods
-  virtual void            init         ();
-  virtual void            finalize     ();
   virtual void            constructed  ();
   virtual void            set_property (guint            property_id,
                                         const GValue    *value,
@@ -1079,7 +1091,7 @@ void CellRendererPopup::class_init(CStructs::Class *klass)
   GObjectClass         *object_class = G_OBJECT_CLASS (klass);
   GtkCellRendererClass *cell_class   = GTK_CELL_RENDERER_CLASS (klass);
 
-  bind_to_class (object_class, finalize    , CellRendererPopup);
+  //bind_to_class (object_class, finalize    , CellRendererPopup);
   bind_to_class (object_class, constructed , CellRendererPopup);
   bind_to_class (object_class, get_property, CellRendererPopup);
   bind_to_class (object_class, set_property, CellRendererPopup);
@@ -1109,32 +1121,11 @@ void CellRendererPopup::class_init(CStructs::Class *klass)
 
 }; // namespace
 
-void GLib::CellRendererPopup::init ()
-{
-  stock_id   = g_strdup(GIMP_STOCK_LAYER_MENU);
-  stock_size = GTK_ICON_SIZE_MENU;
-}
-
 void GLib::CellRendererPopup::constructed ()
 {
   PopupWindow* window_decor = new PopupWindow;
   decorator(g_object, window_decor);
   decorate_popupper(GTK_OBJECT(g_object), Delegators::delegator(window_decor, &PopupWindow::create_view));
-}
-
-void GLib::CellRendererPopup::finalize ()
-{
-  if (stock_id) {
-    g_free (stock_id);
-    stock_id = NULL;
-  }
-
-  if (pixbuf) {
-    g_object_unref (pixbuf);
-    pixbuf = NULL;
-  }
-
-  G_OBJECT_CLASS (Class::parent_class)->finalize (g_object);
 }
 
 void GLib::CellRendererPopup::set_property (guint         property_id,

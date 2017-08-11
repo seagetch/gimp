@@ -20,6 +20,7 @@
 
 #include "base/delegators.hpp"
 #include "base/glib-cxx-types.hpp"
+__DECLARE_GTK_CLASS__(GObject, G_TYPE_OBJECT);
 #include "base/glib-cxx-impl.hpp"
 #include "base/glib-cxx-utils.hpp"
 
@@ -87,16 +88,13 @@ struct CloneLayer : virtual public ImplBase, virtual public CloneLayerInterface
   Delegators::Connection* parent_changed_conn;
   Delegators::Connection* reorder_conn;
 
-  CloneLayer(GObject* o) : ImplBase(o) {}
+  static void class_init(Traits<GimpCloneLayer>::Class* klass);
+  template<typename IFaceClass> static void iface_init(IFaceClass* klass);
+
+  CloneLayer(GObject* o);
   virtual ~CloneLayer();
 
-  static void class_init(Traits<GimpCloneLayer>::Class* klass);
-  template<typename IFaceClass>
-  static void iface_init(IFaceClass* klass);
-
   // Inherited methods
-  virtual void            init         ();
-  virtual void            finalize     ();
   virtual void            constructed  ();
   virtual void            set_property (guint            property_id,
                                         const GValue    *value,
@@ -201,46 +199,48 @@ gimp_image_undo_push_clone_layer_convert (GimpImage      *image,
 
 
 #define bind_to_class(klass, method, impl)  Class::__(&klass->method).bind<&impl::method>()
+#define _override(method)  Class::__(&klass->method).bind<&Impl::method>()
 
 void CloneLayer::class_init(Traits<GimpCloneLayer>::Class *klass)
 {
   typedef CloneLayer Impl;
   g_print("CloneLayer::class_init\n");
-  GObjectClass      *object_class      = G_OBJECT_CLASS (klass);
-  GimpObjectClass   *gimp_object_class = GIMP_OBJECT_CLASS (klass);
-  GimpViewableClass *viewable_class    = GIMP_VIEWABLE_CLASS (klass);
-  GimpItemClass     *item_class        = GIMP_ITEM_CLASS (klass);
-  GimpDrawableClass *drawable_class    = GIMP_DRAWABLE_CLASS (klass);
+  with_class(klass)
+  .as_class<GObject>([](GObjectClass* klass){
+    _override (set_property);
+    _override (get_property);
+    _override (constructed);
 
-  bind_to_class (object_class,      set_property,     Impl);
-  bind_to_class (object_class,      get_property,     Impl);
-  bind_to_class (object_class,      finalize,         Impl);
-  bind_to_class (object_class,      constructed,      Impl);
-  bind_to_class (gimp_object_class, get_memsize,      Impl);
+  }).as_class<GimpObject>([](GimpObjectClass* klass) {
+    _override (get_memsize);
 
-  viewable_class->default_stock_id = "gtk-duplicate";
-  bind_to_class (viewable_class,    get_size,         Impl);
-  bind_to_class (item_class,        duplicate,        Impl);
-  bind_to_class (item_class,        translate,        Impl);
-  bind_to_class (item_class,        scale,            Impl);
-  bind_to_class (item_class,        resize,           Impl);
-  bind_to_class (item_class,        flip,             Impl);
-  bind_to_class (item_class,        rotate,           Impl);
-  bind_to_class (item_class,        transform,        Impl);
-//bind_to_class (item_class,        convert,          Impl);
-  bind_to_class (item_class,        is_editable,      Impl);
-  bind_to_class (drawable_class,    estimate_memsize, Impl);
+  }).as_class<GimpViewable>([](GimpViewableClass* klass){
+    klass->default_stock_id = "gtk-duplicate";
+    _override (get_size);
 
-  item_class->default_name         = _("Clone Layer");
-  item_class->rename_desc          = C_("undo-type", "Rename Clone Layer");
-  item_class->translate_desc       = C_("undo-type", "Move Clone Layer");
-  item_class->scale_desc           = C_("undo-type", "Scale Clone Layer");
-  item_class->resize_desc          = C_("undo-type", "Resize Clone Layer");
-  item_class->flip_desc            = C_("undo-type", "Flip Clone Layer");
-  item_class->rotate_desc          = C_("undo-type", "Rotate Clone Layer");
-  item_class->transform_desc       = C_("undo-type", "Transform Clone Layer");
+  }).as_class<GimpItem>([](GimpItemClass* klass) {
+    _override (duplicate);
+    _override (translate);
+    _override (scale);
+    _override (resize);
+    _override (flip);
+    _override (rotate);
+    _override (transform);
+  //_override (convert);
+    _override (is_editable);
 
-  ImplBase::class_init<Traits<GimpCloneLayer>::Class, CloneLayer>(klass);
+    klass->default_name         = _("Clone Layer");
+    klass->rename_desc          = C_("undo-type", "Rename Clone Layer");
+    klass->translate_desc       = C_("undo-type", "Move Clone Layer");
+    klass->scale_desc           = C_("undo-type", "Scale Clone Layer");
+    klass->resize_desc          = C_("undo-type", "Resize Clone Layer");
+    klass->flip_desc            = C_("undo-type", "Flip Clone Layer");
+    klass->rotate_desc          = C_("undo-type", "Rotate Clone Layer");
+    klass->transform_desc       = C_("undo-type", "Transform Clone Layer");
+
+  }).as_class<GimpDrawable>([](GimpDrawableClass* klass) {
+    _override (estimate_memsize);
+  });
 }
 
 template<>
@@ -257,9 +257,13 @@ void CloneLayer::iface_init<GimpPickableInterface>(GimpPickableInterface* iface)
 GLib::CloneLayer::~CloneLayer()
 {
   g_print("~CloneLayer\n");
+  if (reorder_conn) {
+    delete reorder_conn;
+    reorder_conn = NULL;
+  }
 }
 
-void GLib::CloneLayer::init ()
+GLib::CloneLayer::CloneLayer(GObject* o) : ImplBase(o)
 {
   parent_changed_conn = g_signal_connect_delegator (G_OBJECT(g_object), "parent-changed",
                                                     Delegators::delegator(this, &GLib::CloneLayer::on_parent_changed));
@@ -269,17 +273,6 @@ void GLib::CloneLayer::init ()
 void GLib::CloneLayer::constructed ()
 {
   on_parent_changed(GIMP_VIEWABLE(g_object), NULL);
-}
-
-void GLib::CloneLayer::finalize ()
-{
-  g_print("CloneLayer::finalize\n");
-  if (reorder_conn) {
-    delete reorder_conn;
-    reorder_conn = NULL;
-  }
-
-  G_OBJECT_CLASS (Class::parent_class)->finalize (g_object);
 }
 
 void GLib::CloneLayer::set_property (guint         property_id,
@@ -710,7 +703,7 @@ gimp_clone_layer_set_source    (GimpCloneLayer* layer, GimpLayer* source)
 }
 
 GimpLayer*
-gimp_clone_layer_set_source    (GimpCloneLayer* layer)
+gimp_clone_layer_get_source    (GimpCloneLayer* layer)
 {
   if (CloneLayerInterface::is_instance(layer))
     return CloneLayerInterface::cast(layer)->get_source();

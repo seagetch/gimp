@@ -20,6 +20,7 @@
 
 #include "base/delegators.hpp"
 #include "base/glib-cxx-types.hpp"
+__DECLARE_GTK_CLASS__(GObject, G_TYPE_OBJECT);
 #include "base/glib-cxx-impl.hpp"
 #include "base/glib-cxx-utils.hpp"
 
@@ -72,8 +73,8 @@ extern "C" {
 #include "gimpfilterlayer.h"
 #include "gimpfilterlayerundo.h"
 
-
 namespace GLib {
+
 class ProcedureRunner {
   GimpProcedure* procedure;
   GimpProgress*  progress;
@@ -226,7 +227,7 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   Delegators::Connection* parent_changed_conn;
   Delegators::Connection* reorder_conn;
 
-  FilterLayer(GObject* o) : ImplBase(o) {}
+  FilterLayer(GObject* o);
   virtual ~FilterLayer();
 
   static void class_init(Traits<GimpFilterLayer>::Class* klass);
@@ -234,8 +235,6 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   static void iface_init(IFaceClass* klass);
 
   // Inherited methods
-  virtual void            init         ();
-  virtual void            finalize     ();
   virtual void            constructed  ();
   virtual void            set_property (guint            property_id,
                                         const GValue    *value,
@@ -412,85 +411,77 @@ gimp_image_undo_push_filter_layer_convert (GimpImage      *image,
                                NULL);
 }
 
+#define _override(method)  Class::__(&klass->method).bind<&Impl::method>()
 
-#define bind_to_class(klass, method, impl)  Class::__(&klass->method).bind<&impl::method>()
-
-void FilterLayer::class_init(Traits<GimpFilterLayer>::Class *klass)
+void FilterLayer::class_init(Traits<GimpFilterLayer>::Class *this_class)
 {
   typedef FilterLayer Impl;
   g_print("FilterLayer::class_init\n");
-  GObjectClass      *object_class      = G_OBJECT_CLASS (klass);
-  GimpObjectClass   *gimp_object_class = GIMP_OBJECT_CLASS (klass);
-  GimpViewableClass *viewable_class    = GIMP_VIEWABLE_CLASS (klass);
-  GimpItemClass     *item_class        = GIMP_ITEM_CLASS (klass);
-  GimpDrawableClass *drawable_class    = GIMP_DRAWABLE_CLASS (klass);
+  with_class (this_class)
+  .as_class <GObject> ([](GObjectClass* klass) {
+    _override(set_property);
+    _override(get_property);
+    _override(constructed);
 
-  bind_to_class (object_class, set_property, Impl);
-  bind_to_class (object_class, get_property, Impl);
-  bind_to_class (object_class, finalize, Impl);
-  bind_to_class (object_class, constructed, Impl);
-  bind_to_class (gimp_object_class, get_memsize, Impl);
+  }) .as_class <GimpObject> ([](GimpObjectClass* klass) {
+    _override (get_memsize);
 
-  viewable_class->default_stock_id = "gtk-directory";
-  bind_to_class (viewable_class, get_size, Impl);
+  }) .as_class <GimpViewable> ([](GimpViewableClass* klass) {
+    klass->default_stock_id = "gtk-directory";
+    _override (get_size);
 
-  bind_to_class (item_class, duplicate, Impl);
-  bind_to_class (item_class, translate, Impl);
-  bind_to_class (item_class, scale, Impl);
-  bind_to_class (item_class, resize, Impl);
-  bind_to_class (item_class, flip, Impl);
-  bind_to_class (item_class, rotate, Impl);
-  bind_to_class (item_class, transform, Impl);
-  bind_to_class (item_class, is_editable, Impl);
-  bind_to_class (drawable_class, project_region, Impl);
-  bind_to_class (drawable_class, estimate_memsize, Impl);
+  }) .as_class <GimpItem> ([](GimpItemClass* klass) {
+    _override (duplicate);
+    _override (translate);
+    _override (scale);
+    _override (resize);
+    _override (flip);
+    _override (rotate);
+    _override (transform);
+    _override (is_editable);
+    klass->default_name   = _("Filter Layer");
+    klass->rename_desc    = C_("undo-type", "Rename Filter Layer");
+    klass->translate_desc = C_("undo-type", "Move Filter Layer");
+    klass->scale_desc     = C_("undo-type", "Scale Filter Layer");
+    klass->resize_desc    = C_("undo-type", "Resize Filter Layer");
+    klass->flip_desc      = C_("undo-type", "Flip Filter Layer");
+    klass->rotate_desc    = C_("undo-type", "Rotate Filter Layer");
+    klass->transform_desc = C_("undo-type", "Transform Filter Layer");
+    //  F::__(&item_class->convert            ).bind<&Impl::convert>();
 
-  item_class->default_name         = _("Filter Layer");
-  item_class->rename_desc          = C_("undo-type", "Rename Filter Layer");
-  item_class->translate_desc       = C_("undo-type", "Move Filter Layer");
-  item_class->scale_desc           = C_("undo-type", "Scale Filter Layer");
-  item_class->resize_desc          = C_("undo-type", "Resize Filter Layer");
-  item_class->flip_desc            = C_("undo-type", "Flip Filter Layer");
-  item_class->rotate_desc          = C_("undo-type", "Rotate Filter Layer");
-  item_class->transform_desc       = C_("undo-type", "Transform Filter Layer");
-  //  F::__(&item_class->convert            ).bind<&Impl::convert>();
-
-  ImplBase::class_init<Traits<GimpFilterLayer>::Class, FilterLayer>(klass);
+  }) .as_class<GimpDrawable> ([](GimpDrawableClass* klass) {
+    _override (project_region);
+    _override (estimate_memsize);
+  });
 }
 
 template<>
-void FilterLayer::iface_init<GimpPickableInterface>(GimpPickableInterface* iface)
+void FilterLayer::iface_init<GimpPickableInterface>(GimpPickableInterface* klass)
 {
   typedef FilterLayer Impl;
   g_print("FilterLayer::iface_init<GimpPickableInterface>\n");
   
-  bind_to_class (iface, get_opacity_at, Impl);
+  _override (get_opacity_at);
 }
 
 template<>
-void FilterLayer::iface_init<GimpProgressInterface>(GimpProgressInterface* iface)
+void FilterLayer::iface_init<GimpProgressInterface>(GimpProgressInterface* klass)
 {
   typedef GLib::FilterLayer Impl;
-  bind_to_class (iface, start, Impl);
-  bind_to_class (iface, end, Impl);
-  bind_to_class (iface, is_active, Impl);
-  bind_to_class (iface, set_text, Impl);
-  bind_to_class (iface, set_value, Impl);
-  bind_to_class (iface, get_value, Impl);
-  bind_to_class (iface, pulse, Impl);
-  bind_to_class (iface, message, Impl);
+  _override (start);
+  _override (end);
+  _override (is_active);
+  _override (set_text);
+  _override (set_value);
+  _override (get_value);
+  _override (pulse);
+  _override (message);
 }
 
 }; // namespace
 
-GLib::FilterLayer::~FilterLayer()
-{
-  g_print("~FilterLayer\n");
-}
-
-void GLib::FilterLayer::init ()
-{
-  typedef Class F;
+GLib::FilterLayer::FilterLayer(GObject* o) : GLib::ImplBase(o) {
+  g_print("FilterLayer::FilterLayer\n");
 #if 0
   projection = gimp_projection_new (GIMP_PROJECTABLE (g_object));
 
@@ -510,15 +501,9 @@ void GLib::FilterLayer::init ()
   last_index          = -1;
 }
 
-void GLib::FilterLayer::constructed ()
+GLib::FilterLayer::~FilterLayer()
 {
-  g_print("FilterLayer::constructed: project_tiles = %p\n", projected_tiles);
-  on_parent_changed(GIMP_VIEWABLE(g_object), NULL);
-}
-
-void GLib::FilterLayer::finalize ()
-{
-  g_print("FilterLayer::finalize\n");
+  g_print("~FilterLayer\n");
   if (child_update_conn) {
     delete child_update_conn;
     child_update_conn = NULL;
@@ -538,8 +523,12 @@ void GLib::FilterLayer::finalize ()
     delete runner;
     runner = NULL;
   }
+}
 
-  G_OBJECT_CLASS (Class::parent_class)->finalize (g_object);
+void GLib::FilterLayer::constructed ()
+{
+  g_print("FilterLayer::constructed: project_tiles = %p\n", projected_tiles);
+  on_parent_changed(GIMP_VIEWABLE(g_object), NULL);
 }
 
 void GLib::FilterLayer::set_property (guint         property_id,

@@ -50,7 +50,6 @@ struct CloneLayerUndo : virtual public ImplBase
 
   static void class_init(GimpCloneLayerUndoClass* klass);
 
-  virtual void init();
   virtual void constructed();
   virtual void pop        (GimpUndoMode  undo_mode, GimpUndoAccumulator * accum);
 };
@@ -78,9 +77,6 @@ GLib::CloneLayerUndo::class_init (GimpCloneLayerUndoClass *klass)
   bind_to_class (undo_class, pop, GLib::CloneLayerUndo);
 
   ImplBase::class_init<GimpCloneLayerUndoClass, CloneLayerUndo>(klass);
-}
-
-void GLib::CloneLayerUndo::init () {
 }
 
 void GLib::CloneLayerUndo::constructed ()

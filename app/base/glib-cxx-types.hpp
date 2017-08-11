@@ -57,9 +57,23 @@ public:
 };
 
 template <typename _Instance>
-class Traits : public TraitsBase<_Instance> { };
-
+class Traits : public TraitsBase<_Instance>
+{
+#if 0
+  using Parent = TraitsBase<_Instance>;
+public:
+  using Instance = typename Parent::Instance;
+  using Class    = typename Parent::Class;
+  static GType get_type() { return Parent::get_type(); }
+  static Instance* cast(gpointer obj) { return Parent::cast(obj); }
+  static Class* cast_class(gpointer klass) { return Parent::cast_class(klass); }
+  static gboolean is_instance(gpointer obj) { return Parent::is_instance(obj); }
+  static gboolean is_class(gpointer obj) { return Parent::is_class(obj); }
+  static Class* get_class(gpointer obj) { return Parent::get_class(obj); }
+#endif
 };
+
+}; // namespace
 
 #define __DECLARE_GTK_CLASS__(klass, _g_type_)                                                       \
 extern "C++"{                                                                                        \

@@ -95,11 +95,17 @@ struct Popup : virtual public ImplBase, virtual public PopupInterface
     GtkWidget           *frame;
     GtkWidget           *view;
 public:
-  Popup(GObject* obj) : ImplBase(obj) {};
-  static void      class_init           (CStructs::Class *klass);
+  Popup(GObject* obj) : ImplBase(obj) {
+    view_border_width = 1;
 
-  virtual void     init                 ();
-  virtual void     finalize             ();
+    frame = gtk_frame_new (NULL);
+    _G(frame)[gtk_frame_set_shadow_type](GTK_SHADOW_OUT);
+    _G(g_object)[gtk_container_add] (frame);
+    _G(frame)[gtk_widget_show] ();
+  };
+
+  virtual ~Popup() { }
+  static void      class_init           (CStructs::Class *klass);
 
   virtual void     map                  ();
   virtual void     cancel               ();
@@ -153,7 +159,6 @@ void GLib::Popup::class_init(CStructs::Class *klass)
                   NULL, NULL,
                   gimp_marshal_VOID__VOID,
                   G_TYPE_NONE, 0);
-  bind_to_class (object_class, finalize          , Popup);
   bind_to_class (widget_class, map               , Popup);
   bind_to_class (widget_class, button_press_event, Popup);
   bind_to_class (widget_class, key_press_event   , Popup);
@@ -179,21 +184,6 @@ void GLib::Popup::class_init(CStructs::Class *klass)
 
 }; // namespace
 
-
-void GLib::Popup::init ()
-{
-  view_border_width = 1;
-
-  frame = gtk_frame_new (NULL);
-  _G(frame)[gtk_frame_set_shadow_type](GTK_SHADOW_OUT);
-  _G(g_object)[gtk_container_add] (frame);
-  _G(frame)[gtk_widget_show] ();
-}
-
-void GLib::Popup::finalize ()
-{
-  G_OBJECT_CLASS (Class::parent_class)->finalize (g_object);
-}
 
 void GLib::Popup::on_grab_notify (GimpPopup* popup, gboolean   was_grabbed)
 {
