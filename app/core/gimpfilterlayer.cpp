@@ -297,6 +297,7 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   virtual void            filter_reset ();
   virtual void            update       ();
   virtual void            update_size  ();
+  virtual gboolean        is_editable  ();
 
   virtual void            set_procedure(const char* proc_name, GValueArray* args = NULL);
   virtual const char*     get_procedure();
@@ -311,13 +312,11 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
            updates;
   };
 
-
   // For GimpProgress Interface
   virtual GimpProgress*   start        (const gchar* message,
                                         gboolean     cancelable);
   virtual void            end          ();
   virtual gboolean        is_active    ();
-  virtual gboolean        is_editable  ();
   virtual void            set_text     (const gchar* message);
   virtual void            set_value    (gdouble      percentage);
   virtual gdouble         get_value    ();
@@ -602,9 +601,6 @@ GimpItem* GLib::FilterLayer::duplicate (GType     new_type)
   if (GIMP_IS_FILTER_LAYER (new_item))
     {
       GLib::FilterLayer *new_priv = Class::get_private(new_item);
-      gint                   position    = 0;
-      GList                 *list;
-
       new_priv->suspend_resize (FALSE);
 
       /*  force the projection to reallocate itself  */

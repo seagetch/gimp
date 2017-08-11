@@ -126,6 +126,7 @@ typedef struct _GimpSelection       GimpSelection;
 typedef struct _GimpLayer           GimpLayer;
 typedef struct _GimpGroupLayer      GimpGroupLayer;
 typedef struct _GimpFilterLayer     GimpFilterLayer;
+typedef struct _GimpCloneLayer      GimpCloneLayer;
 
 
 /*  undo objects  */

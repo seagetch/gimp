@@ -109,6 +109,12 @@ static const GimpActionEntry layers_actions[] =
     G_CALLBACK (layers_new_filter_cmd_callback),
     GIMP_HELP_LAYER_NEW },
 
+  { "layers-new-clone", GIMP_STOCK_DUPLICATE,
+    NC_("layers-action", "New Clone Layer..."), NULL,
+    NC_("layers-action", "Create a new clone layer and add it to the image"),
+    G_CALLBACK (layers_new_clone_cmd_callback),
+    GIMP_HELP_LAYER_NEW },
+
   { "layers-duplicate", GIMP_STOCK_DUPLICATE,
     NC_("layers-action", "D_uplicate Layer"), "<primary><shift>D",
     NC_("layers-action",

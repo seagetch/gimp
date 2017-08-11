@@ -37,6 +37,9 @@ void   layers_new_group_cmd_callback          (GtkAction   *action,
 void   layers_new_filter_cmd_callback         (GtkAction   *action,
                                                gpointer     data);
 
+void   layers_new_clone_cmd_callback           (GtkAction   *action,
+                                               gpointer     data);
+
 void   layers_select_cmd_callback             (GtkAction   *action,
                                                gint         value,
                                                gpointer     data);

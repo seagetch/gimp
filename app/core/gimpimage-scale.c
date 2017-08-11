@@ -27,7 +27,6 @@
 #include "gimpcontainer.h"
 #include "gimpguide.h"
 #include "gimpgrouplayer.h"
-#include "gimpfilterlayer.h"
 #include "gimpimage.h"
 #include "gimpimage-guides.h"
 #include "gimpimage-item-list.h"

@@ -32,7 +32,6 @@
 #include "gimpitem.h"
 #include "gimplist.h"
 #include "gimpundostack.h"
-#include "gimpfilterlayer.h"
 
 
 /*  local function prototypes  */
@@ -399,8 +398,8 @@ gimp_image_undo_push (GimpImage     *image,
 
   gimp_parameters_free (params, n_params);
 
-  if (GIMP_IS_DRAWABLE_UNDO(undo) && GIMP_IS_FILTER_LAYER(GIMP_ITEM_UNDO(undo)->item)) {
-    g_print("gimp_image_undo_push: ignore GimpDrawableUndo to FilterLayer\n");
+  if (GIMP_IS_DRAWABLE_UNDO(undo) && ! gimp_item_is_editable(GIMP_ITEM_UNDO(undo)->item)) {
+    g_print("gimp_image_undo_push: ignore GimpDrawableUndo to uneditable layer\n");
     gimp_undo_free (undo, GIMP_UNDO_MODE_UNDO);
     g_object_unref(undo);
     return NULL;

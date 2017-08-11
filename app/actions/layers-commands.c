@@ -34,6 +34,7 @@
 #include "core/gimpcontext.h"
 #include "core/gimpgrouplayer.h"
 #include "core/gimpfilterlayer.h"
+#include "core/gimpclonelayer.h"
 #include "core/gimpimage.h"
 #include "core/gimpimage-merge.h"
 #include "core/gimpimage-undo.h"
@@ -114,6 +115,9 @@ static void   layers_new_layer_response    (GtkWidget             *widget,
                                             gint                   response_id,
                                             LayerOptionsDialog    *dialog);
 static void   layers_new_filter_layer_response    (GtkWidget             *widget,
+                                            gint                   response_id,
+                                            LayerOptionsDialog    *dialog);
+static void   layers_new_clone_layer_response (GtkWidget             *widget,
                                             gint                   response_id,
                                             LayerOptionsDialog    *dialog);
 static void   layers_edit_layer_response   (GtkWidget             *widget,
@@ -415,6 +419,32 @@ layers_new_filter_cmd_callback (GtkAction *action,
                     dialog);
 
   gtk_widget_show (dialog->dialog);
+}
+
+void
+layers_new_clone_cmd_callback (GtkAction *action,
+                               gpointer   data)
+{
+  GimpImage *image;
+  GimpLayer *layer;
+  GimpLayer *new_layer;
+  return_if_no_layer (image, layer, data);
+
+  new_layer = gimp_clone_layer_new (image, GIMP_ITEM (layer),
+      layer_name ? layer_name : _("Clone Layer"), 1.0, GIMP_NORMAL_MODE);
+  g_print("new_layer=%p\n", new_layer);
+
+  /*  use the actual parent here, not GIMP_IMAGE_ACTIVE_PARENT because
+   *  the latter would add a duplicated group inside itself instead of
+   *  above it
+   */
+  g_print("image=%s,layer=%s,new_layer=%p\n", gimp_object_get_name(GIMP_OBJECT(image)), gimp_object_get_name(GIMP_OBJECT(layer)), new_layer);
+  gimp_image_add_layer (image, new_layer,
+                        gimp_layer_get_parent (layer), -1,
+                        TRUE);
+
+  gimp_image_flush (image);
+
 }
 
 void
