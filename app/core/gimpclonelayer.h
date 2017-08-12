@@ -53,6 +53,8 @@ GimpLayer*       gimp_clone_layer_new            (GimpImage*           image,
 void             gimp_clone_layer_set_source     (GimpCloneLayer*      layer,
                                                   GimpLayer*           source);
 GimpLayer*       gimp_clone_layer_get_source     (GimpCloneLayer*      layer);
+void         gimp_clone_layer_set_source_by_name (GimpCloneLayer* layer,
+                                                  const gchar* name);
 
 #ifdef __cplusplus
 }
@@ -69,7 +71,7 @@ public:
 
   virtual void       set_source (GimpLayer* layer) = 0;
   virtual GimpLayer* get_source () = 0;
-
+  virtual void       set_source_by_name (const gchar* ref_name) = 0;
 };
 
 #include "base/glib-cxx-types.hpp"

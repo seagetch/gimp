@@ -54,6 +54,7 @@
 #include "core/gimpselection.h"
 #include "core/gimptemplate.h"
 #include "core/gimpfilterlayer.h"
+#include "core/gimpclonelayer.h"
 
 #include "text/gimptextlayer.h"
 #include "text/gimptextlayer-xcf.h"
@@ -133,6 +134,14 @@ static gboolean        xcf_skip_unknown_prop  (XcfInfo      *info,
 static gboolean        xcf_find_layer_offset_table (XcfInfo *info,
                                                     glong    offset);
 static gboolean        xcf_load_filter_specs  (XcfInfo *info, GValueArray* value);
+static gboolean        xcf_load_clone_specs  (XcfInfo *info);
+
+static gboolean        xcf_post_check_layers  (XcfInfo      *info,
+                                               GimpImage    *image);
+static gboolean        xcf_post_check_layers_recur (XcfInfo *info,
+                                                    GimpContainer *container);
+static void            xcf_post_check_layers_foreach (GimpLayer* layer,
+                                                      XcfInfo*   info);
 
 
 #define xcf_progress_update(info) G_STMT_START  \
@@ -366,7 +375,11 @@ xcf_load_image (Gimp     *gimp,
 */
     } /* while (! terminate_loop) */
 
+  // Check for all layers
+
   xcf_load_add_masks (image);
+
+  xcf_post_check_layers(info, image);
 
   if (info->floating_sel && info->floating_sel_drawable)
     floating_sel_attach (info->floating_sel, info->floating_sel_drawable);
@@ -741,7 +754,7 @@ xcf_load_image_props (XcfInfo   *info,
           break;
 
         default:
-          g_print("xcf_load[%x] UNKNOWN\n");
+          g_print("xcf_load[%x] UNKNOWN\n", info->cp);
 #ifdef GIMP_UNSTABLE
           g_printerr ("unexpected/unknown image property: %d (skipping)\n",
                       prop_type);
@@ -980,7 +993,7 @@ xcf_load_layer_props (XcfInfo    *info,
             gchar*               filter_name;
             GValueArray*         proc_args = NULL;
             gint                 width, height;
-            gchar*               layer_name = gimp_object_get_name (*layer);
+            const gchar*         layer_name = gimp_object_get_name (*layer);
             gdouble              opacity;
             GimpLayerModeEffects mode;
 
@@ -1023,6 +1036,54 @@ xcf_load_layer_props (XcfInfo    *info,
               return FALSE;
             gimp_filter_layer_set_procedure (GIMP_FILTER_LAYER(filter), filter_name, proc_args);
             g_value_array_free(proc_args);
+          }
+          break;
+
+        case PROP_CLONE_SPEC:
+          {
+            GimpLayer*           cloned;
+            gboolean             is_active_layer;
+            gchar*               target_name;
+            gint                 width, height;
+            gchar*               layer_name = gimp_object_get_name (*layer);
+            gdouble              opacity;
+            GimpLayerModeEffects mode;
+
+            g_print("xcf_load_props: PROP_FILTER_SPEC\n");
+
+            is_active_layer = (*layer == info->active_layer);
+            if (is_active_layer)
+              info->active_layer = NULL;
+
+            if (*layer == info->floating_sel)
+              info->floating_sel = NULL;
+
+            width      = gimp_item_get_width (GIMP_ITEM(*layer));
+            height     = gimp_item_get_height (GIMP_ITEM(*layer));
+            opacity    = gimp_layer_get_opacity (GIMP_LAYER(*layer));
+            mode       = gimp_layer_get_mode(GIMP_LAYER(*layer));
+            cloned     = gimp_clone_layer_new (image, NULL, layer_name, opacity, mode);
+
+            GIMP_DRAWABLE (cloned)->private->type = gimp_drawable_type (GIMP_DRAWABLE (*layer));
+
+            g_object_ref_sink (*layer);
+            g_object_unref (*layer);
+            *layer = cloned;
+
+            if (is_active_layer)
+              info->active_layer = *layer;
+
+            /* Don't restore info->floating_sel because group layers
+             * can't be floating selections
+             */
+
+            g_print("xcf_load[%x] target_name", info->cp);
+            info->cp += xcf_read_string (info->fp, &target_name, 1);
+            g_print("=%s\n", target_name);
+
+            if ( !xcf_load_clone_specs (info) )
+              return FALSE;
+            gimp_clone_layer_set_source_by_name (GIMP_CLONE_LAYER(cloned), target_name);
           }
           break;
 
@@ -1328,6 +1389,50 @@ xcf_load_filter_specs(XcfInfo *info,
       g_print("%d:", index);
       g_print("FILTER_SPEC::UNKNOWN\n");
       g_value_array_append(args, value);
+      break;
+    }
+  }
+  return TRUE;
+}
+
+static gboolean
+xcf_load_clone_specs(XcfInfo *info)
+{
+  XcfFilterArgType value_type = 0;
+  guint32 size;
+  gboolean loop = TRUE;
+  guint base = 0;
+  int index;
+
+  g_print("xcf_load_clone_specs\n");
+
+  for (index = 0; loop; index ++) {
+    GValue* value = g_new0(GValue, 1);
+    GValue default_value = G_VALUE_INIT;
+    *value = default_value;
+
+    g_print("xcf_load[%x] value_type", info->cp);
+    if (G_UNLIKELY (xcf_read_int32 (info->fp, &value_type, 1) != 4))
+      return FALSE;
+    info->cp += 4;
+
+    base = info->cp;
+
+    if (G_UNLIKELY (xcf_read_int32 (info->fp, &size, 1) != 4))
+      return FALSE;
+    info->cp += 4;
+
+    g_print("=%d\n", value_type);
+
+    switch (value_type) {
+    case XCF_FILTER_END:
+      g_print("%d:", index);
+      g_print("XCF_FILTER_END\n");
+      loop = FALSE;
+      break;
+    default:
+      g_print("%d:", index);
+      g_print("CLONE_SPEC::UNKNOWN\n");
       break;
     }
   }
@@ -2365,4 +2470,31 @@ xcf_find_layer_offset_table (XcfInfo *info,
     }
 
   return FALSE;
+}
+static gboolean
+xcf_post_check_layers  (XcfInfo      *info,
+                        GimpImage    *image)
+{
+  GimpContainer* container;
+  container = gimp_image_get_layers(image);
+  return xcf_post_check_layers_recur (info, container);
+}
+static gboolean
+xcf_post_check_layers_recur (XcfInfo       *info,
+                             GimpContainer *container)
+{
+  gimp_container_foreach (container, xcf_post_check_layers_foreach, info);
+  return TRUE;
+}
+static void
+xcf_post_check_layers_foreach (GimpLayer* layer,
+                               XcfInfo*   info)
+{
+  GimpContainer* container;
+  if (GIMP_IS_CLONE_LAYER(layer)) {
+    gimp_clone_layer_get_source (GIMP_CLONE_LAYER(layer));
+  }
+  container = gimp_viewable_get_children(GIMP_VIEWABLE(layer));
+  if (container)
+    xcf_post_check_layers_recur (info, container);
 }

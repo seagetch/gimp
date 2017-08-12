@@ -50,6 +50,7 @@
 #include "core/gimpprogress.h"
 #include "core/gimpsamplepoint.h"
 #include "core/gimpfilterlayer.h"
+#include "core/gimpclonelayer.h"
 #include "core/gimpparamspecs.h"
 
 #include "text/gimptextlayer.h"
@@ -232,6 +233,11 @@ xcf_save_choose_format_recursive(XcfInfo* info, GimpContainer* layers) {
       g_print("Becomes save version=4\n");
       save_version = MAX (4, save_version);
     }
+
+    if (GIMP_IS_CLONE_LAYER(layer)) {
+      g_print("Becomes save version=4\n");
+      save_version = MAX (4, save_version);
+    }
   }
 
   return save_version;
@@ -308,6 +314,11 @@ xcf_save_choose_format (XcfInfo   *info,
       }
 
       if (GIMP_IS_FILTER_LAYER(layer)) {
+        g_print("Becomes save version=4\n");
+        save_version = MAX (4, save_version);
+      }
+
+      if (GIMP_IS_CLONE_LAYER(layer)) {
         g_print("Becomes save version=4\n");
         save_version = MAX (4, save_version);
       }
@@ -649,6 +660,12 @@ xcf_save_layer_props (XcfInfo    *info,
     const gchar* filter_name = gimp_filter_layer_get_procedure (filter_layer);
     GValueArray* args        = gimp_filter_layer_get_procedure_args (filter_layer);
     xcf_check_error (xcf_save_prop (info, image, PROP_FILTER_SPEC, error, filter_name, args));
+  }
+  if (GIMP_IS_CLONE_LAYER (layer)) {
+    GimpCloneLayer* clone_layer = GIMP_CLONE_LAYER(layer);
+    GimpLayer* target_layer = gimp_clone_layer_get_source (clone_layer);
+    const gchar* target_name = gimp_object_get_name (target_layer);
+    xcf_check_error (xcf_save_prop (info, image, PROP_CLONE_SPEC, error, target_name));
   }
 
   g_print("xcf_save[%x]: layer_props: PROP_END\n", info->cp);
@@ -1262,6 +1279,34 @@ xcf_save_prop (XcfInfo    *info,
             xcf_check_error ( xcf_save_filter_spec_value (info, image, error, value) );
           }
         }
+
+        g_print("xcf_save[%x] PROP_END\n", info->cp);
+        xcf_check_error (xcf_save_prop (info, image, PROP_END, error));
+        length = info->cp - base;
+
+        xcf_check_error (xcf_seek_pos (info, pos, error));
+        g_print("xcf_save[%x] length=%u\n", info->cp, length);
+        xcf_write_int32_check_error (info, &length, 1);
+        xcf_check_error (xcf_seek_pos (info, base + length, error));
+      }
+      break;
+    case PROP_CLONE_SPEC:
+      {
+        guint32 length = 0;
+        gchar* target_name;
+        guint32 i;
+        guint32 base = 0, pos = 0;
+        size = 0; /* dummy */
+        target_name = va_arg (args, gchar*);
+
+        g_print("xcf_save[%x] prop_type=%u\n", info->cp, prop_type);
+        xcf_write_prop_type_check_error (info, prop_type);
+        pos  = info->cp;
+        g_print("xcf_save[%x] length=%u\n", info->cp, length);
+        xcf_write_int32_check_error (info, &length, 1);
+        base = info->cp;
+        g_print("xcf_save[%x] target_name=%s\n", info->cp, target_name);
+        xcf_write_string_check_error (info, (gchar **) &target_name, 1);
 
         g_print("xcf_save[%x] PROP_END\n", info->cp);
         xcf_check_error (xcf_save_prop (info, image, PROP_END, error));

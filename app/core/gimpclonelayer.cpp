@@ -81,12 +81,13 @@ struct CloneLayer : virtual public ImplBase, virtual public CloneLayerInterface
   GimpLayer*       source_layer;
 
   /*  hackish temp states to make the projection/tiles stuff work  */
-  gboolean         reallocate_projection;
   gint             reallocate_width;
   gint             reallocate_height;
 
   Delegators::Connection* parent_changed_conn;
   Delegators::Connection* reorder_conn;
+  Delegators::Connection* update_conn;
+  CString          source_name;
 
   static void class_init(Traits<GimpCloneLayer>::Class* klass);
   template<typename IFaceClass> static void iface_init(IFaceClass* klass);
@@ -152,6 +153,7 @@ struct CloneLayer : virtual public ImplBase, virtual public CloneLayerInterface
 
   virtual void            set_source   (GimpLayer* source);
   virtual GimpLayer*      get_source   ();
+  virtual void            set_source_by_name (const gchar* name);
 
   virtual gboolean        is_editable  ();
 
@@ -168,10 +170,6 @@ struct CloneLayer : virtual public ImplBase, virtual public CloneLayerInterface
                                         GimpLayer         *layer,
                                         gint               index);
 private:
-  void                invalidate_area  (gint               x,
-                                        gint               y,
-                                        gint               width,
-                                        gint               height);
   void                invalidate_layer ();
 };
 
@@ -244,12 +242,12 @@ void CloneLayer::class_init(Traits<GimpCloneLayer>::Class *klass)
 }
 
 template<>
-void CloneLayer::iface_init<GimpPickableInterface>(GimpPickableInterface* iface)
+void CloneLayer::iface_init<GimpPickableInterface>(GimpPickableInterface* klass)
 {
   typedef CloneLayer Impl;
   g_print("CloneLayer::iface_init<GimpPickableInterface>\n");
   
-  bind_to_class (iface, get_opacity_at, Impl);
+  _override (get_opacity_at);
 }
 
 }; // namespace
@@ -261,6 +259,10 @@ GLib::CloneLayer::~CloneLayer()
     delete reorder_conn;
     reorder_conn = NULL;
   }
+  if (update_conn) {
+    delete update_conn;
+    update_conn = NULL;
+  }
 }
 
 GLib::CloneLayer::CloneLayer(GObject* o) : ImplBase(o)
@@ -268,6 +270,7 @@ GLib::CloneLayer::CloneLayer(GObject* o) : ImplBase(o)
   parent_changed_conn = g_signal_connect_delegator (G_OBJECT(g_object), "parent-changed",
                                                     Delegators::delegator(this, &GLib::CloneLayer::on_parent_changed));
   reorder_conn        = NULL;
+  update_conn         = NULL;
 }
 
 void GLib::CloneLayer::constructed ()
@@ -299,25 +302,69 @@ void GLib::CloneLayer::get_property (guint       property_id,
 
 void GLib::CloneLayer::set_source(GimpLayer* layer)
 {
+  if (source_layer) {
+    if (update_conn) {
+      delete update_conn;
+      update_conn = NULL;
+    }
+    source_layer = NULL;
+  }
+  if (layer) {
+    update_conn = g_signal_connect_delegator (G_OBJECT(layer), "update",
+        Delegators::delegator(this, &GLib::CloneLayer::on_source_update));
+    source_layer = layer;
+    auto src  = ref(layer);
+    gint w, h;
+    w = src [gimp_item_get_width] ();
+    h = src [gimp_item_get_height] ();
+    auto self = ref(g_object);
+    self [gimp_item_set_size] (w, h);
+    gint width  = self [gimp_item_get_width]  ();
+    gint height = self [gimp_item_get_height] ();
 
-  g_signal_connect_delegator (G_OBJECT(layer), "update",
-                              Delegators::delegator(this, &GLib::CloneLayer::on_source_update));
-  auto src  = ref(layer);
-  gint w, h;
-  w = src [gimp_item_get_width] ();
-  h = src [gimp_item_get_height] ();
-  auto self = ref(g_object);
-  self [gimp_item_set_size] (w, h);
-  gint width  = self [gimp_item_get_width]  ();
-  gint height = self [gimp_item_get_height] ();
-
-  on_source_update(GIMP_DRAWABLE(layer), 0, 0, width, height);
+    on_source_update(GIMP_DRAWABLE(layer), 0, 0, width, height);
+  }
 }
 
 GimpLayer*
 GLib::CloneLayer::get_source()
 {
+  if (source_name) {
+    std::function<GimpLayer*(GimpContainer*)> finder = [&](GimpContainer* _container)->GimpLayer* {
+      auto container = ref(_container);
+      GimpLayer* result = NULL;
+      gint n_children = container [gimp_container_get_n_children] ();
+      for (int i = 0; i < n_children; i ++) {
+        auto layer = ref(container[gimp_container_get_child_by_index](i));
+        if (strcmp(layer [gimp_object_get_name](), source_name) == 0) {
+          result = layer;
+          return result;
+        }
+        GimpContainer* children = layer [gimp_viewable_get_children] ();
+        if (children) {
+          result = finder (children);
+          if (result)
+            return result;
+        }
+      }
+      return NULL;
+    };
+    auto image = ref(g_object) [gimp_item_get_image] ();
+    GimpLayer* src = finder(ref(image) [gimp_image_get_layers] ());
 
+    if (src) {
+      source_name = NULL;
+      set_source(src);
+    }
+  }
+  return source_layer;
+}
+
+void GLib::CloneLayer::set_source_by_name(const gchar* name)
+{
+  g_print("CloneLayer::set_source_by_name(%s)\n", name);
+  source_name = g_strdup(name);
+  get_source();
 }
 
 gint64 GLib::CloneLayer::get_memsize (gint64     *gui_size)
@@ -350,7 +397,7 @@ GimpItem* GLib::CloneLayer::duplicate (GType     new_type)
 
   new_item = GIMP_ITEM_CLASS (Class::parent_class)->duplicate (GIMP_ITEM(g_object), new_type);
   if (CloneLayerInterface::is_instance(new_item)) {
-    dynamic_cast<CloneLayer*>(CloneLayerInterface::cast(new_item))->set_source(source_layer);
+    dynamic_cast<CloneLayer*>(CloneLayerInterface::cast(new_item))->set_source(get_source());
   }
   return new_item;
 }
@@ -409,12 +456,12 @@ void GLib::CloneLayer::rotate (GimpContext      *context,
 }
 
 void GLib::CloneLayer::transform (GimpContext            *context,
-                                     const GimpMatrix3      *matrix,
-                                     GimpTransformDirection  direction,
-                                     GimpInterpolationType   interpolation_type,
-                                     gint                    recursion_level,
-                                     GimpTransformResize     clip_result,
-                                     GimpProgress           *progress)
+                                  const GimpMatrix3      *matrix,
+                                  GimpTransformDirection  direction,
+                                  GimpInterpolationType   interpolation_type,
+                                  gint                    recursion_level,
+                                  GimpTransformResize     clip_result,
+                                  GimpProgress           *progress)
 {
   GIMP_ITEM_CLASS(Class::parent_class)->transform(GIMP_ITEM(g_object), context, matrix, direction, interpolation_type, recursion_level, clip_result, progress);
 //  invalidate_layer();
@@ -443,94 +490,39 @@ void GLib::CloneLayer::update () {
 }
 
 void GLib::CloneLayer::update_size () {
-  auto self       = ref(g_object);
-  gint     old_x      = self [gimp_item_get_offset_x] ();
-  gint     old_y      = self [gimp_item_get_offset_y] ();
+  if (!get_source())
+    return;
+  auto self = ref(g_object);
+  auto src  = ref(get_source());
   gint     old_width  = self [gimp_item_get_width]  ();
   gint     old_height = self [gimp_item_get_height] ();
-  gint     x          = 0;
-  gint     y          = 0;
-  gint     width      = 1;
-  gint     height     = 1;
+  gint     x          = src [gimp_item_get_offset_x] ();
+  gint     y          = src [gimp_item_get_offset_y] ();
+  gint     width      = src [gimp_item_get_width] ();
+  gint     height     = src [gimp_item_get_height] ();
 
-  if (!source_layer)
-    return;
-  auto src = ref(source_layer);
-  src [gimp_item_get_offset] (&x, &y);
-  width  = src [gimp_item_get_width] ();
-  height = src [gimp_item_get_height] ();
+//  g_print ("%s (%s) %d, %d (%d, %d)\n",
+//           G_STRFUNC, gimp_object_get_name (g_object),
+//           x, y, width, height);
 
-  g_print ("%s (%s) %d, %d (%d, %d)\n",
-           G_STRFUNC, gimp_object_get_name (g_object),
-           x, y, width, height);
-
-  if (reallocate_projection ||
-      x      != old_x       ||
-      y      != old_y       ||
-      width  != old_width   ||
+  if (width  != old_width   ||
       height != old_height) {
 
-    auto self = ref(g_object);
-    if (reallocate_projection ||
-        width  != old_width   ||
-        height != old_height) {
-      reallocate_projection = FALSE;
+    reallocate_width  = width;
+    reallocate_height = height;
 
-      reallocate_width  = width;
-      reallocate_height = height;
+    g_print("set_size:%d,%d\n", width, height);
+    resize(NULL, width, height, x, y);
+    reallocate_width  = 0;
+    reallocate_height = 0;
 
-      g_print("set_size:%d,%d\n", width, height);
-      resize(NULL, width, height, x, y);
-
-      self [gimp_pickable_flush] ();
-//      self [gimp_projectable_structure_changed] ();
-    }
+    self [gimp_pickable_flush] ();
   }
 }
 
 gboolean GLib::CloneLayer::is_editable()
 {
   return FALSE;
-}
-
-void GLib::CloneLayer::invalidate_area (gint               x,
-                                         gint               y,
-                                         gint               width,
-                                         gint               height)
-{
-//  g_print("%s: invalidate_area(%d, %d  -  %d,%d)\n", ref(g_object)[gimp_object_get_name](), x, y, width, height);
-  gint parent_off_x = 0;
-  gint parent_off_y = 0;
-  GimpViewable* parent = gimp_viewable_get_parent(GIMP_VIEWABLE(g_object));
-  if (parent)
-    gimp_item_get_offset(GIMP_ITEM(parent), &parent_off_x, &parent_off_y);
-  GimpItem* self_item = GIMP_ITEM(g_object);
-  GimpImage* image = gimp_item_get_image(self_item);
-  gint item_width  = gimp_item_get_width (self_item);
-  gint item_height = gimp_item_get_height(self_item);
-  gint offset_x    = gimp_item_get_offset_x (self_item);
-  gint offset_y    = gimp_item_get_offset_y (self_item);
-  gint image_width = gimp_image_get_width(image);
-  gint image_height= gimp_image_get_height(image);
-
-  gint       x1           = x - parent_off_x,
-             x2           = x1 + width,
-             y1           = y - parent_off_y,
-             y2           = y1 + height;
-  if (x2 < offset_x - parent_off_x ||
-      y2 < offset_y - parent_off_y ||
-      x1 > offset_x - parent_off_x + item_width ||
-      y1 > offset_y - parent_off_y + item_height )
-    return;
-
-  x1 = MAX((x1 / TILE_WIDTH ) * TILE_WIDTH,  offset_x - parent_off_x);
-  y1 = MAX((y1 / TILE_HEIGHT) * TILE_HEIGHT, offset_y - parent_off_y);
-  x2 = MIN(image_width  - parent_off_x,
-           MIN(offset_x - parent_off_x + item_width,
-               ((x2 + TILE_WIDTH  - 1) / TILE_WIDTH ) * TILE_WIDTH ));
-  y2 = MIN(image_height - parent_off_y,
-           MIN(offset_y - parent_off_y + item_height,
-               ((y2 + TILE_HEIGHT - 1) / TILE_HEIGHT) * TILE_HEIGHT));
 }
 
 void GLib::CloneLayer::invalidate_layer ()
@@ -541,8 +533,6 @@ void GLib::CloneLayer::invalidate_layer ()
   gint height       = self [gimp_item_get_height] ();
   gint offset_x     = self [gimp_item_get_offset_x] ();
   gint offset_y     = self [gimp_item_get_offset_y] ();
-
-  invalidate_area(offset_x, offset_y, width, height);
 
   GimpViewable*  parent = gimp_viewable_get_parent(GIMP_VIEWABLE(g_object));
   if (parent) {
@@ -595,16 +585,15 @@ void GLib::CloneLayer::on_source_update (GimpDrawable* _source,
   GimpImageType self_type   = self [gimp_drawable_type] ();
   GimpImageType source_type = source [gimp_drawable_type] ();
 
-//  if (self_type == source_type) {
-//    PixelRegion srcPR;
-//    TileManager* src_tiles  = source [gimp_drawable_get_tiles] ();
-//    pixel_region_init (&srcPR,  src_tiles,  x, y, width, height, FALSE);
-//
-//    copy_region_nocow(&srcPR, &destPR);
+  if (self_type == source_type) {
+    PixelRegion srcPR;
+    TileManager* src_tiles  = source [gimp_drawable_get_tiles] ();
+    pixel_region_init (&srcPR,  src_tiles,  x, y, width, height, FALSE);
 
-//  } else {
+    copy_region_nocow(&srcPR, &destPR);
+  } else {
     source [gimp_drawable_project_region] (x, y, width, height, &destPR, FALSE);
-//  }
+  }
 
   self [gimp_drawable_update] (x, y, width, height);
 }
@@ -708,4 +697,11 @@ gimp_clone_layer_get_source    (GimpCloneLayer* layer)
   if (CloneLayerInterface::is_instance(layer))
     return CloneLayerInterface::cast(layer)->get_source();
   return NULL;
+}
+
+void
+gimp_clone_layer_set_source_by_name    (GimpCloneLayer* layer, const gchar* name)
+{
+  if (CloneLayerInterface::is_instance(layer))
+    CloneLayerInterface::cast(layer)->set_source_by_name(name);
 }

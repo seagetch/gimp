@@ -110,7 +110,8 @@ typedef enum
   PROP_GROUP_ITEM         = 29,
   PROP_ITEM_PATH          = 30,
   PROP_GROUP_ITEM_FLAGS   = 31,
-  PROP_FILTER_SPEC        = 32
+  PROP_FILTER_SPEC        = 32,
+  PROP_CLONE_SPEC         = 33
 } PropType;
 
 /**
