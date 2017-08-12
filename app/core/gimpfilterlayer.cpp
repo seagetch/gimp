@@ -335,12 +335,6 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
                                         gint               width,
                                         gint               height,
                                         GimpItem          *item);
-  virtual void         on_proj_update  (GimpProjection    *proj,
-                                        gboolean           now,
-                                        gint               x,
-                                        gint               y,
-                                        gint               width,
-                                        gint               height);
   virtual void        on_reorder       (GimpContainer     *container,
                                         GimpLayer         *layer,
                                         gint               index);
@@ -362,39 +356,7 @@ using Class = GClass<gimp_filter_layer_name,
                      UseCStructs<GimpLayer, GimpFilterLayer>,
                      FilterLayer,
                      GimpProgress, GimpPickable>;
-
-static GimpUndo *
-gimp_image_undo_push_filter_layer_suspend (GimpImage      *image,
-                                           const gchar    *undo_desc,
-                                           GimpFilterLayer *group)
-{
-  g_return_val_if_fail (GIMP_IS_IMAGE (image), NULL);
-  g_return_val_if_fail (Class::Traits::is_instance(group), NULL);
-  g_return_val_if_fail (gimp_item_is_attached (GIMP_ITEM (group)), NULL);
-
-  return gimp_image_undo_push (image, Traits<GimpFilterLayerUndo>::get_type(),
-                               GIMP_UNDO_GROUP_LAYER_SUSPEND, undo_desc,
-                               GimpDirtyMask(GIMP_DIRTY_ITEM | GIMP_DIRTY_DRAWABLE),
-                               "item",  group,
-                               NULL);
-}
-
-static GimpUndo *
-gimp_image_undo_push_filter_layer_resume (GimpImage      *image,
-                                         const gchar    *undo_desc,
-                                         GimpFilterLayer *group)
-{
-  g_return_val_if_fail (GIMP_IS_IMAGE (image), NULL);
-  g_return_val_if_fail (Class::Traits::is_instance(group), NULL);
-  g_return_val_if_fail (gimp_item_is_attached (GIMP_ITEM (group)), NULL);
-
-  return gimp_image_undo_push (image, Traits<GimpFilterLayerUndo>::get_type(),
-                               GIMP_UNDO_GROUP_LAYER_RESUME, undo_desc,
-                               GimpDirtyMask(GIMP_DIRTY_ITEM | GIMP_DIRTY_DRAWABLE),
-                               "item",  group,
-                               NULL);
-}
-
+#if 0
 static GimpUndo *
 gimp_image_undo_push_filter_layer_convert (GimpImage      *image,
                                           const gchar    *undo_desc,
@@ -410,7 +372,7 @@ gimp_image_undo_push_filter_layer_convert (GimpImage      *image,
                                "item", group,
                                NULL);
 }
-
+#endif
 #define _override(method)  Class::__(&klass->method).bind<&Impl::method>()
 
 void FilterLayer::class_init(Traits<GimpFilterLayer>::Class *this_class)
@@ -482,12 +444,6 @@ void FilterLayer::iface_init<GimpProgressInterface>(GimpProgressInterface* klass
 
 GLib::FilterLayer::FilterLayer(GObject* o) : GLib::ImplBase(o) {
   g_print("FilterLayer::FilterLayer\n");
-#if 0
-  projection = gimp_projection_new (GIMP_PROJECTABLE (g_object));
-
-  g_signal_connect_delegator (G_OBJECT(projection), "update",
-                              Delegator::delegator(this, &GLib::FilterLayer::on_proj_update));
-#endif
   child_update_conn   = NULL;
   parent_changed_conn = g_signal_connect_delegator (G_OBJECT(g_object), "parent-changed",
                                                     Delegators::delegator(this, &GLib::FilterLayer::on_parent_changed));
@@ -808,10 +764,8 @@ void GLib::FilterLayer::set_procedure(const char* proc_name, GValueArray* args)
     runner = NULL;
     g_print("FilterLayer::set_procedure(%s), Cleanup eixsting runner.\n", proc_name);
   }
-  auto           image   = ref( gimp_item_get_image(GIMP_ITEM(g_object)) );
-  Gimp*          gimp    = image->gimp;
-  GimpPDB*       pdb     = gimp->pdb;
-  GimpProcedure* proc    = gimp_pdb_lookup_procedure(pdb, proc_name);
+  auto           pdb   = ref( gimp_item_get_image(GIMP_ITEM(g_object))->gimp->pdb );
+  GimpProcedure* proc    = pdb [gimp_pdb_lookup_procedure] (proc_name);
   ProcedureRunner* r     = new ProcedureRunner(proc, GIMP_PROGRESS(g_object));
 
   if (args) {
@@ -860,37 +814,46 @@ gint GLib::FilterLayer::get_opacity_at (gint          x,
 }
 
 void GLib::FilterLayer::suspend_resize (gboolean        push_undo) {
-  GimpItem *item;
+  auto self = ref(g_object);
 
-  item = GIMP_ITEM (g_object);
-
-  if (! gimp_item_is_attached (item))
+  if (! self [gimp_item_is_attached] ())
     push_undo = FALSE;
 
-  if (push_undo)
-    gimp_image_undo_push_filter_layer_suspend (gimp_item_get_image (item),
-                                              NULL, Class::Traits::cast(g_object));
-  
+  if (push_undo) {
+    GimpImage*   image     = self [gimp_item_get_image] ();
+    if (GIMP_IS_IMAGE (image) && Class::Traits::is_instance(self) && self [gimp_item_is_attached] ()) {
+      gimp_image_undo_push (image, Traits<GimpFilterLayerUndo>::get_type(),
+                            GIMP_UNDO_GROUP_LAYER_SUSPEND, NULL,
+                            GimpDirtyMask(GIMP_DIRTY_ITEM | GIMP_DIRTY_DRAWABLE),
+                            "item",  g_object,
+                            NULL);
+    }
+  }
   suspend_resize_++;
 }
 
 void GLib::FilterLayer::resume_resize (gboolean        push_undo) {
-  GimpItem              *item;
+  auto self = ref(g_object);
   g_return_if_fail (suspend_resize_ > 0);
 
-  item = GIMP_ITEM (g_object);
-
-  if (! gimp_item_is_attached (item))
+  if (! self [gimp_item_is_attached] ())
     push_undo = FALSE;
-  if (push_undo)
-    gimp_image_undo_push_filter_layer_resume (gimp_item_get_image (item),
-                                             NULL, Class::Traits::cast(g_object));
+
+  if (push_undo) {
+    GimpImage*   image     = self [gimp_item_get_image] ();
+    if (GIMP_IS_IMAGE (image) && Class::Traits::is_instance(self) && self [gimp_item_is_attached] ()) {
+      gimp_image_undo_push (image, Traits<GimpFilterLayerUndo>::get_type(),
+                            GIMP_UNDO_GROUP_LAYER_RESUME, NULL,
+                            GimpDirtyMask(GIMP_DIRTY_ITEM | GIMP_DIRTY_DRAWABLE),
+                            "item",  g_object,
+                            NULL);
+    }
+  }
   suspend_resize_--;
 
-  if (suspend_resize_ == 0)
-    {
-      update_size ();
-    }
+  if (suspend_resize_ == 0) {
+    update_size ();
+  }
 }
 
 
@@ -916,6 +879,9 @@ void GLib::FilterLayer::update () {
 }
 
 void GLib::FilterLayer::update_size () {
+  reallocate_projection = FALSE;
+  invalidate_layer();
+#if 0
   GimpItem              *item       = GIMP_ITEM (g_object);
   gint                   old_x      = gimp_item_get_offset_x (item);
   gint                   old_y      = gimp_item_get_offset_y (item);
@@ -950,6 +916,8 @@ void GLib::FilterLayer::update_size () {
           reallocate_width  = width;
           reallocate_height = height;
           invalidate_layer();
+          reallocate_width  = 0;
+          reallocate_height = 0;
 //          gimp_projectable_structure_changed (GIMP_PROJECTABLE (g_object));
         }
       else
@@ -960,8 +928,16 @@ void GLib::FilterLayer::update_size () {
 //          gimp_pickable_flush (GIMP_PICKABLE (projection));
         }
     }
+#endif
 }
 
+gboolean GLib::FilterLayer::is_editable()
+{
+  return FALSE;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// GimpProgress Interface
 GimpProgress* GLib::FilterLayer::start(const gchar* message,
                                          gboolean     cancelable)
 {
@@ -1003,11 +979,6 @@ gboolean GLib::FilterLayer::is_active()
 //  return filter_active != NULL;
 }
 
-gboolean GLib::FilterLayer::is_editable()
-{
-  return FALSE;
-}
-
 void GLib::FilterLayer::set_text(const gchar* message)
 {
   g_print("%s: FilterLayer::set_text: %s\n", ref(g_object) [gimp_object_get_name](), message);
@@ -1037,6 +1008,8 @@ gboolean GLib::FilterLayer::message(Gimp*                gimp,
   return TRUE;
 }
 
+//////////////////////////////////////////////////////////////////////////
+// Internal methods
 void GLib::FilterLayer::invalidate_area (gint               x,
                                          gint               y,
                                          gint               width,
@@ -1126,6 +1099,8 @@ void GLib::FilterLayer::invalidate_layer ()
 }
 
 
+//////////////////////////////////////////////////////////////////////////
+// Event handlers
 void GLib::FilterLayer::on_parent_changed (GimpViewable  *viewable,
                                              GimpViewable  *parent)
 {
@@ -1224,26 +1199,6 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
   invalidate_area(x, y, width, height);
 }
 
-void GLib::FilterLayer::on_proj_update (GimpProjection *proj,
-                                          gboolean        now,
-                                          gint            x,
-                                          gint            y,
-                                          gint            width,
-                                          gint            height)
-{
-  g_print ("%s (%s) %d, %d (%d, %d)\n",
-           G_STRFUNC, gimp_object_get_name (g_object),
-           x, y, width, height);
-
-  /*  the projection speaks in image coordinates, transform to layer
-   *  coordinates when emitting our own update signal.
-   */
-  gimp_drawable_update (GIMP_DRAWABLE (g_object),
-                        x - gimp_item_get_offset_x (GIMP_ITEM (g_object)),
-                        y - gimp_item_get_offset_y (GIMP_ITEM (g_object)),
-                        width, height);
-}
-
 void GLib::FilterLayer::on_reorder (GimpContainer* _container,
                                     GimpLayer* _layer,
                                     gint index)
@@ -1294,8 +1249,8 @@ void GLib::FilterLayer::on_reorder (GimpContainer* _container,
 
 }
 
-/*  public functions  */
-
+//////////////////////////////////////////////////////////////////////////
+// Public functions
 GimpLayer *
 FilterLayerInterface::new_instance (GimpImage            *image,
                                     gint                  width,
@@ -1353,20 +1308,6 @@ gimp_filter_layer_new            (GimpImage            *image,
                                   GimpLayerModeEffects  mode)
 {
   return FilterLayerInterface::new_instance(image, width, height, name, opacity, mode);
-}
-
-void
-gimp_filter_layer_suspend_resize (GimpFilterLayer *layer,
-                                  gboolean        push_undo)
-{
-  FilterLayerInterface::cast(layer)->suspend_resize(push_undo);
-}
-
-void
-gimp_filter_layer_resume_resize  (GimpFilterLayer *layer,
-                                  gboolean        push_undo)
-{
-  FilterLayerInterface::cast(layer)->resume_resize(push_undo);
 }
 
 const gchar*
