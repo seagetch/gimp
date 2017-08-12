@@ -2,7 +2,7 @@
  * Copyright (C) 1995 Spencer Kimball and Peter Mattis
  *
  * GimpCloneLayer
- * Copyright (C) 2009  Michael Natterer <mitch@gimp.org>
+ * Copyright (C) 2017 seagetch <sigetch@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
