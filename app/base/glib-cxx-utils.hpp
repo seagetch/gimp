@@ -432,7 +432,7 @@ public:
     if (super::obj == src)
       return;
     if (!is_null(super::obj))
-      super::decref();
+      decref();
     super::obj = src;
   };
 
