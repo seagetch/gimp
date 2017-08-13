@@ -365,6 +365,11 @@ public:
     GValue default_value = G_VALUE_INIT;
     src = default_value;
   };
+  Value(Value&& src) : ValueRef<true>(g_new0(GValue, 1)) {
+    *obj = *src.obj;
+    GValue default_value = G_VALUE_INIT;
+    *src.obj = default_value;
+  };
   Value(const gchar src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<gchar>::init(src);
   };
@@ -405,7 +410,7 @@ public:
   GValue& ref() { return *obj; };
 };
 
-inline Value move(GValue&& src) { return Value(static_cast<GValue&&>(src)); }
+inline auto  move(GValue&& src) { return static_cast<Value&&>(Value(static_cast<GValue&&>(src))); }
 inline Value dup(const GValue& src) { return Value(src); }
 
 
@@ -416,6 +421,7 @@ class Object : public ScopedPointer<T, void(gpointer), g_object_unref>
 public:
   Object() : super(NULL) {};
   Object(T* object) : super(object) {};
+  Object(Object&& src) : super(src.obj) { src.obj = NULL; }
 
   GObject* as_object() { return G_OBJECT(super::obj); }
   const GObject* as_object() const { return G_OBJECT(super::obj); }
@@ -423,12 +429,17 @@ public:
   void decref() { g_object_unref(as_object()); };
 
   void operator = (T* src) {
+    if (super::obj == src)
+      return;
     if (!is_null(super::obj))
       super::decref();
     super::obj = src;
   };
 
 };
+
+template<class T>
+inline Object<T>&& hold(T* src) { return static_cast<Object<T>&&>(Object<T>(src)); }
 
 template<typename T>
 class IObject : public Object<T>
@@ -448,7 +459,7 @@ public:
 
   struct InvalidIndex { const gchar* name; InvalidIndex(const gchar* n) : name(n) {;}; };
   
-  Value get(const gchar* prop_name) {
+  auto get(const gchar* prop_name) {
     GObject* object = super::as_object();
     GObjectClass* class_obj = G_OBJECT_GET_CLASS(object);
     GParamSpec *pspec = g_object_class_find_property (class_obj, prop_name);
@@ -483,12 +494,23 @@ public:
   operator bool() { return super::ptr(); };
 
   void operator = (T* src) {
+    if (src == super::obj)
+      return;
     if (!is_null(super::obj))
       super::decref();
     super::obj = src;
     super::incref();
   };
   
+  void operator = (const IObject& src) {
+    if (src.obj == super::obj)
+      return;
+    if (!is_null(super::obj))
+      super::decref();
+    super::obj = src.obj;
+    super::incref();
+  };
+
   template<typename Ret, typename C, typename... Args>
   class BoundMethodBase {
   protected:
