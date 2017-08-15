@@ -220,8 +220,8 @@ gimp_layer_tree_view_class_init (GimpLayerTreeViewClass *klass)
   item_view_class->raise_top_action    = "layers-raise-to-top";
   item_view_class->lower_action        = "layers-lower";
   item_view_class->lower_bottom_action = "layers-lower-to-bottom";
-  item_view_class->duplicate_action    = "layers-duplicate";
-  //item_view_class->duplicate_action    = "layers-new-clone";
+  //item_view_class->duplicate_action    = "layers-duplicate";
+  item_view_class->duplicate_action    = "layers-new-clone";
   item_view_class->delete_action       = "layers-delete";
 
   g_type_class_add_private (klass, sizeof (GimpLayerTreeViewPriv));
