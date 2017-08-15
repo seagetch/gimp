@@ -236,12 +236,6 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
 
   // Inherited methods
   virtual void            constructed  ();
-  virtual void            set_property (guint            property_id,
-                                        const GValue    *value,
-                                        GParamSpec      *pspec);
-  virtual void            get_property (guint            property_id,
-                                        GValue          *value,
-                                        GParamSpec      *pspec);
 
   virtual gint64          get_memsize  (gint64          *gui_size);
 
@@ -356,65 +350,51 @@ using Class = GClass<gimp_filter_layer_name,
                      UseCStructs<GimpLayer, GimpFilterLayer>,
                      FilterLayer,
                      GimpProgress, GimpPickable>;
-#if 0
-static GimpUndo *
-gimp_image_undo_push_filter_layer_convert (GimpImage      *image,
-                                          const gchar    *undo_desc,
-                                          GimpFilterLayer *group)
-{
-  g_return_val_if_fail (GIMP_IS_IMAGE (image), NULL);
-  g_return_val_if_fail (Class::Traits::is_instance(group), NULL);
-  g_return_val_if_fail (gimp_item_is_attached (GIMP_ITEM (group)), NULL);
-
-  return gimp_image_undo_push (image, Traits<GimpFilterLayerUndo>::get_type(),
-                               GIMP_UNDO_GROUP_LAYER_CONVERT, undo_desc,
-                               GimpDirtyMask(GIMP_DIRTY_ITEM | GIMP_DIRTY_DRAWABLE),
-                               "item", group,
-                               NULL);
-}
-#endif
+static Class class_instance;
 #define _override(method)  Class::__(&klass->method).bind<&Impl::method>()
 
 void FilterLayer::class_init(Traits<GimpFilterLayer>::Class *this_class)
 {
   typedef FilterLayer Impl;
   g_print("FilterLayer::class_init\n");
-  with_class (this_class)
-  .as_class <GObject> ([](GObjectClass* klass) {
-    _override(set_property);
-    _override(get_property);
-    _override(constructed);
+  class_instance.with_class (this_class)->
+      as_class <GObject> ([](GObjectClass* klass) {
+        _override(constructed);
 
-  }) .as_class <GimpObject> ([](GimpObjectClass* klass) {
-    _override (get_memsize);
+      })->
+      as_class <GimpObject> ([](GimpObjectClass* klass) {
+        _override (get_memsize);
 
-  }) .as_class <GimpViewable> ([](GimpViewableClass* klass) {
-    klass->default_stock_id = "gtk-directory";
-    _override (get_size);
+      })->
+      as_class <GimpViewable> ([](GimpViewableClass* klass) {
+        klass->default_stock_id = "gtk-directory";
+        _override (get_size);
 
-  }) .as_class <GimpItem> ([](GimpItemClass* klass) {
-    _override (duplicate);
-    _override (translate);
-    _override (scale);
-    _override (resize);
-    _override (flip);
-    _override (rotate);
-    _override (transform);
-    _override (is_editable);
-    klass->default_name   = _("Filter Layer");
-    klass->rename_desc    = C_("undo-type", "Rename Filter Layer");
-    klass->translate_desc = C_("undo-type", "Move Filter Layer");
-    klass->scale_desc     = C_("undo-type", "Scale Filter Layer");
-    klass->resize_desc    = C_("undo-type", "Resize Filter Layer");
-    klass->flip_desc      = C_("undo-type", "Flip Filter Layer");
-    klass->rotate_desc    = C_("undo-type", "Rotate Filter Layer");
-    klass->transform_desc = C_("undo-type", "Transform Filter Layer");
-    //  F::__(&item_class->convert            ).bind<&Impl::convert>();
+      })->
+      as_class <GimpItem> ([](GimpItemClass* klass) {
+        _override (duplicate);
+        _override (translate);
+        _override (scale);
+        _override (resize);
+        _override (flip);
+        _override (rotate);
+        _override (transform);
+        _override (is_editable);
+        klass->default_name   = _("Filter Layer");
+        klass->rename_desc    = C_("undo-type", "Rename Filter Layer");
+        klass->translate_desc = C_("undo-type", "Move Filter Layer");
+        klass->scale_desc     = C_("undo-type", "Scale Filter Layer");
+        klass->resize_desc    = C_("undo-type", "Resize Filter Layer");
+        klass->flip_desc      = C_("undo-type", "Flip Filter Layer");
+        klass->rotate_desc    = C_("undo-type", "Rotate Filter Layer");
+        klass->transform_desc = C_("undo-type", "Transform Filter Layer");
+        //  F::__(&item_class->convert            ).bind<&Impl::convert>();
 
-  }) .as_class<GimpDrawable> ([](GimpDrawableClass* klass) {
-    _override (project_region);
-    _override (estimate_memsize);
-  });
+      })->
+      as_class<GimpDrawable> ([](GimpDrawableClass* klass) {
+        _override (project_region);
+        _override (estimate_memsize);
+      });
 }
 
 template<>
@@ -485,28 +465,6 @@ void GLib::FilterLayer::constructed ()
 {
   g_print("FilterLayer::constructed: project_tiles = %p\n", projected_tiles);
   on_parent_changed(GIMP_VIEWABLE(g_object), NULL);
-}
-
-void GLib::FilterLayer::set_property (guint         property_id,
-                                        const GValue *value,
-                                        GParamSpec   *pspec)
-{
-  switch (property_id) {
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (g_object, property_id, pspec);
-    break;
-  }
-}
-
-void GLib::FilterLayer::get_property (guint       property_id,
-                                        GValue     *value,
-                                        GParamSpec *pspec)
-{
-  switch (property_id) {
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (g_object, property_id, pspec);
-    break;
-  }
 }
 
 gint64 GLib::FilterLayer::get_memsize (gint64     *gui_size)

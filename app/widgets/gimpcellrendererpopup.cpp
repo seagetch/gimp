@@ -1014,17 +1014,6 @@ typedef UseCStructs<GtkCellRenderer, GimpCellRendererPopup> CStructs;
 
 struct CellRendererPopup : virtual public ImplBase, virtual public CellRendererPopupInterface
 {
-  enum
-  {
-    CLICKED,
-    LAST_SIGNAL
-  };
-  enum
-  {
-    PROP_0,
-    PROP_ACTIVE
-  };
-  static guint signals[LAST_SIGNAL];
   GdkPixbuf*  pixbuf;
   gchar*      stock_id;
   GtkIconSize stock_size;
@@ -1052,12 +1041,6 @@ struct CellRendererPopup : virtual public ImplBase, virtual public CellRendererP
 
   // Inherited methods
   virtual void            constructed  ();
-  virtual void            set_property (guint            property_id,
-                                        const GValue    *value,
-                                        GParamSpec      *pspec);
-  virtual void            get_property (guint            property_id,
-                                        GValue          *value,
-                                        GParamSpec      *pspec);
   virtual void            get_size     (GtkWidget       *widget,
                                         GdkRectangle    *cell_area,
                                         gint            *x_offset,
@@ -1079,44 +1062,41 @@ struct CellRendererPopup : virtual public ImplBase, virtual public CellRendererP
                                         GtkCellRendererState  flags);
   virtual void            clicked      (GObject* widget, const gchar* path, GdkRectangle* cell_area);
 };
-guint CellRendererPopup::signals[CellRendererPopup::LAST_SIGNAL] = {0};
 
 extern const char gimp_cell_renderer_popup_name[] = "GimpCellRendererPopup";
 using Class = GClass<gimp_cell_renderer_popup_name, CStructs, CellRendererPopup>;
+static Class class_instance;
 
-#define bind_to_class(klass, method, impl)  Class::__(&klass->method).bind<&impl::method>()
-
+#define _override(method) Class::__(&klass->method).bind<&CellRendererPopup::method>()
 void CellRendererPopup::class_init(CStructs::Class *klass)
 {
-  GObjectClass         *object_class = G_OBJECT_CLASS (klass);
-  GtkCellRendererClass *cell_class   = GTK_CELL_RENDERER_CLASS (klass);
+  class_instance.with_class(klass)->
+      as_class<GObject>([&](GObjectClass* klass){
+        _override (constructed);
 
-  //bind_to_class (object_class, finalize    , CellRendererPopup);
-  bind_to_class (object_class, constructed , CellRendererPopup);
-  bind_to_class (object_class, get_property, CellRendererPopup);
-  bind_to_class (object_class, set_property, CellRendererPopup);
-  bind_to_class (cell_class  , activate    , CellRendererPopup);
-  bind_to_class (cell_class  , get_size    , CellRendererPopup);
-  bind_to_class (cell_class  , render      , CellRendererPopup);
+      })->
+      as_class<GtkCellRenderer>([&](GtkCellRendererClass* klass) {
+        _override (activate);
+        _override (get_size);
+        _override (render);
 
-  signals[CLICKED] =
-    g_signal_new ("parent-clicked",
-                  G_OBJECT_CLASS_TYPE (object_class),
-                  G_SIGNAL_RUN_LAST,
-                  G_STRUCT_OFFSET (GimpCellRendererPopupClass, clicked),
-                  NULL, NULL,
-                  gimp_marshal_VOID__OBJECT_STRING_POINTER,
-                  G_TYPE_NONE, 3, G_TYPE_OBJECT, G_TYPE_STRING, G_TYPE_POINTER );
-
-  g_object_class_install_property (object_class,
-                                   PROP_ACTIVE,
-                                   g_param_spec_boolean ("active",
-                                                     NULL, NULL,
-                                                     FALSE,
-                                                     (GParamFlags)(GIMP_PARAM_READWRITE | G_PARAM_CONSTRUCT)));
-
-
-  ImplBase::class_init<CStructs::Class, CellRendererPopup>(klass);
+      })->
+      install_property(
+          Class::g_param_spec_new("active", false, (GParamFlags)(GIMP_PARAM_READWRITE|G_PARAM_CONSTRUCT) ),
+          // getter
+          [](GObject* obj)->GLib::Value {
+            g_print("acive::getter\n");
+            CellRendererPopup* popup = dynamic_cast<CellRendererPopup*>(CellRendererPopupInterface::cast(obj));
+            return Value(popup->active);
+          },
+          // setter
+          [](GObject* obj, GLib::Value v)->void {
+            g_print("acive::setter\n");
+            CellRendererPopup* popup = dynamic_cast<CellRendererPopup*>(CellRendererPopupInterface::cast(obj));
+            popup->active = v;
+          }
+      )->
+      install_signal("parent-clicked", G_TYPE_NONE, G_TYPE_OBJECT, G_TYPE_STRING, G_TYPE_POINTER);
 }
 
 }; // namespace
@@ -1126,32 +1106,6 @@ void GLib::CellRendererPopup::constructed ()
   PopupWindow* window_decor = new PopupWindow;
   decorator(g_object, window_decor);
   decorate_popupper(GTK_OBJECT(g_object), Delegators::delegator(window_decor, &PopupWindow::create_view));
-}
-
-void GLib::CellRendererPopup::set_property (guint         property_id,
-                                              const GValue *value,
-                                              GParamSpec   *pspec)
-{
-  switch (property_id) {
-  case PROP_ACTIVE:
-    active = g_value_get_boolean (value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (g_object, property_id, pspec);
-  }
-}
-
-void GLib::CellRendererPopup::get_property (guint       property_id,
-                                              GValue     *value,
-                                              GParamSpec *pspec)
-{
-  switch (property_id) {
-  case PROP_ACTIVE:
-    g_value_set_boolean (value, active);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (g_object, property_id, pspec);
-  }
 }
 
 void
@@ -1305,7 +1259,7 @@ gboolean GLib::CellRendererPopup::activate (GdkEvent             *event,
 void GLib::CellRendererPopup::clicked (GObject* widget, const gchar* path, GdkRectangle* cell_area)
 {
   g_print("CellRendererPopup::clicked\n");
-  g_signal_emit (g_object, signals[CLICKED], 0, widget, path, cell_area);
+  g_signal_emit_by_name (g_object, "parent-clicked", widget, path, cell_area);
 }
 /*  public functions  */
 

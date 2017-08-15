@@ -97,12 +97,6 @@ struct CloneLayer : virtual public ImplBase, virtual public CloneLayerInterface
 
   // Inherited methods
   virtual void            constructed  ();
-  virtual void            set_property (guint            property_id,
-                                        const GValue    *value,
-                                        GParamSpec      *pspec);
-  virtual void            get_property (guint            property_id,
-                                        GValue          *value,
-                                        GParamSpec      *pspec);
 
   virtual gint64          get_memsize  (gint64          *gui_size);
 
@@ -179,6 +173,8 @@ using Class = GClass<gimp_clone_layer_name,
                      UseCStructs<GimpLayer, GimpCloneLayer>,
                      CloneLayer, GimpPickable>;
 
+static Class class_instance;
+
 static GimpUndo *
 gimp_image_undo_push_clone_layer_convert (GimpImage      *image,
                                           const gchar    *undo_desc,
@@ -203,42 +199,44 @@ void CloneLayer::class_init(Traits<GimpCloneLayer>::Class *klass)
 {
   typedef CloneLayer Impl;
   g_print("CloneLayer::class_init\n");
-  with_class(klass)
-  .as_class<GObject>([](GObjectClass* klass){
-    _override (set_property);
-    _override (get_property);
-    _override (constructed);
+  class_instance.with_class(klass)->
+      as_class<GObject>([](GObjectClass* klass){
+        _override (constructed);
 
-  }).as_class<GimpObject>([](GimpObjectClass* klass) {
-    _override (get_memsize);
+      })->
+      as_class<GimpObject>([](GimpObjectClass* klass) {
+        _override (get_memsize);
 
-  }).as_class<GimpViewable>([](GimpViewableClass* klass){
-    klass->default_stock_id = "gtk-duplicate";
-    _override (get_size);
+      })->
+      as_class<GimpViewable>([](GimpViewableClass* klass){
+        klass->default_stock_id = "gtk-duplicate";
+        _override (get_size);
 
-  }).as_class<GimpItem>([](GimpItemClass* klass) {
-    _override (duplicate);
-    _override (translate);
-    _override (scale);
-    _override (resize);
-    _override (flip);
-    _override (rotate);
-    _override (transform);
-  //_override (convert);
-    _override (is_editable);
+      })->
+      as_class<GimpItem>([](GimpItemClass* klass) {
+        _override (duplicate);
+        _override (translate);
+        _override (scale);
+        _override (resize);
+        _override (flip);
+        _override (rotate);
+        _override (transform);
+      //_override (convert);
+        _override (is_editable);
 
-    klass->default_name         = _("Clone Layer");
-    klass->rename_desc          = C_("undo-type", "Rename Clone Layer");
-    klass->translate_desc       = C_("undo-type", "Move Clone Layer");
-    klass->scale_desc           = C_("undo-type", "Scale Clone Layer");
-    klass->resize_desc          = C_("undo-type", "Resize Clone Layer");
-    klass->flip_desc            = C_("undo-type", "Flip Clone Layer");
-    klass->rotate_desc          = C_("undo-type", "Rotate Clone Layer");
-    klass->transform_desc       = C_("undo-type", "Transform Clone Layer");
+        klass->default_name         = _("Clone Layer");
+        klass->rename_desc          = C_("undo-type", "Rename Clone Layer");
+        klass->translate_desc       = C_("undo-type", "Move Clone Layer");
+        klass->scale_desc           = C_("undo-type", "Scale Clone Layer");
+        klass->resize_desc          = C_("undo-type", "Resize Clone Layer");
+        klass->flip_desc            = C_("undo-type", "Flip Clone Layer");
+        klass->rotate_desc          = C_("undo-type", "Rotate Clone Layer");
+        klass->transform_desc       = C_("undo-type", "Transform Clone Layer");
 
-  }).as_class<GimpDrawable>([](GimpDrawableClass* klass) {
-    _override (estimate_memsize);
-  });
+      })->
+      as_class<GimpDrawable>([](GimpDrawableClass* klass) {
+        _override (estimate_memsize);
+      });
 }
 
 template<>
@@ -276,28 +274,6 @@ GLib::CloneLayer::CloneLayer(GObject* o) : ImplBase(o)
 void GLib::CloneLayer::constructed ()
 {
   on_parent_changed(GIMP_VIEWABLE(g_object), NULL);
-}
-
-void GLib::CloneLayer::set_property (guint         property_id,
-                                        const GValue *value,
-                                        GParamSpec   *pspec)
-{
-  switch (property_id) {
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (g_object, property_id, pspec);
-    break;
-  }
-}
-
-void GLib::CloneLayer::get_property (guint       property_id,
-                                        GValue     *value,
-                                        GParamSpec *pspec)
-{
-  switch (property_id) {
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (g_object, property_id, pspec);
-    break;
-  }
 }
 
 void GLib::CloneLayer::set_source(GimpLayer* layer)
