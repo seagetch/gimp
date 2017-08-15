@@ -134,6 +134,69 @@ template<typename T> auto end(const GLib::IList<T>& list) { return list.end(); }
 };
 
 namespace GLib {
+
+class Array : public ScopedPointer<GArray, void(GArray*), g_array_unref>
+{
+protected:
+  void incref() { g_array_ref(obj); }
+  void decref() { g_array_unref(obj); }
+public:
+  Array() : ScopedPointer<GArray, void(GArray*), g_array_unref>(NULL) {};
+  Array(GArray* arr) : ScopedPointer<GArray, void(GArray*), g_array_unref>(arr) {};
+  Array(Array&& src) : ScopedPointer<GArray, void(GArray*), g_array_unref>(src.obj) {
+    src.obj = NULL;
+  };
+  Array(const Array& src) : ScopedPointer<GArray, void(GArray*), g_array_unref>(src.obj) { incref(); }
+
+  Array& operator =(GArray*&& arr) {
+    obj = arr;
+    arr = NULL;
+    return *this;
+  }
+
+  Array& operator =(Array&& src) {
+    obj = src.obj;
+    src.obj = NULL;
+    return *this;
+  }
+};
+
+inline auto hold(GArray* arr) { return static_cast<Array&&>(Array(arr)); }
+
+template<typename Data>
+class IArray : public Array
+{
+public:
+  IArray(GArray* arr) : Array(arr) { incref(); };
+  IArray(const IArray& src) : Array(src.obj) { incref(); }
+  Data& operator[](int index) {
+    Data* array = (Data*)(obj->data);
+    return array[index];
+  }
+  int size() { return obj->len; }
+  void append(Data data) { g_array_append_val(obj, data); };
+  void prepend(Data data) { g_array_prepend_val(obj, data); };
+  void insert(int index, Data data) { g_array_insert_val(obj, index, data); };
+  void remove(int index) { g_array_remove_index(obj, index); };
+  Data& begin() { return (*this)[0]; }
+  Data& end()   { return (*this)[size()]; }
+};
+
+template<typename Data>
+inline auto ref(GArray* arr) { return static_cast<IArray<Data>&&>(IArray<Data>(arr)); }
+template<typename Data>
+inline auto ref(GLib::Array& arr) { return static_cast<IArray<Data>&&>(IArray<Data>(arr.ptr())); }
+
+}; // namespace GLib
+
+namespace std {
+template<typename T> auto begin(const GLib::IArray<T>& arr) { return arr.begin(); }
+template<typename T> auto end  (const GLib::IArray<T>& arr) { return arr.end(); }
+}; // namespace std
+
+namespace GLib
+{
+
 template<typename Key, typename Data>
 class HashTable : public ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>
 {
