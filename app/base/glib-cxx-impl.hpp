@@ -61,8 +61,11 @@ public:
       callback(casted_class);
       return this;
     }
+
     virtual IWithClass* install_property(GParamSpec* spec, std::function<Value(GObject*)> getter, std::function<void(GObject*, Value)> setter) = 0;
+
     virtual IWithClass* install_signal_v(const gchar* name, GType R, size_t size, GType* args) = 0;
+
     template<typename... Args>
     IWithClass* install_signal(const gchar* name, GType R, Args... args) {
       size_t size = sizeof...(Args);
@@ -109,23 +112,27 @@ public:
 };
 
 
-template <char const* name, typename CStructs, typename Impl, typename... IFaces>
-class GClass : public IGClass {
+template <typename CStructs>
+class GClassBase : public IGClass {
 protected:
   static Array _signals;
   static guint signals_base;
   static Array _properties;
   static guint properties_base;
+
+  struct PreviousPropertyHandler {
+    decltype(G_OBJECT_CLASS(NULL)->set_property) set_property;
+    decltype(G_OBJECT_CLASS(NULL)->get_property) get_property;
+  };
+  static PreviousPropertyHandler prev_handlers;
+
 public:
-  static GType get_type();
-  virtual GType type() { return GClass::get_type(); }
 
   using Instance = typename CStructs::Instance;
   using Class    = typename CStructs::Class;
-  using Traits   = GLib::TraitsBase<Instance, Class, &GClass::get_type>;
+  using Traits   = GLib::Traits<Instance>;
 
-  static gpointer parent_class;
-  static gint     private_offset;
+  virtual GType type() { return Traits::get_type(); }
 
   struct Property {
     guint prop_id;
@@ -138,18 +145,172 @@ public:
     : prop_id(id), getter(g), setter(s) { };
   };
 
+
   static IArray<guint> signals() {
     if (!_signals) {
       _signals = hold(g_array_new(FALSE, TRUE, sizeof(guint)));
     }
     return ref<guint>(_signals);
   }
+
+
   static IArray<Property> properties() {
     if (!_properties) {
       _properties = hold(g_array_new(FALSE, TRUE, sizeof(Property)));
     }
     return ref<Property>(_properties);
   }
+
+
+  static void set_properties_base(guint base) {
+    properties_base = base;
+  }
+
+
+  static void set_signals_base(guint base) {
+    signals_base = base;
+  }
+
+
+  static void set_property (GObject      *object,
+                            guint         property_id,
+                            const GValue *value,
+                            GParamSpec   *pspec)
+  {
+    g_print("GClass:set_property: %u\n", property_id);
+    auto properties = GClassBase::properties();
+    if (property_id - GClassBase::properties_base < properties.size()) {
+      Property prop = properties[property_id - GClassBase::properties_base];
+      if (prop.setter)
+        prop.setter(object, value);
+      else if (prev_handlers.set_property)
+        prev_handlers.set_property(object, property_id, value, pspec);
+    } else {
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    }
+  }
+
+
+  static void get_property (GObject    *object,
+                            guint       property_id,
+                            GValue     *value,
+                            GParamSpec *pspec)
+  {
+    g_print("GClass:get_property: %u\n", property_id);
+    auto properties = GClassBase::properties();
+    if (property_id - GClassBase::properties_base < properties.size()) {
+      Property prop = properties[property_id - GClassBase::properties_base];
+      if (prop.getter) {
+        Value get_value = prop.getter(object);
+        g_value_copy(get_value, value);
+      } else if (prev_handlers.get_property)
+        prev_handlers.get_property(object, property_id, value, pspec);
+    } else {
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    }
+  }
+
+
+  static void install_property_handlers(gpointer klass)
+  {
+    if (G_OBJECT_CLASS(klass)->set_property != set_property) {
+      g_print("  Installed set_property_handler\n");
+      prev_handlers.set_property = G_OBJECT_CLASS(klass)->set_property;
+      G_OBJECT_CLASS(klass)->set_property = GClassBase::set_property;
+    } else
+      g_print("  Kept set_property_handler\n");
+    if (G_OBJECT_CLASS(klass)->get_property != get_property) {
+      g_print("  Installed get_property_handler\n");
+      prev_handlers.get_property = G_OBJECT_CLASS(klass)->get_property;
+      G_OBJECT_CLASS(klass)->get_property = GClassBase::get_property;
+    }else
+      g_print("  Kept get_property_handler\n");
+  }
+
+
+  class WithClass : public IWithClass {
+  public:
+    WithClass() : IWithClass() { };
+
+    struct InvalidClass {
+      gpointer should_be;
+      gpointer passed;
+      InvalidClass(gpointer s, gpointer p) : should_be(s), passed(p) { };
+    };
+
+    void init(gpointer class_struct) {
+      if (!klass) {
+        klass = class_struct;
+        guint n_properties;
+        g_free(g_object_class_list_properties(G_OBJECT_CLASS(klass), &n_properties));
+        g_print("%s: Set properties_base to %d\n", G_OBJECT_CLASS_NAME(klass), n_properties + 1);
+        GClassBase::set_properties_base(n_properties + 1);
+      } else if (klass != class_struct)
+        throw new InvalidClass(klass, class_struct);
+    }
+
+    virtual IWithClass* install_property(GParamSpec* spec, std::function<Value(GObject*)> getter, std::function<void(GObject*, Value)> setter) {
+      install_property_handlers(klass);
+      as_class<GObject>([&](GObjectClass* klass) {
+        auto properties = GClassBase::properties();
+        guint index = properties.size() + GClassBase::properties_base;
+        g_object_class_install_property (klass, index, spec);
+        g_print("Installed::%s-> prop=%s, id=%u\n", typeid(*this).name(), g_param_spec_get_name(spec), index);
+
+        properties.append(Property(index, getter, setter));
+        Property prop = properties[properties.size() - 1];
+      });
+      return this;
+    }
+
+    virtual IWithClass* install_signal_v(const gchar* signal_name, GType R, size_t size, GType* args) {
+      as_class<GObject>([&](GObjectClass* klass) {
+        auto signals = GClassBase::signals();
+        guint sig_id = g_signal_newv(signal_name, G_OBJECT_CLASS_TYPE(klass), G_SIGNAL_RUN_LAST, 0 /*Offset*/, NULL, NULL, NULL/*g_closure_marshaller_generic*/, R, size, args);
+        signals.append(sig_id);
+      });
+      return this;
+    }
+
+  };
+
+  static WithClass _with_class;
+
+  virtual IWithClass* with_class(gpointer klass) { _with_class.init(klass); return &_with_class; }
+};
+
+
+template <typename CStructs>
+Array GClassBase<CStructs>::_signals;
+
+template <typename CStructs>
+guint GClassBase<CStructs>::signals_base = 0;
+
+template <typename CStructs>
+Array GClassBase<CStructs>::_properties;
+
+template <typename CStructs>
+guint GClassBase<CStructs>::properties_base = 1;
+
+template <typename CStructs>
+typename GClassBase<CStructs>::WithClass GClassBase<CStructs>::_with_class;
+
+template <typename CStructs>
+typename GClassBase<CStructs>::PreviousPropertyHandler GClassBase<CStructs>::prev_handlers = {0};
+
+
+template <char const* name, typename CStructs, typename Impl, typename... IFaces>
+class GClass : public GClassBase<CStructs> {
+public:
+  static GType get_type();
+  virtual GType type() { return GClass::get_type(); }
+
+  using Instance = typename CStructs::Instance;
+  using Class    = typename CStructs::Class;
+  using Traits   = GLib::TraitsBase<Instance, Class, &GClass::get_type>;
+
+  static gpointer parent_class;
+  static gint     private_offset;
 
   static void     instance_init     (Instance        *obj) {
     void* ptr = get_private(obj);
@@ -160,41 +321,6 @@ public:
     Impl* i = get_private(obj);
     i->~Impl();
     G_OBJECT_CLASS(parent_class)->finalize(obj);
-  }
-
-  static void set_property (GObject      *object,
-                            guint         property_id,
-                            const GValue *value,
-                            GParamSpec   *pspec)
-  {
-//    g_print("GClass:set_property: %u\n", property_id);
-    auto properties = GClass::properties();
-    if (property_id - GClass::properties_base < properties.size()) {
-      Property prop = properties[property_id - GClass::properties_base];
-      if (prop.setter)
-        prop.setter(object, value);
-      else;
-    } else {
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    }
-  }
-
-  static void get_property (GObject    *object,
-                            guint       property_id,
-                            GValue     *value,
-                            GParamSpec *pspec)
-  {
-//    g_print("GClass:get_property: %u\n", property_id);
-    auto properties = GClass::properties();
-    if (property_id - GClass::properties_base < properties.size()) {
-      Property prop = properties[property_id - GClass::properties_base];
-      if (prop.getter) {
-        Value get_value = prop.getter(object);
-        g_value_copy(get_value, value);
-      } else ;
-    } else {
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    }
   }
 
   template<typename G>
@@ -212,12 +338,8 @@ public:
     parent_class = g_type_class_peek_parent (klass);
 #endif /* GLIB_VERSION_MAX_ALLOWED >= GLIB_VERSION_2_38 */
 
-    G_OBJECT_CLASS(klass)->set_property = set_property;
-    G_OBJECT_CLASS(klass)->get_property = get_property;
-
     Impl::class_init ((Class*) klass);
-
-    G_OBJECT_CLASS(klass)->finalize  = instance_finalize;
+    G_OBJECT_CLASS(klass)->finalize     = instance_finalize;
   }
 
 
@@ -253,52 +375,6 @@ public:
   template<typename Ret, typename G, typename... Args>
   static Binder<Ret, G, Args...> __(Ret (**ptr)(G*, Args...)) { return Binder<Ret, G, Args...>(ptr); }
 
-
-  class WithClass : public IWithClass {
-  public:
-    WithClass() : IWithClass() { };
-
-    struct InvalidClass {
-      gpointer should_be;
-      gpointer passed;
-      InvalidClass(gpointer s, gpointer p) : should_be(s), passed(p) { };
-    };
-
-    void init(gpointer class_struct) {
-      if (!klass)
-        klass = class_struct;
-      else if (klass != class_struct)
-        throw new InvalidClass(klass, class_struct);
-    }
-
-    virtual IWithClass* install_property(GParamSpec* spec, std::function<Value(GObject*)> getter, std::function<void(GObject*, Value)> setter) {
-      as_class<GObject>([&](GObjectClass* klass) {
-        auto properties = GClass::properties();
-        guint index = properties.size() + GClass::properties_base;
-        g_object_class_install_property (klass, index, spec);
-//        g_print("Installed::%s-> prop=%s, id=%u\n", name, g_param_spec_get_name(spec), index);
-
-        properties.append(Property(index, getter, setter));
-        Property prop = properties[properties.size() - 1];
-      });
-      return this;
-    }
-
-    virtual IWithClass* install_signal_v(const gchar* signal_name, GType R, size_t size, GType* args) {
-      as_class<GObject>([&](GObjectClass* klass) {
-        auto signals = GClass::signals();
-        guint sig_id = g_signal_newv(signal_name, G_OBJECT_CLASS_TYPE(klass), G_SIGNAL_RUN_LAST, 0 /*Offset*/, NULL, NULL, NULL/*g_closure_marshaller_generic*/, R, size, args);
-        signals.append(sig_id);
-      });
-      return this;
-    }
-
-  };
-
-  static WithClass _with_class;
-
-  virtual IWithClass* with_class(gpointer klass) { _with_class.init(klass); return &_with_class; }
-
 private:
   struct __Dummy {};
   template <typename D>
@@ -323,21 +399,6 @@ gpointer GClass<name, CStructs, Impl, IFaces...>::parent_class = NULL;
 
 template <char const* name, typename CStructs, typename Impl, typename... IFaces>
 gint GClass<name, CStructs, Impl, IFaces...>::private_offset = 0;
-
-template <char const* name, typename CStructs, typename Impl, typename... IFaces>
-Array GClass<name, CStructs, Impl, IFaces...>::_signals;
-
-template <char const* name, typename CStructs, typename Impl, typename... IFaces>
-guint GClass<name, CStructs, Impl, IFaces...>::signals_base = 0;
-
-template <char const* name, typename CStructs, typename Impl, typename... IFaces>
-Array GClass<name, CStructs, Impl, IFaces...>::_properties;
-
-template <char const* name, typename CStructs, typename Impl, typename... IFaces>
-guint GClass<name, CStructs, Impl, IFaces...>::properties_base = 1;
-
-template <char const* name, typename CStructs, typename Impl, typename... IFaces>
-typename GClass<name, CStructs, Impl, IFaces...>::WithClass GClass<name, CStructs, Impl, IFaces...>::_with_class;
 
 template <char const* name, typename CStructs, typename Impl, typename... IFaces>
 inline GType GClass<name, CStructs, Impl, IFaces...>::get_type (void) {
