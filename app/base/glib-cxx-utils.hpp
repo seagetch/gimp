@@ -457,12 +457,22 @@ public:
   Value(const GValue& src) : ValueRef<true>(g_new0(GValue, 1)) {
     GValue default_value = G_VALUE_INIT;
     *obj = default_value;
+    g_value_init(obj, G_VALUE_TYPE(&src));
     g_value_copy(&src, obj);
+  };
+  Value(const GValue* src) : ValueRef<true>(g_new0(GValue, 1)) {
+    GValue default_value = G_VALUE_INIT;
+    *obj = default_value;
+    g_value_init(obj, G_VALUE_TYPE(src));
+    g_value_copy(src, obj);
   };
   Value(GValue&& src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = src;
     GValue default_value = G_VALUE_INIT;
     src = default_value;
+  };
+  Value(const Value& src) : ValueRef<true>(g_new0(GValue, 1)) {
+    *obj = *src.obj;
   };
   Value(Value&& src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = *src.obj;

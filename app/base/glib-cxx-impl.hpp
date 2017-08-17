@@ -177,14 +177,17 @@ public:
                             const GValue *value,
                             GParamSpec   *pspec)
   {
-    g_print("GClass:set_property: %u\n", property_id);
+//    g_print("GClass:set_property: %u = %s(%s) <- (%s)\n", property_id, pspec->name, g_type_name(pspec->value_type), g_type_name(G_VALUE_TYPE(value))  );
     auto properties = GClassBase::properties();
     if (property_id - GClassBase::properties_base < properties.size()) {
       Property prop = properties[property_id - GClassBase::properties_base];
-      if (prop.setter)
+      if (prop.setter) {
         prop.setter(object, value);
+      }
       else if (prev_handlers.set_property)
         prev_handlers.set_property(object, property_id, value, pspec);
+    } else if (prev_handlers.set_property) {
+      prev_handlers.set_property(object, property_id, value, pspec);
     } else {
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     }
@@ -196,15 +199,17 @@ public:
                             GValue     *value,
                             GParamSpec *pspec)
   {
-    g_print("GClass:get_property: %u\n", property_id);
+//    g_print("GClass:get_property: %u = %s(%s) <- (%s)\n", property_id, pspec->name, g_type_name(pspec->value_type), g_type_name(G_VALUE_TYPE(value))  );
     auto properties = GClassBase::properties();
     if (property_id - GClassBase::properties_base < properties.size()) {
       Property prop = properties[property_id - GClassBase::properties_base];
       if (prop.getter) {
         Value get_value = prop.getter(object);
-        g_value_copy(get_value, value);
+        g_value_transform(get_value, value);
       } else if (prev_handlers.get_property)
         prev_handlers.get_property(object, property_id, value, pspec);
+    } else if (prev_handlers.get_property) {
+      prev_handlers.get_property(object, property_id, value, pspec);
     } else {
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     }
