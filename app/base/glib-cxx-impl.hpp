@@ -318,7 +318,25 @@ class NewGClass : public GClassWrapper<CStructs> {
     enum { value = (sizeof(check<Impl>(NULL)) == sizeof(yes)) };
   };
 
+  template<typename D, bool T>
+  struct class_init_code {
+    static void doit(gpointer klass) {
+      if (NewGClass::singleton && NewGClass::class_init_callback)
+        NewGClass::class_init_callback(singleton->with_class(klass));
+    };
+  };
+
+  template<typename D>
+  struct class_init_code<D, true> {
+    static void doit(gpointer klass) {
+      Impl::class_init ((Class*) klass);
+    };
+  };
+  struct __Dummy { };
+
+
 public:
+
   static GType get_type();
   virtual GType type() { return NewGClass::get_type(); }
 
@@ -368,22 +386,6 @@ public:
   };
 
 
-  template<typename D, bool T>
-  struct class_init_code {
-    static void doit(gpointer klass) {
-      if (NewGClass::singleton && NewGClass::class_init_callback)
-        NewGClass::class_init_callback(singleton->with_class(klass));
-    };
-  };
-  template<typename D>
-  struct class_init_code<D, true> {
-    static void doit(gpointer klass) {
-      Impl::class_init ((Class*) klass);
-    };
-  };
-  struct Dummy { };
-
-
   static void class_intern_init (gpointer klass)
   {
 
@@ -399,7 +401,7 @@ public:
 
   #endif /* GLIB_VERSION_MAX_ALLOWED >= GLIB_VERSION_2_38 */
 
-    class_init_code<Dummy, NewGClass::class_init_check::value>::doit(klass);
+    class_init_code<__Dummy, NewGClass::class_init_check::value>::doit(klass);
 
     G_OBJECT_CLASS(klass)->finalize     = instance_finalize;
   }
@@ -438,7 +440,6 @@ public:
   static Binder<Ret, G, Args...> __(Ret (**ptr)(G*, Args...)) { return Binder<Ret, G, Args...>(ptr); }
 
 private:
-  struct __Dummy {};
   template <typename D>
   static void add_interface_iter(GType) {};
 
