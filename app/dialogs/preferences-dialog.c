@@ -33,6 +33,7 @@
 #include "core/gimp.h"
 #include "core/gimplist.h"
 #include "core/gimptemplate.h"
+#include "core/gimpjsonresource.h"
 
 #include "widgets/gimpcolorpanel.h"
 #include "widgets/gimpcontainercombobox.h"
@@ -2835,7 +2836,7 @@ prefs_dialog_new (Gimp       *gimp,
       { N_("Mypaint"), N_("Mypaint Brush Folders"), "folders-mypaint-brushes",
         GIMP_HELP_PREFS_FOLDERS_MYPAINT_BRUSHES,
         N_("Select Mypaint Brush Folders"),
-        "mypaint-brush-path", "mypaint-brush-path-writable", NULL }
+        "mypaint-brush-path", "mypaint-brush-path-writable" }
     };
 
     for (i = 0; i < G_N_ELEMENTS (paths); i++)
@@ -2860,6 +2861,34 @@ prefs_dialog_new (Gimp       *gimp,
         gtk_box_pack_start (GTK_BOX (vbox), editor, TRUE, TRUE, 0);
         gtk_widget_show (editor);
       }
+
+    {
+      GArray* array = json_resource_factory_prefs_entry_point();
+      PrefsDialogInfo* ext_paths = (PrefsDialogInfo*)array->data;
+      for (i = 0; i < array->len; i++)
+        {
+          GtkWidget *editor;
+
+          vbox = prefs_notebook_append_page (gimp,
+                                             GTK_NOTEBOOK (notebook),
+                                             gettext (ext_paths[i].label),
+                                             ext_paths[i].icon,
+                                             GTK_TREE_STORE (tree),
+                                             gettext (ext_paths[i].tree_label),
+                                             ext_paths[i].help_data,
+                                             &top_iter,
+                                             &child_iter,
+                                             page_index++);
+
+          editor = gimp_prop_path_editor_new (object,
+                                              ext_paths[i].path_property_name,
+                                              ext_paths[i].writable_property_name,
+                                              gettext (ext_paths[i].fs_label));
+          gtk_box_pack_start (GTK_BOX (vbox), editor, TRUE, TRUE, 0);
+          gtk_widget_show (editor);
+        }
+      g_array_unref(array);
+    }
   }
 
   gtk_tree_view_expand_all (GTK_TREE_VIEW (tv));

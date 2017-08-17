@@ -36,7 +36,7 @@ public:
   virtual GObject*          create_view                 ();
   virtual GObject*          create_editor               () ;
 
-  static JsonResourceConfig* layer_preset_config();
+  static JsonResourceConfig* config();
 
 };
 #endif /* __LAYER_PRESET_H__ */

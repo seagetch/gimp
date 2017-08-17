@@ -54,8 +54,20 @@ struct GimpJsonResourceClass
 GType     gimp_json_resource_get_type       (void) G_GNUC_CONST;
 GimpData* gimp_json_resource_new            (GimpContext* context, const gchar* name);
 
-void      json_resource_factory_entry_point (Gimp* gimp);
+void      json_resource_factory_entry_point       (Gimp* gimp);
 
+typedef struct
+{
+  const gchar *tree_label;
+  const gchar *label;
+  const gchar *icon;
+  const gchar *help_data;
+  const gchar *fs_label;
+  const gchar *path_property_name;
+  const gchar *writable_property_name;
+} PrefsDialogInfo;
+
+GArray*    json_resource_factory_prefs_entry_point ();
 
 #ifdef __cplusplus
 } /* extern "C" */
@@ -123,10 +135,12 @@ public:
 
   virtual GObject*          create_view                 () { return NULL; }
   virtual GObject*          create_editor               () { return NULL; }
+  virtual PrefsDialogInfo*  prefs_dialog_info           () { return NULL; }
 
   virtual ConfigExtender*   get_extender                () { return new ConfigExtender(); }
-  ConfigExtender*           get_extender_for(GObject* obj);
+  ConfigExtender*           get_extender_for            (GObject* obj);
   virtual void              extend                      (gpointer klass);
+
 };
 
 /////////////////////////////////////////////////////////////////////
@@ -143,7 +157,8 @@ protected:
 public:
   GLib::IHashTable<gconstpointer, JsonResourceConfig*> registry();
   void             register_config        (JsonResourceConfig* config);
-  void             entrypoint             (Gimp* gimp);
+  void             entry_point             (Gimp* gimp);
+  GArray*          prefs_entry_point       ();
   virtual void     on_initialize          (Gimp               *gimp,
                                            GimpInitStatusFunc  status_callback);
   virtual void     on_restore             (Gimp               *gimp,

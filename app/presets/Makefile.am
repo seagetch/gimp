@@ -22,9 +22,11 @@ INCLUDES = \
 noinst_LIBRARIES = libapppresets.a
 
 libapppresets_a_sources = \
-	presets-enums.h   			\
-	layer-preset.cpp       \
-	layer-preset.h
+	presets-enums.h   		\
+	layer-preset.cpp		\
+	layer-preset.h			\
+	layer-preset-gui.cpp		\
+	layer-preset-gui.h
 
 libapppresets_a_built_sources = presets-enums.c
 

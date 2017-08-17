@@ -54,7 +54,15 @@ extern "C" {
 #include <type_traits>
 
 
+#ifndef GIMP_CONSOLE_COMPILATION
+
+#include "presets/layer-preset-gui.h"
+
+#else
+
 #include "presets/layer-preset.h"
+
+#endif
 
 
 using namespace GLib;
@@ -313,7 +321,7 @@ void JsonResourceFactory::register_config (JsonResourceConfig* config)
 }
 
 
-void JsonResourceFactory::entrypoint(Gimp* gimp)
+void JsonResourceFactory::entry_point(Gimp* gimp)
 {
   g_signal_connect_delegator (G_OBJECT(gimp), "initialize", Delegators::delegator(this, &JsonResourceFactory::on_initialize));
   g_signal_connect_delegator (G_OBJECT(gimp), "restore",    Delegators::delegator(this, &JsonResourceFactory::on_restore));
@@ -321,12 +329,34 @@ void JsonResourceFactory::entrypoint(Gimp* gimp)
 
   GimpCoreConfigClass* klass = GIMP_CORE_CONFIG_CLASS (g_type_class_ref(GIMP_TYPE_CORE_CONFIG));
 
-  register_config( LayerPresetConfig::layer_preset_config() );
+#ifndef GIMP_CONSOLE_COMPILATION
+  register_config( LayerPresetGuiConfig::config() );
+#else
+  register_config( LayerPresetConfig::config() );
+#endif
 
   registry().each([&](auto key, auto it) {
     it->extend(klass);
   });
   g_type_class_unref(klass);
+}
+
+
+GArray*
+JsonResourceFactory::prefs_entry_point ()
+{
+  GArray* result = g_array_new(FALSE, TRUE, sizeof(PrefsDialogInfo));
+  auto array = ref<PrefsDialogInfo>(result);
+
+  registry().each([&](auto key, auto it) {
+    PrefsDialogInfo* info = it->prefs_dialog_info();
+    if (info) {
+      g_print("JsonResourceFactory::prefs_entry_point: add %p\n", info);
+      array.append( *info );
+    }
+  });
+  g_print("JsonResourceFactory::prefs_entry_point: end\n");
+  return result;
 }
 
 
@@ -403,9 +433,15 @@ JsonResourceFactory::on_exit(Gimp *gimp,
 }
 
 
-void      json_resource_factory_entry_point (Gimp* gimp)
+void
+json_resource_factory_entry_point (Gimp* gimp)
 {
-  get_json_resource_factory()->entrypoint(gimp);
+  get_json_resource_factory()->entry_point(gimp);
 }
 
 
+GArray*
+json_resource_factory_prefs_entry_point ()
+{
+  return get_json_resource_factory()->prefs_entry_point();
+}

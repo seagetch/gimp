@@ -100,12 +100,12 @@ LayerPresetConfig::create_editor ()
 
 ////////////////////////////////////////////////////////////////////////////
 // LayerPrestConfig::startup code
-static LayerPresetConfig* config = NULL;
+static LayerPresetConfig* instance = NULL;
 
 JsonResourceConfig*
-LayerPresetConfig::layer_preset_config()
+LayerPresetConfig::config()
 {
-  if (!config)
-    config = new LayerPresetConfig();
-  return config;
+  if (!instance)
+    instance = new LayerPresetConfig();
+  return instance;
 }

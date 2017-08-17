@@ -43,6 +43,8 @@ PREFS_IMAGES = \
 	folders-tool-presets-22.png		\
 	folders-tool-presets.png		\
 	folders-tools-22.png		\
+	folders-mypaint-brushes-22.png	\
+	folders-mypaint-brushes-16.png	\
 	folders-22.png			\
 	folders.png			\
 	help-system-22.png		\
