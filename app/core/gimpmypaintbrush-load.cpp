@@ -274,10 +274,10 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
   //settings
   bool settings_result = json_reader_read_member(reader, "settings");
   if (settings_result) {
-    HashTable<const gchar*, MyPaintBrushSettings*> settings_dict =
-      mypaint_brush_get_brush_settings_dict ();
-    HashTable<const gchar*, MyPaintBrushInputSettings*> inputs_dict =
-      mypaint_brush_get_input_settings_dict ();
+    auto _settings_dict = hold(mypaint_brush_get_brush_settings_dict ());
+    auto settings_dict  = ref<const gchar*, MyPaintBrushSettings*>(_settings_dict);
+    auto _inputs_dict   = hold( mypaint_brush_get_input_settings_dict () );
+    auto inputs_dict    = ref<const gchar*, MyPaintBrushInputSettings*>(_inputs_dict);
 
     bool element_result;
     const char* key;
@@ -342,8 +342,9 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
   //switches
   bool switch_result = json_reader_read_member(reader, "switches");
   if (switch_result) {
-    HashTable<const gchar*, MyPaintBrushSwitchSettings*> switches_dict =
-      mypaint_brush_get_brush_switch_settings_dict ();
+    auto _switches_dict = hold( mypaint_brush_get_brush_switch_settings_dict () );
+    auto switches_dict  = ref<const gchar*, MyPaintBrushSwitchSettings*>(_switches_dict);
+
     gint count = json_reader_count_members(reader);
     const char* key;
     for(gint i = 0; i < count; i ++, json_reader_end_element(reader)) {
@@ -363,8 +364,9 @@ MyPaintBrushReader::parse_v3(const gchar *filename, GError **error)
   //texts
   bool text_result = json_reader_read_member(reader, "texts");
   if (text_result) {
-    HashTable<const gchar*, MyPaintBrushTextSettings*> text_dict =
-      mypaint_brush_get_brush_text_settings_dict ();
+    auto _text_dict = hold( mypaint_brush_get_brush_text_settings_dict () );
+    auto text_dict  = ref<const gchar*, MyPaintBrushTextSettings*>(_text_dict);
+
     gint count = json_reader_count_members(reader);
     const char* key;
     for (gint i = 0; i < count; i ++, json_reader_end_element(reader)) {
@@ -546,12 +548,12 @@ void
 MyPaintBrushReader::parse_raw_v2 (
                   gint64            version)
 {
-  HashTable<const gchar*, MyPaintBrushSettings*> settings_dict =
-    mypaint_brush_get_brush_settings_dict ();
-  HashTable<const gchar*, MyPaintBrushInputSettings*> inputs_dict =
-    mypaint_brush_get_input_settings_dict ();
-  HashTable<const gchar*, MyPaintBrushSettingMigrate*> migrate_dict =
-    mypaint_brush_get_setting_migrate_dict ();
+  auto _settings_dict = hold( mypaint_brush_get_brush_settings_dict () );
+  auto settings_dict  = ref<const gchar*, MyPaintBrushSettings*>(_settings_dict);
+  auto _inputs_dict   = hold( mypaint_brush_get_input_settings_dict () );
+  auto inputs_dict    = ref<const gchar*, MyPaintBrushInputSettings*>(_inputs_dict);
+  auto _migrate_dict  = hold( mypaint_brush_get_setting_migrate_dict () );
+  auto migrate_dict   = ref<const gchar*, MyPaintBrushSettingMigrate*>(_migrate_dict);
   GHashTableIter    raw_pair_iter;
   gpointer          raw_key, raw_value;
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);

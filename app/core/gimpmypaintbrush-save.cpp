@@ -151,7 +151,7 @@ MypaintBrushWriter::save_brush (GError      **error)
 bool
 MypaintBrushWriter::is_default(gchar* name)
 {
-  HashTable<gchar*, MyPaintBrushSettings*> settings_dict(mypaint_brush_get_brush_settings_dict ());
+  IHashTable<gchar*, MyPaintBrushSettings*> settings_dict(mypaint_brush_get_brush_settings_dict ());
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(source->p);
 
   MyPaintBrushSettings* setting = settings_dict[name];
