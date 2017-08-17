@@ -346,7 +346,7 @@ private:
 
 
 extern const char gimp_filter_layer_name[] = "GimpFilterLayer";
-using Class = GClass<gimp_filter_layer_name,
+using Class = NewGClass<gimp_filter_layer_name,
                      UseCStructs<GimpLayer, GimpFilterLayer>,
                      FilterLayer,
                      GimpProgress, GimpPickable>;

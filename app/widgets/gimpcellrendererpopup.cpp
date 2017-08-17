@@ -1091,7 +1091,7 @@ struct CellRendererPopup : virtual public ImplBase, virtual public CellRendererP
 };
 
 extern const char gimp_cell_renderer_popup_name[] = "GimpCellRendererPopup";
-using Class = GClass<gimp_cell_renderer_popup_name, CStructs, CellRendererPopup>;
+using Class = NewGClass<gimp_cell_renderer_popup_name, CStructs, CellRendererPopup>;
 static Class class_instance;
 
 #define _override(method) Class::__(&klass->method).bind<&CellRendererPopup::method>()

@@ -18,14 +18,12 @@
 #include "base/delegators.hpp"
 #include "base/glib-cxx-utils.hpp"
 #include "base/glib-cxx-impl.hpp"
+__DECLARE_GTK_CLASS__(GObject, G_TYPE_OBJECT);
 
 extern "C" {
 #include "config.h"
 
 #include <gegl.h>
-#include "base/delegators.hpp"
-#include "base/glib-cxx-utils.hpp"
-#include "base/glib-cxx-impl.hpp"
 
 #include "core-types.h"
 
@@ -48,7 +46,7 @@ struct CloneLayerUndo : virtual public ImplBase
 
   GimpImageBaseType  prev_type;
 
-  static void class_init(GimpCloneLayerUndoClass* klass);
+  static void class_init(gpointer klass);
 
   virtual void constructed();
   virtual void pop        (GimpUndoMode  undo_mode, GimpUndoAccumulator * accum);
@@ -57,7 +55,7 @@ struct CloneLayerUndo : virtual public ImplBase
 };
 
 extern const char gimp_clone_layer_undo_name[] = "GimpCloneLayerUndo";
-using Class = GLib::GClass<gimp_clone_layer_undo_name,
+using Class = GLib::NewGClass<gimp_clone_layer_undo_name,
                            GLib::UseCStructs<GimpItemUndo, GimpCloneLayerUndo >,
                            GLib::CloneLayerUndo>;
 
@@ -68,15 +66,13 @@ GType gimp_clone_layer_undo_get_type() {
 #define bind_to_class(klass, method, impl)  Class::__(&klass->method).bind<&impl::method>()
 
 void
-GLib::CloneLayerUndo::class_init (GimpCloneLayerUndoClass *klass)
+GLib::CloneLayerUndo::class_init (gpointer klass)
 {
   GObjectClass  *object_class = G_OBJECT_CLASS (klass);
   bind_to_class (object_class, constructed, GLib::CloneLayerUndo);
 
   GimpUndoClass *undo_class   = GIMP_UNDO_CLASS (klass);
   bind_to_class (undo_class, pop, GLib::CloneLayerUndo);
-
-  ImplBase::class_init<GimpCloneLayerUndoClass, CloneLayerUndo>(klass);
 }
 
 void GLib::CloneLayerUndo::constructed ()

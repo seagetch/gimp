@@ -169,7 +169,7 @@ private:
 
 
 extern const char gimp_clone_layer_name[] = "GimpCloneLayer";
-using Class = GClass<gimp_clone_layer_name,
+using Class = NewGClass<gimp_clone_layer_name,
                      UseCStructs<GimpLayer, GimpCloneLayer>,
                      CloneLayer, GimpPickable>;
 

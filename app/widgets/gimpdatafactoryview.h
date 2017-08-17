@@ -69,5 +69,11 @@ gboolean          gimp_data_factory_view_has_data_new_func    (GimpDataFactoryVi
 gboolean          gimp_data_factory_view_have                 (GimpDataFactoryView *factory_view,
                                                                GimpObject          *object);
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-types.hpp"
+__DECLARE_GTK_CLASS__(GimpDataFactoryView, GIMP_TYPE_DATA_FACTORY_VIEW);
+};
+#endif
 
 #endif  /*  __GIMP_DATA_FACTORY_VIEW_H__  */

@@ -132,7 +132,7 @@ public:
 guint Popup::popup_signals[LAST_SIGNAL];
 
 extern const char gimp_popup_name[] = "GimpPopup2";
-typedef GClass<gimp_popup_name, CStructs, Popup> Class;
+typedef NewGClass<gimp_popup_name, CStructs, Popup> Class;
 
 
 #define bind_to_class(klass, method, impl)  Class::__(&klass->method).bind<&impl::method>()
