@@ -197,8 +197,34 @@ template<typename T> auto end  (const GLib::IArray<T>& arr) { return arr.end(); 
 namespace GLib
 {
 
-template<typename Key, typename Data>
 class HashTable : public ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>
+{
+public:
+  HashTable() : ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>(NULL) {};
+  HashTable(GHashTable* table) : ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>(table) {};
+  HashTable(HashTable&& src) : ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>(src.obj) { src.obj = NULL; }
+  HashTable(const HashTable& src) : ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>(src.obj) { incref(); }
+  void incref() {
+    if (obj)
+      g_hash_table_ref(obj);
+  }
+  void decref() {
+    if (obj)
+      g_hash_table_unref(obj);
+  }
+  HashTable& operator = (GHashTable* table) {
+    if (obj == table)
+      return *this;
+    decref();
+    obj = table;
+    return *this;
+  }
+};
+inline auto hold(GHashTable* hashtable) { return static_cast<HashTable&&>(HashTable(hashtable)); }
+
+
+template<typename Key, typename Data>
+class IHashTable : public HashTable
 {
   template<typename F>
   static void foreach_callback(gpointer key, gpointer data, gpointer user) {
@@ -206,7 +232,8 @@ class HashTable : public ScopedPointer<GHashTable, void(GHashTable*), g_hash_tab
     (*func)((Key)key, (Data)data);
   };
 public:
-  HashTable(GHashTable* table) : ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>(table) {};
+  IHashTable(GHashTable* table) : HashTable(table) { incref(); };
+  IHashTable(const IHashTable& src)   : HashTable(src.obj) { incref(); };
 
   const Data lookup(const Key key) const {
     return (Data)(g_hash_table_lookup(obj, (const gpointer) key));
@@ -221,9 +248,18 @@ public:
   void each(F each_func) {
     g_hash_table_foreach (obj, foreach_callback<F>, &each_func);
   }
+  IHashTable& operator = (GHashTable* table) {
+    if (obj == table)
+      return *this;
+    decref();
+    obj = table;
+    incref();
+    return *this;
+  }
 };
 template<typename Key, typename Data>
-inline auto hold(GHashTable* hashtable) { return static_cast<HashTable<Key, Data>&&>(HashTable<Key, Data>(hashtable)); }
+inline auto ref(GHashTable* hashtable) { return static_cast<IHashTable<Key, Data>&&>(IHashTable<Key, Data>(hashtable)); }
+
 
 class Regex : public ScopedPointer<GRegex, void(GRegex*), g_regex_unref>
 {
