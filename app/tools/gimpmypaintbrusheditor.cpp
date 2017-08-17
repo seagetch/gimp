@@ -117,7 +117,7 @@ public:
                    GtkAdjustment* y_min_adj_,
                    GtkAdjustment* y_max_adj_) 
   {
-    HashTable<gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict();
+    IHashTable<gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict();
     receiver      = receiver_;
     options       = opts;
 //      setting_index = setting_index_;
@@ -200,7 +200,7 @@ public:
   }
   
   MyPaintBrushInputSettings* get_input_setting(gchar* input_name) {
-    HashTable<gchar*, MyPaintBrushInputSettings*> input_settings_dict(mypaint_brush_get_input_settings_dict());
+    IHashTable<gchar*, MyPaintBrushInputSettings*> input_settings_dict(mypaint_brush_get_input_settings_dict());
     return input_settings_dict[input_name];
   }
   
@@ -358,7 +358,7 @@ public:
   
   
   void update_list() {
-    HashTable<gchar*, MyPaintBrushInputSettings*> input_settings_dict = mypaint_brush_get_input_settings_dict();
+    IHashTable<gchar*, MyPaintBrushInputSettings*> input_settings_dict = mypaint_brush_get_input_settings_dict();
     GtkTreeIter iter;
     g_return_if_fail (gtk_tree_model_get_iter_first(model, &iter));
     do {
@@ -564,7 +564,7 @@ public:
 void 
 CurveViewCreator::create_view(GObject* button, GtkWidget** result) 
 {
-  HashTable<const gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict();
+  IHashTable<const gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict();
   List      inputs               (mypaint_brush_get_input_settings());
   
   MyPaintBrushSettings* setting = brush_settings_dict[brush_setting_name];

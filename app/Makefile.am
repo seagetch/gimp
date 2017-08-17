@@ -32,6 +32,7 @@ SUBDIRS = \
 	actions		\
 	menus		\
 	gui		\
+	presets		\
 	.		\
 	tests
 
@@ -169,6 +170,7 @@ gimpconsoleldadd = \
 	config/libappconfig.a		\
 	paint-funcs/libapppaint-funcs.a	\
 	base/libappbase.a		\
+	presets/libapppresets.a         \
 	$(libgimpconfig)		\
 	$(libgimpmath)			\
 	$(libgimpthumb)			\

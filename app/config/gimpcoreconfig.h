@@ -103,5 +103,11 @@ struct _GimpCoreConfigClass
 
 GType  gimp_core_config_get_type (void) G_GNUC_CONST;
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-types.hpp"
+__DECLARE_GTK_CLASS__(GimpCoreConfig, GIMP_TYPE_CORE_CONFIG);
+};
+#endif
 
 #endif /* GIMP_CORE_CONFIG_H__ */

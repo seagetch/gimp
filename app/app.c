@@ -60,6 +60,8 @@
 #include "gui/gui.h"
 #endif
 
+#include "core/gimpjsonresource.h"
+
 #include "app.h"
 #include "batch.h"
 #include "errors.h"
@@ -169,6 +171,9 @@ app_run (const gchar         *full_prog_name,
   errors_init (gimp, full_prog_name, use_debug_handler, stack_trace_mode);
 
   units_init (gimp);
+
+  json_resource_factory_entry_point (gimp);
+
 
   /*  Check if the user's gimp_directory exists
    */

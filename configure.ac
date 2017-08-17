@@ -2297,6 +2297,7 @@ app/paint-funcs/Makefile
 app/composite/Makefile
 app/pdb/Makefile
 app/plug-in/Makefile
+app/presets/Makefile
 app/text/Makefile
 app/tools/Makefile
 app/vectors/Makefile

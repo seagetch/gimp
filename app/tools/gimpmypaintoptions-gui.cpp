@@ -396,7 +396,7 @@ MypaintOptionsGUIPrivate::create ()
   GimpToolOptionsTableIncrement inc = gimp_tool_options_table_increment (is_toolbar);  
 
   tool_type = GIMP_TOOL_OPTIONS(options)->tool_info->tool_type;
-  HashTable<gchar*, MyPaintBrushSettings*> brush_settings_dict(mypaint_brush_get_brush_settings_dict());
+  IHashTable<gchar*, MyPaintBrushSettings*> brush_settings_dict(mypaint_brush_get_brush_settings_dict());
 
   /*  the main table  */
   table = gimp_tool_options_table (3, is_toolbar);

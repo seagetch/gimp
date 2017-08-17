@@ -22,13 +22,15 @@
 #define __GIMPJSONRESOURCE_H__
 
 #ifdef __cplusplus
+
 extern "C" {
+#include "base/glib-cxx-types.hpp"
 #endif
 
+
 #include "gimpdata.h"
+#include "gimpdatafactory.h"
 #include <json-glib/json-glib.h>
-#include "core/gimpdata.h"
-#include "core/gimpdatafactory.h"
 
 #define GIMP_TYPE_JSON_RESOURCE            (gimp_json_resource_get_type ())
 #define GIMP_JSON_RESOURCE(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), GIMP_TYPE_JSON_RESOURCE, GimpJsonResource))
@@ -37,55 +39,123 @@ extern "C" {
 #define GIMP_IS_JSON_RESOURCE_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), GIMP_TYPE_JSON_RESOURCE))
 #define GIMP_JSON_RESOURCE_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), GIMP_TYPE_JSON_RESOURCE, GimpJsonResourceClass))
 
+
+
 struct _GimpJsonResource
 {
   GimpData  parent_instance;
 };
 
-typedef _GimpJsonResource GimpJsonResource;
-
 struct GimpJsonResourceClass
 {
-  GimpData parent_class;
+  GimpDataClass parent_class;
 };
 
 GType     gimp_json_resource_get_type       (void) G_GNUC_CONST;
-GimpData* gimp_json_resource_new            ();
+GimpData* gimp_json_resource_new            (GimpContext* context, const gchar* name);
+
+void      json_resource_factory_entry_point (Gimp* gimp);
+
 
 #ifdef __cplusplus
-}
+} /* extern "C" */
 
+/////////////////////////////////////////////////////////////////////
 class JsonResourceInterface {
 public:
-  static GimpData*              new_instance   ();
+
+  // static methods
+
+  static GimpData*              new_instance   (GimpContext* context, const gchar* name);
   static JsonResourceInterface* cast           (gpointer obj);
   static bool                   is_instance    (gpointer obj);
-  //////////////////////////////////////////////////////////
-  virtual JsonNode*             get_json       () = 0;
-  virtual void                  set_json       (JsonNode* node) = 0;
+
+  // instance methods
+
+  virtual ~JsonResourceInterface () { };
+
+  virtual JsonNode* get_json     ()                      = 0;
+  virtual void      set_json     (JsonNode* node)        = 0;
+  virtual gboolean  load         (GimpContext* context,
+                                  const gchar* filename,
+                                  GError** error)        = 0;
+  virtual gboolean  save         (GError** error)        = 0;
+
 };
 
-class JsonResourceFactoryBase
-{
-  //////////////////////////////////////////////
-  // Public interface
-  virtual GList*            get_readonly_paths  ()                      = 0;
-  virtual GList*            get_writable_paths  ()                      = 0;
-
-  virtual GimpJsonResource* load                (const gchar* filename);
-  virtual void              save                (const gchar* filename,
-                                                 GimpJsonResource* res);
-
-  virtual GimpDataFactory* create_data_factory ();
-  virtual GObject*         create_view         ();
-  virtual GObject*         create_editor       ();
-};
-
-#include "base/glib-cxx-types.hpp"
 namespace GLib {
 template<> inline GType g_type<GimpJsonResource>() { return gimp_json_resource_get_type(); }
 template<> inline auto g_class_type<GimpJsonResource>(const GimpJsonResource* instance) { return GIMP_JSON_RESOURCE_GET_CLASS(instance); }
 };
-#endif
+
+/////////////////////////////////////////////////////////////////////
+class JsonResourceConfig {
+  GimpDataFactory* factory;
+
+public:
+  JsonResourceConfig() : factory(NULL) { };
+  virtual ~JsonResourceConfig() {
+    if (factory)
+      gimp_data_factory_data_free (factory);
+  };
+
+  // Public interfaces
+
+  class ConfigExtender {
+    GLib::CString readonly_path;
+    GLib::CString writable_path;
+  public:
+    ConfigExtender() : readonly_path(NULL), writable_path(NULL) { };
+    virtual ~ConfigExtender() { }
+    virtual const gchar*      get_readonly_paths ();
+    virtual const gchar*      get_writable_paths ();
+    virtual void              set_readonly_paths (const gchar* p);
+    virtual void              set_writable_paths (const gchar* p);
+  };
+
+  virtual GimpDataFactory*  get_data_factory            () { return factory; }
+  virtual void              set_data_factory            (GimpDataFactory* f) { factory = f; }
+
+  virtual const gchar*      get_readonly_path_prop_name () = 0;
+  virtual const gchar*      get_writable_path_prop_name () = 0;
+  virtual const gchar*      get_readonly_default_paths  () = 0;
+  virtual const gchar*      get_writable_default_paths  () = 0;
+
+  virtual GObject*          create_view                 () { return NULL; }
+  virtual GObject*          create_editor               () { return NULL; }
+
+  virtual ConfigExtender*   get_extender                () { return new ConfigExtender(); }
+  ConfigExtender*           get_extender_for(GObject* obj);
+  virtual void              extend                      (gpointer klass);
+};
+
+/////////////////////////////////////////////////////////////////////
+class JsonResourceFactory
+{
+protected:
+  GLib::HashTable _registry;
+
+  GimpDataFactory* create_data_factory    (Gimp* gimp, JsonResourceConfig* config);
+
+  static GList*    load                   (GimpContext* context,
+                                           const gchar* filename,
+                                           GError** error);
+public:
+  GLib::IHashTable<gconstpointer, JsonResourceConfig*> registry();
+  void             register_config        (JsonResourceConfig* config);
+  void             entrypoint             (Gimp* gimp);
+  virtual void     on_initialize          (Gimp               *gimp,
+                                           GimpInitStatusFunc  status_callback);
+  virtual void     on_restore             (Gimp               *gimp,
+                                           GimpInitStatusFunc  status_callback);
+  virtual gboolean on_exit                (Gimp               *gimp,
+                                           gboolean            force);
+
+
+};
+
+JsonResourceFactory* get_json_resource_factory(void);
+
+#endif // __cplusplus
 
 #endif /* __GIMPJSONRESOURCE_H__ */
