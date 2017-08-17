@@ -63,7 +63,7 @@ extern "C" {
 using namespace GLib;
 
 //////////////////////////////////////////////////////////////////////////////////////////////
-class PopupWindow {
+class PopupWindowDecorator {
   enum {
     LABEL,
     VALUE,
@@ -147,7 +147,7 @@ class PopupWindow {
     gchar**          procs;
     gboolean query = pdb [gimp_pdb_query] (".*", ".*", ".*", ".*", ".*", ".*", ".*", &num_procs, &procs, NULL);
 
-    HashTable<gchar*, GtkTreeIter*> tree_map = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+    IHashTable<gchar*, GtkTreeIter*> tree_map = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
 
     for (int i = 0; i < num_procs; i ++) {
       gchar*         proc_name        = procs[i];
@@ -258,7 +258,7 @@ class PopupWindow {
         }
       );
 
-      HashTable<gchar*, GimpFrame*> frames = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+      IHashTable<gchar*, GimpFrame*> frames = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
 
       for (int j = 0; j < proc->num_args; j ++) {
         GParamSpec*  pspec         = proc->args[j];
@@ -786,6 +786,18 @@ class PopupWindow {
   };
 
 public:
+
+  PopupWindowDecorator() : layer(NULL), mode_select(NULL), filter_select(NULL), filter_edit(NULL)
+  {
+    g_print("PopupWindowDecorator::PopupWindowDecorator\n");
+  }
+
+  ~PopupWindowDecorator()
+  {
+    g_print("PopupWindowDecorator::~PopupWindowDecorator\n");
+  }
+
+
   void create_view(GtkWidget* widget, GtkWidget** result, gpointer data) {
     PangoAttribute        *attr;
 
@@ -1007,6 +1019,21 @@ public:
 
     });
   };
+};
+//////////////////////////////////////////////////////////////////////////////////////////////
+class PopupWindow {
+public:
+  PopupWindow() {
+
+  };
+  ~PopupWindow() {
+
+  }
+  void create_view(GtkWidget* widget, GtkWidget** result, gpointer data) {
+    auto decor = new PopupWindowDecorator();
+    decor->create_view(widget, result, data);
+    decorator(*result, decor);
+  }
 };
 //////////////////////////////////////////////////////////////////////////////////////////////
 namespace GLib {
@@ -1259,6 +1286,8 @@ gboolean GLib::CellRendererPopup::activate (GdkEvent             *event,
 void GLib::CellRendererPopup::clicked (GObject* widget, const gchar* path, GdkRectangle* cell_area)
 {
   g_print("CellRendererPopup::clicked\n");
+//  auto active = ref(g_object)["active"];
+//  g_print("  property active = %s\n", active?"T":"F");
   g_signal_emit_by_name (g_object, "parent-clicked", widget, path, cell_area);
 }
 /*  public functions  */
