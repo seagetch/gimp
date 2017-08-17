@@ -95,7 +95,7 @@ public:
 
   bool is_running() { return running; };
 
-  bool setup_args(HashTable<const gchar*, GValue*>* arg_tables) {
+  bool setup_args(IHashTable<const gchar*, GValue*>* arg_tables) {
     if (!args)
       args = gimp_procedure_get_arguments (procedure);
 
