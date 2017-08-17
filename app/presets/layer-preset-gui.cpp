@@ -53,14 +53,8 @@ using namespace GLib;
 class LayerPresetFactoryView : virtual public ImplBase
 {
 public:
-  LayerPresetFactoryView(GObject* o) : ImplBase(o) {
-  }
-
-
-  ~LayerPresetFactoryView() {
-
-  }
-
+  LayerPresetFactoryView(GObject* o) : ImplBase(o) { }
+  ~LayerPresetFactoryView() { }
 };
 
 extern const char layer_preset_factory_view[] = "GimpLayerPresetFactoryView";
@@ -98,19 +92,8 @@ LayerPresetGuiConfig::LayerPresetGuiConfig() :
 LayerPresetGuiConfig::~LayerPresetGuiConfig()
 {
 }
-/*
-gimp_tool_preset_factory_view_new (GimpViewType      view_type,
-                                   GimpDataFactory  *factory,
-                                   GimpContext      *context,
-                                   gint              view_size,
-                                   gint              view_border_width,
-                                   GimpMenuFactory  *menu_factory)
 
-typedef GtkWidget * (* GimpDialogNewFunc)     (GimpDialogFactory      *factory,
-                                               GimpContext            *context,
-                                               GimpUIManager          *ui_manager,
-                                               gint                    view_size);
-*/
+
 GObject*
 LayerPresetGuiConfig::create_view (GObject* context,
                                    gint view_size,

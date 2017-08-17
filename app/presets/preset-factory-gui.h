@@ -46,9 +46,9 @@ public:
 
   virtual GObject*          create_view                 (GObject* context,
                                                          gint view_size,
-                                                         GObject* menu_factory);
-  virtual GObject*          create_editor               ();
-  virtual PrefsDialogInfo*  prefs_dialog_info           ();
+                                                         GObject* menu_factory) = 0;
+  virtual GObject*          create_editor               () = 0;
+  virtual PrefsDialogInfo*  prefs_dialog_info           () = 0;
 
 };
 
@@ -56,8 +56,9 @@ public:
 class PresetGuiFactory : virtual public PresetFactory
 {
 public:
-  void             entry_point             (Gimp* gimp);
-  GArray*          prefs_entry_point       ();
+  virtual void     initialize             ();
+  virtual void     entry_point            (Gimp* gimp);
+  virtual GArray*  prefs_entry_point      ();
   virtual void     on_initialize          (Gimp               *gimp,
                                            GimpInitStatusFunc  status_callback);
   virtual void     on_restore             (Gimp               *gimp,

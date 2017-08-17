@@ -161,45 +161,34 @@ GLib::IHashTable<gconstpointer, PresetConfig*> PresetFactory::registry()
   return ref<gconstpointer, PresetConfig*>(_registry);
 }
 
-void PresetFactory::register_config (PresetConfig* config)
+void
+PresetFactory::register_config (PresetConfig* config)
 {
   gconstpointer type_ptr = &typeid(config);
   registry().insert(type_ptr, config);
 }
 
 
+void
+PresetFactory::initialize()
+{
+  register_config( LayerPresetConfig::config() );
+}
+
 void PresetFactory::entry_point(Gimp* gimp)
 {
+  initialize();
+
   g_signal_connect_delegator (G_OBJECT(gimp), "initialize", Delegators::delegator(this, &PresetFactory::on_initialize));
   g_signal_connect_delegator (G_OBJECT(gimp), "restore",    Delegators::delegator(this, &PresetFactory::on_restore));
   g_signal_connect_delegator (G_OBJECT(gimp), "exit",       Delegators::delegator(this, &PresetFactory::on_exit));
 
   GimpCoreConfigClass* klass = GIMP_CORE_CONFIG_CLASS (g_type_class_ref(GIMP_TYPE_CORE_CONFIG));
 
-  register_config( LayerPresetConfig::config() );
-
   registry().each([&](auto key, auto it) {
     it->extend(klass);
   });
   g_type_class_unref(klass);
-}
-
-
-GArray*
-PresetFactory::prefs_entry_point ()
-{
-  GArray* result = g_array_new(FALSE, TRUE, sizeof(PrefsDialogInfo));
-  auto array = ref<PrefsDialogInfo>(result);
-
-  registry().each([&](auto key, auto it) {
-    PrefsDialogInfo* info = it->prefs_dialog_info();
-    if (info) {
-      g_print("PresetFactory::prefs_entry_point: add %p\n", info);
-      array.append( *info );
-    }
-  });
-  g_print("PresetFactory::prefs_entry_point: end\n");
-  return result;
 }
 
 
@@ -282,11 +271,4 @@ void
 preset_factory_entry_point (Gimp* gimp)
 {
   get_preset_factory()->entry_point(gimp);
-}
-
-
-GArray*
-preset_factory_prefs_entry_point ()
-{
-  return get_preset_factory()->prefs_entry_point();
 }

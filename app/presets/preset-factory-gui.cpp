@@ -67,28 +67,6 @@ extern GLib::GClassWrapper<UseCStructs<GimpBaseConfig, GimpCoreConfig> > core_cl
 ////////////////////////////////////////////////////////////////////////////
 // PresetGuiConfig
 
-GObject*
-PresetGuiConfig::create_view (GObject* context,
-                           gint view_size,
-                           GObject* menu_factory)
-{
-  return NULL;
-}
-
-
-GObject*
-PresetGuiConfig::create_editor ()
-{
-  return NULL;
-}
-
-
-PrefsDialogInfo*
-PresetGuiConfig::prefs_dialog_info ()
-{
-  return NULL;
-}
-
 
 ////////////////////////////////////////////////////////////////////////////
 // PresetGuiFactory
@@ -100,20 +78,14 @@ PresetGuiFactory* get_preset_factory_gui() {
   return singleton;
 }
 
+void PresetGuiFactory::initialize()
+{
+  register_config( LayerPresetGuiConfig::config() );
+}
+
 void PresetGuiFactory::entry_point(Gimp* gimp)
 {
-  g_signal_connect_delegator (G_OBJECT(gimp), "initialize", Delegators::delegator(this, &PresetGuiFactory::on_initialize));
-  g_signal_connect_delegator (G_OBJECT(gimp), "restore",    Delegators::delegator(this, &PresetGuiFactory::on_restore));
-  g_signal_connect_delegator (G_OBJECT(gimp), "exit",       Delegators::delegator(this, &PresetGuiFactory::on_exit));
-
-  GimpCoreConfigClass* klass = GIMP_CORE_CONFIG_CLASS (g_type_class_ref(GIMP_TYPE_CORE_CONFIG));
-
-  register_config( LayerPresetGuiConfig::config() );
-
-  registry().each([&](auto key, auto it) {
-    it->extend(klass);
-  });
-  g_type_class_unref(klass);
+  PresetFactory::entry_point(gimp);
 }
 
 
@@ -137,24 +109,17 @@ PresetGuiFactory::prefs_entry_point ()
 
 void
 PresetGuiFactory::on_initialize (Gimp               *gimp,
-                                    GimpInitStatusFunc  status_callback)
+                                 GimpInitStatusFunc  status_callback)
 {
-  registry().each([&](auto key, auto it) {
-    GimpDataFactory* factory = this->create_data_factory(gimp, it);
-    it->set_data_factory(factory);
-  });
+  PresetFactory::on_initialize (gimp, status_callback);
 }
 
 
 void
 PresetGuiFactory::on_restore (Gimp               *gimp,
-                                 GimpInitStatusFunc  status_callback)
+                              GimpInitStatusFunc  status_callback)
 {
-  registry().each([&](auto key, auto it) {
-    GimpDataFactory* factory = it->get_data_factory();
-    gimp_data_factory_data_init (factory, gimp->user_context,
-                                 gimp->no_data);
-  });
+  PresetFactory::on_restore(gimp, status_callback);
 
   // Dialog initialization.
 
@@ -185,13 +150,10 @@ PresetGuiFactory::on_restore (Gimp               *gimp,
 
 gboolean
 PresetGuiFactory::on_exit(Gimp *gimp,
-                             gboolean force)
+                          gboolean force)
 {
-  registry().each([&](auto key, auto it) {
-    GimpDataFactory* factory = it->get_data_factory();
-    gimp_data_factory_data_save (factory);
-  });
-  return FALSE;
+  gboolean result = PresetFactory::on_exit(gimp, force);
+  return result;
 }
 
 

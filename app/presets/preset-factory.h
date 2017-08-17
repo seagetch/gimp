@@ -45,8 +45,6 @@ typedef struct
   const gchar *writable_property_name;
 } PrefsDialogInfo;
 
-GArray*    preset_factory_prefs_entry_point (void);
-
 #ifdef __cplusplus
 }; // extern "C"
 
@@ -116,8 +114,9 @@ protected:
 public:
   GLib::IHashTable<gconstpointer, PresetConfig*> registry();
   void             register_config        (PresetConfig* config);
-  void             entry_point             (Gimp* gimp);
-  GArray*          prefs_entry_point       ();
+
+  virtual void     initialize             ();
+  virtual void     entry_point            (Gimp* gimp);
   virtual void     on_initialize          (Gimp               *gimp,
                                            GimpInitStatusFunc  status_callback);
   virtual void     on_restore             (Gimp               *gimp,
