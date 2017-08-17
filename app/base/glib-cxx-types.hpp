@@ -24,9 +24,15 @@ extern "C" {
 #include <glib.h>
 #include <glib-object.h>
 };
-#include <type_traits>
 
 namespace GLib {
+
+template<typename T>
+struct strip_ref { using type = T; };
+template<typename T> struct strip_ref<T&> { using type = T; };
+template<typename T> struct strip_ref<const T&> { using type = T; };
+template<typename T> struct strip_ref<T&&> { using type = T; };
+
 
 template<typename T>
 inline GType g_type()
@@ -41,8 +47,9 @@ inline auto g_class_type(const T* obj) {
   return G_TYPE_INSTANCE_GET_CLASS(obj, get_type<T>(), GTypeClass);
 }
 
+//typename _Class = typename std::remove_reference<decltype(*GLib::g_class_type<_Instance>(NULL))>::type,
 template <typename _Instance,
-          typename _Class = typename std::remove_reference<decltype(*GLib::g_class_type<_Instance>(NULL))>::type,
+          typename _Class = typename strip_ref<decltype(*GLib::g_class_type<_Instance>(NULL))>::type,
           GType (*g_type)() = g_type<_Instance> >
 class TraitsBase {
 public:

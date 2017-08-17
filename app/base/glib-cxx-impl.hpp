@@ -38,12 +38,12 @@ public:
   };
 };
 
-template <typename _Parent, typename _Instance>//, typename _Class = typename std::remove_reference<decltype(*GLib::g_class_type<_Instance>(NULL))>::type>
+template <typename _Parent, typename _Instance>
 class UseCStructs {
 public:
   using ParentTraits = Traits<_Parent>;
   using Instance     = _Instance;
-  using Class        = typename std::remove_reference<decltype(*GLib::g_class_type<_Instance>(NULL))>::type;
+  using Class        = typename strip_ref<decltype(*GLib::g_class_type<_Instance>(NULL))>::type;
 };
 
 
@@ -113,7 +113,7 @@ public:
 
 
 template <typename CStructs>
-class GClassBase : public IGClass {
+class GClassWrapper : public IGClass {
 protected:
   static Array _signals;
   static guint signals_base;
@@ -178,9 +178,9 @@ public:
                             GParamSpec   *pspec)
   {
 //    g_print("GClass:set_property: %u = %s(%s) <- (%s)\n", property_id, pspec->name, g_type_name(pspec->value_type), g_type_name(G_VALUE_TYPE(value))  );
-    auto properties = GClassBase::properties();
-    if (property_id - GClassBase::properties_base < properties.size()) {
-      Property prop = properties[property_id - GClassBase::properties_base];
+    auto properties = GClassWrapper::properties();
+    if (property_id - GClassWrapper::properties_base < properties.size()) {
+      Property prop = properties[property_id - GClassWrapper::properties_base];
       if (prop.setter) {
         prop.setter(object, value);
       }
@@ -200,9 +200,9 @@ public:
                             GParamSpec *pspec)
   {
 //    g_print("GClass:get_property: %u = %s(%s) <- (%s)\n", property_id, pspec->name, g_type_name(pspec->value_type), g_type_name(G_VALUE_TYPE(value))  );
-    auto properties = GClassBase::properties();
-    if (property_id - GClassBase::properties_base < properties.size()) {
-      Property prop = properties[property_id - GClassBase::properties_base];
+    auto properties = GClassWrapper::properties();
+    if (property_id - GClassWrapper::properties_base < properties.size()) {
+      Property prop = properties[property_id - GClassWrapper::properties_base];
       if (prop.getter) {
         Value get_value = prop.getter(object);
         g_value_transform(get_value, value);
@@ -221,13 +221,13 @@ public:
     if (G_OBJECT_CLASS(klass)->set_property != set_property) {
       g_print("  Installed set_property_handler\n");
       prev_handlers.set_property = G_OBJECT_CLASS(klass)->set_property;
-      G_OBJECT_CLASS(klass)->set_property = GClassBase::set_property;
+      G_OBJECT_CLASS(klass)->set_property = GClassWrapper::set_property;
     } else
       g_print("  Kept set_property_handler\n");
     if (G_OBJECT_CLASS(klass)->get_property != get_property) {
       g_print("  Installed get_property_handler\n");
       prev_handlers.get_property = G_OBJECT_CLASS(klass)->get_property;
-      G_OBJECT_CLASS(klass)->get_property = GClassBase::get_property;
+      G_OBJECT_CLASS(klass)->get_property = GClassWrapper::get_property;
     }else
       g_print("  Kept get_property_handler\n");
   }
@@ -249,7 +249,7 @@ public:
         guint n_properties;
         g_free(g_object_class_list_properties(G_OBJECT_CLASS(klass), &n_properties));
         g_print("%s: Set properties_base to %d\n", G_OBJECT_CLASS_NAME(klass), n_properties + 1);
-        GClassBase::set_properties_base(n_properties + 1);
+        GClassWrapper::set_properties_base(n_properties + 1);
       } else if (klass != class_struct)
         throw new InvalidClass(klass, class_struct);
     }
@@ -257,8 +257,8 @@ public:
     virtual IWithClass* install_property(GParamSpec* spec, std::function<Value(GObject*)> getter, std::function<void(GObject*, Value)> setter) {
       install_property_handlers(klass);
       as_class<GObject>([&](GObjectClass* klass) {
-        auto properties = GClassBase::properties();
-        guint index = properties.size() + GClassBase::properties_base;
+        auto properties = GClassWrapper::properties();
+        guint index = properties.size() + GClassWrapper::properties_base;
         g_object_class_install_property (klass, index, spec);
         g_print("Installed::%s-> prop=%s, id=%u\n", typeid(*this).name(), g_param_spec_get_name(spec), index);
 
@@ -270,7 +270,7 @@ public:
 
     virtual IWithClass* install_signal_v(const gchar* signal_name, GType R, size_t size, GType* args) {
       as_class<GObject>([&](GObjectClass* klass) {
-        auto signals = GClassBase::signals();
+        auto signals = GClassWrapper::signals();
         guint sig_id = g_signal_newv(signal_name, G_OBJECT_CLASS_TYPE(klass), G_SIGNAL_RUN_LAST, 0 /*Offset*/, NULL, NULL, NULL/*g_closure_marshaller_generic*/, R, size, args);
         signals.append(sig_id);
       });
@@ -286,41 +286,74 @@ public:
 
 
 template <typename CStructs>
-Array GClassBase<CStructs>::_signals;
+Array GClassWrapper<CStructs>::_signals;
 
 template <typename CStructs>
-guint GClassBase<CStructs>::signals_base = 0;
+guint GClassWrapper<CStructs>::signals_base = 0;
 
 template <typename CStructs>
-Array GClassBase<CStructs>::_properties;
+Array GClassWrapper<CStructs>::_properties;
 
 template <typename CStructs>
-guint GClassBase<CStructs>::properties_base = 1;
+guint GClassWrapper<CStructs>::properties_base = 1;
 
 template <typename CStructs>
-typename GClassBase<CStructs>::WithClass GClassBase<CStructs>::_with_class;
+typename GClassWrapper<CStructs>::WithClass GClassWrapper<CStructs>::_with_class;
 
 template <typename CStructs>
-typename GClassBase<CStructs>::PreviousPropertyHandler GClassBase<CStructs>::prev_handlers = {0};
+typename GClassWrapper<CStructs>::PreviousPropertyHandler GClassWrapper<CStructs>::prev_handlers = {0};
 
 
 template <char const* name, typename CStructs, typename Impl, typename... IFaces>
-class GClass : public GClassBase<CStructs> {
+class NewGClass : public GClassWrapper<CStructs> {
+  static std::function<void(IGClass::IWithClass*)> class_init_callback;
+  static NewGClass* singleton;
+
+  struct class_init_check {
+    using yes = struct { long field[1]; };
+    using no  = struct { long field[10]; };
+    template<class T> static no  check(...);
+    template<class I> static yes check( decltype(&I::class_init) );
+    using test = decltype(check<Impl>(NULL));
+    enum { value = (sizeof(check<Impl>(NULL)) == sizeof(yes)) };
+  };
+
 public:
   static GType get_type();
-  virtual GType type() { return GClass::get_type(); }
+  virtual GType type() { return NewGClass::get_type(); }
 
   using Instance = typename CStructs::Instance;
   using Class    = typename CStructs::Class;
-  using Traits   = GLib::TraitsBase<Instance, Class, &GClass::get_type>;
+  using Traits   = GLib::TraitsBase<Instance, Class, &NewGClass::get_type>;
 
   static gpointer parent_class;
   static gint     private_offset;
+
+
+  NewGClass() {
+    if (singleton) {
+      g_error("duplicated initialization of callback for %s.\n", name);
+    } {
+      singleton = this;
+    }
+  };
+
+
+  NewGClass(std::function<void(IGClass::IWithClass*)> callback) {
+    if (singleton) {
+      g_error("duplicated initialization of callback for %s.\n", name);
+    } else {
+      singleton = this;
+      class_init_callback = callback;
+    }
+  }
+
 
   static void     instance_init     (Instance        *obj) {
     void* ptr = get_private(obj);
     Impl* i = new(ptr) Impl(G_OBJECT(obj));
   }
+
 
   static void     instance_finalize (GObject         *obj) {
     Impl* i = get_private(obj);
@@ -328,22 +361,46 @@ public:
     G_OBJECT_CLASS(parent_class)->finalize(obj);
   }
 
+
   template<typename G>
   static Impl* get_private(G* obj) {
     return G_TYPE_INSTANCE_GET_PRIVATE(obj, Traits::get_type(), Impl);
   };
 
-  static void     class_intern_init (gpointer klass) {
 
-#if GLIB_VERSION_MAX_ALLOWED >= GLIB_VERSION_2_38
+  template<typename D, bool T>
+  struct class_init_code {
+    static void doit(gpointer klass) {
+      if (NewGClass::singleton && NewGClass::class_init_callback)
+        NewGClass::class_init_callback(singleton->with_class(klass));
+    };
+  };
+  template<typename D>
+  struct class_init_code<D, true> {
+    static void doit(gpointer klass) {
+      Impl::class_init ((Class*) klass);
+    };
+  };
+  struct Dummy { };
+
+
+  static void class_intern_init (gpointer klass)
+  {
+
+  #if GLIB_VERSION_MAX_ALLOWED >= GLIB_VERSION_2_38
+
     parent_class = g_type_class_peek_parent (klass);
     if (private_offset != 0)
       g_type_class_adjust_private_offset (klass, &private_offset);
-#else
-    parent_class = g_type_class_peek_parent (klass);
-#endif /* GLIB_VERSION_MAX_ALLOWED >= GLIB_VERSION_2_38 */
 
-    Impl::class_init ((Class*) klass);
+  #else
+
+    parent_class = g_type_class_peek_parent (klass);
+
+  #endif /* GLIB_VERSION_MAX_ALLOWED >= GLIB_VERSION_2_38 */
+
+    class_init_code<Dummy, NewGClass::class_init_check::value>::doit(klass);
+
     G_OBJECT_CLASS(klass)->finalize     = instance_finalize;
   }
 
@@ -400,13 +457,21 @@ private:
 
 
 template <char const* name, typename CStructs, typename Impl, typename... IFaces>
-gpointer GClass<name, CStructs, Impl, IFaces...>::parent_class = NULL;
+NewGClass<name, CStructs, Impl, IFaces...>*
+NewGClass<name, CStructs, Impl, IFaces...>::singleton = NULL;
 
 template <char const* name, typename CStructs, typename Impl, typename... IFaces>
-gint GClass<name, CStructs, Impl, IFaces...>::private_offset = 0;
+std::function<void(IGClass::IWithClass*)> NewGClass<name, CStructs, Impl, IFaces...>::class_init_callback;
 
 template <char const* name, typename CStructs, typename Impl, typename... IFaces>
-inline GType GClass<name, CStructs, Impl, IFaces...>::get_type (void) {
+gpointer NewGClass<name, CStructs, Impl, IFaces...>::parent_class = NULL;
+
+template <char const* name, typename CStructs, typename Impl, typename... IFaces>
+gint NewGClass<name, CStructs, Impl, IFaces...>::private_offset = 0;
+
+
+template <char const* name, typename CStructs, typename Impl, typename... IFaces>
+inline GType NewGClass<name, CStructs, Impl, IFaces...>::get_type (void) {
   static volatile gsize g_define_type_id__volatile = 0;
   if (g_once_init_enter (&g_define_type_id__volatile)) {
     GType g_define_type_id =
@@ -415,7 +480,7 @@ inline GType GClass<name, CStructs, Impl, IFaces...>::get_type (void) {
                                        sizeof (Class),
                                        (GClassInitFunc) class_intern_init,
                                        sizeof (Instance),
-                                       (GInstanceInitFunc) &GClass<name, CStructs, Impl, IFaces...>::instance_init,
+                                       (GInstanceInitFunc) &NewGClass<name, CStructs, Impl, IFaces...>::instance_init,
                                        (GTypeFlags) 0/*flags*/);
     add_interface_iter<__Dummy, IFaces...>(g_define_type_id);
     private_offset = g_type_add_instance_private (g_define_type_id, sizeof (Impl));
@@ -424,6 +489,7 @@ inline GType GClass<name, CStructs, Impl, IFaces...>::get_type (void) {
   }
   return g_define_type_id__volatile;
 }
+
 
 
 class ImplBase {
