@@ -542,7 +542,7 @@ gimp_mypaint_options_set_mapping_point(GimpMypaintOptions* options,
                                        guint size, 
                                        GimpVector2* points)
 {
-  HashTable<gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict ();
+  IHashTable<gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict ();
   CString     brush_setting_name  = mypaint_brush_signal_name_to_internal_name(prop_name);
 
   MyPaintBrushSettings* brush_setting = brush_settings_dict[brush_setting_name];
@@ -575,7 +575,7 @@ gimp_mypaint_options_get_mapping_point(GimpMypaintOptions* options,
                                        GimpVector2**       points)
 {
   float x, y;
-  HashTable<gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict ();
+  IHashTable<gchar*, MyPaintBrushSettings*> brush_settings_dict = mypaint_brush_get_brush_settings_dict ();
   CString     brush_setting_name  = mypaint_brush_signal_name_to_internal_name(prop_name);
 
   MyPaintBrushSettings* brush_setting = brush_settings_dict[brush_setting_name];
