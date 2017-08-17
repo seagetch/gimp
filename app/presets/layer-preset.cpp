@@ -1,7 +1,7 @@
 /* GIMP - The GNU Image Manipulation Program
  * Copyright (C) 1995 Spencer Kimball and Peter Mattis
  *
- * GimpJsonResource
+ * GimpPreset
  * Copyright (C) 2017 seagetch <sigetch@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -34,15 +34,15 @@ extern "C" {
 #include "presets-enums.h"
 
 }
+#include "presets/gimpjsonresource.h"
 #include "layer-preset.h"
-#include <type_traits>
 
 using namespace GLib;
 
 ////////////////////////////////////////////////////////////////////////////
 // LayerPrestConfig
 
-LayerPresetConfig::LayerPresetConfig() : JsonResourceConfig() 
+LayerPresetConfig::LayerPresetConfig() : PresetConfig()
 { 
 }
 
@@ -85,24 +85,11 @@ LayerPresetConfig::get_writable_default_paths  ()
 }
 
 
-GObject*
-LayerPresetConfig::create_view () 
-{ 
-  return NULL; 
-}
-
-
-GObject*
-LayerPresetConfig::create_editor () 
-{ 
-  return NULL; 
-}
-
 ////////////////////////////////////////////////////////////////////////////
 // LayerPrestConfig::startup code
 static LayerPresetConfig* instance = NULL;
 
-JsonResourceConfig*
+PresetConfig*
 LayerPresetConfig::config()
 {
   if (!instance)

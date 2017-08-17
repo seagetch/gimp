@@ -18,22 +18,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __LAYER_PRESET_H__
-#define __LAYER_PRESET_H__
+#ifndef __LAYER_PRESET_GUI_H__
+#define __LAYER_PRESET_GUI_H__
 
-#include "preset-factory.h"
+#include "preset-factory-gui.h"
+#include "layer-preset.h"
 
-class LayerPresetConfig : virtual public PresetConfig {
+class LayerPresetGuiConfig : virtual public LayerPresetConfig, virtual public PresetGuiConfig {
+  PrefsDialogInfo info;
 public:
-  LayerPresetConfig();
-  virtual ~LayerPresetConfig();
+  LayerPresetGuiConfig();
+  virtual ~LayerPresetGuiConfig();
 
-  virtual const gchar*      get_readonly_path_prop_name ();
-  virtual const gchar*      get_writable_path_prop_name ();
-  virtual const gchar*      get_readonly_default_paths  ();
-  virtual const gchar*      get_writable_default_paths  ();
+  virtual GObject*         create_view       (GObject* context,
+                                              gint view_size,
+                                              GObject* menu_factory);
+  virtual GObject*         create_editor     ();
+  virtual PrefsDialogInfo* prefs_dialog_info ();
 
-  static PresetConfig* config();
+  static PresetGuiConfig* config();
 
 };
-#endif /* __LAYER_PRESET_H__ */
+#endif /* __LAYER_PRESET_GUI_H__ */

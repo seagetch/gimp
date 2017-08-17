@@ -412,9 +412,7 @@ libappcore_a_sources = \
 	gimpclonelayer.h			\
 	gimpclonelayer.cpp			\
 	gimpclonelayerundo.h			\
-	gimpclonelayerundo.cpp		\
-	gimpjsonresource.cpp		\
-	gimpjsonresource.h
+	gimpclonelayerundo.cpp
 
 
 libappcore_a_built_sources = \

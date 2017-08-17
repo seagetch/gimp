@@ -33,7 +33,6 @@ extern "C" {
 
 #include "gimpclonelayer.h"
 #include "gimpclonelayerundo.h"
-#include <type_traits>
 
 struct CloneLayerUndo;
 

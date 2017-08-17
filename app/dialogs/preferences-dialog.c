@@ -33,7 +33,7 @@
 #include "core/gimp.h"
 #include "core/gimplist.h"
 #include "core/gimptemplate.h"
-#include "core/gimpjsonresource.h"
+#include "presets/preset-factory-gui.h"
 
 #include "widgets/gimpcolorpanel.h"
 #include "widgets/gimpcontainercombobox.h"
@@ -2863,7 +2863,7 @@ prefs_dialog_new (Gimp       *gimp,
       }
 
     {
-      GArray* array = json_resource_factory_prefs_entry_point();
+      GArray* array = preset_factory_gui_prefs_entry_point();
       PrefsDialogInfo* ext_paths = (PrefsDialogInfo*)array->data;
       for (i = 0; i < array->len; i++)
         {

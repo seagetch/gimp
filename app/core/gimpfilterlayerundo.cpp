@@ -33,7 +33,6 @@ extern "C" {
 
 #include "gimpfilterlayer.h"
 #include "gimpfilterlayerundo.h"
-#include <type_traits>
 
 struct FilterLayerUndo;
 

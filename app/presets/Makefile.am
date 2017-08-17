@@ -23,6 +23,12 @@ noinst_LIBRARIES = libapppresets.a
 
 libapppresets_a_sources = \
 	presets-enums.h   		\
+	gimpjsonresource.cpp		\
+	gimpjsonresource.h		\
+	preset-factory.cpp		\
+	preset-factory.h		\
+	preset-factory-gui.cpp		\
+	preset-factory-gui.h		\
 	layer-preset.cpp		\
 	layer-preset.h			\
 	layer-preset-gui.cpp		\

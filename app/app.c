@@ -60,7 +60,15 @@
 #include "gui/gui.h"
 #endif
 
-#include "core/gimpjsonresource.h"
+#ifndef GIMP_CONSOLE_COMPILATION
+
+#include "presets/preset-factory-gui.h"
+
+#else
+
+#include "presets/preset-factory.h"
+
+#endif
 
 #include "app.h"
 #include "batch.h"
@@ -172,8 +180,11 @@ app_run (const gchar         *full_prog_name,
 
   units_init (gimp);
 
-  json_resource_factory_entry_point (gimp);
-
+#ifdef GIMP_CONSOLE_COMPILATION
+  preset_factory_entry_point (gimp);
+#else
+  preset_factory_gui_entry_point (gimp);
+#endif
 
   /*  Check if the user's gimp_directory exists
    */
