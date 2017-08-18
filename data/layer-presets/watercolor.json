@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "New Watercolor layer",
+  "desc": "foobar",
+
+  "source-layer" : {
+    "type": "any",          "#": "group, filter, clone, normal, any"
+  },
+
+  "replacement-layer" : [
+    { 
+      "target":  "new",
+      "name":    "New group",
+      "type":    "group",
+      "opacity": "source",
+      "mode":    "source",
+      "child": [
+        {
+          "target": "new",
+          "name":   "mask",
+          "type":   "filter",
+          "filter": {
+            "name": "plug-in-edge",
+            "args": [{},{},{},{"type":"FLOAT","value": 2},{"type":"INT32", "value":1},{"type":"INT32","value":0}]
+          },
+          "mode":   "Difference",
+          "opacity": 0.2,
+          "boudary": "source"
+        },
+        {
+          "target":  "source",
+          "mode":   "normal",
+          "opacity": 1.0
+        }
+      ]
+    }
+  ]
+}

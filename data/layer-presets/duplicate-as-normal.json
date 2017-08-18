@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "name": "Duplicate as normal layer",
+  "desc": "foobar",
+
+  "source-layer" : {
+    "type": "any",           "#": "group, filter, clone, normal, any",
+    "alpha": true
+  },
+
+  "replacement-layer" : [
+    { 
+      "target": "new",
+      "name":  "New Layer",
+      "type":  "normal",
+      "source": "source"
+    },
+    { 
+      "target": "source"
+    }
+  ]
+}
