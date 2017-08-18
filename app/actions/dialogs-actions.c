@@ -38,6 +38,7 @@
 #include "dialogs-commands.h"
 
 #include "gimp-intl.h"
+#include "presets/preset-factory-gui.h"
 
 
 static gboolean dialogs_actions_toolbox_exists (Gimp *gimp);
@@ -330,6 +331,8 @@ dialogs_actions_setup (GimpActionGroup *group)
                                         dialogs_toplevel_actions,
                                         G_N_ELEMENTS (dialogs_toplevel_actions),
                                         G_CALLBACK (dialogs_create_toplevel_cmd_callback));
+
+  preset_factory_gui_dialogs_actions_entry_point (group);
 }
 
 void

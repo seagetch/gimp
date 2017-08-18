@@ -26,9 +26,24 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#include <gtk/gtk.h>
+#include "widgets/widgets-types.h"
+#include "widgets/gimpdialogfactory.h"
+
+typedef struct
+{
+  const gchar *tree_label;
+  const gchar *label;
+  const gchar *icon;
+  const gchar *help_data;
+  const gchar *fs_label;
+  const gchar *path_property_name;
+  const gchar *writable_property_name;
+} PrefsDialogEntry;
 
 void       preset_factory_gui_entry_point       (Gimp* gimp);
 GArray*    preset_factory_gui_prefs_entry_point (void);
+void       preset_factory_gui_dialogs_actions_entry_point (GimpActionGroup* group);
 
 
 #ifdef __cplusplus
@@ -37,6 +52,22 @@ GArray*    preset_factory_gui_prefs_entry_point (void);
 /////////////////////////////////////////////////////////////////////
 class PresetGuiConfig : virtual public PresetConfig
 {
+protected:
+  template<typename T>
+  static GtkWidget *
+  dialog_new (GimpDialogFactory      *factory,
+              GimpContext            *context,
+              GimpUIManager          *ui_manager,
+              gint                    view_size)
+  {
+    g_print("DIALOG_NEW:: \n");
+    auto config = T::config();
+    GObject* result = config->create_view(G_OBJECT(context),
+                                          view_size,
+                                          G_OBJECT(gimp_dialog_factory_get_menu_factory (factory)));
+    return GTK_WIDGET(result);
+  }
+
 public:
   PresetGuiConfig() : PresetConfig() { };
   virtual ~PresetGuiConfig() { };
@@ -44,27 +75,29 @@ public:
   ////////////////////////////////////////////
   // GUI Interface
 
-  virtual GObject*          create_view                 (GObject* context,
-                                                         gint view_size,
-                                                         GObject* menu_factory) = 0;
-  virtual GObject*          create_editor               () = 0;
-  virtual PrefsDialogInfo*  prefs_dialog_info           () = 0;
-
+  virtual GObject*                create_view             (GObject* context,
+                                                           gint view_size,
+                                                           GObject* menu_factory) = 0;
+  virtual GObject*                create_editor            () = 0;
+  virtual PrefsDialogEntry*       prefs_dialog_entry       () = 0;
+  virtual GimpDialogFactoryEntry* view_dialog_new_entry    () = 0;
+  virtual GimpStringActionEntry*  view_dialog_action_entry () = 0;
 };
 
 /////////////////////////////////////////////////////////////////////
 class PresetGuiFactory : virtual public PresetFactory
 {
 public:
-  virtual void     initialize             ();
-  virtual void     entry_point            (Gimp* gimp);
-  virtual GArray*  prefs_entry_point      ();
-  virtual void     on_initialize          (Gimp               *gimp,
-                                           GimpInitStatusFunc  status_callback);
-  virtual void     on_restore             (Gimp               *gimp,
-                                           GimpInitStatusFunc  status_callback);
-  virtual gboolean on_exit                (Gimp               *gimp,
-                                           gboolean            force);
+  virtual void     initialize                  ();
+  virtual void     entry_point                 (Gimp* gimp);
+  virtual GArray*  prefs_entry_point           ();
+  virtual void     dialogs_actions_entry_point (GimpActionGroup* group);
+  virtual void     on_initialize               (Gimp               *gimp,
+                                                GimpInitStatusFunc  status_callback);
+  virtual void     on_restore                  (Gimp               *gimp,
+                                                GimpInitStatusFunc  status_callback);
+  virtual gboolean on_exit                     (Gimp               *gimp,
+                                                gboolean            force);
 
 };
 

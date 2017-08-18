@@ -2864,7 +2864,7 @@ prefs_dialog_new (Gimp       *gimp,
 
     {
       GArray* array = preset_factory_gui_prefs_entry_point();
-      PrefsDialogInfo* ext_paths = (PrefsDialogInfo*)array->data;
+      PrefsDialogEntry* ext_paths = (PrefsDialogEntry*)array->data;
       for (i = 0; i < array->len; i++)
         {
           GtkWidget *editor;

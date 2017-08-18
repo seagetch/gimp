@@ -120,8 +120,12 @@ JsonResource::load (GimpContext* context,
 {
   auto parser = ref(json_parser_new());
   JsonNode* root;
+  if (error)
+    *error = NULL;
+  g_print("JsonResource::load(%s):: error=%p\n", filename, error);
   parser [json_parser_load_from_file] (filename, error);
-  if (error) {
+  g_print("JsonResource::load:: error=%p\n", error);
+  if (error && *error) {
     return FALSE;
   }
   root = json_parser_get_root(parser);
@@ -134,10 +138,12 @@ JsonResource::save(GError** error)
 {
   const gchar* filename = ref(g_object) [gimp_data_get_filename] ();
   auto root = ref(get_json());
+  if (error)
+    *error = NULL;
   auto generator = ref(json_generator_new());
   generator [json_generator_set_root] (root);
   generator [json_generator_to_file] (filename, error);
-  return (error != NULL);
+  return (error && *error == NULL);
 }
 
 GimpData*
@@ -164,6 +170,8 @@ JsonResource::set_json(JsonNode* node)
 {
   if (node != root) {
     root = node;
+    CString str = json_to_string(node, FALSE);
+    g_print("set: json doc = %s\n", (const gchar*)str);
     ref(g_object) [g_object_notify] ("root");
   }
 }

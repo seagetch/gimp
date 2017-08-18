@@ -31,15 +31,18 @@ extern "C" {
 
 #include "libgimpbase/gimpbase.h"
 #include "libgimpconfig/gimpconfig.h"
+#include "libgimpwidgets/gimpwidgets.h"
+
 
 #include "widgets/widgets-types.h"
 #include "widgets/gimpdatafactoryview.h"
+#include "widgets/gimpmenufactory.h"
+#include "widgets/gimpactiongroup.h"
 
 #include "presets-enums.h"
 
 #include "gimp-intl.h"
 #include "core/gimpcontext.h"
-#include "widgets/gimpmenufactory.h"
 
 }
 #include "presets/gimpjsonresource.h"
@@ -79,13 +82,6 @@ template<> class Traits<::GClass::Instance> : public ::GClass::Traits { };
 LayerPresetGuiConfig::LayerPresetGuiConfig() :
     LayerPresetConfig()
 {
-  PrefsDialogInfo i = {
-    N_("Layer Presets"), N_("Layer presets Folders"), "folders-layer-presets",
-    "",
-    N_("Select Layer Presets Folders"),
-    get_readonly_path_prop_name(), get_writable_path_prop_name()
-  };
-  info = i;
 }
 
 
@@ -133,12 +129,80 @@ LayerPresetGuiConfig::create_editor ()
 }
 
 
-PrefsDialogInfo*
-LayerPresetGuiConfig::prefs_dialog_info ()
+///////////////////////////////////////////////////
+/// LayerPresetGuiConfig#view_dialog_new_entry
+///
+///  Returns information to create notebook page
+///  for path in preference dialog.
+///
+///  @see dialogs/preferences-dialog.c
+///////////////////////////////////////////////////
+PrefsDialogEntry*
+LayerPresetGuiConfig::prefs_dialog_entry ()
 {
-  return &info;
+  static PrefsDialogEntry entry = {
+    N_("Layer Presets"), N_("Layer presets Folders"), "folders-layer-presets",
+    "",
+    N_("Select Layer Presets Folders"),
+    get_readonly_path_prop_name(), get_writable_path_prop_name()
+  };
+  return &entry;
 }
 
+
+///////////////////////////////////////////////////
+/// LayerPresetGuiConfig#view_dialog_new_entry
+///
+///  Returns information to define new dialogs
+///  to list up all presets and select one.
+///
+///  @see dialogs/dialogs.c
+///////////////////////////////////////////////////
+GimpDialogFactoryEntry*
+LayerPresetGuiConfig::view_dialog_new_entry()
+{
+  static GimpDialogFactoryEntry entry = {
+    "gimp-layer-preset-list", //*identifier,
+    N_("Layer Presets"),      //*name,
+    NULL,                     //*blurb,
+    GIMP_STOCK_LAYER,         //*stock_id,
+    "",                       //*help_id,
+    NULL,                     //new_func,
+    NULL,                     // restore_func
+    GIMP_VIEW_SIZE_SMALL,     //view_size,
+    FALSE,                    //singleton,
+    FALSE,                    //session_managed,
+    FALSE,                    //remember_size,
+    TRUE,                     //remember_if_open,
+    TRUE,                     //hideable,
+    FALSE,                    //image_window,
+    TRUE                      //dockable);
+  };
+  entry.new_func = PresetGuiConfig::dialog_new<LayerPresetGuiConfig>;
+  return &entry;
+}
+
+
+///////////////////////////////////////////////////
+/// LayerPresetGuiConfig#view_dialog_action_entry
+///
+///  returns information to define mapping from
+///  menu (actions) to command to open dialog.
+///
+///  @see actions/dialogs-actions.c
+///  @see actions/dialogs-commands.c
+///////////////////////////////////////////////////
+GimpStringActionEntry*
+LayerPresetGuiConfig::view_dialog_action_entry()
+{
+  static GimpStringActionEntry entry =
+      { "dialogs-layer-presets", GIMP_STOCK_LAYER,
+        NC_("dialogs-action", "Layer presets"), NULL,
+        NC_("dialogs-action", "Open layer presets dialog"),
+        "gimp-layer-preset-list",
+        "gimp-layer-preset-dialog" };
+  return &entry;
+}
 ////////////////////////////////////////////////////////////////////////////
 // LayerPrestGuiConfig::startup code
 static LayerPresetGuiConfig* instance = NULL;

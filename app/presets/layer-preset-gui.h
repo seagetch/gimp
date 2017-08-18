@@ -25,16 +25,19 @@
 #include "layer-preset.h"
 
 class LayerPresetGuiConfig : virtual public LayerPresetConfig, virtual public PresetGuiConfig {
-  PrefsDialogInfo info;
+  PrefsDialogEntry info;
 public:
   LayerPresetGuiConfig();
   virtual ~LayerPresetGuiConfig();
 
-  virtual GObject*         create_view       (GObject* context,
-                                              gint view_size,
-                                              GObject* menu_factory);
-  virtual GObject*         create_editor     ();
-  virtual PrefsDialogInfo* prefs_dialog_info ();
+  virtual GObject*                create_view              (GObject* context,
+                                                            gint view_size,
+                                                            GObject* menu_factory);
+  virtual GObject*                create_editor            ();
+  virtual PrefsDialogEntry*       prefs_dialog_entry       ();
+  virtual GimpDialogFactoryEntry* view_dialog_new_entry    ();
+  virtual GimpStringActionEntry*  view_dialog_action_entry ();
+
 
   static PresetGuiConfig* config();
 

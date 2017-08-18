@@ -34,16 +34,7 @@ extern "C" {
 
 void      preset_factory_entry_point       (Gimp* gimp);
 
-typedef struct
-{
-  const gchar *tree_label;
-  const gchar *label;
-  const gchar *icon;
-  const gchar *help_data;
-  const gchar *fs_label;
-  const gchar *path_property_name;
-  const gchar *writable_property_name;
-} PrefsDialogInfo;
+
 
 #ifdef __cplusplus
 }; // extern "C"
@@ -77,7 +68,7 @@ public:
                                                          gint view_size,
                                                          GObject* menu_factory) { return NULL; }
   virtual GObject*          create_editor               () { return NULL; }
-  virtual PrefsDialogInfo*  prefs_dialog_info           () { return NULL; }
+
 
   ////////////////////////////////////////////
   // Internal use (for framework)

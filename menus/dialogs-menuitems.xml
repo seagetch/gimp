@@ -25,6 +25,7 @@
   <menuitem action="dialogs-mypaint-brushes" />
   <menuitem action="dialogs-tool-presets" />
   <menuitem action="dialogs-buffers" />
+  <menuitem action="dialogs-layer-presets" />
   <separator />
   <menuitem action="dialogs-images" />
   <menuitem action="dialogs-document-history" />

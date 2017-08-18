@@ -33,6 +33,7 @@ extern "C" {
 #include "libgimpbase/gimpbase.h"
 #include "libgimpconfig/gimpconfig.h"
 #include "libgimpmath/gimpmath.h"
+#include "libgimpwidgets/gimpwidgets.h"
 
 #ifdef G_OS_WIN32
 #include "libgimpbase/gimpwin32-io.h"
@@ -53,6 +54,9 @@ extern "C" {
 
 #include "widgets/widgets-types.h"
 #include "widgets/gimpdialogfactory.h"
+#include "widgets/gimpactiongroup.h"
+
+#include "actions/dialogs-commands.h"
 }
 #include "presets/gimpjsonresource.h"
 #include "preset-factory-gui.h"
@@ -92,18 +96,44 @@ void PresetGuiFactory::entry_point(Gimp* gimp)
 GArray*
 PresetGuiFactory::prefs_entry_point ()
 {
-  GArray* result = g_array_new(FALSE, TRUE, sizeof(PrefsDialogInfo));
-  auto array = ref<PrefsDialogInfo>(result);
+  GArray* result = g_array_new(FALSE, TRUE, sizeof(PrefsDialogEntry));
+  auto array = ref<PrefsDialogEntry>(result);
 
   registry().each([&](auto key, auto it) {
-    PrefsDialogInfo* info = it->prefs_dialog_info();
-    if (info) {
-      g_print("PresetGuiFactory::prefs_entry_point: add %p\n", info);
-      array.append( *info );
+    auto config = dynamic_cast<PresetGuiConfig*>(it);
+    PrefsDialogEntry* entry = config->prefs_dialog_entry();
+    if (entry) {
+      g_print("PresetGuiFactory::prefs_entry_point: add %p\n", entry);
+      array.append( *entry );
     }
   });
   g_print("PresetGuiFactory::prefs_entry_point: end\n");
   return result;
+}
+
+
+void
+PresetGuiFactory::dialogs_actions_entry_point (GimpActionGroup* group)
+{
+  g_print("PresetGuiFactory::dialog_entry_point: group=%p\n", group);
+
+  // Dialog actions
+  auto _array = hold ( g_array_new(FALSE, TRUE, sizeof(GimpStringActionEntry)) );
+  auto array  = ref<GimpStringActionEntry>(_array);
+
+  registry().each([&](auto key, auto it) {
+    auto config = dynamic_cast<PresetGuiConfig*>(it);
+    auto entry = config->view_dialog_action_entry();
+    if (entry)
+      array.append(*entry);
+  });
+
+  gimp_action_group_add_string_actions (group, "dialogs-action",
+                                        &array[0],
+                                        array.size(),
+                                        G_CALLBACK (dialogs_create_dockable_cmd_callback));
+  g_print("PresetGuiFactory::dialog_entry_point: end\n");
+
 }
 
 
@@ -124,26 +154,29 @@ PresetGuiFactory::on_restore (Gimp               *gimp,
   // Dialog initialization.
 
   registry().each([&](auto key, auto it) {
-    GimpDataFactory* factory = it->get_data_factory();
-    GimpDialogFactory* gimp_dialog_factory_get_singleton();
-#if 0
-    gimp_dialog_factory_register_entry (GimpDialogFactory    *factory,
-                                        const gchar          *identifier,
-                                        const gchar          *name,
-                                        const gchar          *blurb,
-                                        const gchar          *stock_id,
-                                        const gchar          *help_id,
-                                        GimpDialogNewFunc     new_func,
-                                        GimpDialogRestoreFunc restore_func,
-                                        gint                  view_size,
-                                        gboolean              singleton,
-                                        gboolean              session_managed,
-                                        gboolean              remember_size,
-                                        gboolean              remember_if_open,
-                                        gboolean              hideable,
-                                        gboolean              image_window,
-                                        gboolean              dockable);
-#endif
+    GimpDialogFactory* dialog_factory = gimp_dialog_factory_get_singleton();
+    PresetGuiConfig* gui_config = dynamic_cast<PresetGuiConfig*>(it);
+
+    g_print("PresetGuiFactory::on_restore::GimpDialogFactory=%p\n", dialog_factory);
+    GimpDialogFactoryEntry* entry = gui_config->view_dialog_new_entry();
+    gimp_dialog_factory_register_entry (dialog_factory,
+                                        entry->identifier,
+                                        gettext (entry->name),
+                                        gettext (entry->blurb),
+                                        entry->stock_id,
+                                        entry->help_id,
+                                        entry->new_func,
+                                        entry->restore_func,
+                                        entry->view_size,
+                                        entry->singleton,
+                                        entry->session_managed,
+                                        entry->remember_size,
+                                        entry->remember_if_open,
+                                        entry->hideable,
+                                        entry->image_window,
+                                        entry->dockable);
+    g_print("PresetGuiFactory::on_restore::end\n");
+
   });
 }
 
@@ -168,4 +201,11 @@ GArray*
 preset_factory_gui_prefs_entry_point ()
 {
   return get_preset_factory_gui()->prefs_entry_point();
+}
+
+
+void
+preset_factory_gui_dialogs_actions_entry_point (GimpActionGroup* group)
+{
+  return get_preset_factory_gui()->dialogs_actions_entry_point(group);
 }

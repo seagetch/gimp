@@ -153,13 +153,15 @@ PresetFactory* get_preset_factory() {
     singleton = new PresetFactory();
   return singleton;
 }
-//GLib::HashTable PresetFactory factory;
+
+
 GLib::IHashTable<gconstpointer, PresetConfig*> PresetFactory::registry()
 {
   if (!_registry)
     _registry = g_hash_table_new(NULL, NULL);
   return ref<gconstpointer, PresetConfig*>(_registry);
 }
+
 
 void
 PresetFactory::register_config (PresetConfig* config)
@@ -175,13 +177,12 @@ PresetFactory::initialize()
   register_config( LayerPresetConfig::config() );
 }
 
+
 void PresetFactory::entry_point(Gimp* gimp)
 {
   initialize();
 
   g_signal_connect_delegator (G_OBJECT(gimp), "initialize", Delegators::delegator(this, &PresetFactory::on_initialize));
-  g_signal_connect_delegator (G_OBJECT(gimp), "restore",    Delegators::delegator(this, &PresetFactory::on_restore));
-  g_signal_connect_delegator (G_OBJECT(gimp), "exit",       Delegators::delegator(this, &PresetFactory::on_exit));
 
   GimpCoreConfigClass* klass = GIMP_CORE_CONFIG_CLASS (g_type_class_ref(GIMP_TYPE_CORE_CONFIG));
 
@@ -194,14 +195,18 @@ void PresetFactory::entry_point(Gimp* gimp)
 
 GList*
 PresetFactory::load (GimpContext* context,
-                               const gchar* filename,
-                               GError**     error)
+                     const gchar* filename,
+                     GError**     error)
 {
   CString basename  = g_path_get_basename (filename);
   CString res_name = g_strndup(basename, strlen(basename) - strlen(".json"));
+  g_print("PresetFactory::load:: %s\n", filename);
+
   auto json_res = GIMP_JSON_RESOURCE(JsonResourceInterface::new_instance(context, res_name));
   auto json_impl = JsonResourceInterface::cast(json_res);
+
   json_impl->load(context, filename, error);
+
   return g_list_prepend(NULL, json_res);
 }
 
@@ -230,6 +235,7 @@ PresetFactory::create_data_factory (Gimp* gimp, PresetConfig* config)
   return result;
 }
 
+
 void
 PresetFactory::on_initialize (Gimp               *gimp,
                                     GimpInitStatusFunc  status_callback)
@@ -238,6 +244,8 @@ PresetFactory::on_initialize (Gimp               *gimp,
     GimpDataFactory* factory = this->create_data_factory(gimp, it);
     it->set_data_factory(factory);
   });
+  g_signal_connect_delegator (G_OBJECT(gimp), "restore",    Delegators::delegator(this, &PresetFactory::on_restore));
+  g_signal_connect_delegator (G_OBJECT(gimp), "exit",       Delegators::delegator(this, &PresetFactory::on_exit));
 }
 
 
