@@ -49,10 +49,20 @@ public:
   LayerPresetApplier();
   virtual ~LayerPresetApplier();
 
-  void apply (GimpContext* context, GimpJsonResource* _preset) {
+  void apply_for (GimpContext* context, GimpJsonResource* _preset, GimpLayer* layer) {
     auto preset = JsonResourceInterface::cast(_preset);
     auto json = Json::ref(preset->get_json());
 
+    // Get matching part
+
+    // Get application part
+  }
+
+  void apply_for_active_layer (GimpContext* context, GImpJsonResource* preset) {
+
+  }
+
+  void apply_for_new_layer () {
 
   }
 };
