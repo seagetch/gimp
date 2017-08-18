@@ -136,7 +136,6 @@ MypaintBrushWriter::save_brush (GError      **error)
   CString icon_filename = g_strconcat(brushname.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION, NULL);
   CString icon_fullpath = g_build_filename(dirname.ptr(), icon_filename.ptr(), NULL);
 
-//  ScopedPointer<FILE, int(FILE*), fclose> file(g_fopen (filename, "wb"));
   auto generator = ref(json_generator_new());
   JsonNode* root = build_json();
   generator [json_generator_set_root] (root);

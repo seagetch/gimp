@@ -77,7 +77,8 @@ libappbase_a_SOURCES = \
 	scopeguard.hpp		\
 	glib-cxx-types.hpp      \
 	glib-cxx-impl.hpp       \
-	glib-cxx-utils.hpp
+	glib-cxx-utils.hpp	\
+	json-cxx-utils.hpp
 
 #
 # rules to generate built sources

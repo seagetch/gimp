@@ -36,8 +36,27 @@ extern "C" {
 }
 #include "presets/gimpjsonresource.h"
 #include "layer-preset.h"
+#include "base/json-cxx-utils.hpp"
 
 using namespace GLib;
+
+////////////////////////////////////////////////////////////////////////////
+// LayerPreset application model
+
+class LayerPresetApplier
+{
+public:
+  LayerPresetApplier();
+  virtual ~LayerPresetApplier();
+
+  void apply (GimpContext* context, GimpJsonResource* _preset) {
+    auto preset = JsonResourceInterface::cast(_preset);
+    auto json = Json::ref(preset->get_json());
+
+
+  }
+};
+
 
 ////////////////////////////////////////////////////////////////////////////
 // LayerPrestConfig
