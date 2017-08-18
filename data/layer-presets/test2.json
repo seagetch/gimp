@@ -13,7 +13,7 @@
       "target": "new",
       "name":  "New Layer",
       "type":  "filter",
-      "boudary": "source",     "#": "source, full, selection, [x1,y1,x2,y2]",
+      "boundary": "source",     "#": "source, full, selection, [x1,y1,x2,y2]",
       "opacity": 0.5,          "#": "0.0 - 1.0",
       "mode": "Multiply",      "#": "LayerModeEffects",
       "filter": {

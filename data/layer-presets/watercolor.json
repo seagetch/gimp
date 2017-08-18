@@ -25,7 +25,7 @@
           },
           "mode":   "Difference",
           "opacity": 0.2,
-          "boudary": "source"
+          "boundary": "source"
         },
         {
           "target":  "source",

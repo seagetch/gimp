@@ -22,14 +22,14 @@
           "type":   "clone",
           "mode":   "svg:dst-in",
           "opacity": 1.0,
-          "boudary": "source"
+          "boundary": "source"
         },
         {
           "target":  "new",
           "name":    "shadow",
           "type":    "normal",
           "mode":    "multiply",
-          "boudary": "source"
+          "boundary": "source"
         },
         {
           "target":  "source",
