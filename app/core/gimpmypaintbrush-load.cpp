@@ -114,7 +114,7 @@ gimp_mypaint_brush_load (GimpContext  *context,
 {
   GimpMypaintBrush *brush;
 
-  g_print ("Read mypaint brush %s\n", filename);
+//  g_print ("Read mypaint brush %s\n", filename);
 
   g_return_val_if_fail (filename != NULL, NULL);
   g_return_val_if_fail (g_path_is_absolute (filename), NULL);
@@ -169,7 +169,7 @@ MyPaintBrushReader::load_brush (GimpContext  *context,
   CString filename_dup  = g_strndup(filename,
                                          strlen(filename) - strlen(GIMP_MYPAINT_BRUSH_FILE_EXTENSION));
   CString icon_filename = g_strconcat (filename_dup.ptr(), GIMP_MYPAINT_BRUSH_ICON_FILE_EXTENSION, NULL);
-  g_print ("Read Icon: %s\n", icon_filename.ptr());
+//  g_print ("Read Icon: %s\n", icon_filename.ptr());
   load_icon (icon_filename.ptr());
   GimpMypaintBrushPrivate* priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
   priv->clear_dirty_flag();
@@ -698,7 +698,7 @@ MyPaintBrushReader::parse_raw_v2 (
 void
 MyPaintBrushReader::load_icon (gchar *filename)
 {
-  g_print("ICON_IMAGE=%s\n", filename);
+//  g_print("ICON_IMAGE=%s\n", filename);
   GimpMypaintBrushPrivate *priv = reinterpret_cast<GimpMypaintBrushPrivate*>(result->p);
 	cairo_surface_t* icon_image = cairo_image_surface_create_from_png(filename);
   priv->set_icon_image(icon_image);

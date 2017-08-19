@@ -26,8 +26,8 @@ public:
   Node(JsonNode* node) : super(node) {};
   Node(Node&& src) : super(src.obj) { src.obj = NULL; }
 
-  void incref() { json_node_ref(obj); };
-  void decref() { json_node_unref(obj); };
+  void incref() { if (obj) json_node_ref(obj); };
+  void decref() { if (obj) json_node_unref(obj); };
 
   void operator = (JsonNode* src) {
     if (super::obj == src)
@@ -78,6 +78,13 @@ public:
     return json_object_get_members(jobj);
   };
   
+  bool has(const gchar* prop_name) {
+    if (!is_object())
+      return false;
+    JsonObject* jobj = json_node_get_object (obj);
+    return json_object_has_member (jobj, prop_name);
+  }
+
   auto operator [](guint index) {
     if (!is_array())
       throw InvalidType(JSON_NODE_ARRAY, JSON_NODE_TYPE(obj));

@@ -51,6 +51,7 @@ extern "C" {
 #include "config/gimpcoreconfig.h"
 }
 #include "gimpjsonresource.h"
+#include "base/json-cxx-utils.hpp"
 
 
 
@@ -136,11 +137,11 @@ JsonResource::load (GimpContext* context,
 gboolean
 JsonResource::save(GError** error)
 {
-  const gchar* filename = ref(g_object) [gimp_data_get_filename] ();
-  auto root = ref(get_json());
+  const gchar* filename  = ref(g_object) [gimp_data_get_filename] ();
+  JsonNode*    root      = get_json();
+  auto         generator = ref(json_generator_new());
   if (error)
     *error = NULL;
-  auto generator = ref(json_generator_new());
   generator [json_generator_set_root] (root);
   generator [json_generator_to_file] (filename, error);
   return (error && *error == NULL);

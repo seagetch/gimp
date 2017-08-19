@@ -37,7 +37,7 @@ public:
   virtual PrefsDialogEntry*       prefs_dialog_entry       ();
   virtual GimpDialogFactoryEntry* view_dialog_new_entry    ();
   virtual GimpStringActionEntry*  view_dialog_action_entry ();
-
+  virtual ActionGroupEntry*       get_action_group_entry   ();
 
   static PresetGuiConfig* config();
 

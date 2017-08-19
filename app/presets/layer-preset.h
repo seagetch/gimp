@@ -23,6 +23,17 @@
 
 #include "preset-factory.h"
 
+class ILayerPresetApplier {
+public:
+  virtual ~ILayerPresetApplier() { };
+
+  virtual void apply_for (GimpLayer* source) = 0;
+  virtual void apply_for_active_layer () = 0;
+  virtual void apply_for_new_layer () = 0;
+
+  static ILayerPresetApplier* new_instance(GimpContext* context, GimpJsonResource* preset);
+};
+
 class LayerPresetConfig : virtual public PresetConfig {
 public:
   LayerPresetConfig();

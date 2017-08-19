@@ -20,7 +20,7 @@
 
 #include "base/delegators.hpp"
 #include "base/glib-cxx-types.hpp"
-#include "base/glib-cxx-bridge.hpp"
+__DECLARE_GTK_CLASS__(_GObject, G_TYPE_OBJECT);
 #include "base/glib-cxx-impl.hpp"
 #include "base/glib-cxx-utils.hpp"
 
@@ -41,6 +41,7 @@ extern "C" {
 
 #include "presets-enums.h"
 
+#include "gimp-intl.h"
 }
 
 #include "core/gimpfilterlayer.h"
@@ -67,7 +68,7 @@ static const gchar* LAYER_ANY_LABEL    = "any";
 static const gchar* SOURCE_LABEL    = "source";
 static const gchar* SELECTION_LABEL = "selection";
 
-class LayerPresetApplier
+class LayerPresetApplier : virtual public ILayerPresetApplier
 {
 protected:
 
@@ -94,31 +95,38 @@ protected:
     g_print("LayerPresetApplier::is_source_valid\n");
 
     for (auto key: keys) {
+      g_print("is_source_valid: check for key=%s\n", key);
 
       if (strcmp(key, "type") == 0) {
         CString v = g_strdup(json[key]); // should be one of "normal", "group", "filter", "clone", "any"
+        g_print("  v=%s\n", (const gchar*)v);
         if (strcmp(v, LAYER_NORMAL_LABEL) == 0) {
           bool assert =
               GIMP_IS_LAYER(source) &&
               !GIMP_IS_GROUP_LAYER(source) &&
               !GIMP_IS_FILTER_LAYER(source) &&
               !GIMP_IS_CLONE_LAYER(source);
+          g_print("  is layer normal layer? -> %d\n", assert);
           if (!assert)
             return false;
 
         } else if (strcmp(v, LAYER_GROUP_LABEL) == 0) {
+          g_print("  is layer group layer? -> %d\n", GIMP_IS_GROUP_LAYER(source));
           if (!GIMP_IS_GROUP_LAYER(source))
             return false;
 
         } else if (strcmp(v, LAYER_FILTER_LABEL) == 0) {
-          if (!GIMP_IS_FILTER_LAYER(source))
+          g_print("  is layer filter layer? -> %d\n", GIMP_IS_FILTER_LAYER(source));
+         if (!GIMP_IS_FILTER_LAYER(source))
             return false;
 
         } else if (strcmp(v, LAYER_CLONE_LABEL) == 0) {
+          g_print("  is layer clone layer? -> %d\n", GIMP_IS_CLONE_LAYER(source));
           if (!GIMP_IS_CLONE_LAYER(source))
             return false;
 
         } else if (strcmp(v, LAYER_ANY_LABEL)) {
+          g_print("  Type label is invalid\n");
           // invalid label.
           return false;
         }
@@ -126,16 +134,21 @@ protected:
 
       } else if (strcmp(key, "alpha") == 0) {
         bool alpha = json[key];
+        g_print("  Does layer have alpha? -> %d\n", alpha == src [gimp_drawable_has_alpha] () );
         if (alpha != src [gimp_drawable_has_alpha] ())
           return false;
       }
 
     }
+    g_print("  passed all.\n");
     return true;
   }
 
 
   Boundary get_boundary(JSON::INode json, GimpLayer* source) {
+    CString json_text = json.is_null()? g_strdup(""): json_to_string(json, false);
+    g_print("LayerPresetApplier::get_boundary:: JSON=%s\n", (const gchar*)json_text);
+
     auto src = ref(source);
     Boundary result = { 0 };
     if (json.is_array() ) {
@@ -148,9 +161,9 @@ protected:
         // FIXME: error check
       }
 
-    } else if (json.is_null() || json.is_value() && json.value_type() == G_TYPE_STRING) {
+    } else if (json.is_null() || json.is_value()) {
       // Default should be changed by target ("new", "source")
-      const gchar* boundary_text = json.is_null()? "full": json; // source, selection, *full
+      const gchar* boundary_text = json.is_null()? "": json; // source, selection, *full
 
       if (strcmp(boundary_text, SOURCE_LABEL) == 0) {
         result.x1 = src [gimp_item_get_offset_x] ();
@@ -180,8 +193,11 @@ protected:
 
 
   GimpLayer* get_source(JSON::INode json, GimpLayer* source) {
+    CString json_text = json.is_null()? g_strdup(""): json_to_string(json, false);
+    g_print("LayerPresetApplier::get_source:: JSON=%s\n", (const gchar*)json_text);
+
     GimpLayer* result = NULL;
-    if (!json.is_value() || json.value_type() != G_TYPE_STRING)
+    if (!json.is_value())
       return result;
 
     auto src = ref(source);
@@ -200,8 +216,12 @@ protected:
 
 
   GimpLayerModeEffects get_mode(JSON::INode json, GimpLayer* source) {
+    CString json_text = json.is_null()? g_strdup(""): json_to_string(json, false);
+    g_print("LayerPresetApplier::get_mode:: JSON=%s\n", (const gchar*)json_text);
+
+    g_print("  is_value=%d, value_type(%s) <==> (%s)\n", json.is_value(), g_type_name(json.value_type()), g_type_name(G_TYPE_STRING));
     GimpLayerModeEffects result = (GimpLayerModeEffects)-1;
-    if (!json.is_value() || json.value_type() != G_TYPE_STRING)
+    if (!json.is_value())
       return result;
 
     auto src = ref(source);
@@ -212,9 +232,11 @@ protected:
 
     } else {
       GEnumClass* enum_class = G_ENUM_CLASS(g_type_class_ref (GIMP_TYPE_LAYER_MODE_EFFECTS));
-      GEnumValue* enum_value = g_enum_get_value_by_name (enum_class, source_text);
+      GEnumValue* enum_value = g_enum_get_value_by_nick (enum_class, source_text);
       if (enum_value)
         result = (GimpLayerModeEffects)enum_value->value;
+      else
+        g_print("  value not found.\n");
       g_type_class_unref(enum_class);
     }
 
@@ -223,21 +245,20 @@ protected:
 
 
   double get_opacity(JSON::INode json, GimpLayer* source) {
+    CString json_text = json.is_null()? g_strdup(""): json_to_string(json, false);
+    g_print("LayerPresetApplier::get_opacity:: JSON=%s\n", (const gchar*)json_text);
+
     double result = -1;
     if (!json.is_value())
       return result;
 
     auto src = ref(source);
 
-    if (json.value_type() == G_TYPE_STRING) {
-      const gchar* opacity_text = json;
-      if (strcmp(opacity_text, SOURCE_LABEL) == 0) {
-        result = src [gimp_layer_get_opacity] ();
-
-      }
+    const gchar* opacity_text = json;
+    if (opacity_text && strcmp(opacity_text, SOURCE_LABEL) == 0) {
+      result = src [gimp_layer_get_opacity] ();
     } else {
       result = json;
-
     }
 
     return result;
@@ -245,6 +266,9 @@ protected:
 
 
   bool get_alpha(JSON::INode json, GimpLayer* source) {
+    CString json_text = json.is_null()? g_strdup(""): json_to_string(json, false);
+    g_print("LayerPresetApplier::get_alpha:: JSON=%s\n", (const gchar*)json_text);
+
     bool result = true;
     auto src = ref(source);
 
@@ -254,10 +278,9 @@ protected:
     if (!json.is_value())
       return result;
 
-    if (json.value_type() == G_TYPE_STRING) {
-      const gchar* opacity_text = json;
-      if (strcmp(opacity_text, SOURCE_LABEL) == 0)
-        result = src [gimp_drawable_has_alpha] ();
+    const gchar* alpha_text = json;
+    if (alpha_text && strcmp(alpha_text, SOURCE_LABEL) == 0) {
+      result = src [gimp_drawable_has_alpha] ();
     } else {
       result = json;
     }
@@ -267,6 +290,9 @@ protected:
 
 
   GArray* get_args(JSON::INode json, GimpLayer* source) {
+    CString json_text = json.is_null()? g_strdup(""): json_to_string(json, false);
+    g_print("LayerPresetApplier::get_args:: JSON=%s\n", (const gchar*)json_text);
+
     if (!json.is_array())
       return NULL;
 
@@ -323,32 +349,47 @@ protected:
   };
 
 
-  GimpLayer* create_one_layer (JSON::INode node_json, GimpLayer* source) {
+  GimpLayer* create_one_layer (JSON::INode node_json, GimpLayer* source, GimpLayer* parent = NULL, int index = -1) {
     if (!node_json.is_object())
       return NULL;
+
+    CString json_text = json_to_string(node_json, false);
+    g_print("LayerPresetApplier::create_one_layer:: JSON=%s\n", (const gchar*)json_text);
 
     GimpLayer*           layer = NULL;
 
     const gchar* target = node_json["target"]; // *new, source
 
-    const gchar*         name           = node_json["name"];
+    const gchar*         name           = node_json.has("name")? (const gchar*)node_json["name"] : NULL;
     GimpLayer*           content_source = get_source  (node_json["source"],   source); // source, *empty
     Boundary             boundary       = get_boundary(node_json["boundary"], source); // source, selection, full, [*,*,*,*]
     GimpLayerModeEffects mode           = get_mode    (node_json["mode"],     source); // source or layer mode
     double               opacity        = get_opacity (node_json["opacity"],  source); // source, double, default(none)
     bool                 alpha          = get_alpha   (node_json["alpha"],    source); // *source, true, false
 
+    g_print("\n---name:     %s\n", name);
+    g_print("---Layer:    %p\n", content_source);
+    g_print("---Boundary: %d,%d - %d,%d\n", boundary.x1, boundary.y1, boundary.x2, boundary.y2);
+    g_print("---mode:     %d\n", mode);
+    g_print("---opacity:  %lf\n", opacity);
+    g_print("---alpha:    %d\n\n", alpha);
+
     auto src = ref(source);
 
     if (strcmp(target, TARGET_SOURCE_LABEL) == 0) {
       layer = source; // TODO: should be duplicated?
+      auto image = ref(context->image);
+      image [gimp_image_add_layer] (layer, parent, index, TRUE);
 
     } else if (strcmp(target, TARGET_NEW_LABEL) == 0){
+      auto image = ref(context->image);
+      int width  = boundary.x2 - boundary.x1;
+      int height = boundary.y2 - boundary.y1;
+
+      if (!name) name = gettext("New Layer");
 
       const gchar* type = node_json["type"]; // *normal, group, filter, clone
 
-      int width  = boundary.x2 - boundary.x1;
-      int height = boundary.y2 - boundary.y1;
 
       if (!type || strcmp(type, LAYER_NORMAL_LABEL) == 0) { // NORMAL LAYER
 
@@ -358,39 +399,48 @@ protected:
 
         } else {
           g_print("Create normal layer: %s\n", name);
-          auto image = ref(context->image);
           GimpImageType image_type = image [gimp_image_base_type_with_alpha] ();
           layer = gimp_layer_new(image,
                                  width, height,
                                  image_type, name, opacity, mode);
           // TODO: alpha
+          image [gimp_image_add_layer] (layer, parent, index, TRUE);
         }
+
 
       } else if (strcmp(type, LAYER_GROUP_LABEL) == 0) { //GROUP LAYER
 
         g_print("Create group layer: %s\n", name);
-        layer = gimp_group_layer_new(context->image);
-        auto ilayer = ref(layer);
 
+        layer = gimp_group_layer_new(context->image);
+        image [gimp_image_add_layer] (layer, parent, index, TRUE);
+
+        auto ilayer        = ref(layer);
         auto children_json = node_json["children"];
 
         if (children_json.is_array()) {
-          auto _children = hold(this->create_replacement_layer(children_json, source));
-          auto children = ref<GimpLayer*>(_children);
+          auto _children = hold( create_replacement_layer(children_json, source, layer, 0) );
+          /*
+          auto  children = ref<GimpLayer*> (_children);
+
+          image [gimp_image_add_layer] (layer, NULL, index, TRUE);
 
           auto container = ref(ilayer [gimp_viewable_get_children] ());
 
           for ( auto child: children )
             container [gimp_container_add] (GIMP_OBJECT(child));
+          */
         }
 
+
       } else if (strcmp(type, LAYER_FILTER_LABEL) == 0) { // FILTER LAYER
+
         g_print("Verifying filter layer parameters: %s\n", name);
         // parse filter layer arguments
         auto filter_json       = node_json["filter"];
 
         const gchar* proc_name = filter_json["name"];
-        auto proc_args = hold(this->get_args(filter_json["args"], source));
+        auto proc_args = hold( get_args(filter_json["args"], source) );
 
         // create filter layer
         if (proc_name && proc_args) {
@@ -400,14 +450,22 @@ protected:
                                                      opacity, mode);
           auto filter_layer = FilterLayerInterface::cast(layer);
           filter_layer->set_procedure(proc_name, proc_args);
+
+          image [gimp_image_add_layer] (layer, parent, index, TRUE);
         }
+
+
       } else if (strcmp(type, LAYER_CLONE_LABEL) == 0) { // CLONE LAYER
+
         g_print("Create clone layer: %s\n", name);
         // create clone layer
         // FIXME: content source may be null at this time.
         layer = CloneLayerInterface::new_instance(context->image,
                                                   content_source, name,
                                                   opacity, mode);
+        image [gimp_image_add_layer] (layer, parent, index, TRUE);
+
+
       } else {
         // ERROR
         return NULL;
@@ -444,7 +502,7 @@ protected:
   };
 
 
-  GList* create_replacement_layer(JSON::INode json, GimpLayer* source) {
+  GList* create_replacement_layer(JSON::INode json, GimpLayer* source, GimpLayer* parent = NULL, int index = -1) {
     g_print("Create replacement layer: \n");
 
     if (!json.is_array())
@@ -452,10 +510,12 @@ protected:
 
     GList* result = NULL;
     json.each([&](auto node_json) {
-      GimpLayer* layer = this->create_one_layer(node_json, source);
+      GimpLayer* layer = this->create_one_layer(node_json, source, parent, index);
+      if (index >= 0)
+        index ++;
       // Append layer to the list.
-      if (layer)
-        result = g_list_append(result, layer);
+//      if (layer)
+//        result = g_list_append(result, layer);
 
     });
     return result;
@@ -465,22 +525,19 @@ protected:
 public:
 
   LayerPresetApplier(GimpContext* c, GimpJsonResource* p) : context(c), preset(p) { };
-  virtual ~LayerPresetApplier();
-
-  GList* create_source_layer(JSON::INode json) {
-
-  }
+  virtual ~LayerPresetApplier() { };
 
 
-  void apply_for (GimpLayer* source) {
+  virtual void apply_for (GimpLayer* source) {
     auto ipreset = JsonResourceInterface::cast(preset);
     auto json = JSON::ref(ipreset->get_json());
     auto i_source = ref(source); // required to keep instance even if source is removed.
+    GimpLayer* parent = GIMP_LAYER(i_source [gimp_item_get_parent] ());
 
     // Get matching part
     auto source_json = json["source-layer"];
 
-    if (!is_source_valid(source, json)) {
+    if (!is_source_valid(source, source_json)) {
       g_print("Validation failed.\n");
       return;
     }
@@ -499,36 +556,44 @@ public:
 
     if (item_index < 0) {
       GimpLayer* active_layer = image [gimp_image_get_active_layer] ();
-      container = GIMP_CONTAINER(ref(active_layer) [gimp_viewable_get_parent] ());
+      auto       active_layer_ = ref(active_layer);
+      parent                  = GIMP_LAYER( active_layer_ [gimp_item_get_parent] () );
+      container               = GIMP_CONTAINER( active_layer_ [gimp_viewable_get_parent] () );
       if (!container)
         container = image [gimp_image_get_layers] ();
-      item_index = container [gimp_container_get_child_index] (GIMP_OBJECT(active_layer));
+
+      item_index              = container [gimp_container_get_child_index] (GIMP_OBJECT(active_layer));
 
     } else {
       // Remove source layer.
-      container [gimp_container_remove] (GIMP_OBJECT(source));
+//      container [gimp_container_remove] (GIMP_OBJECT(source));
+      image [gimp_image_remove_layer] (source, TRUE, NULL);
     }
 
-    // Create layers to be inserted.
-    GLib::List _dest_layers = create_replacement_layer(replace_json, source);
+    // Create layers and insert it.
+    GLib::List _dest_layers = create_replacement_layer(replace_json, source, parent, item_index);
     auto dest_layers = ref<GimpLayer*>(_dest_layers);
 
+/*
     // Insert layers.
     for (auto dest_layer : dest_layers) {
-      // TODO: insert layer
+      g_print("INSERT LAYER: %s\n", ref(dest_layer)[gimp_object_get_name]());
       container [gimp_container_insert] (GIMP_OBJECT(dest_layer), item_index);
       item_index ++;
     }
+*/
   }
 
-  void apply_for_active_layer () {
+
+  virtual void apply_for_active_layer () {
     auto image = ref(context->image);
     GimpLayer* active_layer = image [gimp_image_get_active_layer] ();
     apply_for (active_layer);
 
   }
 
-  void apply_for_new_layer () {
+
+  virtual void apply_for_new_layer () {
     auto ipreset = JsonResourceInterface::cast(preset);
     auto json = JSON::ref(ipreset->get_json());
 
@@ -544,6 +609,13 @@ public:
     apply_for(source);
   }
 };
+
+
+ILayerPresetApplier*
+ILayerPresetApplier::new_instance(GimpContext* context, GimpJsonResource* preset)
+{
+  return new LayerPresetApplier(context, preset);
+}
 
 
 ////////////////////////////////////////////////////////////////////////////

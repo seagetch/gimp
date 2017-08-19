@@ -56,6 +56,9 @@ extern "C" {
 #include "widgets/gimpdialogfactory.h"
 #include "widgets/gimpactiongroup.h"
 
+#include "display/display-types.h"
+#include "actions/actions-types.h"
+#include "actions/actions.h"
 #include "actions/dialogs-commands.h"
 }
 #include "presets/gimpjsonresource.h"
@@ -69,8 +72,19 @@ using namespace GLib;
 extern GLib::GClassWrapper<UseCStructs<GimpBaseConfig, GimpCoreConfig> > core_class;
 
 ////////////////////////////////////////////////////////////////////////////
-// PresetGuiConfig
+static void
+preset_factory_gui_action_group_entry_point (GimpActionGroup *group)
+{
+  get_preset_factory_gui()->action_group_entry_point(group);
+}
 
+
+static void
+preset_factory_gui_action_group_update (GimpActionGroup *group,
+                                        gpointer         user_data)
+{
+  get_preset_factory_gui()->action_group_update(group, user_data);
+}
 
 ////////////////////////////////////////////////////////////////////////////
 // PresetGuiFactory
@@ -138,6 +152,25 @@ PresetGuiFactory::dialogs_actions_entry_point (GimpActionGroup* group)
 
 
 void
+PresetGuiFactory::action_group_entry_point(GimpActionGroup *group)
+{
+  registry().each([&](auto key, auto it) {
+
+  });
+}
+
+
+void
+PresetGuiFactory::action_group_update(GimpActionGroup *group,
+                                      gpointer         user_data)
+{
+  registry().each([&](auto key, auto it) {
+
+  });
+}
+
+
+void
 PresetGuiFactory::on_initialize (Gimp               *gimp,
                                  GimpInitStatusFunc  status_callback)
 {
@@ -151,9 +184,9 @@ PresetGuiFactory::on_restore (Gimp               *gimp,
 {
   PresetFactory::on_restore(gimp, status_callback);
 
-  // Dialog initialization.
-
   registry().each([&](auto key, auto it) {
+    // Dialog initialization.
+
     GimpDialogFactory* dialog_factory = gimp_dialog_factory_get_singleton();
     PresetGuiConfig* gui_config = dynamic_cast<PresetGuiConfig*>(it);
 
@@ -177,7 +210,19 @@ PresetGuiFactory::on_restore (Gimp               *gimp,
                                         entry->dockable);
     g_print("PresetGuiFactory::on_restore::end\n");
 
+    // Action group entry initialization
+    PresetGuiConfig::ActionGroupEntry* action_group_entry = gui_config->get_action_group_entry();
+    g_print("Global action factory=%p\n", global_action_factory);
+
+    if (action_group_entry)
+      gimp_action_factory_group_register (global_action_factory,
+                                          action_group_entry->identifier,
+                                          action_group_entry->label,
+                                          action_group_entry->stock_id,
+                                          preset_factory_gui_action_group_entry_point,
+                                          preset_factory_gui_action_group_update);
   });
+
 }
 
 

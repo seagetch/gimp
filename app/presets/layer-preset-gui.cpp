@@ -58,15 +58,35 @@ class LayerPresetFactoryView : virtual public ImplBase
 public:
   LayerPresetFactoryView(GObject* o) : ImplBase(o) { }
   ~LayerPresetFactoryView() { }
+
+  void select_item(GimpViewable* viewable) {
+    g_print("LayerPresetFactoryView::select: %s\n", ref(viewable)[gimp_object_get_name]());
+    auto self = ref(g_object);
+    GObject* context = self["context"];
+    if (context && GIMP_CONTEXT(context)->image) {
+      auto applier = ILayerPresetApplier::new_instance(GIMP_CONTEXT(context), GIMP_JSON_RESOURCE(viewable));
+      applier->apply_for_active_layer();
+    }
+  }
+  void activate_item(GimpViewable* viewable) {
+    g_print("LayerPresetFactoryView::activate: %s\n", ref(viewable)[gimp_object_get_name]());
+  }
 };
 
 extern const char layer_preset_factory_view[] = "GimpLayerPresetFactoryView";
-GLib::NewGClass<layer_preset_factory_view, DerivedFrom<GimpDataFactoryView>, LayerPresetFactoryView>
-class_instance([](IGClass::IWithClass* with_class){
+using GClass = GLib::NewGClass<layer_preset_factory_view, DerivedFrom<GimpDataFactoryView>, LayerPresetFactoryView>;
+#define __override(method) GClass::__(&klass->method).bind<&Impl::method>()
 
+GClass class_instance([](IGClass::IWithClass* with_class){
+  using Impl = LayerPresetFactoryView;
+  g_print("LayerPresetFactoryView:: CLASS INITIALIZATION.\n");
+  with_class->
+  as_class<GimpContainerEditor>([](GimpContainerEditorClass* klass){
+    __override (select_item);
+    __override (activate_item);
+  });
 });
 
-using GClass                     = typename GLib::strip_ref<decltype(class_instance)>::type;
 using GimpLayerPresetFactoryView = ::GClass::Instance;
 
 namespace GLib {
@@ -203,6 +223,19 @@ LayerPresetGuiConfig::view_dialog_action_entry()
         "gimp-layer-preset-dialog" };
   return &entry;
 }
+
+
+LayerPresetGuiConfig::ActionGroupEntry*
+LayerPresetGuiConfig::get_action_group_entry()
+{
+  static LayerPresetGuiConfig::ActionGroupEntry entry = {
+      "layer-presets",
+      "Layer presets",
+      GIMP_STOCK_LAYER
+  };
+  return &entry;
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // LayerPrestGuiConfig::startup code
 static LayerPresetGuiConfig* instance = NULL;

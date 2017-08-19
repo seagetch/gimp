@@ -28,6 +28,7 @@ extern "C" {
 #endif
 #include <gtk/gtk.h>
 #include "widgets/widgets-types.h"
+#include "widgets/gimpactionfactory.h"
 #include "widgets/gimpdialogfactory.h"
 
 typedef struct
@@ -53,6 +54,7 @@ void       preset_factory_gui_dialogs_actions_entry_point (GimpActionGroup* grou
 class PresetGuiConfig : virtual public PresetConfig
 {
 protected:
+
   template<typename T>
   static GtkWidget *
   dialog_new (GimpDialogFactory      *factory,
@@ -68,6 +70,13 @@ protected:
     return GTK_WIDGET(result);
   }
 
+  struct ActionGroupEntry
+  {
+    const gchar* identifier;
+    const gchar* label;
+    const gchar* stock_id;
+  };
+
 public:
   PresetGuiConfig() : PresetConfig() { };
   virtual ~PresetGuiConfig() { };
@@ -82,6 +91,7 @@ public:
   virtual PrefsDialogEntry*       prefs_dialog_entry       () = 0;
   virtual GimpDialogFactoryEntry* view_dialog_new_entry    () = 0;
   virtual GimpStringActionEntry*  view_dialog_action_entry () = 0;
+  virtual ActionGroupEntry*       get_action_group_entry   () = 0;
 };
 
 /////////////////////////////////////////////////////////////////////
@@ -89,8 +99,15 @@ class PresetGuiFactory : virtual public PresetFactory
 {
 public:
   virtual void     initialize                  ();
+
   virtual void     entry_point                 (Gimp* gimp);
+
   virtual GArray*  prefs_entry_point           ();
+
+  virtual void     action_group_entry_point    (GimpActionGroup *group);
+  virtual void     action_group_update         (GimpActionGroup *group,
+                                                gpointer         user_data);
+
   virtual void     dialogs_actions_entry_point (GimpActionGroup* group);
   virtual void     on_initialize               (Gimp               *gimp,
                                                 GimpInitStatusFunc  status_callback);

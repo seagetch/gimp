@@ -243,7 +243,8 @@ public:
       InvalidClass(gpointer s, gpointer p) : should_be(s), passed(p) { };
     };
 
-    void init(gpointer class_struct) {
+    void init(gpointer class_struct)
+    {
       if (!klass) {
         klass = class_struct;
         guint n_properties;
@@ -254,8 +255,13 @@ public:
         throw new InvalidClass(klass, class_struct);
     }
 
-    virtual IWithClass* install_property(GParamSpec* spec, std::function<Value(GObject*)> getter, std::function<void(GObject*, Value)> setter) {
+    virtual IWithClass*
+    install_property(GParamSpec* spec,
+                     std::function<Value(GObject*)> getter,
+                     std::function<void(GObject*, Value)> setter)
+    {
       install_property_handlers(klass);
+
       as_class<GObject>([&](GObjectClass* klass) {
         auto properties = GClassWrapper::properties();
         guint index = properties.size() + GClassWrapper::properties_base;
@@ -268,7 +274,10 @@ public:
       return this;
     }
 
-    virtual IWithClass* install_signal_v(const gchar* signal_name, GType R, size_t size, GType* args) {
+    virtual IWithClass* install_signal_v(const gchar* signal_name,
+                                         GType R, size_t size,
+                                         GType* args)
+    {
       as_class<GObject>([&](GObjectClass* klass) {
         auto signals = GClassWrapper::signals();
         guint sig_id = g_signal_newv(signal_name, G_OBJECT_CLASS_TYPE(klass), G_SIGNAL_RUN_LAST, 0 /*Offset*/, NULL, NULL, NULL/*g_closure_marshaller_generic*/, R, size, args);
@@ -306,8 +315,9 @@ typename GClassWrapper<CStructs>::PreviousPropertyHandler GClassWrapper<CStructs
 
 template <char const* name, typename CStructs, typename Impl, typename... IFaces>
 class NewGClass : public GClassWrapper<CStructs> {
-  static std::function<void(IGClass::IWithClass*)> class_init_callback;
+  static void (*class_init_callback)(IGClass::IWithClass*);
   static NewGClass* singleton;
+  using GClass = NewGClass;
 
   struct class_init_check {
     using yes = struct { long field[1]; };
@@ -357,7 +367,7 @@ public:
   };
 
 
-  NewGClass(std::function<void(IGClass::IWithClass*)> callback) {
+  NewGClass(void (*callback)(IGClass::IWithClass*)) {
     if (singleton) {
       g_error("duplicated initialization of callback for %s.\n", name);
     } else {
@@ -462,7 +472,7 @@ NewGClass<name, CStructs, Impl, IFaces...>*
 NewGClass<name, CStructs, Impl, IFaces...>::singleton = NULL;
 
 template <char const* name, typename CStructs, typename Impl, typename... IFaces>
-std::function<void(IGClass::IWithClass*)> NewGClass<name, CStructs, Impl, IFaces...>::class_init_callback;
+void(*NewGClass<name, CStructs, Impl, IFaces...>::class_init_callback)(IGClass::IWithClass*) ;
 
 template <char const* name, typename CStructs, typename Impl, typename... IFaces>
 gpointer NewGClass<name, CStructs, Impl, IFaces...>::parent_class = NULL;

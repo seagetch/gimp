@@ -61,5 +61,11 @@ GtkSelectionMode gimp_container_editor_get_selection_mode (GimpContainerEditor *
 void             gimp_container_editor_set_selection_mode (GimpContainerEditor *editor,
                                                            GtkSelectionMode     mode);
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-types.hpp"
+__DECLARE_GTK_CLASS__(_GimpContainerEditor, GIMP_TYPE_CONTAINER_EDITOR);
+};
+#endif
 
 #endif  /*  __GIMP_CONTAINER_EDITOR_H__  */

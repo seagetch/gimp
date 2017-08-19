@@ -388,6 +388,7 @@ gimp_composite_init (gboolean  be_verbose,
                     can_use_altivec ? '+' : '-',
                     can_use_vis     ? '+' : '-');
     }
+#if 0
   {
 	// FIXME: dump table for debugging
 	int i, j, k, l;
@@ -406,6 +407,7 @@ gimp_composite_init (gboolean  be_verbose,
 	}
   }
   }
+#endif
 }
 
 gboolean
