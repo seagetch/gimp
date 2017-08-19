@@ -14,7 +14,7 @@
       "type":    "group",
       "opacity": "source",
       "mode":    "source",
-      "child": [
+      "children": [
         {
           "target": "new",
           "name":   "mask",
