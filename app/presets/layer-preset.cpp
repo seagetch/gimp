@@ -174,10 +174,19 @@ protected:
       } else if (strcmp(boundary_text, SELECTION_LABEL) == 0) {
         auto image = ref(context->image);
         auto mask  = image [gimp_image_get_mask] ();
-        result.x1  = mask->x1;
-        result.y1  = mask->y1;
-        result.x2  = mask->x2;
-        result.y2  = mask->y2;
+        if (mask) {
+          result.x1  = mask->x1;
+          result.y1  = mask->y1;
+          result.x2  = mask->x2;
+          result.y2  = mask->y2;
+
+        } else {
+          auto image =ref(context->image);
+          result.x1 = 0;
+          result.y1 = 0;
+          result.x2 = result.x1 + image [gimp_image_get_width] ();
+          result.y2 = result.y1 + image [gimp_image_get_height] ();
+        }
 
       } else if (strcmp(boundary_text, "full") == 0) {
         auto image =ref(context->image);
@@ -501,11 +510,11 @@ protected:
       int orig_h = ilayer [gimp_item_get_height] ();
       ilayer [gimp_item_get_offset] (&orig_x, &orig_y);
 
+      if (width != orig_w || height != orig_h)
+        ilayer [gimp_item_resize] (context, width, height, -boundary.x1 + orig_x, - boundary.y1 + orig_y);
+
       if (orig_x != boundary.x1 || orig_y != boundary.y2)
         ilayer [gimp_item_set_offset] (boundary.x1, boundary.y1);
-      if (width != orig_w || height != orig_h)
-        ilayer [gimp_item_set_size] (width, height);
-//        ilayer [gimp_item_resize] (context, width, height, boundary.x1, boundary.y1);
     }
 
     if (opacity >= 0 && opacity <= 1.0)
