@@ -379,19 +379,27 @@ protected:
     if (strcmp(target, TARGET_SOURCE_LABEL) == 0) {
       layer = source; // TODO: should be duplicated?
       auto image = ref(context->image);
-      image [gimp_image_add_layer] (layer, parent, index, TRUE);
+//      image [gimp_image_add_layer] (layer, parent, index, TRUE);
+
+      image [gimp_image_reorder_item] (GIMP_ITEM(layer),
+                                       GIMP_ITEM(parent),
+                                       index,
+                                       TRUE, "reorder by layer-preset.");
 
     } else if (strcmp(target, TARGET_NEW_LABEL) == 0){
       auto image = ref(context->image);
       int width  = boundary.x2 - boundary.x1;
       int height = boundary.y2 - boundary.y1;
 
-      if (!name) name = gettext("New Layer");
+      if (opacity < 0.0) opacity = 1.0;
 
       const gchar* type = node_json["type"]; // *normal, group, filter, clone
 
 
       if (!type || strcmp(type, LAYER_NORMAL_LABEL) == 0) { // NORMAL LAYER
+
+        if (mode < 0) mode = GIMP_NORMAL_MODE;
+        if (!name)    name = gettext("New Layer");
 
         if (content_source) {
           g_print("Duplicate normal layer: %s->%s\n", src[gimp_object_get_name](), name);
@@ -404,13 +412,16 @@ protected:
                                  width, height,
                                  image_type, name, opacity, mode);
           // TODO: alpha
-          image [gimp_image_add_layer] (layer, parent, index, TRUE);
         }
+        image [gimp_image_add_layer] (layer, parent, index, TRUE);
 
 
       } else if (strcmp(type, LAYER_GROUP_LABEL) == 0) { //GROUP LAYER
 
         g_print("Create group layer: %s\n", name);
+
+        if (mode < 0) mode = GIMP_NORMAL_MODE;
+        if (!name)    name = gettext("New Group Layer");
 
         layer = gimp_group_layer_new(context->image);
         image [gimp_image_add_layer] (layer, parent, index, TRUE);
@@ -420,22 +431,16 @@ protected:
 
         if (children_json.is_array()) {
           auto _children = hold( create_replacement_layer(children_json, source, layer, 0) );
-          /*
-          auto  children = ref<GimpLayer*> (_children);
-
-          image [gimp_image_add_layer] (layer, NULL, index, TRUE);
-
-          auto container = ref(ilayer [gimp_viewable_get_children] ());
-
-          for ( auto child: children )
-            container [gimp_container_add] (GIMP_OBJECT(child));
-          */
         }
 
 
       } else if (strcmp(type, LAYER_FILTER_LABEL) == 0) { // FILTER LAYER
 
         g_print("Verifying filter layer parameters: %s\n", name);
+
+        if (mode < 0) mode = GIMP_REPLACE_MODE;
+        if (!name)    name = gettext("New Filter Layer");
+
         // parse filter layer arguments
         auto filter_json       = node_json["filter"];
 
@@ -457,6 +462,9 @@ protected:
 
       } else if (strcmp(type, LAYER_CLONE_LABEL) == 0) { // CLONE LAYER
 
+        if (mode < 0) mode = GIMP_NORMAL_MODE;
+        if (!name)    name = gettext("New Clone Layer");
+
         g_print("Create clone layer: %s\n", name);
         // create clone layer
         // FIXME: content source may be null at this time.
@@ -464,7 +472,6 @@ protected:
                                                   content_source, name,
                                                   opacity, mode);
         image [gimp_image_add_layer] (layer, parent, index, TRUE);
-
 
       } else {
         // ERROR
@@ -483,13 +490,16 @@ protected:
     if (boundary.x1 != boundary.x2 && boundary.y1 != boundary.y2) {
       int width  = boundary.x2 - boundary.x1;
       int height = boundary.y2 - boundary.y1;
+      int orig_x, orig_y;
       int orig_w = ilayer [gimp_item_get_width] ();
       int orig_h = ilayer [gimp_item_get_height] ();
+      ilayer [gimp_item_get_offset] (&orig_x, &orig_y);
 
-      ilayer [gimp_item_set_offset] (boundary.x1, boundary.y1);
-
+      if (orig_x != boundary.x1 || orig_y != boundary.y2)
+        ilayer [gimp_item_set_offset] (boundary.x1, boundary.y1);
       if (width != orig_w || height != orig_h)
         ilayer [gimp_item_set_size] (width, height);
+//        ilayer [gimp_item_resize] (context, width, height, boundary.x1, boundary.y1);
     }
 
     if (opacity >= 0 && opacity <= 1.0)
@@ -510,13 +520,17 @@ protected:
 
     GList* result = NULL;
     json.each([&](auto node_json) {
-      GimpLayer* layer = this->create_one_layer(node_json, source, parent, index);
-      if (index >= 0)
-        index ++;
-      // Append layer to the list.
-//      if (layer)
-//        result = g_list_append(result, layer);
-
+      try {
+        GimpLayer* layer = this->create_one_layer(node_json, source, parent, index);
+        if (index >= 0)
+          index ++;
+      } catch(JSON::INode::InvalidType e) {
+        g_print("Error: Invalid access for json document.\n");
+      } catch(JSON::INode::InvalidIndex e) {
+        g_print("Error: Invalid array index access for json document.\n");
+      } catch(...) {
+        g_print("Error: Some error occurred when accessing json document.\n");
+      }
     });
     return result;
   };
@@ -529,10 +543,12 @@ public:
 
 
   virtual void apply_for (GimpLayer* source) {
+//    gimp_image_undo_group_start (image, GIMP_UNDO_GROUP_ITEM_RESIZE,
+//                                 item_class->resize_desc);
+
     auto ipreset = JsonResourceInterface::cast(preset);
     auto json = JSON::ref(ipreset->get_json());
     auto i_source = ref(source); // required to keep instance even if source is removed.
-    GimpLayer* parent = GIMP_LAYER(i_source [gimp_item_get_parent] ());
 
     // Get matching part
     auto source_json = json["source-layer"];
@@ -545,43 +561,36 @@ public:
     // Get application part
     auto replace_json = json["replacement-layer"];
 
-    auto src       = ref(source);
-    auto image     = ref(context->image);
+    auto parent       = ref( GIMP_LAYER(i_source [gimp_item_get_parent] ()) );
+    auto src          = ref( source );
+    auto image        = ref( context->image );
 
-    auto container = ref( GIMP_CONTAINER(src [gimp_viewable_get_parent] ()) );
-    if (!container)
-      container = image [gimp_image_get_layers] ();
+    auto container    = ref( parent ?
+                               parent [gimp_viewable_get_children] () :
+                               image [gimp_image_get_layers] () );
 
     gint item_index = container [gimp_container_get_child_index] (GIMP_OBJECT(source));
 
     if (item_index < 0) {
-      GimpLayer* active_layer = image [gimp_image_get_active_layer] ();
-      auto       active_layer_ = ref(active_layer);
-      parent                  = GIMP_LAYER( active_layer_ [gimp_item_get_parent] () );
-      container               = GIMP_CONTAINER( active_layer_ [gimp_viewable_get_parent] () );
-      if (!container)
-        container = image [gimp_image_get_layers] ();
+      g_print("Source is not in the image stack. Calcurating position.\n");
 
+      GimpLayer* active_layer  = image [gimp_image_get_active_layer] ();
+      auto       active_layer_ = ref(active_layer);
+      parent                   = ref( GIMP_LAYER( active_layer_ [gimp_item_get_parent] () ) );
+      auto container           = ref( parent ?
+                                        parent [gimp_viewable_get_children] () :
+                                        image [gimp_image_get_layers] () );
       item_index              = container [gimp_container_get_child_index] (GIMP_OBJECT(active_layer));
 
     } else {
       // Remove source layer.
-//      container [gimp_container_remove] (GIMP_OBJECT(source));
-      image [gimp_image_remove_layer] (source, TRUE, NULL);
+//      g_print("Removing source layer once.\n");
+//      image [gimp_image_remove_layer] (source, TRUE, NULL);
     }
 
     // Create layers and insert it.
     GLib::List _dest_layers = create_replacement_layer(replace_json, source, parent, item_index);
     auto dest_layers = ref<GimpLayer*>(_dest_layers);
-
-/*
-    // Insert layers.
-    for (auto dest_layer : dest_layers) {
-      g_print("INSERT LAYER: %s\n", ref(dest_layer)[gimp_object_get_name]());
-      container [gimp_container_insert] (GIMP_OBJECT(dest_layer), item_index);
-      item_index ++;
-    }
-*/
   }
 
 
