@@ -2421,6 +2421,7 @@ data/tool-presets/FX/Makefile
 data/tool-presets/Paint/Makefile
 data/tool-presets/Selection/Makefile
 data/tool-presets/Sketch/Makefile
+data/layer-presets/Makefile
 data/mypaint-brushes/Makefile
 data/mypaint-brushes/classic/Makefile
 data/mypaint-brushes/deevad/Makefile

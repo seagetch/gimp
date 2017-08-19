@@ -12,7 +12,8 @@ SUBDIRS = \
 	tips		\
 	tags		\
 	tool-presets	\
-	mypaint-brushes
+	mypaint-brushes \
+	layer-presets
 
 fontdir = $(gimpdatadir)/fonts
 
