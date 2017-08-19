@@ -17,6 +17,7 @@ using namespace Delegators;
 
 namespace GLib {
 
+
 class MemoryHolder : public ScopedPointer<gchar, void(gpointer), g_free>
 {
 public:
@@ -24,6 +25,7 @@ public:
   template<typename T> operator T*() { return (T*)obj; };
   template<typename T> operator T* const() { return (T*)obj; };
 };
+
 
 class CString : public ScopedPointer<gchar, void(gpointer), g_free>
 {
@@ -44,12 +46,14 @@ public:
   };
 };
 
+
 class StringList : public ScopedPointer<gchar*, void(gchar**), g_strfreev>
 {
 public:
   StringList() : ScopedPointer<gchar*, void(gchar**), g_strfreev>(NULL) {};
   StringList(gchar** list) : ScopedPointer<gchar*, void(gchar**), g_strfreev>(list) {};
 };
+
 
 template<typename T>
 void g_string_free_all(T* str) { g_string_free((GString*)str, TRUE); }
@@ -76,6 +80,7 @@ public:
 
 };
 
+
 class List : public ScopedPointer<GList, void(GList*), g_list_free>
 {
 public:
@@ -85,7 +90,10 @@ public:
   };
   List(const List& src) : ScopedPointer<GList, void(GList*), g_list_free>(g_list_copy(src.obj)) { }
 };
+
+
 inline auto hold(GList* list) { return static_cast<List&&>(List(list)); }
+
 
 template<class T>
 class IList {
@@ -123,15 +131,18 @@ public:
   Iterator end() const { return Iterator(); }
 };
 
+
 template<typename Data>
 inline auto ref(GList* list) { return static_cast<IList<Data>&&>(IList<Data>(list)); }
 
 }; // namespace GLib
 
+
 namespace std {
 template<typename T> auto begin(const GLib::IList<T>& list) { return list.begin(); }
 template<typename T> auto end(const GLib::IList<T>& list) { return list.end(); }
 };
+
 
 namespace GLib {
 
@@ -161,7 +172,9 @@ public:
   }
 };
 
+
 inline auto hold(GArray* arr) { return static_cast<Array&&>(Array(arr)); }
+
 
 template<typename Data>
 class IArray : public Array
@@ -178,21 +191,25 @@ public:
   void prepend(Data data) { g_array_prepend_val(obj, data); };
   void insert(int index, Data data) { g_array_insert_val(obj, index, data); };
   void remove(int index) { g_array_remove_index(obj, index); };
-  Data& begin() { return (*this)[0]; }
-  Data& end()   { return (*this)[size()]; }
+  Data* begin() { return &(*this)[0]; }
+  Data* end()   { return &(*this)[size()]; }
 };
+
 
 template<typename Data>
 inline auto ref(GArray* arr) { return static_cast<IArray<Data>&&>(IArray<Data>(arr)); }
+
 template<typename Data>
 inline auto ref(GLib::Array& arr) { return static_cast<IArray<Data>&&>(IArray<Data>(arr.ptr())); }
 
 }; // namespace GLib
 
+
 namespace std {
 template<typename T> auto begin(const GLib::IArray<T>& arr) { return arr.begin(); }
 template<typename T> auto end  (const GLib::IArray<T>& arr) { return arr.end(); }
 }; // namespace std
+
 
 namespace GLib
 {
@@ -220,6 +237,8 @@ public:
     return *this;
   }
 };
+
+
 inline auto hold(GHashTable* hashtable) { return static_cast<HashTable&&>(HashTable(hashtable)); }
 
 
@@ -257,6 +276,8 @@ public:
     return *this;
   }
 };
+
+
 template<typename Key, typename Data>
 inline auto ref(GHashTable* hashtable) { return static_cast<IHashTable<Key, Data>&&>(IHashTable<Key, Data>(hashtable)); }
 
@@ -264,8 +285,12 @@ inline auto ref(GHashTable* hashtable) { return static_cast<IHashTable<Key, Data
 class Regex : public ScopedPointer<GRegex, void(GRegex*), g_regex_unref>
 {
 public:
-  class Matched : public ScopedPointer<GMatchInfo, void(GMatchInfo*), g_match_info_unref> {
+
+
+  class Matched : public ScopedPointer<GMatchInfo, void(GMatchInfo*), g_match_info_unref>
+  {
     bool matched;
+
   public:
     Matched(GMatchInfo* info) : ScopedPointer<GMatchInfo, void(GMatchInfo*), g_match_info_unref>(info), matched(true) {};
     Matched(Matched& src) : ScopedPointer<GMatchInfo, void(GMatchInfo*), g_match_info_unref>(src.obj), matched(true) { g_match_info_ref(obj); };
@@ -279,14 +304,18 @@ public:
       return *this;
     }
   };
+
   Regex(GRegex* regex) : ScopedPointer<GRegex, void(GRegex*), g_regex_unref>(regex) {};
+
   Regex(const gchar* pattern) : ScopedPointer<GRegex, void(GRegex*), g_regex_unref>(
       g_regex_new(pattern, (GRegexCompileFlags)G_REGEX_OPTIMIZE, (GRegexMatchFlags)0, NULL )) {};
+
   Matched match(gchar* str) {
     GMatchInfo* info;
     g_regex_match(obj, str, (GRegexMatchFlags)0, &info);
     return Matched(info);
   };
+
   template<typename F>
   bool match(gchar* str, F matched_callback) {
     GMatchInfo* info;
@@ -300,14 +329,17 @@ public:
     }
     return result;
   };
+
   gchar* replace(const gchar* str, const gchar* replace_str) {
     return g_regex_replace(obj, str, -1, 0, replace_str, GRegexMatchFlags(0), NULL);
   }
+
 };
 
 class regex_case {
   CString str;
   bool matched;
+
 public:
   regex_case(const gchar* s) : str(g_strdup(s)), matched(false) { };
   regex_case& when(Regex& regex, std::function<void(Regex::Matched&)> callback) {
@@ -327,11 +359,13 @@ public:
   };
 };
 
+
 template<typename T> inline const T get_value(const GValue& src) {
   T::__this_should_generate_error_on_compilation;
   g_error("Fallback to get_value for %s\n", typeid(T).name());
   return T();
 }
+
 template<typename T> inline void set_value(GValue& src, T value) {
   T::__this_should_generate_error_on_compilation;
   g_error("Fallback to set_value for %s\n", typeid(T).name());
@@ -392,11 +426,15 @@ template<> inline void set_value<GObject*>(GValue& src, GObject* value) { g_valu
 //#define G_TYPE_ENUM
 //#define G_TYPE_FLAGS
 
+
 template<typename _Instance>
 class FundamentalTraits {
+
 public:
   typedef _Instance Instance;
+
   static GType get_type() { return g_type<Instance>(); };
+
   static GValue _default() {
     GValue value = G_VALUE_INIT;
     g_value_init(&value, get_type());
@@ -416,13 +454,16 @@ public:
   }
 };
 
-template<bool IsOwner> inline void g_value_finalize(GValue* value) {
+
+template<bool IsOwner>
+inline void g_value_finalize(GValue* value) {
   if (value) {
     g_value_unset(value);
     if (IsOwner)
       g_free(value);
   }
 };
+
 
 template<bool IsOwner>
 class ValueRef : public ScopedPointer<GValue, void(GValue*), g_value_finalize<IsOwner>>
@@ -449,69 +490,88 @@ public:
 
 };
 
+
 inline ValueRef<false> ref(GValue* src) { return ValueRef<false>(src); }
+
 
 class Value : public ValueRef<true>
 {
 public:
+
   Value(const GValue& src) : ValueRef<true>(g_new0(GValue, 1)) {
     GValue default_value = G_VALUE_INIT;
     *obj = default_value;
     g_value_init(obj, G_VALUE_TYPE(&src));
     g_value_copy(&src, obj);
   };
+
   Value(const GValue* src) : ValueRef<true>(g_new0(GValue, 1)) {
     GValue default_value = G_VALUE_INIT;
     *obj = default_value;
     g_value_init(obj, G_VALUE_TYPE(src));
     g_value_copy(src, obj);
   };
+
   Value(GValue&& src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = src;
     GValue default_value = G_VALUE_INIT;
     src = default_value;
   };
+
   Value(const Value& src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = *src.obj;
   };
+
   Value(Value&& src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = *src.obj;
     GValue default_value = G_VALUE_INIT;
     *src.obj = default_value;
   };
+
   Value(const gchar src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<gchar>::init(src);
   };
+
   Value(const guchar src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<guchar>::init(src);
   };
+
   Value(const bool src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<bool>::init(src);
   };
+
   Value(const gint32 src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<gint32>::init(src);
   };
+
   Value(const guint32 src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<guint32>::init(src);
   };
+
   Value(const glong src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<glong>::init(src);
   };
+
   Value(const gulong src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<gulong>::init(src);
   };
+
   Value(const gfloat src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<gfloat>::init(src);
   };
+
   Value(const gdouble src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<gdouble>::init(src);
   };
+
   Value(const gpointer src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<gpointer>::init(src);
   };
+
   Value(const gchar* src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<gchar*>::init(g_strdup(src));
   };
+
   Value(GObject* src) : ValueRef<true>(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<GObject*>::init(src);
   };
@@ -519,7 +579,9 @@ public:
   GValue& ref() { return *obj; };
 };
 
+
 inline auto  move(GValue&& src) { return static_cast<Value&&>(Value(static_cast<GValue&&>(src))); }
+
 inline Value dup(const GValue& src) { return Value(src); }
 
 
@@ -527,6 +589,7 @@ template<class T>
 class Object : public ScopedPointer<T, void(gpointer), g_object_unref>
 {
   typedef ScopedPointer<T, void(gpointer), g_object_unref> super;
+
 public:
   Object() : super(NULL) {};
   Object(T* object) : super(object) {};
@@ -534,6 +597,7 @@ public:
 
   GObject* as_object() { return G_OBJECT(super::obj); }
   const GObject* as_object() const { return G_OBJECT(super::obj); }
+
   void incref() { g_object_ref(as_object()); };
   void decref() { g_object_unref(as_object()); };
 
@@ -547,18 +611,24 @@ public:
 
 };
 
+
 template<class T>
 inline Object<T>&& hold(T* src) { return static_cast<Object<T>&&>(Object<T>(src)); }
+
 
 template<typename T>
 class IObject : public Object<T>
 {
   typedef Object<T> super;
+
 public:
+
   IObject() : super(NULL) { };
+
   IObject(T* object) : super(object) {
     super::incref();
   };
+
   IObject(const IObject& src) : super (src.obj) {
     super::incref();
   }
@@ -572,10 +642,13 @@ public:
     GObject* object = super::as_object();
     GObjectClass* class_obj = G_OBJECT_GET_CLASS(object);
     GParamSpec *pspec = g_object_class_find_property (class_obj, prop_name);
+
     if (!pspec) throw InvalidIndex(prop_name);
+
     GValue result = G_VALUE_INIT;
     g_value_init(&result, pspec->value_type);
     g_object_get_property(object, prop_name, &result);
+
     return move(static_cast<GValue&&>(result));
   };
 
@@ -585,22 +658,24 @@ public:
   };
 
   template<typename Ret, typename... Args>
-  Delegators::Connection* connect(const gchar* event,
-            Delegators::Delegator<Ret, Args...>* delegator,
-            bool after=false) 
-  {
-      return g_signal_connect_delegator (super::as_object(), event, delegator, after);
+  Delegators::Connection* connect(
+      const gchar* event,
+      Delegators::Delegator<Ret, Args...>* delegator,
+      bool after=false) {
+
+    return g_signal_connect_delegator (super::as_object(), event, delegator, after);
+
   };
 
   operator GObject* () { return super::as_object(); };
-  operator T* () { return super::ptr(); };
-  operator gpointer() { return super::ptr(); }
+  operator T*       () { return super::ptr(); };
+  operator gpointer () { return super::ptr(); }
   template<typename G>
-  operator G* () { return GLib::Traits<G>::cast(super::obj); };
+  operator G*       () { return GLib::Traits<G>::cast(super::obj); };
   template<typename G>
   operator const G* () { return GLib::Traits<G>::cast(super::obj); };
-  T* operator ->() { return super::ptr(); };
-  operator bool() { return super::ptr(); };
+  T* operator ->    () { return super::ptr(); };
+  operator bool     () { return super::ptr(); };
 
   void operator = (T* src) {
     if (src == super::obj)
@@ -713,7 +788,8 @@ public:
     GValueAssigner(IObject* o, const gchar* n) : owner(o), name(n) { };
     void operator =(const Value&& value) { owner->set(name, value); }
   };
-//  GValueAssigner operator [](const gchar* name) { return GValueAssigner(this); }
+
+  //  GValueAssigner operator [](const gchar* name) { return GValueAssigner(this); }
   Value operator[] (const gchar* name) { return this->get(name); }
   template<typename D>
   Delegators::Connection* connect(const gchar* signal_name, D d) {
@@ -721,17 +797,22 @@ public:
   }
 };
 
+
 template<class T>
 inline IObject<T> ref(T* obj) {
   return IObject<T>(obj);
 }
 
+
 template<typename W, typename T>
 class DelegatorProxy {
+
 protected:
   W* widget;
   T* obj;
+
 public:
+
   DelegatorProxy(W* w, T* d) : widget(w), obj(d) { };
   virtual ~DelegatorProxy() {};
 
@@ -739,26 +820,32 @@ public:
   DelegatorProxy connect(const gchar* name, F f) {
     g_signal_connect_delegator (G_OBJECT(widget), name, Delegators::delegator(obj, f));
     return *this;
-  };
+  }
+  ;
   template<typename F>
   Delegators::Connection* connecth(const gchar* name, F f) {
     return g_signal_connect_delegator (G_OBJECT(widget), name, Delegators::delegator(obj, f));
   };
 };
 
+
 template<typename W, typename T>
 class Decorator : public DelegatorProxy<W, T> {
+
 public:
+
   Decorator(W* w, T* d) : DelegatorProxy<W, T>(w, d) {
     CString attr = g_strdup_printf("_decorator%lx", (gulong)this->obj);
     g_object_set_cxx_object(G_OBJECT(this->widget), attr.ptr(), this);
   };
+
   virtual ~Decorator() {
     if (this->obj) {
       delete this->obj;
       this->obj = NULL;
     }
   }
+
 };
 
 template<typename W, typename T>
