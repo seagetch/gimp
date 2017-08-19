@@ -52,10 +52,10 @@ GimpLayer      * gimp_filter_layer_new            (GimpImage            *image,
                                                    gdouble               opacity,
                                                    GimpLayerModeEffects  mode);
 const gchar*     gimp_filter_layer_get_procedure  (GimpFilterLayer* layer);
-GValueArray*     gimp_filter_layer_get_procedure_args  (GimpFilterLayer* layer);
+GArray*          gimp_filter_layer_get_procedure_args  (GimpFilterLayer* layer);
 void             gimp_filter_layer_set_procedure  (GimpFilterLayer* layer,
-                                                   const gchar* proc_name,
-                                                   GValueArray* args);
+                                                   const gchar*     proc_name,
+                                                   GArray*          args);
 
 #ifdef __cplusplus
 }
@@ -74,9 +74,9 @@ public:
   virtual void                    suspend_resize (gboolean        push_undo) = 0;
   virtual void                    resume_resize  (gboolean        push_undo) = 0;
 
-  virtual void                    set_procedure(const char* proc_name, GValueArray* args = NULL) = 0;
+  virtual void                    set_procedure(const char* proc_name, GArray* args = NULL) = 0;
   virtual const char*             get_procedure() = 0;
-  virtual GValueArray*            get_procedure_args() = 0;
+  virtual GArray*                 get_procedure_args() = 0;
   virtual GValue                  get_procedure_arg(int index) = 0;
   virtual void                    set_procedure_arg(int index, GValue value) = 0;
 };

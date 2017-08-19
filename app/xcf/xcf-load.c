@@ -133,7 +133,7 @@ static gboolean        xcf_skip_unknown_prop  (XcfInfo      *info,
                                                gsize         size);
 static gboolean        xcf_find_layer_offset_table (XcfInfo *info,
                                                     glong    offset);
-static gboolean        xcf_load_filter_specs  (XcfInfo *info, GValueArray* value);
+static gboolean        xcf_load_filter_specs  (XcfInfo *info, GArray* value);
 static gboolean        xcf_load_clone_specs  (XcfInfo *info);
 
 static gboolean        xcf_post_check_layers  (XcfInfo      *info,
@@ -991,7 +991,7 @@ xcf_load_layer_props (XcfInfo    *info,
             GimpLayer*           filter;
             gboolean             is_active_layer;
             gchar*               filter_name;
-            GValueArray*         proc_args = NULL;
+            GArray*              proc_args = NULL;
             gint                 width, height;
             const gchar*         layer_name = gimp_object_get_name (*layer);
             gdouble              opacity;
@@ -1026,7 +1026,8 @@ xcf_load_layer_props (XcfInfo    *info,
              * can't be floating selections
              */
             /* ToDo: Read filter name / arguments */
-            proc_args = g_value_array_new(0);
+            proc_args = g_array_new (FALSE, TRUE, sizeof (GValue));
+            g_array_set_clear_func (proc_args, (GDestroyNotify) g_value_unset);
 
             g_print("xcf_load[%x] filter_name", info->cp);
             info->cp += xcf_read_string (info->fp, &filter_name, 1);
@@ -1035,7 +1036,7 @@ xcf_load_layer_props (XcfInfo    *info,
             if ( !xcf_load_filter_specs (info, proc_args) )
               return FALSE;
             gimp_filter_layer_set_procedure (GIMP_FILTER_LAYER(filter), filter_name, proc_args);
-            g_value_array_free(proc_args);
+            g_array_unref(proc_args);
           }
           break;
 
@@ -1044,7 +1045,6 @@ xcf_load_layer_props (XcfInfo    *info,
             GimpLayer*           cloned;
             gboolean             is_active_layer;
             gchar*               target_name;
-            gint                 width, height;
             gchar*               layer_name = gimp_object_get_name (*layer);
             gdouble              opacity;
             GimpLayerModeEffects mode;
@@ -1058,8 +1058,6 @@ xcf_load_layer_props (XcfInfo    *info,
             if (*layer == info->floating_sel)
               info->floating_sel = NULL;
 
-            width      = gimp_item_get_width (GIMP_ITEM(*layer));
-            height     = gimp_item_get_height (GIMP_ITEM(*layer));
             opacity    = gimp_layer_get_opacity (GIMP_LAYER(*layer));
             mode       = gimp_layer_get_mode(GIMP_LAYER(*layer));
             cloned     = gimp_clone_layer_new (image, NULL, layer_name, opacity, mode);
@@ -1258,7 +1256,7 @@ xcf_load_channel_props (XcfInfo      *info,
 
 static gboolean
 xcf_load_filter_specs(XcfInfo *info,
-                      GValueArray* args)
+                      GArray* args)
 {
   XcfFilterArgType value_type = 0;
   guint32 size;
@@ -1295,7 +1293,7 @@ xcf_load_filter_specs(XcfInfo *info,
     case XCF_FILTER_UNSUPPORTED:
       g_print("%d:", index);
       g_print("XCF_FILTER_UNSUPPORTED\n");
-      g_value_array_append(args, value);
+      g_array_append_val(args, value);
       break;
     case XCF_FILTER_INT32:
       g_print("%d:", index);
@@ -1305,7 +1303,7 @@ xcf_load_filter_specs(XcfInfo *info,
       info->cp += xcf_read_int32(info->fp, &read_value, 1);
       g_value_init(value, G_TYPE_INT);
       g_value_set_int(value, read_value);
-      g_value_array_append(args, value);
+      g_array_append_val(args, *value);
     }
       break;
     case XCF_FILTER_INT16:
@@ -1316,7 +1314,7 @@ xcf_load_filter_specs(XcfInfo *info,
       info->cp += xcf_read_int32(info->fp, &read_value, 1);
       g_value_init(value, G_TYPE_UINT);
       g_value_set_int(value, read_value);
-      g_value_array_append(args, value);
+      g_array_append_val(args, *value);
     }
       break;
     case XCF_FILTER_INT8:
@@ -1327,7 +1325,7 @@ xcf_load_filter_specs(XcfInfo *info,
       info->cp += xcf_read_int8(info->fp, &read_value, 1);
       g_value_init(value, G_TYPE_UCHAR);
       g_value_set_int(value, read_value);
-      g_value_array_append(args, value);
+      g_array_append_val(args, *value);
     }
       break;
     case XCF_FILTER_FLOAT:
@@ -1338,7 +1336,7 @@ xcf_load_filter_specs(XcfInfo *info,
       info->cp += xcf_read_float(info->fp, &read_value, 1);
       g_value_init(value, G_TYPE_DOUBLE);
       g_value_set_double(value, read_value);
-      g_value_array_append(args, value);
+      g_array_append_val(args, *value);
     }
       break;
     case XCF_FILTER_INT8ARRAY:
@@ -1346,7 +1344,7 @@ xcf_load_filter_specs(XcfInfo *info,
       g_print("XCF_FILTER_INT8ARRAY\n");
     {
       // FIXME: Unsupported for now.
-      g_value_array_append(args, value);
+      g_array_append_val(args, *value);
     }
       break;
     case XCF_FILTER_FLOATARRAY:
@@ -1354,7 +1352,7 @@ xcf_load_filter_specs(XcfInfo *info,
       g_print("XCF_FILTER_FLOATARRAY\n");
     {
       // FIXME: Unsupported for now.
-      g_value_array_append(args, value);
+      g_array_append_val(args, *value);
     }
       break;
     case XCF_FILTER_STRING:
@@ -1366,7 +1364,7 @@ xcf_load_filter_specs(XcfInfo *info,
       info->cp += xcf_read_string(info->fp, &string, 1);
       g_value_init(value, G_TYPE_STRING);
       g_value_set_string(value, string);
-      g_value_array_append(args, value);
+      g_array_append_val(args, *value);
     }
       break;
     case XCF_FILTER_RGB:
@@ -1374,7 +1372,7 @@ xcf_load_filter_specs(XcfInfo *info,
       g_print("XCF_FILTER_RGB\n");
     {
       // FIXME: Unsupported for now.
-      g_value_array_append(args, value);
+      g_array_append_val(args, *value);
     }
       break;
     case XCF_FILTER_DRAWABLE:
@@ -1382,13 +1380,13 @@ xcf_load_filter_specs(XcfInfo *info,
       g_print("XCF_FILTER_DRAWABLE\n");
     {
       // FIXME: Unsupported for now.
-      g_value_array_append(args, value);
+      g_array_append_val(args, *value);
     }
       break;
     default:
       g_print("%d:", index);
       g_print("FILTER_SPEC::UNKNOWN\n");
-      g_value_array_append(args, value);
+      g_array_append_val(args, *value);
       break;
     }
   }
@@ -1401,7 +1399,6 @@ xcf_load_clone_specs(XcfInfo *info)
   XcfFilterArgType value_type = 0;
   guint32 size;
   gboolean loop = TRUE;
-  guint base = 0;
   int index;
 
   g_print("xcf_load_clone_specs\n");
@@ -1415,8 +1412,6 @@ xcf_load_clone_specs(XcfInfo *info)
     if (G_UNLIKELY (xcf_read_int32 (info->fp, &value_type, 1) != 4))
       return FALSE;
     info->cp += 4;
-
-    base = info->cp;
 
     if (G_UNLIKELY (xcf_read_int32 (info->fp, &size, 1) != 4))
       return FALSE;
@@ -2483,7 +2478,7 @@ static gboolean
 xcf_post_check_layers_recur (XcfInfo       *info,
                              GimpContainer *container)
 {
-  gimp_container_foreach (container, xcf_post_check_layers_foreach, info);
+  gimp_container_foreach (container, (GFunc)(xcf_post_check_layers_foreach), info);
   return TRUE;
 }
 static void

@@ -658,7 +658,7 @@ xcf_save_layer_props (XcfInfo    *info,
   if (GIMP_IS_FILTER_LAYER (layer)) {
     GimpFilterLayer* filter_layer = GIMP_FILTER_LAYER(layer);
     const gchar* filter_name = gimp_filter_layer_get_procedure (filter_layer);
-    GValueArray* args        = gimp_filter_layer_get_procedure_args (filter_layer);
+    GArray* args             = gimp_filter_layer_get_procedure_args (filter_layer);
     xcf_check_error (xcf_save_prop (info, image, PROP_FILTER_SPEC, error, filter_name, args));
   }
   if (GIMP_IS_CLONE_LAYER (layer)) {
@@ -1256,12 +1256,12 @@ xcf_save_prop (XcfInfo    *info,
       {
         guint32 length = 0;
         gchar* filter_name;
-        GValueArray* proc_args;
+        GArray* proc_args;
         guint32 i;
         guint32 base = 0, pos = 0;
         size = 0; /* dummy */
         filter_name = va_arg (args, gchar*);
-        proc_args   = va_arg (args, GValueArray*);
+        proc_args   = va_arg (args, GArray*);
 
         g_print("xcf_save[%x] prop_type=%u\n", info->cp, prop_type);
         xcf_write_prop_type_check_error (info, prop_type);
@@ -1273,8 +1273,8 @@ xcf_save_prop (XcfInfo    *info,
         xcf_write_string_check_error (info, (gchar **) &filter_name, 1);
 
         if (proc_args) {
-          for (i = 0; i < proc_args->n_values; i ++) {
-            GValue* value = &proc_args->values[i];
+          for (i = 0; i < proc_args->len; i ++) {
+            GValue* value = &g_array_index(proc_args,GValue,i);
             g_print("xcf_save[%x] value(%d)\n", info->cp, i);
             xcf_check_error ( xcf_save_filter_spec_value (info, image, error, value) );
           }

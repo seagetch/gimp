@@ -292,9 +292,9 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   virtual void            update_size  ();
   virtual gboolean        is_editable  ();
 
-  virtual void            set_procedure(const char* proc_name, GValueArray* args = NULL);
+  virtual void            set_procedure(const char* proc_name, GArray* args = NULL);
   virtual const char*     get_procedure();
-  virtual GValueArray*    get_procedure_args();
+  virtual GArray*         get_procedure_args();
   virtual GValue          get_procedure_arg(int index);
   virtual void            set_procedure_arg(int index, GValue value);
 
@@ -715,7 +715,7 @@ void GLib::FilterLayer::project_region (gint          x,
   GIMP_DRAWABLE_CLASS(Class::parent_class)->project_region (self, x, y, width, height, projPR, combine);
 }
 
-void GLib::FilterLayer::set_procedure(const char* proc_name, GValueArray* args)
+void GLib::FilterLayer::set_procedure(const char* proc_name, GArray* _args)
 {
   if (runner) {
     delete runner;
@@ -723,12 +723,13 @@ void GLib::FilterLayer::set_procedure(const char* proc_name, GValueArray* args)
     g_print("FilterLayer::set_procedure(%s), Cleanup eixsting runner.\n", proc_name);
   }
   auto           pdb   = ref( gimp_item_get_image(GIMP_ITEM(g_object))->gimp->pdb );
+  auto           args  = ref<GValue>(_args);
   GimpProcedure* proc    = pdb [gimp_pdb_lookup_procedure] (proc_name);
   ProcedureRunner* r     = new ProcedureRunner(proc, GIMP_PROGRESS(g_object));
 
   if (args) {
     for (int i = 0; i < proc->num_args; i ++)
-      r->set_arg(i, args->values[i]);
+      r->set_arg(i, args[i]);
   }
 
   runner     = r;
@@ -743,10 +744,16 @@ const char* GLib::FilterLayer::get_procedure()
   return "";
 }
 
-GValueArray* GLib::FilterLayer::get_procedure_args()
+GArray* GLib::FilterLayer::get_procedure_args()
 {
-  if (runner)
-    return runner->get_args();
+  if (runner) {
+    GValueArray* varray = runner->get_args();
+
+    GArray *array = g_array_sized_new (FALSE, TRUE, sizeof (GValue), varray->n_values);
+    g_array_set_clear_func (array, (GDestroyNotify) g_value_unset);
+    g_array_append_vals(array, varray->values, varray->n_values);
+    return array;
+  }
   return  NULL;
 }
 
@@ -1274,7 +1281,7 @@ gimp_filter_layer_get_procedure  (GimpFilterLayer *layer)
   return FilterLayerInterface::cast(layer)->get_procedure ();
 }
 
-GValueArray*
+GArray*
 gimp_filter_layer_get_procedure_args  (GimpFilterLayer *layer)
 {
   return FilterLayerInterface::cast(layer)->get_procedure_args ();
@@ -1282,8 +1289,8 @@ gimp_filter_layer_get_procedure_args  (GimpFilterLayer *layer)
 
 void
 gimp_filter_layer_set_procedure  (GimpFilterLayer* layer,
-                                  const gchar* proc_name,
-                                  GValueArray* args)
+                                  const gchar*     proc_name,
+                                  GArray*          args)
 {
   FilterLayerInterface::cast(layer)->set_procedure (proc_name, args);
 }
