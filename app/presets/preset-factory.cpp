@@ -244,6 +244,12 @@ PresetFactory::on_initialize (Gimp               *gimp,
     GimpDataFactory* factory = this->create_data_factory(gimp, it);
     it->set_data_factory(factory);
   });
+
+
+  // Dirty hack: Registering restore and exit at last in order to
+  // ensure that on_restore is called after dialog-restore
+  // function is called.
+
   g_signal_connect_delegator (G_OBJECT(gimp), "restore",    Delegators::delegator(this, &PresetFactory::on_restore));
   g_signal_connect_delegator (G_OBJECT(gimp), "exit",       Delegators::delegator(this, &PresetFactory::on_exit));
 }

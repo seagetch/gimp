@@ -74,8 +74,8 @@ class PopupWindowDecorator {
   IObject<GtkWidget> mode_select;
   IObject<GtkWidget> filter_select;
   IObject<GtkWidget> filter_edit;
-  CString        proc_name;
-  ScopedPointer<GValueArray, void(GValueArray*), g_value_array_free> proc_args;
+  CString            proc_name;
+  Array              proc_args;
 
   GtkWidget* create_label_tree_view(const gchar* title, GtkTreeModel* model) {
     return with (gtk_tree_view_new_with_model(model), [&title] (auto tree_view) {
@@ -218,8 +218,9 @@ class PopupWindowDecorator {
       proc_args = f->get_procedure_args();
       g_print("%s->get_procedure_args() = \n", proc_name);
       if (proc_args) {
-        for (int i = 0; i < proc_args->n_values; i ++) {
-          Value v = proc_args->values[i];
+        auto i_proc_args = ref<GValue>(proc_args);
+        for (auto gvalue : i_proc_args) {
+          Value v = gvalue;
           g_print("  type=%s\n", g_type_name(v.type()));
         }
       } else {
@@ -227,8 +228,13 @@ class PopupWindowDecorator {
       }
     } else
       proc_args = NULL;
-    if (!proc_args)
-      proc_args = plug_in_proc [gimp_procedure_get_arguments] ();
+    if (!proc_args) {
+      GValueArray* temp_args = plug_in_proc [gimp_procedure_get_arguments] ();
+      proc_args = g_array_sized_new (FALSE, TRUE, sizeof (GValue), temp_args->n_values);
+      g_array_set_clear_func (proc_args, (GDestroyNotify) g_value_unset);
+      g_array_append_vals(proc_args, temp_args->values, temp_args->n_values);
+      g_value_array_free(temp_args);
+    }
 
     for (auto widget : ref<GtkWidget*>(filter_edit [gtk_container_get_children] ())) {
       ref(widget) [gtk_widget_destroy] ();
@@ -322,7 +328,8 @@ class PopupWindowDecorator {
           double            spec_default   = dpspec->default_value;
           double            max_value      = spec_min_value;
           double            min_value      = spec_max_value;
-          double            cur_value      = g_value_get_double(&proc_args->values[j]);
+          auto i_proc_args = ref<GValue>(proc_args);
+          double            cur_value      = g_value_get_double(&i_proc_args[j]);
           gchar*            desc           = NULL;
 
           regex_case(arg_blurb).
@@ -388,7 +395,8 @@ class PopupWindowDecorator {
                     with (gtk_adjustment_new (cur_value, min_value, max_value, 1.0, 10.0, 0.0),[&](auto it) {
 
                       it.connect("value-changed", delegator(std::function<void(GtkWidget*)>([this,j](GtkWidget* o) {
-                        g_value_set_double(&proc_args->values[j], ref(o)["value"]);
+                        auto i_proc_args = ref<GValue>(proc_args);
+                        g_value_set_double(&i_proc_args[j], ref(o)["value"]);
                       })));
 
                     }), 1, 1),
@@ -405,7 +413,8 @@ class PopupWindowDecorator {
                 with (gtk_adjustment_new (cur_value, min_value, max_value, 1.0, 10.0, 0.0),[&](auto it) {
 
                   it.connect("value-changed", delegator(std::function<void(GtkWidget*)>([this,j](GtkWidget* o) {
-                    g_value_set_double(&proc_args->values[j], ref(o)["value"]);
+                    auto i_proc_args = ref<GValue>(proc_args);
+                    g_value_set_double(&i_proc_args[j], ref(o)["value"]);
                   })));
 
                 }),
@@ -440,7 +449,8 @@ class PopupWindowDecorator {
           }
           int          max_value      = spec_min_value;
           int          min_value      = spec_max_value;
-          gint         cur_value      = g_value_get_int(&proc_args->values[j]);
+          auto i_proc_args = ref<GValue>(proc_args);
+          gint         cur_value      = g_value_get_int(&i_proc_args[j]);
           /*
           if (is_int32)
             cur_value = ref(proc_args->values[j]);
@@ -496,7 +506,8 @@ class PopupWindowDecorator {
                     it [gtk_toggle_button_set_active] (cur_value);
 
                     it.connect("toggled", delegator(std::function<void(GtkWidget*)>([this,j](GtkWidget* o) {
-                      g_value_set_int(&proc_args->values[j], ref(o) [gtk_toggle_button_get_active] ());
+                      auto i_proc_args = ref<GValue>(proc_args);
+                      g_value_set_int(&i_proc_args[j], ref(o) [gtk_toggle_button_get_active] ());
                     })));
 
                   }
@@ -516,7 +527,8 @@ class PopupWindowDecorator {
                     it.connect("changed", delegator(std::function<void(GtkWidget*)>([this,j](GtkWidget* o) {
                       gint32 value;
                       ref(o) [gimp_int_combo_box_get_active] (&value);
-                      g_value_set_int(&proc_args->values[j], value);
+                      auto i_proc_args = ref<GValue>(proc_args);
+                      g_value_set_int(&i_proc_args[j], value);
                     })));
 
                   }
@@ -608,7 +620,8 @@ class PopupWindowDecorator {
                       with (gtk_adjustment_new (cur_value, min_value, max_value, 1.0, 10.0, 0.0),[&](auto it) {
 
                         it.connect("value-changed", delegator(std::function<void(GtkWidget*)>([this,j](GtkWidget* o) {
-                          g_value_set_int(&proc_args->values[j], ref(o)["value"]);
+                          auto i_proc_args = ref<GValue>(proc_args);
+                          g_value_set_int(&i_proc_args[j], ref(o)["value"]);
                         })));
 
                       }), 1, 0),
@@ -626,7 +639,8 @@ class PopupWindowDecorator {
 
                     it.connect("value-changed", delegator(std::function<void(GtkWidget*)>([this,j](GtkWidget* o) {
                       gdouble value = (gdouble)ref(o)["value"];
-                      g_value_set_int(&proc_args->values[j], (gint32)value);
+                      auto i_proc_args = ref<GValue>(proc_args);
+                      g_value_set_int(&i_proc_args[j], (gint32)value);
                     })));
 
                   }), _(desc), 1),

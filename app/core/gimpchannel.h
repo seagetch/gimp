@@ -212,5 +212,11 @@ void          gimp_channel_shrink             (GimpChannel      *mask,
                                                gboolean          edge_lock,
                                                gboolean          push_undo);
 
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-types.hpp"
+__DECLARE_GTK_CLASS__(_GimpChannel, GIMP_TYPE_CHANNEL);
+};
+#endif
 
 #endif /* __GIMP_CHANNEL_H__ */
