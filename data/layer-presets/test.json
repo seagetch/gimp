@@ -3,7 +3,7 @@
   "name": "test1",
   "desc": "foobar",
 
-  "target-layer" : {
+  "source-layer" : {
     "type": "filter",          "#": "group, filter, clone, normal, any"
   },
 
