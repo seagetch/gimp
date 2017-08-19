@@ -12,7 +12,7 @@ extern "C" {
 #include "base/glib-cxx-types.hpp"
 #include "base/glib-cxx-utils.hpp"
 
-namespace Json {
+namespace JSON {
 
 using namespace GLib;
 using namespace Delegators;
@@ -53,10 +53,10 @@ public:
     super::incref();
   }
   
-  bool is_object() const { return JSON_NODE_HOLDS_OBJECT(obj); }
-  bool is_array()  const { return JSON_NODE_HOLDS_ARRAY (obj); }
-  bool is_value()  const { return JSON_NODE_HOLDS_VALUE (obj); }
-  bool is_null()   const { return json_node_is_null (obj); }
+  bool is_object() const { return obj && JSON_NODE_HOLDS_OBJECT(obj); }
+  bool is_array()  const { return obj && JSON_NODE_HOLDS_ARRAY (obj); }
+  bool is_value()  const { return obj && JSON_NODE_HOLDS_VALUE (obj); }
+  bool is_null()   const { return !obj || json_node_is_null (obj); }
 
   struct InvalidMember { const gchar* name; InvalidMember(const gchar* n) : name(n) {;}; };
   struct InvalidIndex  { const int index; InvalidIndex(const int i) : index(i) {;}; };
@@ -68,9 +68,6 @@ public:
       throw InvalidType(JSON_NODE_OBJECT, JSON_NODE_TYPE(obj));
     
     JsonObject* jobj = json_node_get_object (obj);
-    if (!json_object_has_member(jobj, prop_name))
-      throw InvalidMember(prop_name);
-    
     return INode( json_object_get_member(jobj, prop_name) );
   };
 
@@ -107,6 +104,8 @@ public:
     json_array_foreach_element (jarr, foreach_callback, data);
   }
   
+  operator JsonNode*() { return ptr(); };
+
   operator const gchar* () {
     if (!is_value())
       throw InvalidType(JSON_NODE_VALUE, JSON_NODE_TYPE(obj));
@@ -150,22 +149,34 @@ public:
   };
 
   void operator = (const gchar* str) {
-    json_node_set_string(obj, str);
+    if (obj)
+      json_node_set_string(obj, str);
   }
 
   void operator = (const double src) {
-    json_node_set_double(obj, src);
+    if (obj)
+      json_node_set_double(obj, src);
   }
 
   void operator = (const int src) {
-    json_node_set_int(obj, src);
+    if (obj)
+      json_node_set_int(obj, src);
   }
 
   void operator = (const bool src) {
-    json_node_set_boolean(obj, src);
+    if (obj)
+      json_node_set_boolean(obj, src);
   }
   
+  GType value_type() const {
+    if (obj)
+      return json_node_get_node_type(obj);
+    return G_TYPE_NONE;
+  }
+
   auto query(const gchar* pattern) {
+    if (!obj)
+      return INode();
     GError* error;
     JsonNode* result = json_path_query(pattern, obj, &error);
     if (error)
