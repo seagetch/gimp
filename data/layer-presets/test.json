@@ -10,7 +10,7 @@
   "replacement-layer" : [
     { 
       "target": "source",
-      "mode": "Difference",    "#": "LayerModeEffects",
+      "mode": "difference-mode",    "#": "LayerModeEffects",
       "filter": {
         "name": "plug-in-edge",
         "args": [{},{},{},{"type":"FLOAT","value": 2},{"type":"INT32", "value":1},{"type":"INT32","value":0}]

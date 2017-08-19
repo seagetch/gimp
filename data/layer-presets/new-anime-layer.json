@@ -20,7 +20,8 @@
           "target": "new",
           "name":   "mask",
           "type":   "clone",
-          "mode":   "svg:dst-in",
+          "mode":   "dst-in-mode",
+          "source": "source",
           "opacity": 1.0,
           "boundary": "source"
         },
@@ -28,12 +29,12 @@
           "target":  "new",
           "name":    "shadow",
           "type":    "normal",
-          "mode":    "multiply",
+          "mode":    "multiply-mode",
           "boundary": "source"
         },
         {
           "target":  "source",
-          "mode":   "normal",
+          "mode":   "normal-mode",
           "opacity": 1.0
         }
       ]

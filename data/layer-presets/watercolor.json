@@ -23,13 +23,13 @@
             "name": "plug-in-edge",
             "args": [{},{},{},{"type":"FLOAT","value": 2},{"type":"INT32", "value":1},{"type":"INT32","value":0}]
           },
-          "mode":   "Difference",
+          "mode":   "difference-mode",
           "opacity": 0.2,
           "boundary": "source"
         },
         {
           "target":  "source",
-          "mode":   "normal",
+          "mode":   "normal-mode",
           "opacity": 1.0
         }
       ]
