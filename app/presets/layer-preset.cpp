@@ -398,8 +398,10 @@ protected:
 
       if (!type || strcmp(type, LAYER_NORMAL_LABEL) == 0) { // NORMAL LAYER
 
-        if (mode < 0) mode = GIMP_NORMAL_MODE;
-        if (!name)    name = gettext("New Layer");
+        if (mode < 0)    mode   = GIMP_NORMAL_MODE;
+        if (!name)       name   = gettext("New Layer");
+        if (width <= 0)  width  = image [gimp_image_get_width] ();
+        if (height <= 0) height = image [gimp_image_get_height] ();
 
         if (content_source) {
           g_print("Duplicate normal layer: %s->%s\n", src[gimp_object_get_name](), name);
@@ -438,8 +440,11 @@ protected:
 
         g_print("Verifying filter layer parameters: %s\n", name);
 
-        if (mode < 0) mode = GIMP_REPLACE_MODE;
-        if (!name)    name = gettext("New Filter Layer");
+        if (mode < 0)    mode   = GIMP_REPLACE_MODE;
+        if (!name)       name   = gettext("New Filter Layer");
+        if (width <= 0)  width  = image [gimp_image_get_width] ();
+        if (height <= 0) height = image [gimp_image_get_height] ();
+
 
         // parse filter layer arguments
         auto filter_json       = node_json["filter"];
@@ -469,7 +474,8 @@ protected:
         // create clone layer
         // FIXME: content source may be null at this time.
         layer = CloneLayerInterface::new_instance(context->image,
-                                                  content_source, name,
+                                                  content_source, width, height,
+                                                  name,
                                                   opacity, mode);
         image [gimp_image_add_layer] (layer, parent, index, TRUE);
 

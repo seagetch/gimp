@@ -47,6 +47,8 @@ struct GimpCloneLayerClass
 GType            gimp_clone_layer_get_type       (void) G_GNUC_CONST;
 GimpLayer*       gimp_clone_layer_new            (GimpImage*           image,
                                                   GimpLayer*           source,
+                                                  gint                 width,
+                                                  gint                 height,
                                                   const gchar*         name,
                                                   gdouble              opacity,
                                                   GimpLayerModeEffects mode);
@@ -63,6 +65,8 @@ class CloneLayerInterface {
 public:
   static GimpLayer*           new_instance   (GimpImage*            image,
                                               GimpLayer*            source,
+                                              gint                  width,
+                                              gint                  height,
                                               const gchar*          name,
                                               gdouble               opacity,
                                               GimpLayerModeEffects  mode);

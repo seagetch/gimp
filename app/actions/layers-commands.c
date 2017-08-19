@@ -430,7 +430,7 @@ layers_new_clone_cmd_callback (GtkAction *action,
   GimpLayer *new_layer;
   return_if_no_layer (image, layer, data);
 
-  new_layer = gimp_clone_layer_new (image, GIMP_ITEM (layer),
+  new_layer = gimp_clone_layer_new (image, GIMP_ITEM (layer), 0, 0,
       layer_name ? layer_name : _("Clone Layer"), 1.0, GIMP_NORMAL_MODE);
   g_print("new_layer=%p\n", new_layer);
 

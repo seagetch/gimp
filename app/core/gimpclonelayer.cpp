@@ -537,9 +537,9 @@ void GLib::CloneLayer::on_source_update (GimpDrawable* _source,
                                          gint            width,
                                          gint            height)
 {
-  g_print ("%s (%s) %d, %d (%d, %d)\n",
-           G_STRFUNC, gimp_object_get_name (g_object),
-           x, y, width, height);
+//  g_print ("%s (%s) %d, %d (%d, %d)\n",
+//           G_STRFUNC, gimp_object_get_name (g_object),
+//           x, y, width, height);
 
   update_size();
 
@@ -592,13 +592,15 @@ void GLib::CloneLayer::on_reorder (GimpContainer* _container,
 GimpLayer *
 CloneLayerInterface::new_instance (GimpImage            *image,
                                    GimpLayer            *source,
+                                   gint                  width,
+                                   gint                  height,
                                    const gchar          *name,
                                    gdouble               opacity,
                                    GimpLayerModeEffects  mode)
 {
   GimpImageType   type;
   GimpCloneLayer* cloned;
-  gint x, y, width, height;
+  gint x, y;
 
   g_return_val_if_fail (GIMP_IS_IMAGE (image), NULL);
 
@@ -606,13 +608,17 @@ CloneLayerInterface::new_instance (GimpImage            *image,
 
   if (source) {
     auto src = GLib::ref(source);
-    width  = src [gimp_item_get_width] ();
-    height = src [gimp_item_get_height] ();
-    src [gimp_item_get_offset] (&x, &x);
+    if (width <= 0)
+      width  = src [gimp_item_get_width] ();
+    if (height <= 0)
+      height = src [gimp_item_get_height] ();
+    src [gimp_item_get_offset] (&x, &y);
   } else {
     auto img = GLib::ref(image);
-    width  = img [gimp_image_get_width] ();
-    height = img [gimp_image_get_height] ();
+    if (width <= 0)
+      width  = img [gimp_image_get_width] ();
+    if (height <= 0)
+      height = img [gimp_image_get_height] ();
     x = y = 0;
   }
 
@@ -653,11 +659,13 @@ GType gimp_clone_layer_get_type() {
 GimpLayer*
 gimp_clone_layer_new            (GimpImage            *image,
                                  GimpLayer            *source,
-                                  const gchar          *name,
-                                  gdouble               opacity,
-                                  GimpLayerModeEffects  mode)
+                                 gint                  width,
+                                 gint                  height,
+                                 const gchar          *name,
+                                 gdouble               opacity,
+                                 GimpLayerModeEffects  mode)
 {
-  return CloneLayerInterface::new_instance(image, source, name, opacity, mode);
+  return CloneLayerInterface::new_instance(image, source, width, height, name, opacity, mode);
 }
 
 void

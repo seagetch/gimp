@@ -992,6 +992,7 @@ xcf_load_layer_props (XcfInfo    *info,
             gboolean             is_active_layer;
             gchar*               filter_name;
             GArray*              proc_args = NULL;
+            gint                 x, y;
             gint                 width, height;
             const gchar*         layer_name = gimp_object_get_name (*layer);
             gdouble              opacity;
@@ -1006,11 +1007,16 @@ xcf_load_layer_props (XcfInfo    *info,
             if (*layer == info->floating_sel)
               info->floating_sel = NULL;
 
+            x          = gimp_item_get_offset_x(GIMP_ITEM(*layer));
+            y          = gimp_item_get_offset_y(GIMP_ITEM(*layer));
             width      = gimp_item_get_width (GIMP_ITEM(*layer));
             height     = gimp_item_get_height (GIMP_ITEM(*layer));
             opacity    = gimp_layer_get_opacity (GIMP_LAYER(*layer));
             mode       = gimp_layer_get_mode(GIMP_LAYER(*layer));
+
             filter     = gimp_filter_layer_new (image, width, height, layer_name, opacity, mode);
+
+            gimp_item_set_offset (GIMP_ITEM(filter), x, y);
 
             GIMP_DRAWABLE (filter)->private->type =
               gimp_drawable_type (GIMP_DRAWABLE (*layer));
@@ -1046,6 +1052,8 @@ xcf_load_layer_props (XcfInfo    *info,
             gboolean             is_active_layer;
             gchar*               target_name;
             gchar*               layer_name = gimp_object_get_name (*layer);
+            gint                 x, y;
+            gint                 width, height;
             gdouble              opacity;
             GimpLayerModeEffects mode;
 
@@ -1058,9 +1066,16 @@ xcf_load_layer_props (XcfInfo    *info,
             if (*layer == info->floating_sel)
               info->floating_sel = NULL;
 
+            x          = gimp_item_get_offset_x(GIMP_ITEM(*layer));
+            y          = gimp_item_get_offset_y(GIMP_ITEM(*layer));
+            width      = gimp_item_get_width (GIMP_ITEM(*layer));
+            height     = gimp_item_get_height (GIMP_ITEM(*layer));
             opacity    = gimp_layer_get_opacity (GIMP_LAYER(*layer));
             mode       = gimp_layer_get_mode(GIMP_LAYER(*layer));
-            cloned     = gimp_clone_layer_new (image, NULL, layer_name, opacity, mode);
+
+            cloned     = gimp_clone_layer_new (image, NULL, width, height, layer_name, opacity, mode);
+
+            gimp_item_set_offset (GIMP_ITEM(cloned), x, y);
 
             GIMP_DRAWABLE (cloned)->private->type = gimp_drawable_type (GIMP_DRAWABLE (*layer));
 
