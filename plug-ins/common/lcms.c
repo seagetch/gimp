@@ -1052,18 +1052,22 @@ lcms_layers_transform_rgb (gint                     *layers,
     {
       GimpDrawable    *drawable = gimp_drawable_get (layers[i]);
       cmsUInt32Number  format;
-      gint            *children;
-      gint             num_children;
 
-      children = gimp_item_get_children (layers[i], &num_children);
-
-      if (children)
+      if (gimp_item_is_group (layers[i]))
         {
-          lcms_layers_transform_rgb (children, num_children,
-                                     src_profile, dest_profile,
-                                     intent, bpc);
+          gint *children;
+          gint  num_children;
 
-          g_free (children);
+          children = gimp_item_get_children (layers[i], &num_children);
+
+          if (children)
+            {
+              lcms_layers_transform_rgb (children, num_children,
+                                         src_profile, dest_profile,
+                                         intent, bpc);
+
+              g_free (children);
+            }
 
           continue;
         }

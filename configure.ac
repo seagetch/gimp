@@ -8,11 +8,11 @@ AC_PREREQ(2.54)
 
 m4_define([gimp_major_version], [2])
 m4_define([gimp_minor_version], [8])
-m4_define([gimp_micro_version], [21])
+m4_define([gimp_micro_version], [23])
 m4_define([gimp_real_version],
           [gimp_major_version.gimp_minor_version.gimp_micro_version])
 m4_define([gimp_version], [gimp_real_version])
-m4_define([gimp_interface_age], [21])
+m4_define([gimp_interface_age], [23])
 m4_define([gimp_binary_age],
           [m4_eval(100 * gimp_minor_version + gimp_micro_version)])
 
@@ -548,7 +548,33 @@ else
 fi
 AC_MSG_RESULT($have_glib_2_31)
 
-PKG_CHECK_MODULES(JANSSON, json-glib-1.0 >= json_glib_required_version)
+PKG_CHECK_MODULES(JSON, json-glib-1.0 >= json_glib_required_version)
+
+AC_MSG_CHECKING([for glib-networking (GIO TLS implementation)])
+gimp_save_CFLAGS="$CFLAGS"
+gimp_save_LIBS="$LIBS"
+CFLAGS="$CFLAGS $GIO_CFLAGS"
+LIBS="$LIBS $GIO_LIBS"
+AC_RUN_IFELSE([AC_LANG_PROGRAM([#include <gio/gio.h>],
+                               [return !g_tls_backend_supports_tls (g_tls_backend_get_default ());])],
+              [have_glib_networking="yes"],
+              [have_glib_networking="no"],
+              [have_glib_networking="unknown (cross-compiling)"])
+CFLAGS="$gimp_save_CFLAGS"
+LIBS="$gimp_save_LIBS"
+AC_MSG_RESULT($have_glib_networking)
+
+if test "x$have_glib_networking" = "xno"; then
+  AC_MSG_ERROR([Test for glib-networking failed. This is required.])
+elif test "x$have_glib_networking" != "xyes"; then
+  warning_glib_networking="
+WARNING: Test for glib-networking cannot be performed while cross-compiling.
+         Make sure glib-networking is installed, otherwise GIMP will not be able
+         to display the remote help pages through the help browser, nor will it
+         be able to open remote HTTPS (or other protocol using SSL/TLS) files.
+         HTTPS is becoming the expected standard and should not be considered
+         optional anymore."
+fi
 
 # Check for bind_textdomain_codeset, including -lintl if GLib brings it in.
 gimp_save_LIBS=$LIBS
@@ -1322,6 +1348,9 @@ if test "x$with_libmng" != xno && test -z "$MNG_LIBS" &&
   if test "$mng_ok" = yes; then
     have_libmng=yes
     FILE_MNG='file-mng$(EXEEXT)'; MNG_LIBS="-lmng $JPEG_LIBS $PNG_LIBS"; MNG_CFLAGS="$PNG_CFLAGS"
+    if test "x$platform_win32" = "xyes"; then
+      MNG_CFLAGS="$MNG_CFLAGS -DMNG_USE_DLL"
+    fi
   else
     have_libmng="no (MNG header file not found)"
   fi
@@ -2314,6 +2343,7 @@ app/tests/gimpdir/brushes/Makefile
 app/tests/gimpdir/gradients/Makefile
 app/tests/gimpdir/patterns/Makefile
 build/Makefile
+build/osx/Makefile
 build/windows/Makefile
 build/windows/gimp.rc
 build/windows/gimp-plug-ins.rc
@@ -2514,5 +2544,5 @@ Optional Modules:
 
 Tests:
   Use xvfb-run         $have_xvfb_run
-$have_recommended_xgettext $have_recommended_fontconfig
+$have_recommended_xgettext$have_recommended_fontconfig$warning_glib_networking
 ]);

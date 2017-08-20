@@ -51,7 +51,10 @@ export PANGO_LIBDIR="$bundle_lib"
 export FONTCONFIG_FILE="$bundle_etc/fonts/fonts.conf"
 
 # Include GEGL path
-export GEGL_PATH="$bundle_lib/gegl-0.3"
+export GEGL_PATH="$bundle_lib/gegl-0.2"
+
+# Include BABL path
+export BABL_PATH="$bundle_lib/babl-0.1"
 
 # Set up Python
 echo "Enabling internal Python..."
@@ -65,8 +68,10 @@ PYTHONPATH="$bundle_lib/pygtk/2.0:$PYTHONPATH"
 
 # Include gimp python modules
 PYTHONPATH="$bundle_lib/gimp/2.0/python:$PYTHONPATH"
-
 export PYTHONPATH
+
+# Set custom Poppler Data Directory
+export POPPLER_DATADIR="$bundle_data/poppler"
 
 # Specify Ghostscript directories
 # export GS_RESOURCE_DIR="$bundle_res/share/ghostscript/9.06/Resource"
@@ -90,21 +95,5 @@ if /bin/expr "x$1" : '^x-psn_' > /dev/null; then
  shift 1
 fi
 
-
-echo "Launching GIMP in a D-Bus session..."
-
-# Test for an existing D-Bus daemon and if there, reuse it.
-# Otherwise launch a new exclusive D-Bus daemon with an exclusive session 
-# and run GIMP within it.
-# Taken and adapted from  http://dbus.freedesktop.org/doc/dbus-launch.1.html
-if test -z "$DBUS_SESSION_BUS_ADDRESS" ; then
-  $bundle_bin/dbus-launch --sh-syntax --exit-with-session \
-  --config-file "$bundle_etc/dbus-1/session.conf" \
-  "$bundle_contents/MacOS/$name-bin" "$@" $EXTRA_ARGS
-else
-  $EXEC "$bundle_contents/MacOS/$name-bin" "$@" $EXTRA_ARGS
-fi
-
-
-echo "Cleaning up..."
-$bundle_bin/dbus-cleanup-sockets /var/tmp
+echo "Launching GIMP..."
+$EXEC "$bundle_contents/MacOS/$name-bin" "$@" $EXTRA_ARGS

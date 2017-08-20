@@ -6,20 +6,18 @@ libgimpconfig = $(top_builddir)/libgimpconfig/libgimpconfig-$(GIMP_API_VERSION).
 
 if PLATFORM_WIN32
 no_undefined = -no-undefined
-endif
-
-if PLATFORM_WIN32
+libgdi32 = -lgdi32
 else
 libm = -lm
 endif
 
 if OS_WIN32
 gimpwidgets_def = gimpwidgets.def
-libgimpwidgets_export_symbols = -export-symbols gimpwidgets.def
+libgimpwidgets_export_symbols = -export-symbols $(srcdir)/gimpwidgets.def
 
 install-libtool-import-lib:
 	$(INSTALL) .libs/libgimpwidgets-$(GIMP_API_VERSION).dll.a $(DESTDIR)$(libdir)
-	$(INSTALL) gimpwidgets.def $(DESTDIR)$(libdir)
+	$(INSTALL) $(srcdir)/gimpwidgets.def $(DESTDIR)$(libdir)
 
 uninstall-libtool-import-lib:
 	-rm $(DESTDIR)$(libdir)/libgimpwidgets-$(GIMP_API_VERSION).dll.a
@@ -262,7 +260,8 @@ libgimpwidgets_2_0_la_LIBADD = \
 	$(libgimpconfig)	\
 	$(libgimpbase)		\
 	$(GTK_LIBS)		\
-	$(libm)
+	$(libm)			\
+	$(libgdi32)
 
 libgimpwidgets_2_0_la_DEPENDENCIES = $(gimpwidgets_def)
 
