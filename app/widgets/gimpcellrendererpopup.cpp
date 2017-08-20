@@ -827,9 +827,10 @@ public:
           hbox.pack_start(true, true, 0) (
             gimp_spin_scale_new (
               with (gtk_adjustment_new (100.0, 0.0, 100.0, 1.0, 10.0, 0.0),[&](auto it) {
+                it.set("value", this->layer [gimp_layer_get_opacity] () * 100.0);
 
-                it.connect("value-changed", delegator(std::function<void(GtkWidget*)>([this](GtkWidget* o) {
-                  g_print("Update opacity: %d\n", (gint)ref(o)["value"]);
+                it.connect("value-changed", delegator(std::function<void(GtkAdjustment*)>([this](GtkAdjustment* o) {
+//                  g_print("Update opacity: %d\n", (gint)ref(o)["value"]);
                   this->layer [gimp_layer_set_opacity] ((gdouble)ref(o)["value"] / 100.0, TRUE);
                   auto image = ref( this->layer [gimp_item_get_image] () );
                   image [gimp_image_flush] ();
@@ -863,7 +864,7 @@ public:
           hbox [gtk_widget_show] ();
 
           //  Paint mode menu
-          g_print("create paint_mode_menu\n");
+//          g_print("create paint_mode_menu\n");
           hbox.pack_start (true, true, 0) (gtk_scrolled_window_new(NULL, NULL), [&](auto it) {
             it [gtk_widget_show] ();
             it.add (this->create_paint_mode_list(), [this](auto it) {
@@ -989,7 +990,7 @@ public:
                         gtk_button_new_from_stock (GTK_STOCK_APPLY), [this](auto it) {
                           it [gtk_widget_show] ();
                           it.connect("clicked", delegator(std::function<void(GtkWidget*)>([this](auto o) {
-                            g_print("Apply filter settings...\n");
+//                            g_print("Apply filter settings...\n");
                             auto filter_layer = FilterLayerInterface::cast(this->layer);
                             filter_layer->set_procedure(this->proc_name, this->proc_args);
                           })));
