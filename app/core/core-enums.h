@@ -368,6 +368,7 @@ typedef enum /*< pdb-skip >*/
   GIMP_UNDO_GROUP_LAYER_ADD,          /*< desc="Add layer"                   >*/
   GIMP_UNDO_GROUP_LAYER_ADD_MASK,     /*< desc="Add layer mask"              >*/
   GIMP_UNDO_GROUP_LAYER_APPLY_MASK,   /*< desc="Apply layer mask"            >*/
+  GIMP_UNDO_GROUP_LAYER_APPLY_PRESET, /*< desc="Apply layer preset"          >*/
   GIMP_UNDO_GROUP_FS_TO_LAYER,        /*< desc="Floating selection to layer" >*/
   GIMP_UNDO_GROUP_FS_FLOAT,           /*< desc="Float selection"             >*/
   GIMP_UNDO_GROUP_FS_ANCHOR,          /*< desc="Anchor floating selection"   >*/

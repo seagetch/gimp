@@ -38,6 +38,7 @@ extern "C" {
 #include "core/gimpgrouplayer.h"
 #include "core/gimpchannel.h"
 #include "core/gimpcontainer.h"
+#include "core/gimpimage-undo.h"
 
 #include "presets-enums.h"
 
@@ -558,12 +559,13 @@ public:
 
 
   virtual void apply_for (GimpLayer* source) {
-//    gimp_image_undo_group_start (image, GIMP_UNDO_GROUP_ITEM_RESIZE,
-//                                 item_class->resize_desc);
-
-    auto ipreset = JsonResourceInterface::cast(preset);
-    auto json = JSON::ref(ipreset->get_json());
+    auto image    = ref( context->image );
+    auto ipreset  = JsonResourceInterface::cast(preset);
+    auto json     = JSON::ref(ipreset->get_json());
     auto i_source = ref(source); // required to keep instance even if source is removed.
+
+    image [gimp_image_undo_group_start] (GIMP_UNDO_GROUP_LAYER_APPLY_PRESET,
+                                         preset [gimp_object_get_name] ());
 
     // Get matching part
     auto source_json = json["source-layer"];
@@ -578,7 +580,6 @@ public:
 
     auto parent       = ref( GIMP_LAYER(i_source [gimp_item_get_parent] ()) );
     auto src          = ref( source );
-    auto image        = ref( context->image );
 
     auto container    = ref( parent ?
                                parent [gimp_viewable_get_children] () :
@@ -597,15 +598,16 @@ public:
                                         image [gimp_image_get_layers] () );
       item_index              = container [gimp_container_get_child_index] (GIMP_OBJECT(active_layer));
 
-    } else {
-      // Remove source layer.
-//      g_print("Removing source layer once.\n");
-//      image [gimp_image_remove_layer] (source, TRUE, NULL);
     }
+
+    // TODO: replaces source layer first, and then add other layers.
+    // TODO: insert source layer first if source layer is a newly created one.
 
     // Create layers and insert it.
     GLib::List _dest_layers = create_replacement_layer(replace_json, source, parent, item_index);
     auto dest_layers = ref<GimpLayer*>(_dest_layers);
+
+    image [gimp_image_undo_group_end] ();
   }
 
 
