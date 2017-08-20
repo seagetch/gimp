@@ -371,14 +371,17 @@ gimp_image_undo_push (GimpImage     *image,
 
   private = GIMP_IMAGE_GET_PRIVATE (image);
 
-  /* Does this undo dirty the image?  If so, we always want to mark
-   * image dirty, even if we can't actually push the undo.
-   */
-  if (dirty_mask != GIMP_DIRTY_NONE)
-    gimp_image_dirty (image, dirty_mask);
+  if (private->undo_freeze_count > 0) {
 
-  if (private->undo_freeze_count > 0)
+    /* Does this undo dirty the image?  If so, we always want to mark
+     * image dirty, even if we can't actually push the undo.
+     */
+    if (! (GIMP_IS_DRAWABLE_UNDO(undo) && ! gimp_item_is_editable(GIMP_ITEM_UNDO(undo)->item)) &&
+        dirty_mask != GIMP_DIRTY_NONE)
+      gimp_image_dirty (image, dirty_mask);
+
     return NULL;
+  }
 
   if (! name)
     name = gimp_undo_type_to_name (undo_type);
@@ -404,6 +407,11 @@ gimp_image_undo_push (GimpImage     *image,
     g_object_unref(undo);
     return NULL;
   }
+
+  g_print("push_undo: %s=%d\n", g_type_name(object_type), undo_type);
+
+  if (dirty_mask != GIMP_DIRTY_NONE)
+    gimp_image_dirty (image, dirty_mask);
 
   /*  nuke the redo stack  */
   gimp_image_undo_free_redo (image);

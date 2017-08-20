@@ -199,6 +199,7 @@ public:
 
 };
 
+
 struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterface
 {
   TileManager*     projected_tiles;
@@ -1116,6 +1117,7 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
   auto stack = ref(_stack);
   gint item_index = stack [gimp_container_get_child_index] (GIMP_OBJECT(item));
   gint self_index = stack [gimp_container_get_child_index] (GIMP_OBJECT(g_object));
+  gint stack_size = stack [gimp_container_get_n_children] ();
 
   if (item_index < 0) {
     // item is removed from stack.
@@ -1159,6 +1161,21 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
   if (G_OBJECT(item) != g_object && FilterLayerInterface::is_instance(item)) {
     if (dynamic_cast<FilterLayer*>(FilterLayerInterface::cast(item))->is_waiting_to_be_processed())
       waiting_process_stack = true;
+  }
+
+  for (int i = self_index + 1; i < stack_size; i ++) {
+    GimpObject* layer = stack [gimp_container_get_child_by_index] (i);
+
+    if (FilterLayerInterface::is_instance(layer)) {
+      auto filter = dynamic_cast<FilterLayer*>( FilterLayerInterface::cast(layer) );
+      if (filter->is_waiting_to_be_processed()) {
+        waiting_process_stack = true;
+        if (runner)
+          runner->stop();
+        break;
+      }
+    }
+
   }
 
   invalidate_area(x, y, width, height);

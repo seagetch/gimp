@@ -608,6 +608,7 @@ public:
     auto dest_layers = ref<GimpLayer*>(_dest_layers);
 
     image [gimp_image_undo_group_end] ();
+    image [gimp_image_flush] ();
   }
 
 
