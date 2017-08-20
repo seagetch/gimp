@@ -65,7 +65,7 @@ public:
   
   auto operator[](const gchar* prop_name) {
     if (!is_object())
-      throw InvalidType(JSON_NODE_OBJECT, JSON_NODE_TYPE(obj));
+      return INode();
     
     JsonObject* jobj = json_node_get_object (obj);
     return INode( json_object_get_member(jobj, prop_name) );
@@ -87,7 +87,7 @@ public:
 
   auto operator [](guint index) {
     if (!is_array())
-      throw InvalidType(JSON_NODE_ARRAY, JSON_NODE_TYPE(obj));
+      return INode();
     
     JsonArray* jarr = json_node_get_array (obj);
     if (index >= json_array_get_length(jarr))
@@ -104,7 +104,7 @@ public:
 
   void each(std::function<void(INode&)> func) {
     if (!is_array())
-      throw InvalidType(JSON_NODE_ARRAY, JSON_NODE_TYPE(obj));
+      return;
     
     JsonArray* jarr = json_node_get_array (obj);
     gpointer data = &func;
