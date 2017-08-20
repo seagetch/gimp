@@ -111,8 +111,10 @@ void JsonResource::class_init(Traits<GimpJsonResource>::Class* klass)
           [](GObject* obj, Value src)->void {
             auto resource = JsonResourceInterface::cast(obj);
             resource->set_json((JsonNode*)((GObject*)src));
-          });
+          }
+      );
 }
+
 
 gboolean
 JsonResource::load (GimpContext* context,
@@ -123,16 +125,24 @@ JsonResource::load (GimpContext* context,
   JsonNode* root;
   if (error)
     *error = NULL;
-  g_print("JsonResource::load(%s):: error=%p\n", filename, error);
+//  g_print("JsonResource::load(%s):: error=%p\n", filename, *error);
   parser [json_parser_load_from_file] (filename, error);
-  g_print("JsonResource::load:: error=%p\n", error);
+//  g_print("JsonResource::load:: error=%p\n", *error);
+
   if (error && *error) {
     return FALSE;
   }
+
   root = json_parser_get_root(parser);
   set_json(root);
+
+  auto json = JSON::ref(root);
+  if (json.is_object() && json.has("name") && (const gchar*)json["name"])
+    ref(g_object) [gimp_object_set_name] (json["name"]);
+
   return TRUE;
 }
+
 
 gboolean
 JsonResource::save(GError** error)
@@ -147,6 +157,7 @@ JsonResource::save(GError** error)
   return (error && *error == NULL);
 }
 
+
 GimpData*
 JsonResource::duplicate()
 {
@@ -160,22 +171,25 @@ JsonResource::duplicate()
   return GIMP_DATA(result);
 }
 
+
 JsonNode*
 JsonResource::get_json()
 {
   return root;
 }
 
+
 void
 JsonResource::set_json(JsonNode* node)
 {
   if (node != root) {
     root = node;
-    CString str = json_to_string(node, FALSE);
-    g_print("set: json doc = %s\n", (const gchar*)str);
+//    CString str = json_to_string(node, FALSE);
+//    g_print("set: json doc = %s\n", (const gchar*)str);
     ref(g_object) [g_object_notify] ("root");
   }
 }
+
 
 ////////////////////////////////////////////////////////////////////////////
 // C++ interfaces
