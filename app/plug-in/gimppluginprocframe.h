@@ -42,6 +42,7 @@ struct _GimpPlugInProcFrame
   /*  lists of things to clean up on dispose  */
   GList               *image_cleanups;
   GList               *item_cleanups;
+  gboolean             ignore_undos;
 };
 
 

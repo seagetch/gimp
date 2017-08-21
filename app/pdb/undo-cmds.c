@@ -53,8 +53,8 @@ image_undo_group_start_invoker (GimpProcedure      *procedure,
     {
       GimpPlugIn  *plug_in   = gimp->plug_in_manager->current_plug_in;
       const gchar *undo_desc = NULL;
-
-      if (plug_in)
+      GimpPlugInProcFrame* frame = gimp_plug_in_get_proc_frame(plug_in);
+      if (plug_in && (!frame || !frame->ignore_undos) )
         {
           success = gimp_plug_in_cleanup_undo_group_start (plug_in, image);
 
@@ -62,7 +62,7 @@ image_undo_group_start_invoker (GimpProcedure      *procedure,
             undo_desc = gimp_plug_in_get_undo_desc (plug_in);
         }
 
-      if (success)
+      if (success && (!frame || !frame->ignore_undos) )
         gimp_image_undo_group_start (image, GIMP_UNDO_GROUP_MISC, undo_desc);
     }
 
@@ -86,11 +86,12 @@ image_undo_group_end_invoker (GimpProcedure      *procedure,
   if (success)
     {
       GimpPlugIn *plug_in = gimp->plug_in_manager->current_plug_in;
+      GimpPlugInProcFrame* frame = gimp_plug_in_get_proc_frame(plug_in);
 
-      if (plug_in)
+      if (plug_in && (!frame || !frame->ignore_undos))
         success = gimp_plug_in_cleanup_undo_group_end (plug_in, image);
 
-      if (success)
+      if (success && (!frame || !frame->ignore_undos))
         gimp_image_undo_group_end (image);
     }
 

@@ -781,7 +781,7 @@ gimp_plug_in_proc_frame_push (GimpPlugIn             *plug_in,
                               GimpTemporaryProcedure *procedure)
 {
   GimpPlugInProcFrame *proc_frame;
-
+  
   g_return_val_if_fail (GIMP_IS_PLUG_IN (plug_in), NULL);
   g_return_val_if_fail (GIMP_IS_PDB_CONTEXT (context), NULL);
   g_return_val_if_fail (progress == NULL || GIMP_IS_PROGRESS (progress), NULL);

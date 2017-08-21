@@ -81,6 +81,11 @@ gimp_plug_in_proc_frame_init (GimpPlugInProcFrame *proc_frame,
   proc_frame->progress_created   = FALSE;
   proc_frame->progress_cancel_id = 0;
   proc_frame->error_handler      = GIMP_PDB_ERROR_HANDLER_INTERNAL;
+  // FIME: need to create new ProcFrame for FilterLayer execution call.
+  // Stack-based switching is not good, because PDB functions are called
+  // in parallel.
+//  proc_frame->ignore_undos       = TRUE;
+  proc_frame->ignore_undos       = FALSE;
 
   if (progress)
     gimp_plug_in_progress_attach (progress);
