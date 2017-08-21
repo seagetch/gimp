@@ -33,6 +33,7 @@
 #include "core/gimpdrawable.h"
 #include "core/gimpmarshal.h"
 #include "core/gimpparamspecs.h"
+#include "pdb/gimpprocedure.h"
 
 #define __YES_I_NEED_GIMP_PLUG_IN_MANAGER_CALL__
 #include "gimppluginmanager-call.h"
@@ -115,6 +116,7 @@ gimp_plug_in_procedure_init (GimpPlugInProcedure *proc)
 
   proc->label            = NULL;
   proc->icon_data_length = -1;
+  proc->ignore_undos     = FALSE;
 }
 
 static void
@@ -222,10 +224,11 @@ gimp_plug_in_procedure_execute_async (GimpProcedure *procedure,
   GimpPlugInProcedure *plug_in_procedure = GIMP_PLUG_IN_PROCEDURE (procedure);
   GValueArray         *return_vals;
 
-  return_vals = gimp_plug_in_manager_call_run (gimp->plug_in_manager,
-                                               context, progress,
-                                               plug_in_procedure,
-                                               args, FALSE, display);
+  return_vals = gimp_plug_in_manager_call_run_full (gimp->plug_in_manager,
+                                                    context, progress,
+                                                    plug_in_procedure,
+                                                    args, FALSE, display,
+                                                    plug_in_procedure->ignore_undos);
 
   if (return_vals)
     {

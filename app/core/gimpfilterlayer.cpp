@@ -67,6 +67,7 @@ extern "C" {
 #include "pdb/gimpprocedure.h"
 #include "core/gimpparamspecs.h"
 #include "plug-in/gimptemporaryprocedure.h"
+#include "plug-in/gimppluginprocedure.h"
 }
 
 #include "gimpfilterlayer.h"
@@ -183,8 +184,15 @@ public:
 
     }
 
-    gimp_procedure_execute_async (procedure, gimp, context,
-                                  progress, args, display,NULL);
+    if (GIMP_IS_PLUG_IN_PROCEDURE(procedure) ) {
+      GimpPlugInProcedure* plug_in_proc = GIMP_PLUG_IN_PROCEDURE(procedure);
+      plug_in_proc->ignore_undos = TRUE;
+      gimp_procedure_execute_async (procedure, gimp, context,
+                                      progress, args, display,NULL);
+      plug_in_proc->ignore_undos = FALSE;
+    } else
+      gimp_procedure_execute_async (procedure, gimp, context,
+                                      progress, args, display,NULL);
     gimp_image_flush (image);
 
     g_mutex_lock(&mutex);
@@ -982,9 +990,15 @@ void GLib::FilterLayer::notify_filter_end()
   self [gimp_item_get_offset] (&x, &y);
   self [gimp_drawable_update] (0, 0, width, height);
   auto image  = ref( self [gimp_item_get_image]() );
-  image [gimp_projectable_invalidate_preview] ();
-  auto projection = ref(image [gimp_image_get_projection] ());
-  projection [gimp_projection_flush_now] ();
+  auto parent = ref( self [gimp_viewable_get_parent]() );
+  if (parent) {
+    auto projection = ref( parent [gimp_group_layer_get_projection] () );
+    projection [gimp_projection_flush_now] ();
+  } else {
+    image [gimp_projectable_invalidate_preview] ();
+    auto projection = ref(image [gimp_image_get_projection] ());
+    projection [gimp_projection_flush_now] ();
+  }
   image [gimp_image_flush] ();
   set_waiting_for_runner(false);
 }

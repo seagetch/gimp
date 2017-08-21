@@ -47,6 +47,15 @@ GValueArray * gimp_plug_in_manager_call_run      (GimpPlugInManager      *manage
                                                   gboolean                synchronous,
                                                   GimpObject             *display);
 
+GValueArray * gimp_plug_in_manager_call_run_full (GimpPlugInManager   *manager,
+                                                  GimpContext         *context,
+                                                  GimpProgress        *progress,
+                                                  GimpPlugInProcedure *procedure,
+                                                  GValueArray         *args,
+                                                  gboolean             synchronous,
+                                                  GimpObject          *display,
+                                                  gboolean             ignore_undos);
+
 /*  Run a temp plug-in proc as if it were a procedure database procedure
  */
 GValueArray * gimp_plug_in_manager_call_run_temp (GimpPlugInManager      *manager,

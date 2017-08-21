@@ -155,6 +155,21 @@ gimp_plug_in_manager_call_run (GimpPlugInManager   *manager,
                                gboolean             synchronous,
                                GimpObject          *display)
 {
+  return gimp_plug_in_manager_call_run_full (manager, context, progress, 
+                                             procedure, args, synchronous, 
+                                             display, FALSE);
+}
+
+GValueArray *
+gimp_plug_in_manager_call_run_full (GimpPlugInManager   *manager,
+                                    GimpContext         *context,
+                                    GimpProgress        *progress,
+                                    GimpPlugInProcedure *procedure,
+                                    GValueArray         *args,
+                                    gboolean             synchronous,
+                                    GimpObject          *display,
+                                    gboolean             ignore_undos)
+{
   GValueArray *return_vals = NULL;
   GimpPlugIn  *plug_in;
 
@@ -167,6 +182,8 @@ gimp_plug_in_manager_call_run (GimpPlugInManager   *manager,
 
   plug_in = gimp_plug_in_new (manager, context, progress, procedure, NULL);
 
+  g_print("gimp_plug_in_manager_call_run_full\n");
+
   if (plug_in)
     {
       GimpCoreConfig    *core_config    = manager->gimp->config;
@@ -176,6 +193,12 @@ gimp_plug_in_manager_call_run (GimpPlugInManager   *manager,
       GPProcRun          proc_run;
       gint               display_ID;
       gint               monitor;
+      GimpPlugInProcFrame* proc_frame;
+      
+      proc_frame = gimp_plug_in_get_proc_frame(plug_in);
+      g_print("gimp_plug_in_get_proc_frame=%p:  set ignore_undos=%d\n", plug_in, ignore_undos);
+      if (proc_frame)
+        proc_frame->ignore_undos = ignore_undos;
 
       if (! gimp_plug_in_open (plug_in, GIMP_PLUG_IN_CALL_RUN, FALSE))
         {

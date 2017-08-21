@@ -66,6 +66,8 @@ struct _GimpPlugInProcedure
   GSList              *prefixes_list;
   GSList              *magics_list;
   gchar               *thumb_loader;
+
+  gboolean             ignore_undos;
 };
 
 struct _GimpPlugInProcedureClass
@@ -135,5 +137,12 @@ void     gimp_plug_in_procedure_handle_return_values (GimpPlugInProcedure       
 
                                                       GValueArray               *return_vals);
 
+void gimp_plug_in_procedure_execute_async_no_undo (GimpProcedure *procedure,
+                                                   Gimp          *gimp,
+                                                   GimpContext   *context,
+                                                   GimpProgress  *progress,
+                                                   GValueArray   *args,
+                                                   GimpObject    *display,
+                                                   GError       **error);
 
 #endif /* __GIMP_PLUG_IN_PROCEDURE_H__ */
