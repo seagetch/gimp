@@ -28,7 +28,6 @@ extern "C" {
 #include "config.h"
 
 #include <string.h>
-
 #include <gegl.h>
 
 #include "libgimpbase/gimpbase.h"
@@ -80,10 +79,16 @@ class ProcedureRunner {
   GimpProgress*  progress;
   GValueArray*   args;
   bool           running;
+  bool           preserved;
+  GMutex         mutex;
 
 public:
   ProcedureRunner(GimpProcedure* proc, GimpProgress* prog) :
-    procedure(proc), progress(prog), running(false), args(NULL) {};
+    procedure(proc), progress(prog), running(false), args(NULL), preserved(false)
+  {
+    g_mutex_init(&mutex);
+  };
+
   ~ProcedureRunner() {
     if (running)
       gimp_progress_cancel(progress);
@@ -117,9 +122,31 @@ public:
     return true;
   }
 
+  bool preserve() {
+    bool result;
+    g_mutex_lock(&mutex);
+    if (running || preserved)
+      result = false;
+    else {
+      preserved = true;
+      result = true;
+    }
+    g_mutex_unlock(&mutex);
+    return result;
+  }
+
+  bool cancel() {
+    g_mutex_lock(&mutex);
+    preserved = false;
+    g_mutex_unlock(&mutex);
+  }
+
   bool run(GimpItem* item) {
-    if (running)
+    if (running) {
+      preserved = false;
       return false;
+    }
+
     GimpDrawable*  drawable= GIMP_DRAWABLE(item);
     GimpImage*     image   = gimp_item_get_image(GIMP_ITEM(drawable));
     Gimp*          gimp    = image->gimp;
@@ -129,8 +156,10 @@ public:
     GimpObject*    display = GIMP_OBJECT(gimp_context_get_display(context));
     gint           n_args  = 0;
 
-    if (!procedure)
+    if (!procedure) {
+      preserved = false;
       return false;
+    }
 
     if (!args)
       setup_args(NULL);
@@ -157,7 +186,13 @@ public:
     gimp_procedure_execute_async (procedure, gimp, context,
                                   progress, args, display,NULL);
     gimp_image_flush (image);
+
+    g_mutex_lock(&mutex);
     running = true;
+    if (preserved)
+      preserved = false;
+    g_mutex_unlock(&mutex);
+
     return true;
   }
 
@@ -202,7 +237,6 @@ public:
 
 struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterface
 {
-  TileManager*     projected_tiles;
   bool             projected_tiles_updated;
   gdouble          filter_progress;
   ProcedureRunner* runner;
@@ -212,6 +246,10 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
 
   gint             suspend_resize_;
   bool             waiting_process_stack;
+  gint64           last_projected;
+  bool             layer_projected_once;
+  bool             waiting_for_runner;
+  GMutex         mutex;
 
   /*  hackish temp states to make the projection/tiles stuff work  */
   gboolean         reallocate_projection;
@@ -234,6 +272,11 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   static void class_init(Traits<GimpFilterLayer>::Class* klass);
   template<typename IFaceClass>
   static void iface_init(IFaceClass* klass);
+
+  static gboolean notify_filter_end_callback(FilterLayer* filter) {
+    filter->notify_filter_end();
+    return FALSE;
+  }
 
   // Inherited methods
   virtual void            constructed  ();
@@ -289,6 +332,7 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
                                        gint             y);
 
   virtual void            filter_reset ();
+  virtual void            notify_filter_end ();
   virtual void            update       ();
   virtual void            update_size  ();
   virtual gboolean        is_editable  ();
@@ -342,8 +386,31 @@ private:
                                         gint               y,
                                         gint               width,
                                         gint               height);
+  void                invalidate_whole_area ();
   void                invalidate_layer ();
+
+  bool try_waiting_for_runner() {
+    bool result;
+    g_mutex_lock(&mutex);
+    result = !waiting_for_runner;
+    if (result)
+      waiting_for_runner = true;
+    g_mutex_unlock(&mutex);
+    return result;
+  }
+
+  void set_waiting_for_runner(bool v) {
+    g_mutex_lock(&mutex);
+    waiting_for_runner = v;
+    g_mutex_unlock(&mutex);
+  }
 };
+
+
+static void delete_rectangle(void* rect){
+  delete (GLib::FilterLayer::Rectangle*)rect;
+}
+
 
 
 extern const char gimp_filter_layer_name[] = "GimpFilterLayer";
@@ -430,12 +497,17 @@ GLib::FilterLayer::FilterLayer(GObject* o) : GLib::ImplBase(o) {
                                                     Delegators::delegator(this, &GLib::FilterLayer::on_parent_changed));
   reorder_conn        = NULL;
   updates             = NULL;
-  projected_tiles     = NULL;
   filter_progress     = 0;
   runner              = NULL;
   projected_tiles_updated = false;
   waiting_process_stack = false;
   last_index          = -1;
+
+  layer_projected_once = false;
+  last_projected      = g_get_real_time();
+  waiting_for_runner  = false;
+
+  g_mutex_init(&mutex);
 }
 
 GLib::FilterLayer::~FilterLayer()
@@ -445,12 +517,6 @@ GLib::FilterLayer::~FilterLayer()
     delete child_update_conn;
     child_update_conn = NULL;
   }
-
-  if (projected_tiles) {
-    tile_manager_unref(projected_tiles);
-    projected_tiles = NULL;
-  }
-
   if (reorder_conn) {
     delete reorder_conn;
     reorder_conn = NULL;
@@ -464,7 +530,6 @@ GLib::FilterLayer::~FilterLayer()
 
 void GLib::FilterLayer::constructed ()
 {
-  g_print("FilterLayer::constructed: project_tiles = %p\n", projected_tiles);
   on_parent_changed(GIMP_VIEWABLE(g_object), NULL);
 }
 
@@ -502,16 +567,9 @@ GimpItem* GLib::FilterLayer::duplicate (GType     new_type)
 
   new_item = GIMP_ITEM_CLASS (Class::parent_class)->duplicate (GIMP_ITEM(g_object), new_type);
 
-  if (GIMP_IS_FILTER_LAYER (new_item))
-    {
-      GLib::FilterLayer *new_priv = Class::get_private(new_item);
-      new_priv->suspend_resize (FALSE);
-
-      /*  force the projection to reallocate itself  */
-      new_priv->reallocate_projection = TRUE;
-
-      new_priv->resume_resize (FALSE);
-    }
+  if (GIMP_IS_FILTER_LAYER (new_item)) {
+    FilterLayerInterface::cast(new_item)->set_procedure(get_procedure(), get_procedure_args());
+  }
 
   return new_item;
 }
@@ -616,7 +674,14 @@ void GLib::FilterLayer::project_region (gint          x,
                                           PixelRegion  *projPR,
                                           gboolean      combine)
 {
-  auto           self         = ref(g_object);
+//  g_print("project_region:%s\n", gimp_object_get_name(GIMP_OBJECT(g_object)));
+
+// Shorcut skip when image is loaded.
+//  if (layer_projected_once && ...)
+//  GIMP_DRAWABLE_CLASS(Class::parent_class)->project_region (self, x, y, width, height, projPR, combine);
+
+
+  auto           self         = ref( GIMP_ITEM(g_object) );
   GimpLayerMask *mask         = self [gimp_layer_get_mask] ();
   const gchar*   name         = self [gimp_object_get_name] ();
   gint           x1           = x;
@@ -628,90 +693,161 @@ void GLib::FilterLayer::project_region (gint          x,
   gint           parent_off_x = 0;
   gint           parent_off_y = 0;
   GimpViewable*  parent       = gimp_viewable_get_parent(GIMP_VIEWABLE(g_object));
+  gint64         cur_time     = g_get_real_time();
 
   if (parent)
     ref(parent) [gimp_item_get_offset] (&parent_off_x, &parent_off_y);
 
-//  g_print("FilterLayer::project_region:%s: (x: %d, y: %d)+(w: %d, h: %d) / (W: %d, H: %d)\n", name, x, y, width, height, w, h);
-//  g_print("                                parent-offset:%d,%d,  item-offset:%d,%d\n", parent_off_x, parent_off_y, offset_x, offset_y);
-//  g_print("           In projection coord: (x: %d, y: %d)\n", x + offset_x - parent_off_x, y + offset_y - parent_off_y);
 
-  // Region is copied to projected tiles
-  for (GList* list = updates; list; ) {
-    GList* next = g_list_next(list);
-    auto rect = (Rectangle*)list->data;
-    if (x1 + offset_x - parent_off_x <= rect->x &&
-        y1 + offset_y - parent_off_y <= rect->y &&
-        rect->x + rect->width  <= x1 + offset_x - parent_off_x + width &&
-        rect->y + rect->height <= y1 + offset_y - parent_off_y + height) {
-//      g_print("  compared rect: %d,%d +(%d,%d)\n", rect->x, rect->y, rect->width, rect->height);
-//      g_print("  In drawable coord: (x: %d, y: %d)\n", rect->x - offset_x + parent_off_x, rect->y - offset_y + parent_off_y);
-      projected_tiles_updated = true;
+  // projected_tiles       --> x 1-0 no need to have projectable_tiles, because runner is invoked from project_region, so copying latest projectable works.
+  //                       --> = 1-1 destroy when boundary size is changed.
+  //                             ==> "resize" or "update" should be watched.
+  //                           = 1-2 clear contents if self position is changed.
+  //                             ==> watch "resize", or "notify" event.
+  //                           = 1-3 if projected_tiles is cleared or destroyed, "invalid_layer" should be called.
+  //                             before calling invalidate_layer, updates should be cleared.
+  //                           = 1-4 "project_region" is called, and before running "runner", all the contents should be copied to this.
+  //                           x 1-5 Be aware of boundary. project_region's image size and size of projected_tiles differ.
 
-      if (!projected_tiles) {
-        /*  Allocate the new tiles  */
-//        g_print("FilterLayer::project_region: tile_manager_new\n");
-        GimpImageType  new_type = self [gimp_drawable_type_with_alpha] ();
-        projected_tiles         = tile_manager_new (w, h,
-                                                    GIMP_IMAGE_TYPE_BYTES (new_type));
-      }
-      PixelRegion tilePR;
-      PixelRegion read_proj_PR;
-      pixel_region_init (&tilePR,       projected_tiles,
-                         rect->x + parent_off_x - offset_x, rect->y + parent_off_y - offset_y,
-                         rect->width, rect->height, TRUE);
-      pixel_region_init (&read_proj_PR, projPR->tiles,
-                         rect->x,                           rect->y,
-                         rect->width, rect->height, FALSE);
-      copy_region_nocow(&read_proj_PR, &tilePR);
+  // updates               --> 2-1 clear when source layer's position / size is changed.
+  //                             ==> watch "stack_update" to see the situation.
+  //                           x 2-2 no need to record all updates correctly, but uncleared updates prevent runner to start.
+  //                             ==> periodical clear may work.
+  //                           x 2-3 if updates is cleared, then runner is triggered immediately.
 
-      if (!waiting_process_stack) {
+  // projected_tiles_updated-> x 3-1 required to mark when part of the projected_tiles are updated since last runner->run call.
+  //                           x 3-2 just marking "project_region" call after runner->run invocation works well ?
+  //                             ==> no. we need to distinguish normal flush and updated flush.
+
+  // runner                --> = 4-1 should be canceled when below layer is updated.
+
+  // waiting_process_stack --> x 5-1 we don't need to cache projected_tiles, nor record updates when this flag is set.
+  //                             (assuming below layer flush its contents if they finished the filter process.)
+
+  // sequential process    --> 6-1 PDB process should be serialized because parallel undo_group push / pop becomes the problem.
+
+
+  if (!waiting_process_stack) {
+    // Region is copied to projected tiles
+    for (GList* list = updates; list; ) {
+      GList* next = g_list_next(list);
+      auto rect = (Rectangle*)list->data;
+
+      // 3-1 required to mark when part of the projected_tiles are updated since last runner->run call.
+      if (x1 + offset_x - parent_off_x <= rect->x &&
+          y1 + offset_y - parent_off_y <= rect->y &&
+          rect->x + rect->width  <= x1 + offset_x - parent_off_x + width &&
+          rect->y + rect->height <= y1 + offset_y - parent_off_y + height) {
+
+        projected_tiles_updated = true;
         updates = g_list_delete_link (updates, list);
         delete rect;
       }
+      list = next;
     }
-    list = next;
+
+    if (!layer_projected_once) {
+      projected_tiles_updated = true;
+      layer_projected_once    = true;
+
+      g_list_free_full(updates, delete_rectangle);
+      updates = NULL;
+    }
+
+    // wiating_process_stack: 2-2 no need to record all updates correctly, but uncleared updates prevent runner to start.
+    //                         ==> periodical clear may work.
+    if (cur_time - last_projected > 10 * 1000 * 1000) {
+      filter_reset();
+    }
   }
 
+  last_projected = cur_time;
+
   // Filter effects is applied to updated layer image
-  if (projected_tiles_updated) {
-    if (runner && !runner->is_running()) {
-      if (!waiting_process_stack) {
-        TileManager* tiles   = self [gimp_drawable_get_tiles] ();
-        PixelRegion  srcPR, destPR;
+  if (projected_tiles_updated &&
+      !waiting_process_stack && !updates) {
+    bool trial = false;
+    if (!runner) trial = try_waiting_for_runner();
+    else         trial = runner->preserve();
+    if ( trial ) {
+      TileManager* tiles   = self [gimp_drawable_get_tiles] ();
+      PixelRegion  srcPR, destPR;
 
-        pixel_region_init (&destPR, tiles          , 0, 0, w, h, TRUE);
-        pixel_region_init (&srcPR , projected_tiles, 0, 0, w, h, FALSE);
-        copy_region_nocow(&srcPR, &destPR);
+      //projected_tiles: 1-5 Be aware of boundary. project_region's image size and size of projected_tiles differ.
+      gint twidth  = w;
+      gint theight = h;
 
-        if (!updates) {
-          g_print("--->%s: start runner\n", self [gimp_object_get_name] () );
-          runner->run(GIMP_ITEM(g_object));
-        }
+      gint swidth  = tile_manager_width(projPR->tiles);
+      gint sheight = tile_manager_height(projPR->tiles);
 
+      Rectangle source_area = {
+          0, 0, swidth, sheight
+      };
+      Rectangle dest_area = {
+          0 + parent_off_x - offset_x,
+          0 + parent_off_y - offset_y,
+          swidth, sheight
+      };
+
+      if (dest_area.x < 0) {
+        source_area.width += dest_area.x;
+        dest_area.  width += dest_area.x;
+        source_area.x     -= dest_area.x;
+        dest_area.  x     -= dest_area.x;
+      }
+
+      if (dest_area.y < 0) {
+        source_area.height += dest_area.y;
+        dest_area.  height += dest_area.y;
+        source_area.y      -= dest_area.y;
+        dest_area.  y      -= dest_area.y;
+      }
+
+      if (dest_area.x + dest_area.width > twidth) {
+        g_print("w>0:(%d)",dest_area.width );
+        dest_area.width    = twidth  - dest_area.x;
+        source_area.width  = dest_area.width;
+        g_print("->(%d):",dest_area.width );
+      }
+
+      if (dest_area.y + dest_area.height > theight) {
+        g_print("h>0:(%d)",dest_area.height );
+        dest_area.height = theight - dest_area.y;
+        source_area.height = dest_area.height;
+        g_print("->(%d):",dest_area.height );
+      }
+
+      pixel_region_init (&srcPR, projPR->tiles,
+                         source_area.x, source_area.y, source_area.width, source_area.height, FALSE);
+
+      pixel_region_init (&destPR,       tiles,
+                         dest_area.x, dest_area.y, dest_area.width, dest_area.height, TRUE);
+
+      copy_region_nocow(&srcPR, &destPR);
+
+      if (runner) {
+
+        bool result = runner->run(GIMP_ITEM(g_object));
+        g_print("--->%s: start runner=%d\n", self [gimp_object_get_name] (), result );
         auto  image   = ref(self [gimp_item_get_image] () );
         int   iwidth  = image [gimp_image_get_width] ();
         int   iheight = image [gimp_image_get_height] ();
         image [gimp_image_invalidate] (0, 0, iwidth, iheight, 0);
         image [gimp_image_flush] ();
 
-        projected_tiles_updated = false;
+      } else {
+        g_print("--->%s: no runner\n",self [gimp_object_get_name] () );
+        g_timeout_add(300, (GSourceFunc)notify_filter_end_callback, this);
       }
 
-    } else {
-//      g_print("FilterLayer::project_region: skip filter execution: filter_active=%p, updates=%p\n", filter_active, updates);
-//      for (GList* list = updates; list; list = g_list_next(list)) {
-//        auto r = (Rectangle*)list->data;
-//        g_print("  skipped: %d, %d + (%d, %d)\n", r->x, r->y, r->width, r->height);
-//      }
+      projected_tiles_updated = false;
     }
-
-  } else {
-//    g_print ("FilterLayer::project_region:  not updated %d, %d +(%d, %d)\n", x, y, width, height);
   }
 
-  if (is_waiting_to_be_processed())
+  if (!runner || is_waiting_to_be_processed()) {
     return;
+  }
+  g_print("--->%s: do parent process\n",self [gimp_object_get_name] () );
 
   GIMP_DRAWABLE_CLASS(Class::parent_class)->project_region (self, x, y, width, height, projPR, combine);
 }
@@ -726,16 +862,18 @@ void GLib::FilterLayer::set_procedure(const char* proc_name, GArray* _args)
   auto           pdb   = ref( gimp_item_get_image(GIMP_ITEM(g_object))->gimp->pdb );
   auto           args  = ref<GValue>(_args);
   GimpProcedure* proc    = pdb [gimp_pdb_lookup_procedure] (proc_name);
-  ProcedureRunner* r     = new ProcedureRunner(proc, GIMP_PROGRESS(g_object));
+  if (proc) {
+    ProcedureRunner* r     = new ProcedureRunner(proc, GIMP_PROGRESS(g_object));
 
-  if (args) {
-    for (int i = 0; i < proc->num_args; i ++)
-      r->set_arg(i, args[i]);
+    if (args) {
+      for (int i = 0; i < proc->num_args; i ++)
+        r->set_arg(i, args[i]);
+    }
+
+    runner     = r;
+    filter_reset();
+    invalidate_layer();
   }
-
-  runner     = r;
-  filter_reset();
-  invalidate_layer();
 }
 
 const char* GLib::FilterLayer::get_procedure()
@@ -825,16 +963,30 @@ void GLib::FilterLayer::resume_resize (gboolean        push_undo) {
 
 /*  priv functions  */
 
-static void delete_rectangle(void* rect){
-  delete (GLib::FilterLayer::Rectangle*)rect;
-}
 void GLib::FilterLayer::filter_reset () {
   g_print("FilterLayer::filter_reset\n");
-  gimp_progress_cancel(GIMP_PROGRESS(g_object));
+//  gimp_progress_cancel(GIMP_PROGRESS(g_object));
   g_list_free_full(updates, delete_rectangle);
   updates = NULL;
-  tile_manager_unref(projected_tiles);
-  projected_tiles = NULL;
+  last_projected = g_get_real_time();
+  layer_projected_once = false;
+}
+
+
+void GLib::FilterLayer::notify_filter_end()
+{
+  auto self   = ref(g_object);
+  gint width  = self [gimp_item_get_width] ();
+  gint height = self [gimp_item_get_height] ();
+  gint x, y;
+  self [gimp_item_get_offset] (&x, &y);
+  self [gimp_drawable_update] (0, 0, width, height);
+  auto image  = ref( self [gimp_item_get_image]() );
+  image [gimp_projectable_invalidate_preview] ();
+  auto projection = ref(image [gimp_image_get_projection] ());
+  projection [gimp_projection_flush_now] ();
+  image [gimp_image_flush] ();
+  set_waiting_for_runner(false);
 }
 
 
@@ -847,54 +999,7 @@ void GLib::FilterLayer::update () {
 void GLib::FilterLayer::update_size () {
   reallocate_projection = FALSE;
   invalidate_layer();
-#if 0
-  GimpItem              *item       = GIMP_ITEM (g_object);
-  gint                   old_x      = gimp_item_get_offset_x (item);
-  gint                   old_y      = gimp_item_get_offset_y (item);
-  gint                   old_width  = gimp_item_get_width  (item);
-  gint                   old_height = gimp_item_get_height (item);
-  gint                   x          = 0;
-  gint                   y          = 0;
-  gint                   width      = 1;
-  gint                   height     = 1;
-  gboolean               first      = TRUE;
-  GList                 *list;
-
-  g_print ("%s (%s) %d, %d (%d, %d)\n",
-           G_STRFUNC, gimp_object_get_name (g_object),
-           x, y, width, height);
-
-  if (reallocate_projection ||
-      x      != old_x                ||
-      y      != old_y                ||
-      width  != old_width            ||
-      height != old_height)
-    {
-    auto self = ref(g_object);
-      if (reallocate_projection ||
-          width  != old_width            ||
-          height != old_height)
-        {
-          TileManager *tiles;
-
-          reallocate_projection = FALSE;
-
-          reallocate_width  = width;
-          reallocate_height = height;
-          invalidate_layer();
-          reallocate_width  = 0;
-          reallocate_height = 0;
-//          gimp_projectable_structure_changed (GIMP_PROJECTABLE (g_object));
-        }
-      else
-        {
-          gimp_item_set_offset (item, x, y);
-          invalidate_layer();
-          /*  see comment in gimp_filter_layer_stack_update() below  */
-//          gimp_pickable_flush (GIMP_PICKABLE (projection));
-        }
-    }
-#endif
+  // TODO: need filter reset if boundary size is changed.
 }
 
 gboolean GLib::FilterLayer::is_editable()
@@ -923,20 +1028,8 @@ void GLib::FilterLayer::end()
     filter_reset();
     return;
   }
-//  filter_active = NULL;
-  auto self   = ref(g_object);
-  gint width  = self [gimp_item_get_width] ();
-  gint height = self [gimp_item_get_height] ();
-  gint x, y;
-  self [gimp_item_get_offset] (&x, &y);
-  self [gimp_drawable_update] (0, 0, width, height);
-  auto image  = ref( self [gimp_item_get_image]() );
-  image [gimp_projectable_invalidate_preview] ();
-  auto projection = ref(image [gimp_image_get_projection] ());
-  projection [gimp_projection_flush_now] ();
-  image [gimp_image_flush] ();
 
-//  g_print("/FilterLayer::end\n");
+  notify_filter_end();
 }
 
 gboolean GLib::FilterLayer::is_active()
@@ -1021,6 +1114,7 @@ void GLib::FilterLayer::invalidate_area (gint               x,
       gint h = MIN(TILE_HEIGHT - (y3 % TILE_HEIGHT), y2 - y3);
 
       bool found = false;
+      int numlist=0;
       for (GList* list = updates; list; list = g_list_next(list)) {
         auto rect = (Rectangle*)list->data;
         if (rect->x == x3 && rect->y == y3 &&
@@ -1028,17 +1122,28 @@ void GLib::FilterLayer::invalidate_area (gint               x,
           found = true;
           break;
         }
+        numlist++;
       }
-
       if (!found) {
-//        g_print ("FilterLayer::on_stack_update ::::: added ==> %d, %d +(%d, %d)\n",
-//                 x3, y3, w, h);
-//        g_print ("                                   parent-offset:%d,%d, item-offset:%d,%d\n", parent_off_x, parent_off_y, offset_x, offset_y);
-        updates = g_list_append(updates, new Rectangle(x3, y3, w, h));
+//        g_print("num of list=%d\n",numlist);
+        updates = g_list_prepend(updates, new Rectangle(x3, y3, w, h));
       }
     }
   }
 }
+
+void GLib::FilterLayer::invalidate_whole_area ()
+{
+  auto self         = ref(g_object);
+  auto image        = ref( self [gimp_item_get_image] () );
+  gint width        = self [gimp_item_get_width] ();
+  gint height       = self [gimp_item_get_height] ();
+  gint offset_x     = self [gimp_item_get_offset_x] ();
+  gint offset_y     = self [gimp_item_get_offset_y] ();
+
+  invalidate_area(offset_x, offset_y, width, height);
+}
+
 
 void GLib::FilterLayer::invalidate_layer ()
 {
@@ -1049,7 +1154,7 @@ void GLib::FilterLayer::invalidate_layer ()
   gint offset_x     = self [gimp_item_get_offset_x] ();
   gint offset_y     = self [gimp_item_get_offset_y] ();
 
-  invalidate_area(offset_x, offset_y, width, height);
+  invalidate_whole_area();
 
   GimpViewable*  parent = gimp_viewable_get_parent(GIMP_VIEWABLE(g_object));
   if (parent) {
@@ -1060,6 +1165,7 @@ void GLib::FilterLayer::invalidate_layer ()
 
   image [gimp_image_invalidate] (offset_x, offset_y, width, height, 0);
   auto projection = ref(image [gimp_image_get_projection] ());
+  last_projected = g_get_real_time();
   projection [gimp_projection_flush_now] ();
   image [gimp_image_flush] ();
 }
@@ -1110,10 +1216,9 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
 {
 //  g_print("%s: FilterLayer::on_stack_update(%s)\n", ref(g_object)[gimp_object_get_name](), ref(item)[gimp_object_get_name]());
 
-  if (projected_tiles && G_OBJECT(item) == g_object) {
-//    g_print("--->%s: Ignore myself.\n", ref(g_object)[gimp_object_get_name]());
+  if (layer_projected_once && G_OBJECT(item) == g_object)
     return;
-  }
+
   auto stack = ref(_stack);
   gint item_index = stack [gimp_container_get_child_index] (GIMP_OBJECT(item));
   gint self_index = stack [gimp_container_get_child_index] (GIMP_OBJECT(g_object));
@@ -1146,14 +1251,18 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
     return;
   }
 
+  bool prev_waiting_state = waiting_process_stack;
+
   waiting_process_stack = false;
   for (int i = self_index + 1; i < item_index; i ++) {
     GimpObject* layer = stack [gimp_container_get_child_by_index] (i);
     if (FilterLayerInterface::is_instance(layer) && ref(layer) [gimp_item_get_visible] ()) {
 //      g_print("--->%s: Wait for other filter(%s).\n", ref(g_object)[gimp_object_get_name](), ref(layer) [gimp_object_get_name] ());
       waiting_process_stack = true;
-      if (runner)
+      if (runner) {
         runner->stop();
+        waiting_for_runner = false;
+      }
       break;
     }
   }
@@ -1166,19 +1275,29 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
   for (int i = self_index + 1; i < stack_size; i ++) {
     GimpObject* layer = stack [gimp_container_get_child_by_index] (i);
 
-    if (FilterLayerInterface::is_instance(layer)) {
+    if (FilterLayerInterface::is_instance(layer) && ref(layer) [gimp_item_get_visible] ()) {
       auto filter = dynamic_cast<FilterLayer*>( FilterLayerInterface::cast(layer) );
       if (filter->is_waiting_to_be_processed()) {
         waiting_process_stack = true;
-        if (runner)
+        if (runner) {
           runner->stop();
+          waiting_for_runner = false;
+        }
         break;
       }
     }
 
   }
 
-  invalidate_area(x, y, width, height);
+  if (prev_waiting_state && !waiting_process_stack) {
+    // wating_process_stac: 5-1 (assuming below layer flush its contents if they finished the filter process.)
+    filter_reset();
+    invalidate_layer();
+
+  } else if (!waiting_process_stack) {
+    // waiting_process_stack: 5-1 we don't need to cache projected_tiles, nor record updates when this flag is set.
+    invalidate_area(x, y, width, height);
+  }
 }
 
 void GLib::FilterLayer::on_reorder (GimpContainer* _container,
@@ -1216,8 +1335,10 @@ void GLib::FilterLayer::on_reorder (GimpContainer* _container,
       if (FilterLayerInterface::is_instance(layer) && ref(layer) [gimp_item_get_visible] ()) {
 //        g_print("--->%s: Wait for other filter(%s).\n", ref(g_object)[gimp_object_get_name](), ref(layer) [gimp_object_get_name] ());
         waiting_process_stack = true;
-        if (runner)
+        if (runner) {
           runner->stop();
+          waiting_for_runner = false;
+        }
         is_at_bottom = false;
         break;
       }
