@@ -212,7 +212,6 @@ PresetGuiFactory::on_restore (Gimp               *gimp,
 
     // Action group entry initialization
     PresetGuiConfig::ActionGroupEntry* action_group_entry = gui_config->get_action_group_entry();
-    g_print("Global action factory=%p\n", global_action_factory);
 
     if (action_group_entry)
       gimp_action_factory_group_register (global_action_factory,

@@ -847,7 +847,7 @@ void GLib::FilterLayer::project_region (gint          x,
   if (!runner || is_waiting_to_be_processed()) {
     return;
   }
-  g_print("--->%s: do parent process\n",self [gimp_object_get_name] () );
+//  g_print("--->%s: do parent process\n",self [gimp_object_get_name] () );
 
   GIMP_DRAWABLE_CLASS(Class::parent_class)->project_region (self, x, y, width, height, projPR, combine);
 }
