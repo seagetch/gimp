@@ -160,9 +160,6 @@ struct CloneLayer : virtual public ImplBase, virtual public CloneLayerInterface
                                         gint          y,
                                         gint          width,
                                         gint          height);
-  virtual void        on_reorder       (GimpContainer     *container,
-                                        GimpLayer         *layer,
-                                        gint               index);
 private:
   void                invalidate_layer ();
 };
@@ -265,8 +262,8 @@ GLib::CloneLayer::~CloneLayer()
 
 GLib::CloneLayer::CloneLayer(GObject* o) : ImplBase(o)
 {
-  parent_changed_conn = g_signal_connect_delegator (G_OBJECT(g_object), "parent-changed",
-                                                    Delegators::delegator(this, &GLib::CloneLayer::on_parent_changed));
+//  parent_changed_conn = g_signal_connect_delegator (G_OBJECT(g_object), "parent-changed",
+//                                                    Delegators::delegator(this, &GLib::CloneLayer::on_parent_changed));
   reorder_conn        = NULL;
   update_conn         = NULL;
 }
@@ -572,20 +569,6 @@ void GLib::CloneLayer::on_source_update (GimpDrawable* _source,
   }
 
   self [gimp_drawable_update] (x, y, width, height);
-}
-
-void GLib::CloneLayer::on_reorder (GimpContainer* _container,
-                                    GimpLayer* _layer,
-                                    gint index)
-{
-//  g_print("%s,%d: CloneLayer::on_reorder(%s,%d)\n", ref(g_object)[gimp_object_get_name](), last_index, ref(_layer)[gimp_object_get_name](), index);
-  auto layer = ref(_layer);
-  auto stack = ref(_container);
-  gint item_index = stack [gimp_container_get_child_index] (GIMP_OBJECT(_layer));
-  gint self_index = stack [gimp_container_get_child_index] (GIMP_OBJECT(g_object));
-
-  if (G_OBJECT(_layer) == g_object) {
-  }
 }
 
 /*  public functions  */
