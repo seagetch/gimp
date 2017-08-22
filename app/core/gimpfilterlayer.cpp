@@ -247,8 +247,8 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
 {
   bool             projected_tiles_updated;
   gdouble          filter_progress;
-  ProcedureRunner* runner;
-  ProcedureRunner* new_runner;
+  CXXPointer<ProcedureRunner> runner;
+  CXXPointer<ProcedureRunner> new_runner;
   GList*           updates;
   int              last_index;
 
@@ -257,7 +257,8 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   gint64           last_projected;
   bool             layer_projected_once;
   bool             waiting_for_runner;
-  GMutex         mutex;
+  GMutex           mutex;
+  GMutex           m_updates;
 
   /*  hackish temp states to make the projection/tiles stuff work  */
   gboolean         reallocate_projection;
@@ -270,9 +271,10 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
     Rectangle(gint x_, gint y_, gint w_, gint h_) : x(x_), y(y_), width(w_), height(h_) {};
   };
 
-  Delegators::Connection* child_update_conn;
-  Delegators::Connection* parent_changed_conn;
-  Delegators::Connection* reorder_conn;
+  CXXPointer<Delegators::Connection> child_update_conn;
+  CXXPointer<Delegators::Connection> parent_changed_conn;
+  CXXPointer<Delegators::Connection> reorder_conn;
+  CXXPointer<Delegators::Connection> visibility_changed_conn;
 
   FilterLayer(GObject* o);
   virtual ~FilterLayer();
@@ -385,6 +387,7 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   virtual void        on_reorder       (GimpContainer     *container,
                                         GimpLayer         *layer,
                                         gint               index);
+  virtual void   on_visibility_changed (GimpFilterLayer*   layer);
   // Public interfaces
   virtual void             suspend_resize (gboolean        push_undo);
   virtual void             resume_resize  (gboolean        push_undo);
@@ -503,6 +506,8 @@ GLib::FilterLayer::FilterLayer(GObject* o) : GLib::ImplBase(o) {
   child_update_conn   = NULL;
   parent_changed_conn = g_signal_connect_delegator (G_OBJECT(g_object), "parent-changed",
                                                     Delegators::delegator(this, &GLib::FilterLayer::on_parent_changed));
+  visibility_changed_conn = g_signal_connect_delegator (G_OBJECT(g_object), "visibility-changed",
+                                Delegators::delegator(this, &GLib::FilterLayer::on_visibility_changed));
   reorder_conn        = NULL;
   updates             = NULL;
   filter_progress     = 0;
@@ -516,24 +521,12 @@ GLib::FilterLayer::FilterLayer(GObject* o) : GLib::ImplBase(o) {
   waiting_for_runner  = false;
 
   g_mutex_init(&mutex);
+  g_mutex_init(&m_updates);
 }
 
 GLib::FilterLayer::~FilterLayer()
 {
   g_print("~FilterLayer\n");
-  if (child_update_conn) {
-    delete child_update_conn;
-    child_update_conn = NULL;
-  }
-  if (reorder_conn) {
-    delete reorder_conn;
-    reorder_conn = NULL;
-  }
-
-  if (runner) {
-    delete runner;
-    runner = NULL;
-  }
 }
 
 void GLib::FilterLayer::constructed ()
@@ -735,9 +728,11 @@ void GLib::FilterLayer::project_region (gint          x,
   // sequential process    --> 6-1 PDB process should be serialized because parallel undo_group push / pop becomes the problem.
 
 
+  bool updates_remained = false;
   if (!waiting_process_stack) {
     // Region is copied to projected tiles
     for (GList* list = updates; list; ) {
+      g_mutex_lock(&m_updates);
       GList* next = g_list_next(list);
       auto rect = (Rectangle*)list->data;
 
@@ -751,6 +746,7 @@ void GLib::FilterLayer::project_region (gint          x,
         updates = g_list_delete_link (updates, list);
         delete rect;
       }
+      g_mutex_unlock(&m_updates);
       list = next;
     }
 
@@ -767,13 +763,14 @@ void GLib::FilterLayer::project_region (gint          x,
     if (cur_time - last_projected > 10 * 1000 * 1000) {
       filter_reset();
     }
+    updates_remained = updates;
   }
 
   last_projected = cur_time;
 
   // Filter effects is applied to updated layer image
   if (projected_tiles_updated &&
-      !waiting_process_stack && !updates) {
+      !waiting_process_stack && !updates_remained) {
     bool trial = false;
     if (!runner) trial = try_waiting_for_runner();
     else         trial = runner->preserve();
@@ -849,7 +846,8 @@ void GLib::FilterLayer::project_region (gint          x,
       }
 
       projected_tiles_updated = false;
-    }
+    } else
+      projected_tiles_updated = true;
   }
 
   if (!runner || is_waiting_to_be_processed()) {
@@ -863,7 +861,6 @@ void GLib::FilterLayer::project_region (gint          x,
 void GLib::FilterLayer::set_procedure(const char* proc_name, GArray* _args)
 {
   if (runner) {
-    delete runner;
     runner = NULL;
     g_print("FilterLayer::set_procedure(%s), Cleanup eixsting runner.\n", proc_name);
   }
@@ -991,6 +988,7 @@ void GLib::FilterLayer::notify_filter_end()
   self [gimp_drawable_update] (0, 0, width, height);
   auto image  = ref( self [gimp_item_get_image]() );
   auto parent = ref( self [gimp_viewable_get_parent]() );
+  set_waiting_for_runner(false);
   if (parent) {
     auto projection = ref( parent [gimp_group_layer_get_projection] () );
     projection [gimp_projection_flush_now] ();
@@ -1000,7 +998,6 @@ void GLib::FilterLayer::notify_filter_end()
     projection [gimp_projection_flush_now] ();
   }
   image [gimp_image_flush] ();
-  set_waiting_for_runner(false);
 }
 
 
@@ -1036,9 +1033,7 @@ void GLib::FilterLayer::end()
   runner->on_end();
   if (new_runner) {
 //    g_print("%s: New runner exists. run again.\n", ref(g_object) [gimp_object_get_name] () );
-    delete runner;
-    runner      = new_runner;
-    new_runner = NULL;
+    runner      = std::move(new_runner);
     filter_reset();
     return;
   }
@@ -1140,7 +1135,9 @@ void GLib::FilterLayer::invalidate_area (gint               x,
       }
       if (!found) {
 //        g_print("num of list=%d\n",numlist);
-        updates = g_list_prepend(updates, new Rectangle(x3, y3, w, h));
+        g_mutex_lock(&m_updates);
+        updates = g_list_append(updates, new Rectangle(x3, y3, w, h));
+        g_mutex_unlock(&m_updates);
       }
     }
   }
@@ -1191,14 +1188,6 @@ void GLib::FilterLayer::on_parent_changed (GimpViewable  *viewable,
                                              GimpViewable  *parent)
 {
 //  g_print("on_parent_changed: %p ==> parent=%s\n", viewable, parent? gimp_object_get_name(parent): NULL);
-  if (child_update_conn) {
-    delete child_update_conn;
-    child_update_conn = NULL;
-  }
-  if (reorder_conn) {
-    delete reorder_conn;
-    reorder_conn = NULL;
-  }
   if (parent) {
     GimpContainer* children = gimp_viewable_get_children(parent);
     child_update_conn =
@@ -1311,6 +1300,8 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
   } else if (!waiting_process_stack) {
     // waiting_process_stack: 5-1 we don't need to cache projected_tiles, nor record updates when this flag is set.
     invalidate_area(x, y, width, height);
+  } else if ( !ref(g_object) [gimp_item_get_visible] () ) {
+    invalidate_whole_area();
   }
 }
 
@@ -1364,6 +1355,17 @@ void GLib::FilterLayer::on_reorder (GimpContainer* _container,
   }
   last_index = self_index;
 
+}
+
+void GLib::FilterLayer::on_visibility_changed (GimpFilterLayer* filter)
+{
+  g_print("FilterLayer::visibility-changed\n");
+  auto i_filter = ref(filter);
+
+  if (!(bool)i_filter ["visible"])
+    return;
+
+  invalidate_layer();
 }
 
 //////////////////////////////////////////////////////////////////////////
