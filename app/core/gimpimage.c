@@ -2310,6 +2310,7 @@ gimp_image_invalidate (GimpImage *image,
                        GimpItem *item)
 {
   g_return_if_fail (GIMP_IS_IMAGE (image));
+  g_return_if_fail (GIMP_IMAGE_GET_PRIVATE (image)->projection != NULL);
 
   gimp_projectable_invalidate (GIMP_PROJECTABLE (image),
                                x, y, width, height);
@@ -2636,6 +2637,7 @@ void
 gimp_image_flush (GimpImage *image)
 {
   g_return_if_fail (GIMP_IS_IMAGE (image));
+  g_return_if_fail (GIMP_IMAGE_GET_PRIVATE (image)->projection != NULL);
 
   gimp_projectable_flush (GIMP_PROJECTABLE (image),
                           GIMP_IMAGE_GET_PRIVATE (image)->flush_accum.preview_invalidated);

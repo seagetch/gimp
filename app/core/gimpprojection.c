@@ -170,6 +170,10 @@ gimp_projection_finalize (GObject *object)
 {
   GimpProjection *proj = GIMP_PROJECTION (object);
 
+  g_signal_handlers_disconnect_by_func(proj->projectable, gimp_projection_projectable_invalidate, proj);
+  g_signal_handlers_disconnect_by_func(proj->projectable, gimp_projection_projectable_flush, proj);
+  g_signal_handlers_disconnect_by_func(proj->projectable, gimp_projection_projectable_changed, proj);
+
   if (proj->idle_render.idle_id)
     {
       g_source_remove (proj->idle_render.idle_id);
