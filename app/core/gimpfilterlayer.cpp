@@ -260,11 +260,6 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   GMutex           mutex;
   GMutex           m_updates;
 
-  /*  hackish temp states to make the projection/tiles stuff work  */
-  gboolean         reallocate_projection;
-  gint             reallocate_width;
-  gint             reallocate_height;
-
   struct Rectangle {
     gint x, y;
     gint width, height;
@@ -292,9 +287,6 @@ struct FilterLayer : virtual public ImplBase, virtual public FilterLayerInterfac
   virtual void            constructed  ();
 
   virtual gint64          get_memsize  (gint64          *gui_size);
-
-  virtual gboolean        get_size     (gint            *width,
-                                        gint            *height);
 
   virtual GimpItem      * duplicate    (GType            new_type);
   virtual void            convert      (GimpImage       *dest_image);
@@ -447,7 +439,6 @@ void FilterLayer::class_init(Traits<GimpFilterLayer>::Class *this_class)
       })->
       as_class <GimpViewable> ([](GimpViewableClass* klass) {
         klass->default_stock_id = "gtk-directory";
-        _override (get_size);
 
       })->
       as_class <GimpItem> ([](GimpItemClass* klass) {
@@ -540,24 +531,6 @@ gint64 GLib::FilterLayer::get_memsize (gint64     *gui_size)
 
   return memsize + GIMP_OBJECT_CLASS (Class::parent_class)->get_memsize (GIMP_OBJECT(g_object),
                                                                   gui_size);
-}
-
-gboolean GLib::FilterLayer::get_size (gint         *width,
-                                        gint         *height)
-{
-  if (reallocate_width  != 0 &&
-      reallocate_height != 0)
-    {
-      *width  = reallocate_width;
-      *height = reallocate_height;
-
-      g_print("w,h=%d,%d",*width, *height);
-      return TRUE;
-    }
-
-  gboolean result = GIMP_VIEWABLE_CLASS (Class::parent_class)->get_size (GIMP_VIEWABLE(g_object), width, height);
-  g_print("inherited: w,h=%d,%d",*width, *height);
-  return result;
 }
 
 GimpItem* GLib::FilterLayer::duplicate (GType     new_type)
@@ -809,17 +782,13 @@ void GLib::FilterLayer::project_region (gint          x,
       }
 
       if (dest_area.x + dest_area.width > twidth) {
-        g_print("w>0:(%d)",dest_area.width );
         dest_area.width    = twidth  - dest_area.x;
         source_area.width  = dest_area.width;
-        g_print("->(%d):",dest_area.width );
       }
 
       if (dest_area.y + dest_area.height > theight) {
-        g_print("h>0:(%d)",dest_area.height );
         dest_area.height = theight - dest_area.y;
         source_area.height = dest_area.height;
-        g_print("->(%d):",dest_area.height );
       }
 
       pixel_region_init (&srcPR, projPR->tiles,
@@ -1008,7 +977,6 @@ void GLib::FilterLayer::update () {
 }
 
 void GLib::FilterLayer::update_size () {
-  reallocate_projection = FALSE;
   invalidate_layer();
   // TODO: need filter reset if boundary size is changed.
 }
