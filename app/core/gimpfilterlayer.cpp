@@ -1270,7 +1270,7 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
     }
   }
 
-  if (G_OBJECT(item) != g_object && FilterLayerInterface::is_instance(item)) {
+  if (G_OBJECT(item) != g_object && FilterLayerInterface::is_instance(item) && ref(item) [gimp_item_get_visible] ()) {
     if (dynamic_cast<FilterLayer*>(FilterLayerInterface::cast(item))->is_waiting_to_be_processed())
       waiting_process_stack = true;
   }
@@ -1292,7 +1292,9 @@ void GLib::FilterLayer::on_stack_update (GimpDrawableStack *_stack,
 
   }
 
+//  g_print("waiting: prev=%d --> cur=%d\n", prev_waiting_state, waiting_process_stack);
   if (prev_waiting_state && !waiting_process_stack) {
+//    g_print("become !waiting_process_stack\n");
     // wating_process_stac: 5-1 (assuming below layer flush its contents if they finished the filter process.)
     filter_reset();
     invalidate_layer();
@@ -1365,6 +1367,7 @@ void GLib::FilterLayer::on_visibility_changed (GimpFilterLayer* filter)
   if (!(bool)i_filter ["visible"])
     return;
 
+  filter_reset();
   invalidate_layer();
 }
 
