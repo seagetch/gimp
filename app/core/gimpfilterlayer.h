@@ -56,6 +56,7 @@ GArray*          gimp_filter_layer_get_procedure_args  (GimpFilterLayer* layer);
 void             gimp_filter_layer_set_procedure  (GimpFilterLayer* layer,
                                                    const gchar*     proc_name,
                                                    GArray*          args);
+void             gimp_filter_layer_mark_as_loaded (GimpFilterLayer* layer);
 
 #ifdef __cplusplus
 }
@@ -71,14 +72,12 @@ public:
   static FilterLayerInterface*    cast           (gpointer obj);
   static bool                     is_instance    (gpointer obj);
 
-  virtual void                    suspend_resize (gboolean        push_undo) = 0;
-  virtual void                    resume_resize  (gboolean        push_undo) = 0;
-
   virtual void                    set_procedure(const char* proc_name, GArray* args = NULL) = 0;
   virtual const char*             get_procedure() = 0;
   virtual GArray*                 get_procedure_args() = 0;
   virtual GValue                  get_procedure_arg(int index) = 0;
   virtual void                    set_procedure_arg(int index, GValue value) = 0;
+  virtual void                    mark_as_loaded() = 0;
 };
 
 #include "base/glib-cxx-types.hpp"

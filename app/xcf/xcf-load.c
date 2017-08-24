@@ -1015,6 +1015,7 @@ xcf_load_layer_props (XcfInfo    *info,
             mode       = gimp_layer_get_mode(GIMP_LAYER(*layer));
 
             filter     = gimp_filter_layer_new (image, width, height, layer_name, opacity, mode);
+            gimp_filter_layer_mark_as_loaded(filter);
 
             gimp_item_set_offset (GIMP_ITEM(filter), x, y);
 
