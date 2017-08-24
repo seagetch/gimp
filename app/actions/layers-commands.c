@@ -117,9 +117,6 @@ static void   layers_new_layer_response    (GtkWidget             *widget,
 static void   layers_new_filter_layer_response    (GtkWidget             *widget,
                                             gint                   response_id,
                                             LayerOptionsDialog    *dialog);
-static void   layers_new_clone_layer_response (GtkWidget             *widget,
-                                            gint                   response_id,
-                                            LayerOptionsDialog    *dialog);
 static void   layers_edit_layer_response   (GtkWidget             *widget,
                                             gint                   response_id,
                                             LayerOptionsDialog    *dialog);
@@ -430,7 +427,7 @@ layers_new_clone_cmd_callback (GtkAction *action,
   GimpLayer *new_layer;
   return_if_no_layer (image, layer, data);
 
-  new_layer = gimp_clone_layer_new (image, GIMP_ITEM (layer), 0, 0,
+  new_layer = gimp_clone_layer_new (image, GIMP_LAYER (layer), 0, 0,
       layer_name ? layer_name : _("Clone Layer"), 1.0, GIMP_NORMAL_MODE);
   g_print("new_layer=%p\n", new_layer);
 
