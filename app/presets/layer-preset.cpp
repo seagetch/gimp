@@ -552,6 +552,28 @@ protected:
   };
 
 
+  template<typename F>
+  void traverse_layers(JSON::INode json, F func) {
+    if (!json.is_array())
+      return;
+
+    json.each([&](auto node_json) {
+      try {
+        func(node_json);
+        const gchar* type = node_json["type"]; // *normal, group, filter, clone
+
+        if (strcmp(type, "group") == 0 && json.has("children"))
+          this->traverse_layers(json["children"], func);
+      } catch(JSON::INode::InvalidType e) {
+        g_print("Error: Invalid access for json document.\n");
+      } catch(JSON::INode::InvalidIndex e) {
+        g_print("Error: Invalid array index access for json document.\n");
+      } catch(...) {
+        g_print("Error: Some error occurred when accessing json document.\n");
+      }
+    });
+  };
+
 public:
 
   LayerPresetApplier(GimpContext* c, GimpJsonResource* p) : context(c), preset(p) { };
@@ -585,10 +607,12 @@ public:
                                parent [gimp_viewable_get_children] () :
                                image [gimp_image_get_layers] () );
 
+    bool source_in_tree = false;
+
     gint item_index = container [gimp_container_get_child_index] (GIMP_OBJECT(source));
 
     if (item_index < 0) {
-      g_print("Source is not in the image stack. Calcurating position.\n");
+      g_print("Source is not in the image stack. Calculating position.\n");
 
       GimpLayer* active_layer  = image [gimp_image_get_active_layer] ();
       auto       active_layer_ = ref(active_layer);
@@ -597,15 +621,35 @@ public:
                                         parent [gimp_viewable_get_children] () :
                                         image [gimp_image_get_layers] () );
       item_index              = container [gimp_container_get_child_index] (GIMP_OBJECT(active_layer));
-
+      source_in_tree          = true;
     }
 
     // TODO: replaces source layer first, and then add other layers.
     // TODO: insert source layer first if source layer is a newly created one.
 
+    JSON::INode source_item;
+    traverse_layers(replace_json, [&](auto j) {
+      try {
+        const gchar* target = j["target"];
+        if (strcmp(target, "source") == 0)
+          source_item = j;
+      } catch(JSON::INode::InvalidType e) {
+      }
+    });
+#if 0
+    if (source_item.is_object()) {
+      source = create_one_layer(source_item, source, parent, item_index);
+    }
+#endif
     // Create layers and insert it.
     GLib::List _dest_layers = create_replacement_layer(replace_json, source, parent, item_index);
     auto dest_layers = ref<GimpLayer*>(_dest_layers);
+
+    if (source_in_tree && source_item.is_null()) {
+      g_print("removing source layer.\n");
+      image [gimp_image_remove_layer] (source, TRUE, NULL);
+    }
+
 
     image [gimp_image_undo_group_end] ();
     image [gimp_image_flush] ();
@@ -635,6 +679,7 @@ public:
 
     apply_for(source);
   }
+
 };
 
 
