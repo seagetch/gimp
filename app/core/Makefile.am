@@ -407,8 +407,6 @@ libappcore_a_sources = \
 	gimpmypaintbrush-save.h			\
 	gimpfilterlayer.h			\
 	gimpfilterlayer.cpp			\
-	gimpfilterlayerundo.h			\
-	gimpfilterlayerundo.cpp			\
 	gimpclonelayer.h			\
 	gimpclonelayer.cpp			\
 	gimpclonelayerundo.h			\
