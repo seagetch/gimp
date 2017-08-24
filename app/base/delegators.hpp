@@ -39,32 +39,6 @@ public:
   };
 
 };
-
-template<typename... Args>
-class Delegator<void, Args...> {
-  bool enabled;
-public:
-  Delegator() : enabled(true) {}
-  virtual ~Delegator() {}
-  virtual void emit(Args... args) = 0;
-  
-  void enable() { enabled = true; }
-  void disable() { enabled = false; }
-  bool is_enabled() { return enabled; }
-  
-  static void callback(Args... args, gpointer ptr) {
-    Delegator* delegator = reinterpret_cast<Delegator*>(ptr);
-    if (delegator->is_enabled())
-      delegator->emit(args...);
-  }
-
-  typedef void (*Callback)(Args..., gpointer);
-  Callback _callback() {
-    return &callback;
-  };
-
-};
-
 ///////////////////////////////////////////////////////////////////////////////
 template<typename Type, typename Ret, typename... Args>
 class ObjectDelegator : public Delegator<Ret, Args...> 
@@ -80,33 +54,11 @@ private:
 public:
   ObjectDelegator(Type* o, Function f) : obj(o), func_ptr(f) {};
   Ret emit(Args... args) {
-    Ret result = Ret();
     if (obj)
-      result = (obj->*func_ptr)(args...);
-    if (result) return result;
-    return result;
+      return (obj->*func_ptr)(args...);
+    return Ret();
   }
 };
-
-template<typename Type, typename... Args>
-class ObjectDelegator<Type, void, Args...> : public Delegator<void, Args...> 
-{
-public:
-  typedef Type type;
-  typedef void (Type::*Function)(Args...);
-
-private:  
-  Type*    obj;
-  Function   func_ptr;
-
-public:
-  ObjectDelegator(Type* o, Function f) : obj(o), func_ptr(f) {};
-  void emit(Args... args) {
-    if (obj)
-      (obj->*func_ptr)(args...);
-  }
-};
-
 ///////////////////////////////////////////////////////////////////////////////
 template<typename Ret, typename... Args>
 class FunctionDelegator :
@@ -127,25 +79,6 @@ public:
     return result;
   }
 };
-
-template<typename... Args>
-class FunctionDelegator<void, Args...> :
-  public Delegator<void, Args...> 
-{
-public:
-  typedef void (*Function)(Args...);
-
-private:  
-  Function   func_ptr;
-
-public:
-  FunctionDelegator(Function f) : func_ptr(f) {};
-  void emit(Args... args) {
-    if (func_ptr)
-      (*func_ptr)(args...);
-  }
-};
-
 ///////////////////////////////////////////////////////////////////////////////
 template<typename Ret, typename... Args>
 class CXXFunctionDelegator :
@@ -160,31 +93,11 @@ private:
 public:
   CXXFunctionDelegator(Function f) : func_ref(f) {};
   Ret emit(Args... args) {
-    Ret result = Ret();
     if (func_ref)
-      result = func_ref(args...);
-    return result;
+      return func_ref(args...);
+    return Ret();
   }
 };
-
-template<typename... Args>
-class CXXFunctionDelegator<void, Args...> :
-  public Delegator<void, Args...> 
-{
-public:
-  typedef std::function<void (Args...)> Function;
-
-private:  
-  Function   func_ref;
-
-public:
-  CXXFunctionDelegator(Function&& f) : func_ref(f) {};
-  void emit(Args... args) {
-    if (func_ref)
-      func_ref(args...);
-  }
-};
-
 ///////////////////////////////////////////////////////////////////////////////
 template<typename Type, typename Ret, typename... Args>
 inline ObjectDelegator<Type, Ret, Args...>* 
@@ -235,7 +148,8 @@ public:
   void disconnect() {
     if (target && closure) {
       gulong handler_id = g_signal_handler_find(gpointer(target), G_SIGNAL_MATCH_CLOSURE, 0, 0, closure, NULL, NULL);
-      g_signal_handler_disconnect(gpointer(target), handler_id);
+      if (handler_id > 0)
+        g_signal_handler_disconnect(gpointer(target), handler_id);
     }
     target  = NULL;
     closure = NULL;

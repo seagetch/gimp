@@ -696,59 +696,37 @@ public:
   };
 
   template<typename Ret, typename C, typename... Args>
-  class BoundMethodBase {
+  class BoundMethod {
   protected:
     typedef Ret Method (C*o, Args...);
     Method * method;
     C* obj;
   public:
-    BoundMethodBase(C* o, Method* m) : obj(o), method(m) {};
-    Ret call(Args... args) { return (*method)(obj, args...); };
-  };
-
-  template<typename Ret, typename C, typename... Args>
-  class BoundMethod : public BoundMethodBase<Ret, C, Args...> {
-    typedef Ret Method (C*o, Args...);
-  public:
-    BoundMethod(C* o, Method* m) : BoundMethodBase<Ret, C, Args...>(o, m) {};
+    BoundMethod(C* o, Method* m) : obj(o), method(m) {};
+    Ret call(Args... args) {
+      if (obj)
+        return (*method)(obj, args...);
+      else
+        return Ret();
+    };
     Ret operator ()(Args... args) { return this->call(args...); };
   };
 
-  template<typename C, typename... Args>
-  class BoundMethod<void, C, Args...> : public BoundMethodBase<void, C, Args...> {
-    typedef void Method (C*o, Args...);
-  public:
-    BoundMethod(C* o, Method* m) : BoundMethodBase<void, C, Args...>(o, m) {};
-    void call(Args... args) { (*this->method)(this->obj, args...); };
-    void operator ()(Args... args) { call(args...); };
-  };
-  
   template<typename Ret, typename C, typename... Args>
-  class ConstBoundMethodBase {
+  class ConstBoundMethod {
   protected:
     typedef Ret Method (const C*o, Args...);
     Method * method;
     const C* obj;
   public:
-    ConstBoundMethodBase(const C* o, Method* m) : obj(o), method(m) {};
-    Ret call(Args... args) { return (*method)(obj, args...); };
-  };
-
-  template<typename Ret, typename C, typename... Args>
-  class ConstBoundMethod : public ConstBoundMethodBase<Ret, C, Args...> {
-    typedef Ret Method (const C*o, Args...);
-  public:
-    ConstBoundMethod(const C* o, Method* m) : ConstBoundMethodBase<Ret, C, Args...>(o, m) {};
+    ConstBoundMethod(const C* o, Method* m) : obj(o), method(m) {};
+    Ret call(Args... args) {
+      if (obj)
+        return (*method)(obj, args...);
+      else
+        return Ret();
+    };
     Ret operator ()(Args... args) { return this->call(args...); };
-  };
-
-  template<typename C, typename... Args>
-  class ConstBoundMethod<void, C, Args...> : public ConstBoundMethodBase<void, C, Args...> {
-    typedef void Method (const C*o, Args...);
-  public:
-    ConstBoundMethod(const C* o, Method* m) : ConstBoundMethodBase<void, C, Args...>(o, m) {};
-    void call(Args... args) { (*this->method)(this->obj, args...); };
-    void operator()(Args... args) { call(args...); }
   };
 
   template<typename Ret, typename C, typename... Args>
