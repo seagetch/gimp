@@ -44,7 +44,7 @@ protected:
   void bind_to_full(GObject* target, const gchar* signal_name, Delegator* delegator) {
     CString object_id(g_strdup_printf("behavior-%s-action", signal_name));
     g_signal_connect_delegator (G_OBJECT(target), signal_name, delegator);
-    g_object_set_cxx_object(G_OBJECT(target), object_id, this);
+    g_object_set_cxx_object(G_OBJECT(target), (const gchar*)object_id, this);
   };
 
 public:
