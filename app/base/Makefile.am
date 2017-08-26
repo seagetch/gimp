@@ -78,7 +78,8 @@ libappbase_a_SOURCES = \
 	glib-cxx-types.hpp      \
 	glib-cxx-impl.hpp       \
 	glib-cxx-utils.hpp	\
-	json-cxx-utils.hpp
+	json-cxx-utils.hpp  \
+	soup-cxx-utils.hpp
 
 #
 # rules to generate built sources
