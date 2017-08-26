@@ -98,7 +98,7 @@ PresetConfig::get_extender_for(GObject* obj)
   if (!extender) {
     g_print("Install ConfigExtender.\n");
     extender = get_extender();
-    g_object_set_cxx_object(obj, type_key, extender);
+    g_object_set_cxx_object(obj, (const gchar*)type_key, extender);
   }
   return extender;
 }
@@ -148,7 +148,7 @@ PresetConfig::extend (gpointer klass)
 // PresetFactory
 
 static PresetFactory* singleton = NULL;
-PresetFactory* get_preset_factory() {
+GIMP::Feature* PresetFactory::get_factory() {
   if (!singleton)
     singleton = new PresetFactory();
   return singleton;
@@ -172,7 +172,7 @@ PresetFactory::register_config (PresetConfig* config)
 
 
 void
-PresetFactory::initialize()
+PresetFactory::initialize_factory()
 {
   register_config( LayerPresetConfig::config() );
 }
@@ -180,9 +180,9 @@ PresetFactory::initialize()
 
 void PresetFactory::entry_point(Gimp* gimp)
 {
-  initialize();
+  initialize_factory();
 
-  g_signal_connect_delegator (G_OBJECT(gimp), "initialize", Delegators::delegator(this, &PresetFactory::on_initialize));
+  GIMP::Feature::entry_point(gimp);
 
   GimpCoreConfigClass* klass = GIMP_CORE_CONFIG_CLASS (g_type_class_ref(GIMP_TYPE_CORE_CONFIG));
 
@@ -237,27 +237,19 @@ PresetFactory::create_data_factory (Gimp* gimp, PresetConfig* config)
 
 
 void
-PresetFactory::on_initialize (Gimp               *gimp,
-                                    GimpInitStatusFunc  status_callback)
+PresetFactory::initialize (Gimp               *gimp,
+                           GimpInitStatusFunc  status_callback)
 {
   registry().each([&](auto key, auto it) {
     GimpDataFactory* factory = this->create_data_factory(gimp, it);
     it->set_data_factory(factory);
   });
-
-
-  // Dirty hack: Registering restore and exit at last in order to
-  // ensure that on_restore is called after dialog-restore
-  // function is called.
-
-  g_signal_connect_delegator (G_OBJECT(gimp), "restore",    Delegators::delegator(this, &PresetFactory::on_restore));
-  g_signal_connect_delegator (G_OBJECT(gimp), "exit",       Delegators::delegator(this, &PresetFactory::on_exit));
 }
 
 
 void
-PresetFactory::on_restore (Gimp               *gimp,
-                                 GimpInitStatusFunc  status_callback)
+PresetFactory::restore (Gimp               *gimp,
+                        GimpInitStatusFunc  status_callback)
 {
   registry().each([&](auto key, auto it) {
     GimpDataFactory* factory = it->get_data_factory();
@@ -270,19 +262,12 @@ PresetFactory::on_restore (Gimp               *gimp,
 
 
 gboolean
-PresetFactory::on_exit(Gimp *gimp,
-                             gboolean force)
+PresetFactory::exit(Gimp *gimp,
+                    gboolean force)
 {
   registry().each([&](auto key, auto it) {
     GimpDataFactory* factory = it->get_data_factory();
     gimp_data_factory_data_save (factory);
   });
   return FALSE;
-}
-
-
-void
-preset_factory_entry_point (Gimp* gimp)
-{
-  get_preset_factory()->entry_point(gimp);
 }

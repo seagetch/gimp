@@ -24,6 +24,7 @@
 #ifdef __cplusplus
 
 #include "base/glib-cxx-types.hpp"
+#include "gimp-features.h"
 
 extern "C" {
 #endif
@@ -31,9 +32,6 @@ extern "C" {
 
 #include "core/gimpdata.h"
 #include "core/gimpdatafactory.h"
-
-void      preset_factory_entry_point       (Gimp* gimp);
-
 
 
 #ifdef __cplusplus
@@ -92,7 +90,7 @@ public:
 };
 
 /////////////////////////////////////////////////////////////////////
-class PresetFactory
+class PresetFactory : virtual public GIMP::Feature
 {
 protected:
   GLib::HashTable _registry;
@@ -103,19 +101,20 @@ protected:
                                            const gchar* filename,
                                            GError** error);
 public:
+  PresetFactory() : GIMP::Feature() { set_lazy(true); }
   GLib::IHashTable<gconstpointer, PresetConfig*> registry();
   void             register_config        (PresetConfig* config);
 
-  virtual void     initialize             ();
+  virtual void     initialize_factory     ();
   virtual void     entry_point            (Gimp* gimp);
-  virtual void     on_initialize          (Gimp               *gimp,
+  virtual void     initialize             (Gimp               *gimp,
                                            GimpInitStatusFunc  status_callback);
-  virtual void     on_restore             (Gimp               *gimp,
+  virtual void     restore                (Gimp               *gimp,
                                            GimpInitStatusFunc  status_callback);
-  virtual gboolean on_exit                (Gimp               *gimp,
+  virtual gboolean exit                   (Gimp               *gimp,
                                            gboolean            force);
 
-
+  static GIMP::Feature* get_factory();
 };
 
 PresetFactory* get_preset_factory(void);

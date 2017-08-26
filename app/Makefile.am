@@ -33,6 +33,7 @@ SUBDIRS = \
 	menus		\
 	gui		\
 	presets		\
+	httpd		\
 	.		\
 	tests
 
@@ -72,6 +73,8 @@ libapp_sources = \
 	gimp-debug.h	\
 	gimp-log.c	\
 	gimp-log.h	\
+	gimp-features.cpp	\
+	gimp-features.hpp	\
 	gimp-intl.h
 
 libapp_generated_sources = \
@@ -188,6 +191,12 @@ gimpconsoleldadd = \
 	$(RT_LIBS)			\
 	$(libm)
 
+if USE_HTTPD
+gimphttpdldadd = \
+	httpd/libapphttpd.a		\
+	$(SOUP_LIBS)
+endif
+
 gimp_2_8_LDFLAGS = \
 	$(AM_LDFLAGS)		\
 	$(win32_ldflags)	\
@@ -206,6 +215,7 @@ gimp_2_8_LDADD = \
 	$(GTK_MAC_INTEGRATION_LIBS)	\
 	$(DBUS_GLIB_LIBS)		\
 	$(gimpconsoleldadd)		\
+	$(gimphttpdldadd)		\
 	$(GIMPRC)
 
 
@@ -219,6 +229,7 @@ gimp_console_2_8_CPPFLAGS = \
 
 gimp_console_2_8_LDADD = \
 	$(gimpconsoleldadd) \
+	$(gimphttpdldadd)
 	$(GIMPCONSOLERC)
 
 endif

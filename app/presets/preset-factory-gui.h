@@ -42,8 +42,8 @@ typedef struct
   const gchar *writable_property_name;
 } PrefsDialogEntry;
 
-void       preset_factory_gui_entry_point       (Gimp* gimp);
 GArray*    preset_factory_gui_prefs_entry_point (void);
+void       preset_factory_gui_action_group_entry_point (GimpActionGroup* group);
 void       preset_factory_gui_dialogs_actions_entry_point (GimpActionGroup* group);
 
 
@@ -98,7 +98,9 @@ public:
 class PresetGuiFactory : virtual public PresetFactory
 {
 public:
-  virtual void     initialize                  ();
+  PresetGuiFactory() : PresetFactory() { };
+
+  virtual void     initialize_factory          ();
 
   virtual void     entry_point                 (Gimp* gimp);
 
@@ -109,16 +111,15 @@ public:
                                                 gpointer         user_data);
 
   virtual void     dialogs_actions_entry_point (GimpActionGroup* group);
-  virtual void     on_initialize               (Gimp               *gimp,
+  virtual void     initialize                  (Gimp               *gimp,
                                                 GimpInitStatusFunc  status_callback);
-  virtual void     on_restore                  (Gimp               *gimp,
+  virtual void     restore                     (Gimp               *gimp,
                                                 GimpInitStatusFunc  status_callback);
-  virtual gboolean on_exit                     (Gimp               *gimp,
+  virtual gboolean exit                        (Gimp               *gimp,
                                                 gboolean            force);
 
+  static GIMP::Feature* get_factory();
 };
-
-PresetGuiFactory* get_preset_factory_gui(void);
 
 #endif // __cplusplus
 

@@ -72,31 +72,25 @@ using namespace GLib;
 extern GLib::GClassWrapper<UseCStructs<GimpBaseConfig, GimpCoreConfig> > core_class;
 
 ////////////////////////////////////////////////////////////////////////////
-static void
-preset_factory_gui_action_group_entry_point (GimpActionGroup *group)
-{
-  get_preset_factory_gui()->action_group_entry_point(group);
-}
-
 
 static void
 preset_factory_gui_action_group_update (GimpActionGroup *group,
                                         gpointer         user_data)
 {
-  get_preset_factory_gui()->action_group_update(group, user_data);
+  dynamic_cast<PresetGuiFactory*>(PresetGuiFactory::get_factory())->action_group_update(group, user_data);
 }
 
 ////////////////////////////////////////////////////////////////////////////
 // PresetGuiFactory
 
 static PresetGuiFactory* singleton = NULL;
-PresetGuiFactory* get_preset_factory_gui() {
+GIMP::Feature* PresetGuiFactory::get_factory() {
   if (!singleton)
     singleton = new PresetGuiFactory();
   return singleton;
 }
 
-void PresetGuiFactory::initialize()
+void PresetGuiFactory::initialize_factory()
 {
   register_config( LayerPresetGuiConfig::config() );
 }
@@ -138,6 +132,7 @@ PresetGuiFactory::dialogs_actions_entry_point (GimpActionGroup* group)
   registry().each([&](auto key, auto it) {
     auto config = dynamic_cast<PresetGuiConfig*>(it);
     auto entry = config->view_dialog_action_entry();
+    g_print("  Register: %s\n",entry->name);
     if (entry)
       array.append(*entry);
   });
@@ -171,18 +166,18 @@ PresetGuiFactory::action_group_update(GimpActionGroup *group,
 
 
 void
-PresetGuiFactory::on_initialize (Gimp               *gimp,
+PresetGuiFactory::initialize (Gimp               *gimp,
                                  GimpInitStatusFunc  status_callback)
 {
-  PresetFactory::on_initialize (gimp, status_callback);
+  PresetFactory::initialize (gimp, status_callback);
 }
 
 
 void
-PresetGuiFactory::on_restore (Gimp               *gimp,
+PresetGuiFactory::restore (Gimp               *gimp,
                               GimpInitStatusFunc  status_callback)
 {
-  PresetFactory::on_restore(gimp, status_callback);
+  PresetFactory::restore(gimp, status_callback);
 
   registry().each([&](auto key, auto it) {
     // Dialog initialization.
@@ -226,30 +221,30 @@ PresetGuiFactory::on_restore (Gimp               *gimp,
 
 
 gboolean
-PresetGuiFactory::on_exit(Gimp *gimp,
-                          gboolean force)
+PresetGuiFactory::exit(Gimp *gimp,
+                       gboolean force)
 {
-  gboolean result = PresetFactory::on_exit(gimp, force);
+  gboolean result = PresetFactory::exit(gimp, force);
   return result;
-}
-
-
-void
-preset_factory_gui_entry_point (Gimp* gimp)
-{
-  get_preset_factory_gui()->entry_point(gimp);
 }
 
 
 GArray*
 preset_factory_gui_prefs_entry_point ()
 {
-  return get_preset_factory_gui()->prefs_entry_point();
+  return dynamic_cast<PresetGuiFactory*>(PresetGuiFactory::get_factory())->prefs_entry_point();
 }
 
 
 void
 preset_factory_gui_dialogs_actions_entry_point (GimpActionGroup* group)
 {
-  return get_preset_factory_gui()->dialogs_actions_entry_point(group);
+  return dynamic_cast<PresetGuiFactory*>(PresetGuiFactory::get_factory())->dialogs_actions_entry_point(group);
+}
+
+
+void
+preset_factory_gui_action_group_entry_point (GimpActionGroup* group)
+{
+  return dynamic_cast<PresetGuiFactory*>(PresetGuiFactory::get_factory())->action_group_entry_point(group);
 }

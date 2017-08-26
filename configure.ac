@@ -53,12 +53,13 @@ m4_define([fontconfig_required_version], [2.2.0])
 m4_define([fontconfig_win32_recommended_version], [2.11.1])
 m4_define([gtkdoc_required_version], [1.0])
 m4_define([webkit_required_version], [1.6.1])
-m4_define([alsa_required_version], [1.0.0])
+m5_define([alsa_required_version], [1.0.0])
 m4_define([rsvg_required_version], [2.36.0])
 m4_define([wmf_required_version], [0.2.8])
 m4_define([pygtk_required_version], [2.10.4])
 m4_define([poppler_required_version], [0.12.4])
 m4_define([libcurl_required_version], [7.15.1])
+m4_define([libsoup_required_version], [2.46])
 m4_define([dbus_glib_required_version], [0.70])
 m4_define([libgudev_required_version], [167])
 m4_define([exif_required_version], [0.6.15])
@@ -1575,6 +1576,25 @@ elif test "x$os_win32" = xno; then
   uri_plugin="yes (using wget)"
 fi
 
+###################
+# Check for libsoup
+###################
+AC_ARG_ENABLE(httpd, [  --enable-httpd         build without httpd support(default=yes)])
+have_libsoup=no
+if test "x$enable_httpd" != xno; then
+  enable_httpd=yes
+  PKG_CHECK_MODULES(SOUP, libsoup-2.4 >= libsoup_required_version,
+    have_libsoup=yes,
+    have_libsoup="no (libsoup not found)")
+else
+  enable_httpd=no 
+fi
+if test "x$have_libsoup" = "xyes"; then
+  AC_DEFINE(HAVE_LIBSOUP, 1, [Define to 1 if libsoup is available])
+fi
+AM_CONDITIONAL(USE_HTTPD, test "x$enable_httpd" = xyes)
+
+
 
 ###################
 # Check for libwmf2
@@ -2320,6 +2340,7 @@ app/dialogs/Makefile
 app/display/Makefile
 app/file/Makefile
 app/gui/Makefile
+app/httpd/Makefile
 app/menus/Makefile
 app/paint/Makefile
 app/paint-funcs/Makefile
@@ -2531,6 +2552,7 @@ Optional Plug-Ins:
   XJT:                 $have_xjt
   X11 Mouse Cursor:    $have_xmc
   XPM:                 $have_libxpm
+  SOUP:                $have_libsoup
 
 Plug-In Features:
   EXIF support:        $have_libexif
