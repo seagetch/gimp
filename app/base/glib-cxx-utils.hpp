@@ -49,9 +49,28 @@ public:
 
 class StringList : public ScopedPointer<gchar*, void(gchar**), g_strfreev>
 {
+  using super = ScopedPointer<gchar*, void(gchar**), g_strfreev>;
 public:
-  StringList() : ScopedPointer<gchar*, void(gchar**), g_strfreev>(NULL) {};
-  StringList(gchar** list) : ScopedPointer<gchar*, void(gchar**), g_strfreev>(list) {};
+  StringList() : super(NULL) {};
+  StringList(gchar** list) : super(list) {};
+  StringList(StringList&& src) : super(src.obj) { src.obj = NULL; }
+  gchar** begin() { return obj; }
+  gchar** end() {
+    for (gchar** str = obj; true; str++)
+      if (!*str) return str;
+  }
+  gchar* const* begin() const { return obj; }
+  gchar* const* end() const {
+    for (gchar** str = obj; true; str++)
+      if (!*str) return str;
+  }
+  operator gchar**() { return obj; }
+  operator gchar* const *() const { return obj; }
+  StringList& operator = (gchar** str) {
+    if (obj)
+      g_strfreev(obj);
+    obj = str;
+  }
 };
 
 

@@ -17,6 +17,7 @@ public:
     }
   }
   T& ref() { return obj; }
+  const T& ref() const { return obj; }
 };
 
 
@@ -31,15 +32,17 @@ public:
   ScopedPointer() : ScopeGuard<T*, Destructor, f, is_null<T*> >(NULL) {};
   ScopedPointer(T* ptr) : ScopeGuard<T*, Destructor, f, is_null<T*> >(ptr) {};
   T* ptr() { return ScopeGuard<T*, Destructor, f, is_null<T*> >::ref(); };
+  T* const ptr() const { return ScopeGuard<T*, Destructor, f, is_null<T*> >::ref(); };
   T* operator ->() { return ptr(); };
   T& operator *() { return *ptr(); };
   operator T*() { return ptr(); };
-  operator const T*() const { return ptr(); };
+  operator T* const () const { return ptr(); };
   ScopedPointer& operator =(T* src) {
     if (!is_null<T*>(this->obj))
       (*f)(this->obj);
     this->obj = src;
   }
+  operator bool() const { return !is_null(ptr()); }
 };
 
 

@@ -1,8 +1,9 @@
 #ifndef __DELEGATORS_HPP__
 #define __DELEGATORS_HPP__
 
-
+extern "C" {
 #include <glib-object.h>
+};
 #include <utility>
 #include <functional>
 
