@@ -217,8 +217,36 @@ public:
         } // else
 
       } catch(JSON::INode::InvalidType e) {
+        g_print("Invalid type,expect=%d, where actual=%d\n", e.specified, e.actual);
       }
+
     } // for
+  }
+
+
+  JsonNode* get_context_json() {
+    // Read variables from context information.
+    gint id;
+    JsonBuilder* builder = json_builder_new();
+    json_builder_begin_object(builder);
+
+    json_builder_set_member_name (builder, "image");
+    id   = gimp_image_get_ID(image);
+    json_builder_add_int_value(builder, id);
+
+    json_builder_set_member_name (builder, "drawable");
+    id   = gimp_item_get_ID(GIMP_ITEM(drawable));
+    json_builder_add_int_value(builder, id);
+
+    json_builder_set_member_name (builder, "item");
+    id   = gimp_item_get_ID(item);
+    json_builder_add_int_value(builder, id);
+
+    json_builder_end_object(builder);
+    JsonNode* result = json_builder_get_root(builder);
+    g_object_unref(G_OBJECT(builder));
+
+    return result;
   }
 };
 
@@ -238,6 +266,8 @@ public:
                GimpProgress* progress, GValueArray* args, GimpObject* display)
   {
     PDBSyncExecutor::execute(procedure, gimp, context, progress, args, display);
+
+    // Serialize return value
     JsonBuilder* builder = json_builder_new();
     json_builder_begin_array(builder);
     for (int i = 0; i < result->n_values; i ++) {
@@ -378,17 +408,32 @@ void RESTPDB::post()
     }
 
     if (procedure) {
+
       JsonPDBRunner runner(procedure, NULL);
       runner.run(gimp, ctx_node, arg_node);
+
+      auto arg_conf = runner.get_arg_configurator();
       auto executor = runner.get_executor();
-      JSON::INode result_json = executor->result_json;
-      GLib::CString result_text = json_to_string(result_json, FALSE);
-      g_print("result=%s\n", (const gchar*)result_text);
+
+      JSON::Node new_ctx_json = arg_conf->get_context_json();
+      JSON::Node result_json  = executor->result_json;
+
+      JSON::Node new_root     = json_node_new(JSON_NODE_OBJECT);
+      json_node_set_object (new_root, json_object_new());
+      GLib::CString ctx_text = json_to_string(new_ctx_json, FALSE);
+
+      JsonObject* jobj = json_node_get_object(new_root);
+      json_object_set_member (jobj, "context", new_ctx_json);
+      json_object_set_member (jobj, "result", result_json);
+
+      GLib::CString root_text = json_to_string(new_root, FALSE);
+      g_print("root=%s\n", (const gchar*)root_text);
+
       soup_message_set_response (message,
                                  "text/json",
                                  SOUP_MEMORY_COPY,
-                                 result_text,
-                                 strlen(result_text));
+                                 root_text,
+                                 strlen(root_text));
     } else {
       g_print("invalid procedure name.\n");
     }
