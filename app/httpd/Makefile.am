@@ -26,6 +26,8 @@ libapphttpd_a_sources = \
 	httpd-enums.h   		\
 	httpd.cpp			\
 	httpd.h				\
+	rest-pdb.cpp			\
+	rest-pdb.h			\
 	httpd-features.cpp		\
 	httpd-features.h
 

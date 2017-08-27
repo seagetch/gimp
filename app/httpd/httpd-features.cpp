@@ -27,6 +27,10 @@ extern "C" {
 #include "httpd-features.h"
 #include "httpd.h"
 
+
+///////////////////////////////////////////////////////////////////////////
+// HTTPDFeature
+
 class HTTPDFeature : public GIMP::Feature {
   CXXPointer<RESTD> rest_daemon;
 public:

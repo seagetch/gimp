@@ -1,7 +1,28 @@
+/* GIMP - The GNU Image Manipulation Program
+ * Copyright (C) 1995 Spencer Kimball and Peter Mattis
+ *
+ * httpd
+ * Copyright (C) 2017 seagetch <sigetch@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #ifndef __HTTPD_H__
 #define __HTTPD_H__
 
 #include "base/soup-cxx-utils.hpp"
+#include "base/json-cxx-utils.hpp"
 
 class HTTPD {
 public:
@@ -17,6 +38,7 @@ public:
   void run();
 };
 
+class RESTResourceFactory;
 
 class RESTD : public HTTPD {
 public:
@@ -39,7 +61,8 @@ public:
                               GHashTable*        queries,
                               SoupClientContext* context);
 
-  RESTD& route(const gchar* path, RESTD::Delegator* delegator);
+  RESTD& route(const gchar* path, RESTResourceFactory* factory);
+  RESTD& route(const gchar* path, Delegator* d);
 
   template<typename F>
   static auto delegator(F f) {
@@ -48,5 +71,41 @@ public:
   }
 
 }; // class RESTD
+
+class RESTResourceFactory;
+
+class RESTResource {
+protected:
+  friend class RESTResourceFactory;
+  RESTD::Router::Matched* matched;
+  SoupMessage*            message;
+  SoupClientContext*      context;
+
+  void handle();
+
+  GBytes* req_body();
+  JSON::INode   req_body_json();
+
+public:
+  ~RESTResource() {}
+
+  RESTResource(RESTD::Router::Matched* m, SoupMessage* msg, SoupClientContext* c) :
+    matched(m), message(msg), context(c)
+  {
+  }
+
+  virtual void get () { }
+  virtual void put () { }
+  virtual void post() { }
+  virtual void del () { }
+
+};
+
+class RESTResourceFactory {
+public:
+  void handle_request(RESTD::Router::Matched* matched, SoupMessage* msg, SoupClientContext* context);
+  virtual RESTResource* create(RESTD::Router::Matched* matched, SoupMessage* msg, SoupClientContext* context) = 0;
+};
+
 
 #endif /* __HTTPD_H__ */

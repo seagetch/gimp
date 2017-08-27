@@ -44,24 +44,79 @@ void HTTPD::run() {
 
 
 /////////////////////////////////////////////////////////////////////////////
-/// Class Route
-///  Manage mapping from URI to handler delegators.
-
+/// Class RESTD
 
 void
 RESTD::handle_request(SoupServer*        server,
-                              SoupMessage*       msg,
-                              const char*        path,
-                              GHashTable*        queries,
-                              SoupClientContext* context)
+                      SoupMessage*       msg,
+                      const char*        path,
+                      GHashTable*        queries,
+                      SoupClientContext* context)
 {
   g_print("RESTD::handle_request: %s\n", path);
   router.dispatch(path, NULL, msg, context);
 }
 
 RESTD&
-RESTD::route(const gchar* path, RESTD::Delegator* delegator) {
-  router.route(path, delegator);
+RESTD::route(const gchar* path, RESTResourceFactory* factory) {
+  router.route(path, Delegators::delegator(factory, &RESTResourceFactory::handle_request));
   return *this;
 }
 
+RESTD&
+RESTD::route(const gchar* path, RESTD::Delegator* d) {
+  router.route(path, d);
+  return *this;
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+/// Class RESTDResourceFactory
+
+void
+RESTResourceFactory::handle_request(RESTD::Router::Matched* matched,
+                                    SoupMessage* msg,
+                                    SoupClientContext* context)
+{
+  RESTResource* res = create(matched, msg, context);
+  res->handle();
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+/// Class RESTDResource
+
+void RESTResource::handle() {
+  if (strcmp(message->method, SOUP_METHOD_GET) == 0) {
+    get();
+  } else if (strcmp(message->method, SOUP_METHOD_PUT) == 0) {
+    put();
+  } else if (strcmp(message->method, SOUP_METHOD_POST) == 0) {
+    post();
+  } else if (strcmp(message->method, SOUP_METHOD_DELETE) == 0) {
+    del();
+  }
+  delete this;
+}
+
+GBytes*
+RESTResource::req_body()
+{
+  auto msg  = GLib::ref(message);
+  GBytes* bytes;
+  g_object_get(msg, "request-body-data", &bytes, NULL);
+  return bytes;
+}
+
+
+JSON::INode
+RESTResource::req_body_json()
+{
+  GLib::Object<JsonParser> parser      = GLib::hold( json_parser_new() );
+  GBytes*                  bytes       = req_body();
+  gsize                    size;
+  gchar*                   content_str = (gchar*)g_bytes_get_data(bytes, &size);
+  json_parser_load_from_data(parser, content_str, -1, NULL);
+  JSON::INode json = json_parser_get_root(parser);
+  return json;
+}
