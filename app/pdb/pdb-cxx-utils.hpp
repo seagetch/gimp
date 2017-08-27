@@ -42,26 +42,113 @@ extern "C" {
 #include "plug-in/gimppluginprocedure.h"
 }
 
+#include "base/scopeguard.hpp"
 #include "base/glib-cxx-utils.hpp"
 
-class ProcedureRunner {
+////////////////////////////////////////////////////////////////////////
+// Argument Configurators
+
+class ItemArgConfigurator {
+public:
+  GimpDrawable*  drawable;
+  GimpImage*     image;
+  Gimp*          gimp;
+  GimpPDB*       pdb;
+  GimpContext*   context;
+  GimpObject*    display;
+
+  void configure_args(GimpProcedure* procedure, GValueArray* args, GimpItem* item) {
+    drawable = GIMP_DRAWABLE(item);
+    image    = gimp_item_get_image(GIMP_ITEM(drawable));
+    gimp     = image->gimp;
+    pdb      = gimp->pdb;
+    context  = gimp_get_user_context(gimp);
+    display  = GIMP_OBJECT(gimp_context_get_display(context));
+
+    for (int i = 0; i < procedure->num_args; i ++) {
+      // Overwrite context related arguments.
+      GParamSpec* pspec = procedure->args[i];
+      if (strcmp(g_param_spec_get_name(pspec),"run-mode") == 0) {
+        g_value_set_int(&args->values[i], GIMP_RUN_NONINTERACTIVE);
+
+      } else if (GIMP_IS_PARAM_SPEC_IMAGE_ID(pspec)) {
+        if (image)
+          gimp_value_set_image (&args->values[i], image);
+
+      } else if (GIMP_IS_PARAM_SPEC_DRAWABLE_ID(pspec)) { // FIXME.
+        if (drawable)
+          gimp_value_set_drawable (&args->values[i], drawable);
+
+      } else if (GIMP_IS_PARAM_SPEC_ITEM_ID(pspec)) {
+        if (item)
+          gimp_value_set_item (&args->values[i], item);
+
+      }
+
+    }
+  }
+
+};
+
+////////////////////////////////////////////////////////////////////////
+// Executors
+
+class PDBAsyncExecutor {
+public:
+  void execute(GimpProcedure* procedure, Gimp* gimp, GimpContext* context,
+               GimpProgress* progress, GValueArray* args, GimpObject* display)
+  {
+    gimp_procedure_execute_async (procedure, gimp, context,
+                                  progress, args, display, NULL);
+  }
+};
+
+
+class PDBSyncExecutor {
+public:
+  GValueArray* result;
+  PDBSyncExecutor() : result(NULL) { };
+  ~PDBSyncExecutor() {
+    if (result)
+      g_value_array_free(result);
+  }
+
+  void execute(GimpProcedure* procedure, Gimp* gimp, GimpContext* context,
+               GimpProgress* progress, GValueArray* args, GimpObject* display)
+  {
+    result = gimp_procedure_execute (procedure, gimp, context,
+                                     progress, args, NULL);
+  }
+};
+
+
+template<class ArgConfigurator, class PDBExecutor>
+class ProcedureRunnerImpl {
+protected:
+  // Attributes of procedure.
   GimpProcedure* procedure;
   GimpProgress*  progress;
   GValueArray*   args;
   bool           ignore_undos;
 
+  // Running status of procedure.
   bool           running;
   bool           preserved;
   GMutex         mutex;
 
+  ArgConfigurator arg_conf;
+  PDBExecutor     executor;
+
+  // Running context of procedure.
+
 public:
-  ProcedureRunner(GimpProcedure* proc, GimpProgress* prog, bool _ignore_undos = true) :
+  ProcedureRunnerImpl(GimpProcedure* proc, GimpProgress* prog, bool _ignore_undos = true) :
     procedure(proc), progress(prog), args(NULL), ignore_undos(_ignore_undos), running(false), preserved(false)
   {
     g_mutex_init(&mutex);
   };
 
-  ~ProcedureRunner() {
+  ~ProcedureRunnerImpl() {
     if (running)
       gimp_progress_cancel(progress);
     if (args) {
@@ -71,6 +158,8 @@ public:
   }
 
   bool is_running() { return running; };
+  ArgConfigurator* get_arg_configurator() { return &arg_conf; }
+  PDBExecutor*     get_executor()         { return &executor; }
 
   bool setup_args(GLib::IHashTable<const gchar*, GValue*>* arg_tables) {
     if (!args)
@@ -111,61 +200,33 @@ public:
     preserved = false;
   }
 
-  bool run(GimpItem* item) {
-    if (running) {
-      preserved = false;
+  template<typename... ContextArgs>
+  bool run(ContextArgs... cargs) {
+    if (running || !procedure) {
+      cancel();
       return false;
     }
 
-    GimpDrawable*  drawable= GIMP_DRAWABLE(item);
-    GimpImage*     image   = gimp_item_get_image(GIMP_ITEM(drawable));
-    Gimp*          gimp    = image->gimp;
-    GimpPDB*       pdb     = gimp->pdb;
-    GimpContext*   context = gimp_get_user_context(gimp);
+    // Gathering contexts
     GError*        error   = NULL;
-    GimpObject*    display = GIMP_OBJECT(gimp_context_get_display(context));
     gint           n_args  = 0;
-
-    if (!procedure) {
-      preserved = false;
-      return false;
-    }
 
     if (!args)
       setup_args(NULL);
 
-    for (int i = 0; i < procedure->num_args; i ++) {
-
-      GParamSpec* pspec = procedure->args[i];
-      if (strcmp(g_param_spec_get_name(pspec),"run-mode") == 0) {
-        g_value_set_int(&args->values[i], GIMP_RUN_NONINTERACTIVE);
-
-      } else if (GIMP_IS_PARAM_SPEC_IMAGE_ID(pspec)) {
-        gimp_value_set_image (&args->values[i], image);
-
-      } else if (GIMP_IS_PARAM_SPEC_DRAWABLE_ID(pspec)) {
-        gimp_value_set_drawable (&args->values[i], drawable);
-
-      } else if (GIMP_IS_PARAM_SPEC_ITEM_ID(pspec)) {
-        gimp_value_set_item (&args->values[i], item);
-
-      }
-
-    }
+    arg_conf.configure_args(procedure, args, cargs...);
 
     if (GIMP_IS_PLUG_IN_PROCEDURE(procedure) ) {
       GimpPlugInProcedure* plug_in_proc = GIMP_PLUG_IN_PROCEDURE(procedure);
       bool prev_ignore_undos = plug_in_proc->ignore_undos;
       if (ignore_undos)
         plug_in_proc->ignore_undos = TRUE;
-      gimp_procedure_execute_async (procedure, gimp, context,
-                                      progress, args, display,NULL);
+      executor.execute(procedure, arg_conf.gimp, arg_conf.context, progress, args, arg_conf.display);
       if (ignore_undos)
         plug_in_proc->ignore_undos = prev_ignore_undos;
     } else
-      gimp_procedure_execute_async (procedure, gimp, context,
-                                      progress, args, display,NULL);
-    gimp_image_flush (image);
+      executor.execute(procedure, arg_conf.gimp, arg_conf.context, progress, args, arg_conf.display);
+    //gimp_image_flush (image);
 
     {
       GLib::synchronized locker(&mutex);
@@ -176,6 +237,7 @@ public:
 
     return true;
   }
+
 
   void stop() {
     if (running)
@@ -215,7 +277,7 @@ public:
 
 };
 
-
+using ProcedureRunner = ProcedureRunnerImpl<ItemArgConfigurator, PDBAsyncExecutor>;
 
 
 #endif /* APP_PDB_PDB_CXX_UTILS_HPP_ */

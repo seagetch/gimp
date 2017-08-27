@@ -203,17 +203,25 @@ protected:
       gchar** tested_token = (gchar**)uri;
       for (auto i: rules()) {
         const gchar* token = *tested_token;
+
         while (token && strlen(token) == 0)
           token = *(++tested_token);
+//        g_print("Test '%s'\n", token);
+
         if (!token) { // Tested URI is short.
+//          g_print("tested URI is too short.\n");
           return result;
         }
         if (!i->test(token, result)) {
+//          g_print("Not matched.\n");
           return result;
         }
         tested_token ++;
       }
+      while (*tested_token && strlen(*tested_token) == 0)
+        ++tested_token;
       if (*tested_token) {
+//        g_print("tested URI is too long. remained '%s'\n", *tested_token);
         return result;
       }
       result.set_path((gchar**)uri);

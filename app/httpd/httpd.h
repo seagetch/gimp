@@ -21,12 +21,16 @@
 #ifndef __HTTPD_H__
 #define __HTTPD_H__
 
+#include "core/core-types.h"
 #include "base/soup-cxx-utils.hpp"
 #include "base/json-cxx-utils.hpp"
 
 class HTTPD {
+protected:
+  Gimp* gimp;
+
 public:
-  HTTPD() { };
+  HTTPD(Gimp* _gimp) : gimp(_gimp) { };
   virtual ~HTTPD() { };
 
   virtual gint port() = 0;
@@ -42,7 +46,7 @@ class RESTResourceFactory;
 
 class RESTD : public HTTPD {
 public:
-  using Router = Soup::Router<void, SoupMessage*, SoupClientContext*>;
+  using Router = Soup::Router<void, Gimp*, SoupMessage*, SoupClientContext*>;
   using Delegator = Router::rule_delegator;
 
 protected:
@@ -51,7 +55,7 @@ protected:
 public:
   enum { HTTP_PORT = 8920 }; // Mayoi is god ;)
 
-  RESTD() : HTTPD() { };
+  RESTD(Gimp* gimp) : HTTPD(gimp) { };
   virtual ~RESTD() { };
 
   virtual gint port() { return HTTP_PORT; }
@@ -66,7 +70,7 @@ public:
 
   template<typename F>
   static auto delegator(F f) {
-    std::function<void (Router::Matched*, SoupMessage*, SoupClientContext*)> func = f;
+    std::function<void (Router::Matched*, Gimp*, SoupMessage*, SoupClientContext*)> func = f;
     return Delegators::delegator(std::move(func));
   }
 
@@ -77,6 +81,8 @@ class RESTResourceFactory;
 class RESTResource {
 protected:
   friend class RESTResourceFactory;
+
+  Gimp*                   gimp;
   RESTD::Router::Matched* matched;
   SoupMessage*            message;
   SoupClientContext*      context;
@@ -89,8 +95,11 @@ protected:
 public:
   ~RESTResource() {}
 
-  RESTResource(RESTD::Router::Matched* m, SoupMessage* msg, SoupClientContext* c) :
-    matched(m), message(msg), context(c)
+  RESTResource(Gimp*                   _gimp,
+               RESTD::Router::Matched* m,
+               SoupMessage*            msg,
+               SoupClientContext*      c) :
+    gimp(_gimp), matched(m), message(msg), context(c)
   {
   }
 
@@ -103,8 +112,8 @@ public:
 
 class RESTResourceFactory {
 public:
-  void handle_request(RESTD::Router::Matched* matched, SoupMessage* msg, SoupClientContext* context);
-  virtual RESTResource* create(RESTD::Router::Matched* matched, SoupMessage* msg, SoupClientContext* context) = 0;
+  void handle_request(RESTD::Router::Matched* matched, Gimp* gimp, SoupMessage* msg, SoupClientContext* context);
+  virtual RESTResource* create(Gimp* gimp, RESTD::Router::Matched* matched, SoupMessage* msg, SoupClientContext* context) = 0;
 };
 
 

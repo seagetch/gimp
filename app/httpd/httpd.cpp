@@ -54,7 +54,7 @@ RESTD::handle_request(SoupServer*        server,
                       SoupClientContext* context)
 {
   g_print("RESTD::handle_request: %s\n", path);
-  router.dispatch(path, NULL, msg, context);
+  router.dispatch(path, NULL, gimp, msg, context);
 }
 
 RESTD&
@@ -75,10 +75,11 @@ RESTD::route(const gchar* path, RESTD::Delegator* d) {
 
 void
 RESTResourceFactory::handle_request(RESTD::Router::Matched* matched,
+                                    Gimp* gimp,
                                     SoupMessage* msg,
                                     SoupClientContext* context)
 {
-  RESTResource* res = create(matched, msg, context);
+  RESTResource* res = create(gimp, matched, msg, context);
   res->handle();
 }
 
@@ -112,11 +113,12 @@ RESTResource::req_body()
 JSON::INode
 RESTResource::req_body_json()
 {
-  GLib::Object<JsonParser> parser      = GLib::hold( json_parser_new() );
+  GLib::Object<JsonParser> parser      = json_parser_new();
   GBytes*                  bytes       = req_body();
   gsize                    size;
   gchar*                   content_str = (gchar*)g_bytes_get_data(bytes, &size);
   json_parser_load_from_data(parser, content_str, -1, NULL);
   JSON::INode json = json_parser_get_root(parser);
+  g_print("req_body_json: json=%s\n", json_to_string(json, TRUE));
   return json;
 }

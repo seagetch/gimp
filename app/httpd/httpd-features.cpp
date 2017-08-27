@@ -26,7 +26,7 @@ extern "C" {
 
 #include "httpd-features.h"
 #include "httpd.h"
-
+#include "rest-pdb.h"
 
 ///////////////////////////////////////////////////////////////////////////
 // HTTPDFeature
@@ -52,8 +52,8 @@ GIMP::Feature* httpd_get_factory()
 void
 HTTPDFeature::initialize (Gimp* gimp, GimpInitStatusFunc callback)
 {
-  rest_daemon = new RESTD();
-  rest_daemon->route("/<name>", RESTD::delegator([&](auto matched, auto msg, auto context) {
+  rest_daemon = new RESTD(gimp);
+  rest_daemon->route("/<name>", RESTD::delegator([&](auto matched, auto gimp, auto msg, auto context) {
     auto data = matched->data();
     const gchar* name = data.lookup("name");
     GLib::CString text = g_strdup_printf("Hello, %s", name);
@@ -64,6 +64,9 @@ HTTPDFeature::initialize (Gimp* gimp, GimpInitStatusFunc callback)
                                text,
                                strlen(text));
   }));
+  auto factory = new RESTPDBFactory;
+  rest_daemon->route("/api/v1/pdb/", factory);
+  rest_daemon->route("/api/v1/pdb/<name>", factory);
   rest_daemon->run();
 }
 

@@ -25,8 +25,8 @@
 
 class RESTPDB : public RESTResource {
 public:
-  RESTPDB(RESTD::Router::Matched* matched, SoupMessage* msg, SoupClientContext* context) :
-    RESTResource(matched, msg, context) { }
+  RESTPDB(Gimp* gimp, RESTD::Router::Matched* matched, SoupMessage* msg, SoupClientContext* context) :
+    RESTResource(gimp, matched, msg, context) { }
   virtual void get();
   virtual void put();
   virtual void post();
@@ -35,8 +35,8 @@ public:
 
 class RESTPDBFactory : public RESTResourceFactory {
 public:
-  virtual RESTResource* create(RESTD::Router::Matched* matched, SoupMessage* msg, SoupClientContext* context) {
-    return new RESTPDB(matched, msg, context);
+  virtual RESTResource* create(Gimp* gimp, RESTD::Router::Matched* matched, SoupMessage* msg, SoupClientContext* context) {
+    return new RESTPDB(gimp, matched, msg, context);
   }
 };
 
