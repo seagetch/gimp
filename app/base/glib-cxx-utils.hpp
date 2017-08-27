@@ -267,14 +267,14 @@ class IHashTable : public HashTable
   template<typename F>
   static void foreach_callback(gpointer key, gpointer data, gpointer user) {
     F* func = reinterpret_cast<F*>(user);
-    (*func)((Key)key, (Data)data);
+    (*func)((const Key)key, (Data)data);
   };
 public:
   IHashTable(GHashTable* table) : HashTable(table) { incref(); };
   IHashTable(const IHashTable& src)   : HashTable(src.obj) { incref(); };
 
   const Data lookup(const Key key) const {
-    return (Data)(g_hash_table_lookup(obj, (const gpointer) key));
+    return (Data)(g_hash_table_lookup(obj, (gconstpointer) key));
   }
   const Data operator[](const Key key) const {
     return lookup(key);
@@ -300,6 +300,30 @@ public:
 template<typename Key, typename Data>
 inline auto ref(GHashTable* hashtable) { return static_cast<IHashTable<Key, Data>&&>(IHashTable<Key, Data>(hashtable)); }
 
+
+class synchronized : public ScopeGuard<GMutex*, void(GMutex*), g_mutex_unlock, is_null<GMutex*> >
+{
+  using super = ScopeGuard<GMutex*, void(GMutex*), g_mutex_unlock, is_null<GMutex*> >;
+  synchronized(const synchronized& src) = delete;
+public:
+  synchronized(GMutex* mutex) : super(mutex) { g_mutex_lock(mutex); }
+
+  template<typename F>
+  static void with_synchronized(GMutex* mutex, F f) {
+    synchronized locker(mutex);
+    f(&locker);
+  }
+
+  void exit() { if (obj) g_mutex_unlock(obj); obj = NULL; }
+
+  template<typename F>
+  void unlocked(F f) {
+    if (!obj) return;
+    g_mutex_unlock(obj);
+    f(this);
+    g_mutex_lock(obj);
+  }
+};
 
 class Regex : public ScopedPointer<GRegex, void(GRegex*), g_regex_unref>
 {
@@ -436,9 +460,9 @@ template<> inline const gpointer get_value<gpointer>(const GValue& src) { return
 template<> inline void set_value<gpointer>(GValue& src, gpointer value) { g_value_set_pointer(&src, value); }
 
 template<> inline GType g_type<GObject*>() { return G_TYPE_OBJECT; }
-typedef GObject* PObject;
 template<> inline GObject* const get_value<GObject*>(const GValue& src) { return (GObject* const)G_OBJECT(g_value_get_object(&src)); }
 template<> inline void set_value<GObject*>(GValue& src, GObject* value) { g_value_set_object(&src, value); }
+
 
 //#define G_TYPE_INT64
 //#define G_TYPE_UINT64
