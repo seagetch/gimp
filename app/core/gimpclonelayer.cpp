@@ -84,9 +84,9 @@ struct CloneLayer : virtual public ImplBase, virtual public CloneLayerInterface
   gint             reallocate_width;
   gint             reallocate_height;
 
-  Delegators::Connection* parent_changed_conn;
-  Delegators::Connection* reorder_conn;
-  Delegators::Connection* update_conn;
+  CXXPointer<Delegators::Connection> parent_changed_conn;
+  CXXPointer<Delegators::Connection> reorder_conn;
+  CXXPointer<Delegators::Connection> update_conn;
   CString          source_name;
 
   static void class_init(Traits<GimpCloneLayer>::Class* klass);
@@ -249,15 +249,6 @@ void CloneLayer::iface_init<GimpPickableInterface>(GimpPickableInterface* klass)
 
 GLib::CloneLayer::~CloneLayer()
 {
-  g_print("~CloneLayer\n");
-  if (reorder_conn) {
-    delete reorder_conn;
-    reorder_conn = NULL;
-  }
-  if (update_conn) {
-    delete update_conn;
-    update_conn = NULL;
-  }
 }
 
 GLib::CloneLayer::CloneLayer(GObject* o) : ImplBase(o)
@@ -276,10 +267,7 @@ void GLib::CloneLayer::constructed ()
 void GLib::CloneLayer::set_source(GimpLayer* layer)
 {
   if (source_layer) {
-    if (update_conn) {
-      delete update_conn;
-      update_conn = NULL;
-    }
+    update_conn = NULL;
     source_layer = NULL;
   }
   if (layer) {

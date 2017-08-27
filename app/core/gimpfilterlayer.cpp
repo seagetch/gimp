@@ -339,7 +339,6 @@ GLib::FilterLayer::FilterLayer(GObject* o) : GLib::ImplBase(o) {
 
 GLib::FilterLayer::~FilterLayer()
 {
-  g_print("~FilterLayer\n");
 }
 
 void GLib::FilterLayer::constructed ()
