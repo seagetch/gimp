@@ -30,6 +30,8 @@ libapppdb_a_SOURCES = \
 	gimppdbcontext.h		\
 	gimppdberror.c			\
 	gimppdberror.h			\
+	pdb-cxx-utils.cpp		\
+	pdb-cxx-utils.hpp		\
 	gimpprocedure.c			\
 	gimpprocedure.h
 
