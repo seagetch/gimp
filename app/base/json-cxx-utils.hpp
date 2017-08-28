@@ -196,6 +196,109 @@ inline INode ref(JsonNode* obj) {
   return INode(obj);
 }
 
-}; // namespace Json
+
+class Builder : public ScopedPointer<JsonBuilder, void(gpointer), g_object_unref> {
+  using super = ScopedPointer<JsonBuilder, void(gpointer), g_object_unref>;
+public:
+  Builder() : super(json_builder_new()) { };
+  Builder(JsonBuilder* builder) : super(builder) { };
+};
+
+
+class IBuilder : public Builder {
+public:
+  struct null { };
+
+  template<typename F>
+  class LazyObjectEvaluator {
+    F func;
+    IBuilder* builder;
+  public:
+    LazyObjectEvaluator(F f, IBuilder* b) : func(f), builder(b)  {};
+    void eval() const {
+      json_builder_begin_object(builder->obj);
+      func(*builder);
+      json_builder_end_object(builder->obj);
+    }
+  };
+
+  template<typename F>
+  class LazyArrayEvaluator {
+    F func;
+    IBuilder* builder;
+  public:
+    LazyArrayEvaluator(F f, IBuilder* b) : func(f), builder(b)  {};
+    void eval() const {
+      json_builder_begin_array(builder->obj);
+      func(*builder);
+      json_builder_end_array(builder->obj);
+    }
+  };
+
+  IBuilder(const Builder& b) : Builder(b) { g_object_ref(G_OBJECT(obj)); };
+  IBuilder(const IBuilder& b) : Builder(b.obj) { g_object_ref(G_OBJECT(obj)); };
+
+  JsonNode* get_root() {
+    return json_builder_get_root(obj);
+  }
+
+  template<typename F>
+  auto object(F f) {
+    return LazyObjectEvaluator<F>(f, this);
+  }
+
+  template<typename F>
+  auto array(F f) {
+    return LazyArrayEvaluator<F>(f, this);
+  }
+
+  IBuilder& operator[](const gchar* name) {
+    json_builder_set_member_name(obj, name);
+    return *this;
+  }
+
+  template<typename F>
+  IBuilder& operator = (const LazyObjectEvaluator<F>& src) {
+    src.eval();
+    return *this;
+  }
+
+  template<typename F>
+  IBuilder& operator = (const LazyArrayEvaluator<F>& src) {
+    src.eval();
+    return *this;
+  }
+
+  IBuilder& operator = (int value) {
+    json_builder_add_int_value(obj, value);
+    return *this;
+  }
+
+  IBuilder& operator = (const gchar* value) {
+    json_builder_add_string_value(obj, value);
+    return *this;
+  }
+
+  IBuilder& operator = (const double value) {
+    json_builder_add_double_value(obj, value);
+    return *this;
+  }
+
+  IBuilder& operator = (const bool value) {
+    json_builder_add_boolean_value(obj, value);
+    return *this;
+  }
+
+  IBuilder& operator = (const null value) {
+    json_builder_add_null_value(obj);
+    return *this;
+  }
+};
+
+inline auto ref(const Builder& builder) {
+  return IBuilder(builder);
+}
+
+}; // namespace JSON
 
 #endif

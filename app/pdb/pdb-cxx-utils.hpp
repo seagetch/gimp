@@ -57,7 +57,7 @@ public:
   GimpContext*   context;
   GimpObject*    display;
 
-  void configure_args(GimpProcedure* procedure, GValueArray* args, GimpItem* item) {
+  bool configure_args(GimpProcedure* procedure, GValueArray* args, GimpItem* item) {
     drawable = GIMP_DRAWABLE(item);
     image    = gimp_item_get_image(GIMP_ITEM(drawable));
     gimp     = image->gimp;
@@ -86,6 +86,7 @@ public:
       }
 
     }
+    return true;
   }
 
 };
@@ -214,7 +215,10 @@ public:
     if (!args)
       setup_args(NULL);
 
-    arg_conf.configure_args(procedure, args, cargs...);
+    if (!arg_conf.configure_args(procedure, args, cargs...)) {
+      cancel();
+      return false;
+    }
 
     if (GIMP_IS_PLUG_IN_PROCEDURE(procedure) ) {
       GimpPlugInProcedure* plug_in_proc = GIMP_PLUG_IN_PROCEDURE(procedure);
