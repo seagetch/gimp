@@ -194,6 +194,7 @@ public:
   void publish_one_proc(JSON::IBuilder& it, GimpProcedure* procedure) {
     GLib::CString path = g_strdup_printf("/%s", procedure->original_name);
     it[(const gchar*)path] = it.object([&](auto it){
+      /*
       it["get"] = it.object([&](auto it){
 
         it["responses"] = it.object([&](auto it) {
@@ -203,9 +204,9 @@ public:
         });
 
       });
+      */
       it["post"] = it.object([&](auto it) {
-
-        it["operationId"] = "callPDB";
+        it["operationId"] = procedure->original_name;
         it["responses"]   = it.object([&](auto it) {
           it["200"] = it.object([&](auto it) {
             it["description"] = "Successive call";
@@ -731,7 +732,8 @@ void RESTPDB::get()
                                SOUP_MEMORY_COPY,
                                result_text,
                                strlen(result_text));
-    imessage.set("status-code", 200);
+    g_object_set(message, "status-code", 200);
+    soup_message_headers_append(message->response_headers, "Access-Control-Allow-Origin", "*");
 
 //    g_object_unref(G_OBJECT(builder));
   } else {
@@ -750,6 +752,7 @@ void RESTPDB::get()
                                  result_text,
                                  strlen(result_text));
       imessage.set("status-code", 200);
+      soup_message_headers_append(message->response_headers, "Access-Control-Allow-Origin", "*");
     } else {
       g_print("invalid procedure name.\n");
       imessage.set("status-code", 404);
