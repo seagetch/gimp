@@ -81,13 +81,303 @@ public:
   }
 
   static gchar* prop_name(GParamSpec* pspec, bool use_named, int i) {
+    if (strcmp(pspec->name, "run-mode") == 0)
+      return g_strdup(pspec->name);
     return use_named? g_strdup(pspec->name): g_strdup_printf("%d", i);
   }
+};
 
-  static JSON::IBuilder& define_param_spec(JSON::IBuilder it, bool use_named, GParamSpec* pspec, int index) {
+
+///////////////////////////////////////////////////////////////////////
+// Swagger v2.0 declaration
+
+class ProcedurePublisherOAS2 : public ProcedurePublisher {
+public:
+  JSON::IBuilder& define_param_spec(JSON::IBuilder it, bool use_named, GParamSpec* pspec, int index) {
+    GLib::CString val_name = prop_name(pspec, use_named, index);
+    it[(const gchar*)val_name] = it.object([&](auto it){
+      it["description"] = g_param_spec_get_blurb(pspec);
+      GType type = G_PARAM_SPEC_VALUE_TYPE(pspec);
+      if ( type == GIMP_TYPE_INT32 ||
+           type == G_TYPE_INT ||
+           type ==GIMP_TYPE_INT16) {
+        it["type"]   = "integer";
+        it["format"] = "int32";
+
+      } else if (type == G_TYPE_UINT ||
+                 type ==GIMP_TYPE_INT8) {
+        it["type"] = "string";
+        it["format"] = "byte";
+
+      } else if(type ==G_TYPE_ENUM) {
+        it["type"] = "integer";
+        it["format"] = "int32";
+
+      } else if(type ==G_TYPE_BOOLEAN) {
+        it["type"] = "boolean";
+
+      } else if (type ==G_TYPE_DOUBLE) {
+        it["type"] = "number";
+        it["format"] = "double";
+
+      } else if (type ==G_TYPE_STRING) {
+        it["type"] = "string";
+
+      } else if (type ==GIMP_TYPE_RGB) {
+        it["type"] = "array";
+      } else if (type == GIMP_TYPE_INT32_ARRAY ||
+                 type == GIMP_TYPE_INT16_ARRAY) {
+        it["type"] = "array";
+        it["items"] = it.object([&](auto it){
+          it["type"] = "integer";
+          it["format"] = "int32";
+        });
+      } else if (type ==GIMP_TYPE_INT8_ARRAY) {
+        it["type"] = "array";
+        it["items"] = it.object([&](auto it){
+          it["type"] = "string";
+          it["format"] = "byte";
+        });
+      } else if (type ==GIMP_TYPE_FLOAT_ARRAY) {
+        it["type"] = "array";
+        it["items"] = it.object([&](auto it){
+          it["type"] = "number";
+          it["format"] = "float";
+        });
+      } else if (type ==GIMP_TYPE_STRING_ARRAY) {
+        it["type"] = "array";
+        it["items"] = it.object([&](auto it){
+          it["type"] = "string";
+        });
+      } else if (type ==GIMP_TYPE_COLOR_ARRAY) {
+        it["type"] = "array";
+        it["items"] = it.object([&](auto it){
+          it["type"] = "string";
+        });
+      } else if (type ==GIMP_TYPE_ITEM_ID ||
+                 type ==GIMP_TYPE_LAYER_ID ||
+                 type ==GIMP_TYPE_CHANNEL_ID ||
+                 type ==GIMP_TYPE_DRAWABLE_ID ||
+                 type ==GIMP_TYPE_SELECTION_ID ||
+                 type ==GIMP_TYPE_LAYER_MASK_ID ||
+                 type ==GIMP_TYPE_VECTORS_ID ||
+                 type ==GIMP_TYPE_DISPLAY_ID ||
+                 type ==GIMP_TYPE_IMAGE_ID) {
+        it["type"]   = "integer";
+        it["format"] = "int32";
+      } else if (type == GIMP_TYPE_PARASITE) {
+        it["type"]   = "string";
+      } else if (type == GIMP_TYPE_PDB_STATUS_TYPE) {
+        it["type"]   = "string";
+      }
+
+    });
+    return it;
+  }
+
+  template<typename F>
+  void publish_site(JSON::Builder& builder, F path_publisher) {
+    auto ibuilder = ref(builder);
+    ibuilder = ibuilder.object([&](auto it){
+      it["swagger"] = "2.0";
+
+      it["info"] = it.object([&](auto it){
+        it["title"] = "GIMP PDB";
+        it["description"] = "GIMP PDB function call interface.";
+        it["termsOfService"] = "";
+        it["version"] =  "0.0.1";
+      });
+
+      it["schemes"] = it.array([&](auto it) {
+        it = "http";
+      });
+      it["host"] = "localhost:8920";
+      it["basePath"] = "/api/v1/pdb";
+
+      it["paths"] = it.object([&](auto it){
+        path_publisher(it);
+      });
+    });
+
+  }
+
+  virtual void publish_one_proc(JSON::IBuilder& it, GimpProcedure* procedure) {
+    GLib::CString path = g_strdup_printf("/%s", procedure->original_name);
+    it[(const gchar*)path] = it.object([&](auto it){
+      it["post"] = it.object([&](auto it) {
+        it["operationId"] = procedure->original_name;
+        it["description"] = procedure->blurb;
+
+        it["consumes"] = it.array([&](auto it){
+          it = "application/json";
+        });
+        it["produces"] = it.array([&](auto it){
+          it = "application/json";
+        });
+
+        it["responses"]   = it.object([&](auto it) {
+          it["200"] = it.object([&](auto it) {
+            it["description"] = "Successive call";
+            it["schema"] = it.object([&](auto it){
+              it["type"]       = "object";
+              it["properties"] = it.object([&](auto it) {
+
+                it["context"] = it.object([&](auto it){
+                  it["type"] = "object";
+                  it["properties"] = it.object([&](auto it){
+                    it["image"] = it.object([&](auto it){
+                      it["type"]   = "integer";
+                      it["format"] = "int32";
+                    });
+                    it["item"] = it.object([&](auto it){
+                      it["type"]   = "integer";
+                      it["format"] = "int32";
+                    });
+                    it["drawable"] = it.object([&](auto it){
+                      it["type"]   = "integer";
+                      it["format"] = "int32";
+                    });
+                    it["layer"] = it.object([&](auto it){
+                      it["type"]   = "integer";
+                      it["format"] = "int32";
+                    });
+                  });
+                });
+
+                it["values"] = it.object([&](auto it){
+                  it["type"] = "object";
+                  it["properties"] = it.object([&](auto it){
+
+                    bool use_named = use_named_values(procedure);
+                    for(int i = 0; i < procedure->num_values; i ++) {
+                      GParamSpec* pspec = procedure->values[i];
+                      this->define_param_spec(it, use_named, pspec, i);
+                    }
+
+                  });
+                });
+
+              });
+            });
+
+          });
+
+          it["404"] = it.object([&](auto it) {
+            it["description"] = "PDB function not found.";
+            //
+          });
+
+          it["405"] = it.object([&](auto it) {
+            it["description"] = "Invalid Input.";
+          });
+
+          it["500"] = it.object([&](auto it) {
+            it["description"] = "Internal error.";
+            //
+          });
+
+        });
+
+        it["parameters"] = it.array([&](auto it){
+          it = it.object([&](auto it){
+            it["name"] = "payload";
+            it["in"] = "body";
+
+            it["schema"] = it.object([&](auto it){
+              it["type"] = "object";
+
+              it["properties"] = it.object([&](auto it) {
+
+                it["context"] = it.object([&](auto it){
+                  it["type"] = "object";
+                  it["properties"] = it.object([&](auto it){
+                    it["image"] = it.object([&](auto it){
+                      it["type"]   = "integer";
+                      it["format"] = "int32";
+                    });
+                    it["item"] = it.object([&](auto it){
+                      it["type"]   = "integer";
+                      it["format"] = "int32";
+                    });
+                    it["drawable"] = it.object([&](auto it){
+                      it["type"]   = "integer";
+                      it["format"] = "int32";
+                    });
+                    it["layer"] = it.object([&](auto it){
+                      it["type"]   = "integer";
+                      it["format"] = "int32";
+                    });
+                  });
+                });
+
+                it["arguments"] = it.object([&](auto it){
+                  it["type"] = "object";
+
+                  it["properties"] = it.object([&](auto it){
+
+                    bool use_named = use_named_args(procedure);
+                    for(int i = 0; i < procedure->num_args; i ++) {
+                      GParamSpec* pspec = procedure->args[i];
+                      this->define_param_spec(it, use_named, pspec, i);
+                    }
+
+                  });
+                });
+              });
+
+            });
+
+          });
+        });
+
+      });
+
+    });
+
+  }
+
+  JSON::INode publish(GimpProcedure* procedure) {
+    JSON::Builder builder;
+    publish_site(builder, [&](auto it){
+      this->publish_one_proc(it, procedure);
+    });
+
+    JSON::INode result = JSON::ref(builder).get_root();
+    return result;
+  }
+
+  JSON::INode publish(GimpPDB* pdb, gchar** procedures, gint size) {
+    JSON::Builder builder;
+    publish_site(builder, [&](auto it){
+      auto ipdb = GLib::ref(pdb);
+
+      for (int i = 0; i < size; i ++) {
+        GimpProcedure* procedure = ipdb [gimp_pdb_lookup_procedure] (procedures[i]);
+        if (procedure)
+          this->publish_one_proc(it, procedure);
+        else
+          g_print("'%s' is not found.\n", procedures[i]);
+      }
+
+    });
+
+    JSON::INode result = JSON::ref(builder).get_root();
+    return result;
+  }
+
+};
+
+
+///////////////////////////////////////////////////////////////////////
+// OpenAPI v3.0 declaration
+
+class ProcedurePublisherOAS3 : public ProcedurePublisher {
+public:
+  JSON::IBuilder& define_param_spec(JSON::IBuilder it, bool use_named, GParamSpec* pspec, int index) {
     GLib::CString val_name = prop_name(pspec, use_named, index);
     it[(const gchar*)val_name] = it.object([&](auto it){
       GType type = G_PARAM_SPEC_VALUE_TYPE(pspec);
+      it["description"] = g_param_spec_get_blurb(pspec);
       if ( type == GIMP_TYPE_INT32 ||
            type == G_TYPE_INT ||
            type ==GIMP_TYPE_INT16) {
@@ -191,9 +481,10 @@ public:
 
   }
 
-  void publish_one_proc(JSON::IBuilder& it, GimpProcedure* procedure) {
+  virtual void publish_one_proc(JSON::IBuilder& it, GimpProcedure* procedure) {
     GLib::CString path = g_strdup_printf("/%s", procedure->original_name);
     it[(const gchar*)path] = it.object([&](auto it){
+      it["description"] = procedure->blurb;
       /*
       it["get"] = it.object([&](auto it){
 
@@ -246,7 +537,7 @@ public:
                         bool use_named = use_named_values(procedure);
                         for(int i = 0; i < procedure->num_values; i ++) {
                           GParamSpec* pspec = procedure->values[i];
-                          define_param_spec(it, use_named, pspec, i);
+                          this->define_param_spec(it, use_named, pspec, i);
                         }
 
                       });
@@ -313,7 +604,7 @@ public:
                       bool use_named = use_named_args(procedure);
                       for(int i = 0; i < procedure->num_args; i ++) {
                         GParamSpec* pspec = procedure->args[i];
-                        define_param_spec(it, use_named, pspec, i);
+                        this->define_param_spec(it, use_named, pspec, i);
                       }
 
                     });
@@ -362,10 +653,6 @@ public:
 
 };
 
-
-
-///////////////////////////////////////////////////////////////////////
-// Internal PDB caller interface
 
 ///////////////////////////////////////////////////////////////////////
 // Argument configurator interface
@@ -700,33 +987,22 @@ using JsonPDBRunner = ProcedureRunnerImpl<JsonArgConfigurator, JsonPDBSyncExecut
 
 void RESTPDB::get()
 {
+  using Publisher = ProcedurePublisherOAS2;
+
   const gchar* proc_name = matched->data()["name"];
   g_print("proc_name=%s\n", proc_name);
   auto imessage = GLib::ref(message);
 
   if (!proc_name) {
-    /*
-    // listing proc
-    JsonBuilder* builder = json_builder_new();
-    json_builder_begin_array(builder);
-*/
     auto             pdb      = GLib::ref( gimp->pdb );
     gint             num_procs;
     gchar**          procs = NULL;
     gboolean         query = pdb [gimp_pdb_query] (".*", ".*", ".*", ".*", ".*", ".*", ".*", &num_procs, &procs, NULL);
-/*
-    for (int i = 0; i < num_procs; i ++) {
-      json_builder_add_string_value(builder, procs[i]);
-      g_free(procs[i]);
-    }
-    g_free(procs);
-    json_builder_end_array(builder);
-    auto result_json = JSON::ref(json_builder_get_root(builder));
-    */
-    ProcedurePublisher publisher;
+
+    Publisher publisher;
     auto result_json = publisher.publish(gimp->pdb, procs, num_procs);
     GLib::CString result_text = json_to_string(result_json, FALSE);
-    g_print("result=%s\n", (const gchar*)result_text);
+//    g_print("result=%s\n", (const gchar*)result_text);
     soup_message_set_response (message,
                                "application/json",
                                SOUP_MEMORY_COPY,
@@ -741,11 +1017,11 @@ void RESTPDB::get()
     GimpProcedure* procedure = pdb [gimp_pdb_lookup_procedure] (proc_name);
 
     if (procedure) {
-      ProcedurePublisher publisher;
+      Publisher publisher;
       auto result_json = publisher.publish(procedure);
 
       GLib::CString result_text = json_to_string(result_json, FALSE);
-      g_print("result=%s\n", (const gchar*)result_text);
+//      g_print("result=%s\n", (const gchar*)result_text);
       soup_message_set_response (message,
                                  "application/json",
                                  SOUP_MEMORY_COPY,
