@@ -32,13 +32,14 @@ SUBDIRS = \
 	actions		\
 	menus		\
 	gui		\
-	presets		\
-	.		\
-	tests
+	presets
 
 if USE_HTTPD
 SUBDIRS += httpd
 endif
+
+SUBDIRS += .		\
+	   tests
 
 # Put the GIMP core in a lib so we can conveniently link against that
 # in test cases
