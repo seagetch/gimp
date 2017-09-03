@@ -1591,6 +1591,7 @@ else
 fi
 if test "x$have_libsoup" = "xyes"; then
   AC_DEFINE(HAVE_LIBSOUP, 1, [Define to 1 if libsoup is available])
+  AC_DEFINE(USE_HTTPD, 1, [Define to 1 if using httpd modules])
 fi
 AM_CONDITIONAL(USE_HTTPD, test "x$enable_httpd" = xyes)
 

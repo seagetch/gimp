@@ -32,7 +32,10 @@ extern "C" {
 #else
 #include "presets/preset-factory.h"
 #endif
+
+#ifdef USE_HTTPD
 #include "httpd/httpd-features.h"
+#endif
 
 
 ////////////////////////////////////////////////////////////////////////////
@@ -46,7 +49,10 @@ feature_singleton_factory factory[] = {
 #else
     PresetGuiFactory::get_factory,
 #endif
+
+#ifdef USE_HTTPD
     httpd_get_factory,
+#endif
   NULL
 };
 

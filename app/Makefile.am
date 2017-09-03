@@ -33,9 +33,12 @@ SUBDIRS = \
 	menus		\
 	gui		\
 	presets		\
-	httpd		\
 	.		\
 	tests
+
+if USE_HTTPD
+SUBDIRS += httpd
+endif
 
 # Put the GIMP core in a lib so we can conveniently link against that
 # in test cases
@@ -195,6 +198,8 @@ if USE_HTTPD
 gimphttpdldadd = \
 	httpd/libapphttpd.a		\
 	$(SOUP_LIBS)
+else
+gimphttpdldadd =
 endif
 
 gimp_2_8_LDFLAGS = \
