@@ -93,7 +93,7 @@ public:
 
 class ProcedurePublisherOAS2 : public ProcedurePublisher {
 public:
-  JSON::IBuilder& define_param_spec(JSON::IBuilder it, bool use_named, GParamSpec* pspec, int index) {
+  JSON::IBuilder& define_param_spec(JSON::IBuilder& it, bool use_named, GParamSpec* pspec, int index) {
     GLib::CString val_name = prop_name(pspec, use_named, index);
     it[(const gchar*)val_name] = it.object([&](auto it){
       it["description"] = g_param_spec_get_blurb(pspec);
@@ -373,7 +373,7 @@ public:
 
 class ProcedurePublisherOAS3 : public ProcedurePublisher {
 public:
-  JSON::IBuilder& define_param_spec(JSON::IBuilder it, bool use_named, GParamSpec* pspec, int index) {
+  JSON::IBuilder& define_param_spec(JSON::IBuilder& it, bool use_named, GParamSpec* pspec, int index) {
     GLib::CString val_name = prop_name(pspec, use_named, index);
     it[(const gchar*)val_name] = it.object([&](auto it){
       GType type = G_PARAM_SPEC_VALUE_TYPE(pspec);
@@ -793,10 +793,51 @@ public:
             }
           } else if (type ==GIMP_TYPE_RGB) {
           } else if (type ==GIMP_TYPE_INT32_ARRAY) {
+            gsize   length = args_json[(const gchar*)arg_name].length();
+            gint32* data   = g_new0(gint32, length);
+            int i = 0;
+            args_json[(const gchar*)arg_name].each([&](auto it){
+              gint32 value = it;
+              data[i++] = value;
+            });
+            gimp_value_set_int32array(&args->values[i], data, length);
           } else if (type ==GIMP_TYPE_INT16_ARRAY) {
+            gsize   length = args_json[(const gchar*)arg_name].length();
+            gint16* data   = g_new0(gint16, length);
+            int i = 0;
+            args_json[(const gchar*)arg_name].each([&](auto it){
+              gint value = it;
+              data[i++] = value;
+            });
+            gimp_value_set_int16array(&args->values[i], data, length);
           } else if (type ==GIMP_TYPE_INT8_ARRAY) {
+            gsize   length = args_json[(const gchar*)arg_name].length();
+            guint8* data   = g_new0(guint8, length);
+            int i = 0;
+            args_json[(const gchar*)arg_name].each([&](auto it){
+              gint value = it;
+              data[i++] = value;
+            });
+            gimp_value_set_int8array(&args->values[i], data, length);
           } else if (type ==GIMP_TYPE_FLOAT_ARRAY) {
+            gsize   length = args_json[(const gchar*)arg_name].length();
+            gdouble* data   = g_new0(gdouble, length);
+            int i = 0;
+            args_json[(const gchar*)arg_name].each([&](auto it){
+              gdouble value = it;
+              data[i++] = value;
+            });
+            gimp_value_set_floatarray(&args->values[i], data, length);
           } else if (type ==GIMP_TYPE_STRING_ARRAY) {
+            gsize         length = args_json[(const gchar*)arg_name].length();
+            using cpchar = const gchar*;
+            cpchar* data   = g_new0(cpchar, length);
+            int i = 0;
+            args_json[(const gchar*)arg_name].each([&](auto it){
+              const gchar* value = it;
+              data[i++] = value;
+            });
+            gimp_value_set_stringarray(&args->values[i], data, length);
           } else if (type ==GIMP_TYPE_COLOR_ARRAY) {
           } else if (type ==GIMP_TYPE_ITEM_ID ||
                      type ==GIMP_TYPE_DISPLAY_ID ||
@@ -944,15 +985,41 @@ public:
       } else if (type ==GIMP_TYPE_RGB) {
         json_builder_add_null_value(builder);
       } else if (type ==GIMP_TYPE_INT32_ARRAY) {
-        json_builder_add_null_value(builder);
+        const gint32* array  = gimp_value_get_int32array(&result->values[i + 1]);
+        gsize   length = gimp_value_get_array_length(&result->values[i + 1]) / sizeof(gint32);
+        g_print("array_length=%d\n", length);
+        json_builder_begin_array(builder);
+        for (int i = 0; i < length; i ++)
+          json_builder_add_int_value(builder, array[i]);
+        json_builder_end_array(builder);
       } else if (type ==GIMP_TYPE_INT16_ARRAY) {
-        json_builder_add_null_value(builder);
+        const gint16* array  = gimp_value_get_int16array(&result->values[i + 1]);
+        gsize   length = gimp_value_get_array_length(&result->values[i + 1]) / sizeof(gint16);
+        json_builder_begin_array(builder);
+        for (int i = 0; i < length; i ++)
+          json_builder_add_int_value(builder, array[i]);
+        json_builder_end_array(builder);
       } else if (type ==GIMP_TYPE_INT8_ARRAY) {
-        json_builder_add_null_value(builder);
+        const guint8* array  = gimp_value_get_int8array(&result->values[i + 1]);
+        gsize   length = gimp_value_get_array_length(&result->values[i + 1]) / sizeof(guint8);
+        json_builder_begin_array(builder);
+        for (int i = 0; i < length; i ++)
+          json_builder_add_int_value(builder, array[i]);
+        json_builder_end_array(builder);
       } else if (type ==GIMP_TYPE_FLOAT_ARRAY) {
-        json_builder_add_null_value(builder);
+        const gdouble* array  = gimp_value_get_floatarray(&result->values[i + 1]);
+        gsize   length = gimp_value_get_array_length(&result->values[i + 1]) / sizeof(gdouble);
+        json_builder_begin_array(builder);
+        for (int i = 0; i < length; i ++)
+          json_builder_add_double_value(builder, array[i]);
+        json_builder_end_array(builder);
       } else if (type ==GIMP_TYPE_STRING_ARRAY) {
-        json_builder_add_null_value(builder);
+        const gchar** array  = gimp_value_get_stringarray(&result->values[i + 1]);
+        gsize   length = gimp_value_get_array_length(&result->values[i + 1]) / sizeof(const gchar*);
+        json_builder_begin_array(builder);
+        for (int i = 0; i < length; i ++)
+          json_builder_add_string_value(builder, array[i]);
+        json_builder_end_array(builder);
       } else if (type ==GIMP_TYPE_COLOR_ARRAY) {
         json_builder_add_null_value(builder);
       } else if (type ==GIMP_TYPE_ITEM_ID ||

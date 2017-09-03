@@ -624,6 +624,7 @@ GParamSpec * gimp_param_spec_array     (const gchar  *name,
                                         const gchar  *blurb,
                                         GParamFlags   flags);
 
+gsize        gimp_value_get_array_length   (const GValue* value);
 
 /*
  * GIMP_TYPE_INT8_ARRAY

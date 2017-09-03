@@ -85,6 +85,13 @@ public:
     return json_object_has_member (jobj, prop_name);
   }
 
+  gint length() {
+    if (!is_array())
+      return -1;
+    JsonArray* jarr = json_node_get_array (obj);
+    return json_array_get_length(jarr);
+  }
+
   auto operator [](guint index) {
     if (!is_array())
       return INode();

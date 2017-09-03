@@ -1979,6 +1979,18 @@ gimp_param_spec_array (const gchar *name,
   return G_PARAM_SPEC (array_spec);
 }
 
+gsize
+gimp_value_get_array_length   (const GValue* value)
+{
+  GimpArray *array = value->data[0].v_pointer;
+
+  if (array)
+    return array->length;
+
+  return 0;
+}
+
+
 static const guint8 *
 gimp_value_get_array (const GValue *value)
 {
