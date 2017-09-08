@@ -27,6 +27,7 @@ extern "C" {
 #include "httpd-features.h"
 #include "httpd.h"
 #include "rest-pdb.h"
+#include "rest-image-tree.h"
 
 ///////////////////////////////////////////////////////////////////////////
 // HTTPDFeature
@@ -64,9 +65,11 @@ HTTPDFeature::initialize (Gimp* gimp, GimpInitStatusFunc callback)
                                text,
                                strlen(text));
   }));
-  auto factory = new RESTPDBFactory;
-  rest_daemon->route("/api/v1/pdb/", factory);
-  rest_daemon->route("/api/v1/pdb/<name>", factory);
+  auto pdb_factory = new RESTPDBFactory;
+  auto image_tree_factory = new RESTImageTreeFactory;
+  rest_daemon->route("/api/v1/pdb/", pdb_factory);
+  rest_daemon->route("/api/v1/pdb/{name}", pdb_factory);
+  rest_daemon->route("/api/v1/images/**", image_tree_factory);
   rest_daemon->run();
 }
 

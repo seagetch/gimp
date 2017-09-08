@@ -28,6 +28,8 @@ libapphttpd_a_sources = \
 	httpd.h				\
 	rest-pdb.cpp			\
 	rest-pdb.h			\
+	rest-image-tree.cpp		\
+	rest-image-tree.h		\
 	httpd-features.cpp		\
 	httpd-features.h
 

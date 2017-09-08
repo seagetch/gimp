@@ -94,7 +94,10 @@ protected:
 
   struct Rule {
 
-    struct TokenRule { virtual bool test(const gchar* token, Matched& result) = 0; };
+    struct TokenRule {
+      virtual bool loop() { return false; }
+      virtual bool test(const gchar* token, Matched& result) = 0;
+    };
 
     struct Match: TokenRule {
       GLib::CString token;
@@ -136,6 +139,35 @@ protected:
       }
     };
 
+    struct Any: TokenRule {
+      ~Any() { };
+      virtual bool test(const gchar* tested_token, Matched& result) {
+        for (int i = 0; true; i ++) {
+          GLib::CString any=g_strdup_printf("*%d", i);
+          if (!result.data().lookup(any)) {
+            result.data().insert("*", g_strdup(tested_token));
+            break;
+          }
+        }
+        return true;
+      }
+    };
+
+    struct AnyLoop: TokenRule {
+      ~AnyLoop() { };
+      virtual bool loop() { return true; }
+      virtual bool test(const gchar* tested_token, Matched& result) {
+        gchar* path = result.data().lookup("**");
+        if (!path) {
+          result.data().insert("**", g_strdup(tested_token));
+        } else {
+          result.data().insert("**", g_strdup_printf("%s/%s", path, tested_token));
+          g_free(path);
+        }
+        return true;
+      }
+    };
+
     GLib::Array _rules;
     CXXPointer<rule_delegator> handler;
 
@@ -159,8 +191,8 @@ protected:
         g_print("Rule::constructor parse: transform %s\n", token);
 
         switch (token[0]) {
-        case '<': {
-          gchar* word_term = strstr(&(token[1]),">");
+        case '{': {
+          gchar* word_term = strstr(&(token[1]),"}");
           if (word_term) {
             GLib::CString varname = strndup(&(token[1]), word_term - &(token[1]));
 
@@ -178,6 +210,16 @@ protected:
               rules().append(new Name(varname));
 
             }
+          }
+          break;
+        }
+        case '*': {
+          if(token[1] == '*') {
+            g_print("register any path\n");
+            rules().append(new AnyLoop());
+          } else {
+            g_print("register any\n");
+            rules().append(new Any());
           }
           break;
         }
@@ -202,21 +244,24 @@ protected:
 
       gchar** tested_token = (gchar**)uri;
       for (auto i: rules()) {
-        const gchar* token = *tested_token;
+        do {
+          const gchar* token = *tested_token;
+          while (token && strlen(token) == 0)
+            token = *(++tested_token);
+          g_print("Test '%s'\n", token);
 
-        while (token && strlen(token) == 0)
-          token = *(++tested_token);
-//        g_print("Test '%s'\n", token);
-
-        if (!token) { // Tested URI is short.
-//          g_print("tested URI is too short.\n");
-          return result;
-        }
-        if (!i->test(token, result)) {
-//          g_print("Not matched.\n");
-          return result;
-        }
-        tested_token ++;
+          if (!token) { // Tested URI is short.
+  //          g_print("tested URI is too short.\n");
+            if (i->loop()) // i is infinite loop rule. exit from loop.
+              break;
+            return result;
+          }
+          if (!i->test(token, result)) {
+  //          g_print("Not matched.\n");
+            return result;
+          }
+          tested_token ++;
+        } while (i->loop());
       }
       while (*tested_token && strlen(*tested_token) == 0)
         ++tested_token;
@@ -250,7 +295,8 @@ public:
   };
 
   Ret dispatch(const gchar* uri, const gchar* data, Args... args) {
-    GLib::StringList tested_path = g_strsplit(uri, "/", 256);
+    GLib::CString decoded_uri = soup_uri_decode (uri);
+    GLib::StringList tested_path = g_strsplit(decoded_uri, "/", 256);
 
     for ( auto i: rules() ) {
       Matched matched = i->test(tested_path.ptr(), data);
