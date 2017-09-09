@@ -460,7 +460,7 @@ RESTImageTree::put_data(GLib::IObject<GimpItem> item, Args... args)
 
   if (!item) {
 
-    GimpImage* image = conv.to_image(args...);
+    auto image = GLib::ref( conv.to_image(args...) );
     if (!image) {
       result = false;
     } else {
@@ -470,20 +470,27 @@ RESTImageTree::put_data(GLib::IObject<GimpItem> item, Args... args)
 
     JSON::Builder builder;
     auto ibuilder = JSON::ref(builder);
+    auto active_layer = GLib::ref( image [gimp_image_get_active_layer] () );
     ibuilder = ibuilder.object([&](auto it){
       it["result"] = result;
+      it["image"]  = image [gimp_image_get_ID] ();
+      if (active_layer) {
+        it["layer"]    = active_layer [gimp_item_get_ID] ();
+        it["drawable"] = active_layer [gimp_item_get_ID] ();
+      }
     });
     result_text = json_to_string(ibuilder.get_root(), FALSE);
 
   } else {
     auto layer = GLib::ref(conv.to_layer(item, args...));
-
+    GLib::IObject<GimpImage> image;
+    GLib::IObject<GimpItem>  parent;
     if (!layer) {
       result = false;
     } else {
 
-      GLib::IObject<GimpImage> image  = GIMP_IS_IMAGE(item.ptr())? GIMP_IMAGE(item.ptr()) : item [gimp_item_get_image] ();
-      GLib::IObject<GimpItem>  parent = GIMP_IS_IMAGE(item.ptr())? NULL: item[gimp_item_get_parent] ();
+      image  = GIMP_IS_IMAGE(item.ptr())? GIMP_IMAGE(item.ptr()) : item [gimp_item_get_image] ();
+      parent = GIMP_IS_IMAGE(item.ptr())? NULL: item[gimp_item_get_parent] ();
       gint item_index = GIMP_IS_IMAGE(item.ptr())? 0: GLib::ref(parent [gimp_viewable_get_children] ()) [gimp_container_get_child_index] (item);
       g_print("insert layer=%s to image=%s, with index=%d\n", layer [gimp_object_get_name] (), image [gimp_image_get_display_name] (), item_index);
       image [gimp_image_add_layer] (layer, parent, item_index, FALSE );
@@ -494,7 +501,10 @@ RESTImageTree::put_data(GLib::IObject<GimpItem> item, Args... args)
     JSON::Builder builder;
     auto ibuilder = JSON::ref(builder);
     ibuilder = ibuilder.object([&](auto it){
-      it["result"] = result;
+      it["result"]    = result;
+      it["image"]     = image [gimp_image_get_ID] ();
+      it["layer"]     = layer [gimp_item_get_ID] ();
+      it["drawable"]  = layer [gimp_item_get_ID] ();
     });
     result_text = json_to_string(ibuilder.get_root(), FALSE);
   }
