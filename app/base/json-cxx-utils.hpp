@@ -222,10 +222,11 @@ public:
     IBuilder* builder;
   public:
     LazyObjectEvaluator(F f, IBuilder* b) : func(f), builder(b)  {};
-    void eval() const {
+    IBuilder& eval() const {
       json_builder_begin_object(builder->obj);
       func(*builder);
       json_builder_end_object(builder->obj);
+      return *builder;
     }
   };
 
@@ -235,10 +236,11 @@ public:
     IBuilder* builder;
   public:
     LazyArrayEvaluator(F f, IBuilder* b) : func(f), builder(b)  {};
-    void eval() const {
+    IBuilder& eval() const {
       json_builder_begin_array(builder->obj);
       func(*builder);
       json_builder_end_array(builder->obj);
+      return *builder;
     }
   };
 
@@ -257,6 +259,16 @@ public:
   template<typename F>
   auto array(F f) {
     return LazyArrayEvaluator<F>(f, this);
+  }
+
+  template<typename F>
+  void with_object(F f) {
+    *this = object(f);
+  }
+
+  template<typename F>
+  void with_array(F f) {
+    *this = array(f);
   }
 
   IBuilder& operator[](const gchar* name) {
@@ -300,10 +312,48 @@ public:
     json_builder_add_null_value(obj);
     return *this;
   }
+
+  template<typename Arg, typename... Args>
+  IBuilder& operator()(Arg a, Args... args) {
+    (*this) = a;
+    return (*this)(args...);
+  };
+
+  IBuilder& operator()() { return *this; };
+
+  template<typename... Args>
+  auto array_with_values(Args... args) {
+    return array([&](auto it){
+      it(args...);
+    });
+  }
+
 };
 
 inline auto ref(const Builder& builder) {
   return IBuilder(builder);
+}
+
+template<typename F>
+inline auto build(F f) {
+  Builder builder;
+  IBuilder ibuilder = ref(builder);
+  f(ibuilder);
+  return ibuilder.get_root();
+}
+
+template<typename F>
+inline auto build_object(F f) {
+  return build([&f](auto it) {
+    it.with_object(f);
+  });
+}
+
+template<typename F>
+inline auto build_array(F f) {
+  return build([&f](auto it) {
+    it.with_array(f);
+  });
 }
 
 }; // namespace JSON
