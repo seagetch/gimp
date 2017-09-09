@@ -145,7 +145,7 @@ RESTResource::req_body_json()
 
 
 void
-RESTResource::make_json_response(gint code, JSON::INode node)
+RESTResource::make_json_response(gint code, JSON::Node node)
 {
   auto imessage = GLib::ref(message);
   GLib::CString result_text = json_to_string(node, FALSE);

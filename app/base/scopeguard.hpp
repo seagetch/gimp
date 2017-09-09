@@ -91,8 +91,9 @@ class Nullable
 public:
   Nullable(T* src) : ptr(src) { };
   operator const T*() { return ptr(); }
-  operator T&() { if(ptr) return *ptr; return T(); }
+  operator T() { if(ptr) return *ptr; return T(); }
   T operator=(const T val) { if(ptr) *ptr = val; return val; };
+  T operator[](gsize index) { if(ptr) return *(ptr + index); else return T(); }
 };
 
 template<class T>

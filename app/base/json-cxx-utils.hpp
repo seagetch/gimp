@@ -103,6 +103,19 @@ public:
     return INode( json_array_get_element(jarr, index) );
   };
   
+  template<typename T>
+  bool copy_values(T** _data, gsize* _length) {
+    Nullable<gsize> length (_length);
+    Nullable<T*> data   (_data);
+    length = this->length();
+    data   = g_new0(T, length);
+    int i = 0;
+    each([&](auto it){
+      Nullable<T> value(data[i++]);
+      value = it;
+    });
+  }
+
   static void foreach_callback(JsonArray*, guint, JsonNode* elem, gpointer data) {
     INode node = elem;
     std::function<void(INode&)>* func = reinterpret_cast<std::function<void(INode&)>*>(data);
@@ -132,6 +145,22 @@ public:
     return json_node_get_int(obj);
   };
   
+  operator const gint16 () {
+    return (int)(*this);
+  };
+
+  operator const guint16 () {
+    return (int)(*this);
+  };
+
+  operator const gint8 () {
+    return (int)(*this);
+  };
+
+  operator const guint8 () {
+    return (int)(*this);
+  };
+
   operator const bool () {
     if (!is_value())
       throw InvalidType(JSON_NODE_VALUE, JSON_NODE_TYPE(obj));
@@ -313,6 +342,16 @@ public:
     return *this;
   }
 
+  IBuilder& operator = (JsonNode* value) {
+    json_builder_add_value(obj, value);
+    return *this;
+  }
+
+  IBuilder& operator = (Node& value) {
+    json_builder_add_value(obj, value);
+    return *this;
+  }
+
   template<typename Arg, typename... Args>
   IBuilder& operator()(Arg a, Args... args) {
     (*this) = a;
@@ -325,6 +364,14 @@ public:
   auto array_with_values(Args... args) {
     return array([&](auto it){
       it(args...);
+    });
+  }
+
+  template<typename T>
+  auto array_from(T* data, gsize length) {
+    return array([data, length](auto it){
+      for (int i = 0; i < length; i ++)
+        it = data[i];
     });
   }
 

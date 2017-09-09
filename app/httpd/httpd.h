@@ -111,7 +111,7 @@ public:
   virtual void post() { }
   virtual void del () { }
 
-  void make_json_response(gint code, JSON::INode node);
+  void make_json_response(gint code, JSON::Node node);
   void make_error_response(gint code, const gchar* error_msg);
   template<typename... Args>
   void make_error_response(gint code, const gchar* error_msg, Args... args) {

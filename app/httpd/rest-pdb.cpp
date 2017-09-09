@@ -188,9 +188,7 @@ public:
         it["version"] =  "0.0.1";
       });
 
-      it["schemes"] = it.array([&](auto it) {
-        it = "http";
-      });
+      it["schemes"] = it.array_with_values("http");
       it["host"] = "localhost:8920";
       it["basePath"] = "/api/v1/pdb";
 
@@ -208,12 +206,8 @@ public:
         it["operationId"] = procedure->original_name;
         it["description"] = procedure->blurb;
 
-        it["consumes"] = it.array([&](auto it){
-          it = "application/json";
-        });
-        it["produces"] = it.array([&](auto it){
-          it = "application/json";
-        });
+        it["consumes"] = it.array_with_values("application/json");
+        it["produces"] = it.array_with_values("application/json");
 
         it["responses"]   = it.object([&](auto it) {
           it["200"] = it.object([&](auto it) {
@@ -668,47 +662,7 @@ public:
   GimpObject*    display;
   GimpItem*      item;
 
-  bool configure_args(GimpProcedure* procedure, GValueArray* args, Gimp* gimp, JSON::INode ctx_json, JSON::INode args_json) {
-    auto igimp     = GLib::ref( this->gimp = gimp );
-    auto icontext  = GLib::ref( context    = igimp [gimp_get_user_context]() );
-    auto iimage    = GLib::ref( image      = icontext [gimp_context_get_image]() );
-    auto idrawable = GLib::ref( drawable   = GIMP_DRAWABLE(iimage [gimp_image_get_active_layer]()) );
-    auto ipdb      = GLib::ref( pdb        = gimp->pdb );
-    auto idisplay  = GLib::ref( display    = GIMP_OBJECT(icontext [gimp_context_get_display]()) );
-    auto iitem     = GLib::ref( item       = GIMP_ITEM(drawable) );
-
-    auto imessage  = GLib::ref( message );
-
-    // Read variables from context information.
-    if (ctx_json.is_object()) {
-      for ( auto key: GLib::ref<const gchar*>(ctx_json.keys()) ) {
-        try {
-          JSON::INode id_node = ctx_json[key];
-
-          if (strcmp(key, "image") == 0) {
-            gint id   = id_node;
-            iimage    = GLib::ref( image = gimp_image_get_by_ID (gimp, id) );
-
-          } else if (strcmp(key, "drawable") == 0) {
-            gint id   = id_node;
-            idrawable = GLib::ref( drawable = GIMP_DRAWABLE(gimp_item_get_by_ID (gimp, id)) );
-
-          } else if (strcmp(key, "item") == 0) {
-            gint id   = id_node;
-            iitem     = GLib::ref( item = gimp_item_get_by_ID (gimp, id) );
-
-          } else if (strcmp(key, "display") == 0 && gimp->gui.display_get_by_id) {
-            gint id   = id_node;
-            idisplay  = GLib::ref( display = GIMP_OBJECT(gimp->gui.display_get_by_id (gimp, id)) );
-
-          }
-
-        } catch(JSON::INode::InvalidType e) {
-          g_print("Invalid type,expect=%d, where actual=%d\n", e.specified, e.actual);
-        }
-      }
-    }
-
+  bool deserialize_args(GimpProcedure* procedure, GValueArray* args, JSON::INode args_json) {
     // Check whether argument ID is unique or not.
     bool use_object_based_args = ProcedurePublisher::use_named_args(procedure);
 
@@ -781,51 +735,35 @@ public:
             }
           } else if (type ==GIMP_TYPE_RGB) {
           } else if (type ==GIMP_TYPE_INT32_ARRAY) {
-            gsize   length = args_json[(const gchar*)arg_name].length();
-            gint32* data   = g_new0(gint32, length);
-            int i = 0;
-            args_json[(const gchar*)arg_name].each([&](auto it){
-              gint32 value = it;
-              data[i++] = value;
-            });
+            gsize   length;
+            gint32* data;
+            args_json[(const gchar*)arg_name].copy_values(&data, &length);
             gimp_value_set_int32array(&args->values[i], data, length);
+
           } else if (type ==GIMP_TYPE_INT16_ARRAY) {
-            gsize   length = args_json[(const gchar*)arg_name].length();
-            gint16* data   = g_new0(gint16, length);
-            int i = 0;
-            args_json[(const gchar*)arg_name].each([&](auto it){
-              gint value = it;
-              data[i++] = value;
-            });
+            gsize   length;
+            gint16* data;
+            args_json[(const gchar*)arg_name].copy_values(&data, &length);
             gimp_value_set_int16array(&args->values[i], data, length);
+
           } else if (type ==GIMP_TYPE_INT8_ARRAY) {
-            gsize   length = args_json[(const gchar*)arg_name].length();
-            guint8* data   = g_new0(guint8, length);
-            int i = 0;
-            args_json[(const gchar*)arg_name].each([&](auto it){
-              gint value = it;
-              data[i++] = value;
-            });
+            gsize   length;
+            guint8* data;
             gimp_value_set_int8array(&args->values[i], data, length);
+
           } else if (type ==GIMP_TYPE_FLOAT_ARRAY) {
-            gsize   length = args_json[(const gchar*)arg_name].length();
-            gdouble* data   = g_new0(gdouble, length);
-            int i = 0;
-            args_json[(const gchar*)arg_name].each([&](auto it){
-              gdouble value = it;
-              data[i++] = value;
-            });
+            gsize    length;
+            gdouble* data;
+            args_json[(const gchar*)arg_name].copy_values(&data, &length);
             gimp_value_set_floatarray(&args->values[i], data, length);
+
           } else if (type ==GIMP_TYPE_STRING_ARRAY) {
-            gsize         length = args_json[(const gchar*)arg_name].length();
             using cpchar = const gchar*;
-            cpchar* data   = g_new0(cpchar, length);
-            int i = 0;
-            args_json[(const gchar*)arg_name].each([&](auto it){
-              const gchar* value = it;
-              data[i++] = value;
-            });
+            gsize    length;
+            cpchar*  data;
+            args_json[(const gchar*)arg_name].copy_values(&data, &length);
             gimp_value_set_stringarray(&args->values[i], data, length);
+
           } else if (type ==GIMP_TYPE_COLOR_ARRAY) {
           } else if (type ==GIMP_TYPE_ITEM_ID ||
                      type ==GIMP_TYPE_DISPLAY_ID ||
@@ -888,6 +826,49 @@ public:
     return true;
   }
 
+  bool configure_args(GimpProcedure* procedure, GValueArray* args, Gimp* gimp, JSON::INode ctx_json, JSON::INode args_json) {
+    auto igimp     = GLib::ref( this->gimp = gimp );
+    auto icontext  = GLib::ref( context    = igimp [gimp_get_user_context]() );
+    auto iimage    = GLib::ref( image      = icontext [gimp_context_get_image]() );
+    auto idrawable = GLib::ref( drawable   = GIMP_DRAWABLE(iimage [gimp_image_get_active_layer]()) );
+    auto ipdb      = GLib::ref( pdb        = gimp->pdb );
+    auto idisplay  = GLib::ref( display    = GIMP_OBJECT(icontext [gimp_context_get_display]()) );
+    auto iitem     = GLib::ref( item       = GIMP_ITEM(drawable) );
+
+    auto imessage  = GLib::ref( message );
+
+    // Read variables from context information.
+    if (ctx_json.is_object()) {
+      for ( auto key: GLib::ref<const gchar*>(ctx_json.keys()) ) {
+        try {
+          JSON::INode id_node = ctx_json[key];
+
+          if (strcmp(key, "image") == 0) {
+            gint id   = id_node;
+            iimage    = GLib::ref( image = gimp_image_get_by_ID (gimp, id) );
+
+          } else if (strcmp(key, "drawable") == 0) {
+            gint id   = id_node;
+            idrawable = GLib::ref( drawable = GIMP_DRAWABLE(gimp_item_get_by_ID (gimp, id)) );
+
+          } else if (strcmp(key, "item") == 0) {
+            gint id   = id_node;
+            iitem     = GLib::ref( item = gimp_item_get_by_ID (gimp, id) );
+
+          } else if (strcmp(key, "display") == 0 && gimp->gui.display_get_by_id) {
+            gint id   = id_node;
+            idisplay  = GLib::ref( display = GIMP_OBJECT(gimp->gui.display_get_by_id (gimp, id)) );
+
+          }
+
+        } catch(JSON::INode::InvalidType e) {
+          g_print("Invalid type,expect=%d, where actual=%d\n", e.specified, e.actual);
+        }
+      }
+    }
+    return deserialize_args(procedure, args, args_json);
+  }
+
 
   JsonNode* get_context_json() {
     // Read variables from context information.
@@ -921,100 +902,84 @@ public:
     bool use_object_based_values = ProcedurePublisher::use_named_values(procedure);;
 
     // Serialize return value
-    JsonBuilder* builder = json_builder_new();
-    json_builder_begin_object (builder);
-    g_print("proc->num_values=%d, result->n_values=%d\n", procedure->num_values, result->n_values);
-    for (int i = 0; i < procedure->num_values; i ++) {
-      GParamSpec* pspec = procedure->values[i];
-      GLib::CString val_name = ProcedurePublisher::prop_name(pspec, use_object_based_values, i);
-      g_print("RESULT VALUE=%s\n", (const gchar*)val_name);
-      json_builder_set_member_name (builder, val_name);
+    result_json = JSON::build_object([&](auto it){
 
-      GType type = G_VALUE_TYPE(&result->values[i + 1]);
-      if ( type == GIMP_TYPE_INT32 ||
-           type == G_TYPE_INT ||
-           type == G_TYPE_UINT ||
-           type ==GIMP_TYPE_INT16 ||
-           type ==GIMP_TYPE_INT8) {
-        gint val = g_value_get_int (&result->values[i + 1]);
-        json_builder_add_int_value(builder, val);
+      for (int i = 0; i < procedure->num_values; i ++) {
+        GParamSpec* pspec = procedure->values[i];
+        GLib::CString val_name_ = ProcedurePublisher::prop_name(pspec, use_object_based_values, i);
+        const gchar* val_name = val_name_;
 
-      } else if(type ==G_TYPE_ENUM) {
-      } else if(type ==G_TYPE_BOOLEAN) {
-        gboolean val = g_value_get_boolean (&result->values[i + 1]);
-        json_builder_add_boolean_value(builder, val);
+        GType type = G_VALUE_TYPE(&result->values[i + 1]);
+        if ( type == GIMP_TYPE_INT32 ||
+             type == G_TYPE_INT ||
+             type == G_TYPE_UINT ||
+             type ==GIMP_TYPE_INT16 ||
+             type ==GIMP_TYPE_INT8) {
+          it[val_name] = g_value_get_int (&result->values[i + 1]);
 
-      } else if (type ==G_TYPE_DOUBLE) {
-        gdouble val = g_value_get_double (&result->values[i + 1]);
-        json_builder_add_double_value(builder, val);
+        } else if(type ==G_TYPE_ENUM) {
 
-      } else if (type ==G_TYPE_STRING) {
-        const gchar* val = g_value_get_string (&result->values[i + 1]);
-        json_builder_add_string_value(builder, val);
+        } else if(type ==G_TYPE_BOOLEAN) {
+          it[val_name] = g_value_get_boolean (&result->values[i + 1]);
 
-      } else if (type ==GIMP_TYPE_RGB) {
-        json_builder_add_null_value(builder);
-      } else if (type ==GIMP_TYPE_INT32_ARRAY) {
-        const gint32* array  = gimp_value_get_int32array(&result->values[i + 1]);
-        gsize   length = gimp_value_get_array_length(&result->values[i + 1]) / sizeof(gint32);
-        g_print("array_length=%lu\n", length);
-        json_builder_begin_array(builder);
-        for (int i = 0; i < length; i ++)
-          json_builder_add_int_value(builder, array[i]);
-        json_builder_end_array(builder);
-      } else if (type ==GIMP_TYPE_INT16_ARRAY) {
-        const gint16* array  = gimp_value_get_int16array(&result->values[i + 1]);
-        gsize   length = gimp_value_get_array_length(&result->values[i + 1]) / sizeof(gint16);
-        json_builder_begin_array(builder);
-        for (int i = 0; i < length; i ++)
-          json_builder_add_int_value(builder, array[i]);
-        json_builder_end_array(builder);
-      } else if (type ==GIMP_TYPE_INT8_ARRAY) {
-        const guint8* array  = gimp_value_get_int8array(&result->values[i + 1]);
-        gsize   length = gimp_value_get_array_length(&result->values[i + 1]) / sizeof(guint8);
-        json_builder_begin_array(builder);
-        for (int i = 0; i < length; i ++)
-          json_builder_add_int_value(builder, array[i]);
-        json_builder_end_array(builder);
-      } else if (type ==GIMP_TYPE_FLOAT_ARRAY) {
-        const gdouble* array  = gimp_value_get_floatarray(&result->values[i + 1]);
-        gsize   length = gimp_value_get_array_length(&result->values[i + 1]) / sizeof(gdouble);
-        json_builder_begin_array(builder);
-        for (int i = 0; i < length; i ++)
-          json_builder_add_double_value(builder, array[i]);
-        json_builder_end_array(builder);
-      } else if (type ==GIMP_TYPE_STRING_ARRAY) {
-        const gchar** array  = gimp_value_get_stringarray(&result->values[i + 1]);
-        gsize   length = gimp_value_get_array_length(&result->values[i + 1]) / sizeof(const gchar*);
-        json_builder_begin_array(builder);
-        for (int i = 0; i < length; i ++)
-          json_builder_add_string_value(builder, array[i]);
-        json_builder_end_array(builder);
-      } else if (type ==GIMP_TYPE_COLOR_ARRAY) {
-        json_builder_add_null_value(builder);
-      } else if (type ==GIMP_TYPE_ITEM_ID ||
-                 type ==GIMP_TYPE_LAYER_ID ||
-                 type ==GIMP_TYPE_CHANNEL_ID ||
-                 type ==GIMP_TYPE_DRAWABLE_ID ||
-                 type ==GIMP_TYPE_SELECTION_ID ||
-                 type ==GIMP_TYPE_LAYER_MASK_ID ||
-                 type ==GIMP_TYPE_VECTORS_ID ||
-                 type ==GIMP_TYPE_DISPLAY_ID ||
-                 type ==GIMP_TYPE_IMAGE_ID) {
-        gint id = g_value_get_int(&result->values[i + 1]);
-        json_builder_add_int_value(builder, id);
-      } else if (type == GIMP_TYPE_PARASITE) {
-        json_builder_add_null_value(builder);
-      } else if (type == GIMP_TYPE_PDB_STATUS_TYPE) {
-        json_builder_add_null_value(builder);
+        } else if (type ==G_TYPE_DOUBLE) {
+          it[val_name] = g_value_get_double (&result->values[i + 1]);
+
+        } else if (type ==G_TYPE_STRING) {
+          it[val_name] = g_value_get_string (&result->values[i + 1]);
+
+        } else if (type ==GIMP_TYPE_RGB) {
+          it[val_name] = JSON::IBuilder::null();
+
+        } else if (type ==GIMP_TYPE_INT32_ARRAY) {
+          it[val_name] = it.array_from(
+              gimp_value_get_int32array(&result->values[i + 1]),
+              gimp_value_get_array_length(&result->values[i + 1]) / sizeof(gint32));
+
+        } else if (type ==GIMP_TYPE_INT16_ARRAY) {
+          it[val_name] = it.array_from(
+              gimp_value_get_int16array(&result->values[i + 1]),
+              gimp_value_get_array_length(&result->values[i + 1]) / sizeof(gint16));
+
+        } else if (type ==GIMP_TYPE_INT8_ARRAY) {
+          it[val_name] = it.array_from(
+              gimp_value_get_int8array(&result->values[i + 1]),
+              gimp_value_get_array_length(&result->values[i + 1]) / sizeof(guint8));
+
+        } else if (type ==GIMP_TYPE_FLOAT_ARRAY) {
+          it[val_name] = it.array_from(
+              gimp_value_get_floatarray(&result->values[i + 1]),
+              gimp_value_get_array_length(&result->values[i + 1]) / sizeof(gdouble));
+
+        } else if (type ==GIMP_TYPE_STRING_ARRAY) {
+          it[val_name] = it.array_from(
+              gimp_value_get_stringarray(&result->values[i + 1]),
+              gimp_value_get_array_length(&result->values[i + 1]) / sizeof(const gchar*));
+
+        } else if (type ==GIMP_TYPE_COLOR_ARRAY) {
+          it[val_name] = JSON::IBuilder::null();
+
+        } else if (type ==GIMP_TYPE_ITEM_ID ||
+                   type ==GIMP_TYPE_LAYER_ID ||
+                   type ==GIMP_TYPE_CHANNEL_ID ||
+                   type ==GIMP_TYPE_DRAWABLE_ID ||
+                   type ==GIMP_TYPE_SELECTION_ID ||
+                   type ==GIMP_TYPE_LAYER_MASK_ID ||
+                   type ==GIMP_TYPE_VECTORS_ID ||
+                   type ==GIMP_TYPE_DISPLAY_ID ||
+                   type ==GIMP_TYPE_IMAGE_ID) {
+          it[val_name] = g_value_get_int(&result->values[i + 1]);
+
+        } else if (type == GIMP_TYPE_PARASITE) {
+          it[val_name] = JSON::IBuilder::null();
+
+        } else if (type == GIMP_TYPE_PDB_STATUS_TYPE) {
+          it[val_name] = JSON::IBuilder::null();
+        }
+
       }
 
-    }
-    json_builder_end_object(builder);
-
-    result_json = json_builder_get_root(builder);
-    g_object_unref(G_OBJECT(builder));
-
+    });
   }
 
   void execute(GimpProcedure* procedure, Gimp* gimp, GimpContext* context,
@@ -1045,41 +1010,22 @@ void RESTPDB::get()
     gboolean         query = pdb [gimp_pdb_query] (".*", ".*", ".*", ".*", ".*", ".*", ".*", &num_procs, &procs, NULL);
 
     Publisher publisher;
-    auto result_json = publisher.publish(gimp->pdb, procs, num_procs);
-    GLib::CString result_text = json_to_string(result_json, FALSE);
-//    g_print("result=%s\n", (const gchar*)result_text);
-    soup_message_set_response (message,
-                               "application/json; charset=utf-8",
-                               SOUP_MEMORY_COPY,
-                               result_text,
-                               strlen(result_text));
-    imessage.set("status-code", 200);
+    JSON::INode result_json = publisher.publish(gimp->pdb, procs, num_procs);
+    make_json_response(200, result_json.ptr());
     soup_message_headers_append(message->response_headers, "Access-Control-Allow-Origin", "*");
-
-//    g_object_unref(G_OBJECT(builder));
   } else {
     auto           pdb       = GLib::ref( gimp->pdb );
     GimpProcedure* procedure = pdb [gimp_pdb_lookup_procedure] (proc_name);
 
     if (procedure) {
       Publisher publisher;
-      auto result_json = publisher.publish(procedure);
-
-      GLib::CString result_text = json_to_string(result_json, FALSE);
-//      g_print("result=%s\n", (const gchar*)result_text);
-      soup_message_set_response (message,
-                                 "application/json",
-                                 SOUP_MEMORY_COPY,
-                                 result_text,
-                                 strlen(result_text));
-      imessage.set("status-code", 200);
+      JSON::INode result_json = publisher.publish(procedure);
+      make_json_response(200, result_json.ptr());
       soup_message_headers_append(message->response_headers, "Access-Control-Allow-Origin", "*");
+
     } else {
       g_print("invalid procedure name.\n");
-      imessage.set("status-code", 404);
-      GLib::CString result_text = g_strdup_printf("{'error': '%s is not found.' }", (const gchar*)proc_name);
-      soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
-                                 result_text, strlen(result_text));
+      make_error_response(404, "%s is not found.", (const gchar*)proc_name);
     }
   }
 }
@@ -1129,34 +1075,15 @@ void RESTPDB::post()
       if (!runner.run(gimp, ctx_node, arg_node))
         return;
 
-      JSON::Node new_ctx_json = arg_conf->get_context_json();
-      JSON::Node result_json  = executor->result_json;
-
-      JSON::Node new_root     = json_node_new(JSON_NODE_OBJECT);
-      json_node_set_object (new_root, json_object_new());
-      GLib::CString ctx_text = json_to_string(new_ctx_json, FALSE);
-
-      JsonObject* jobj = json_node_get_object(new_root);
-      json_object_set_member (jobj, "context", new_ctx_json);
-      json_object_set_member (jobj, "values", result_json);
-
-      GLib::CString root_text = json_to_string(new_root, FALSE);
-      g_print("root=%s\n", (const gchar*)root_text);
-
-      soup_message_set_response (message,
-                                 "application/json",
-                                 SOUP_MEMORY_COPY,
-                                 root_text,
-                                 strlen(root_text));
-      auto imessage = GLib::ref(message);
-      imessage.set("status-code", 200);
+      JSON::INode new_root = JSON::build_object([&](auto it) {
+        it["context"] = arg_conf->get_context_json();
+        it["values"]  = executor->result_json;
+        executor->result_json   = NULL;
+      });
+      make_json_response(200, new_root.ptr());
     } else {
       g_print("invalid procedure name.\n");
-      auto imessage = GLib::ref(message);
-      imessage.set("status-code", 404);
-      GLib::CString result_text = g_strdup_printf("{'error': '%s is not found.' }", (const gchar*)proc_name);
-      soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
-                                 result_text, strlen(result_text));
+      make_error_response(404, "%s is not found.", (const gchar*)proc_name);
     }
 
   } catch(JSON::INode::InvalidType e) {
