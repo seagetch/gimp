@@ -81,10 +81,11 @@ MethodMap method_map[] = {
 // Image REST interface
 
 class JsonConverter {
+  RESTResource* resource;
   Gimp* gimp;
   SoupMessage* message;
 public:
-  JsonConverter(Gimp* g, SoupMessage* msg) : gimp(g), message(msg) { };
+  JsonConverter(RESTResource* r, Gimp* g, SoupMessage* msg) : resource(r), gimp(g), message(msg) { };
 
   GimpImage* to_image(JSON::INode json) {
     if (json.is_object()) {
@@ -103,11 +104,7 @@ public:
           image_type = json.has("color-mode")? enums[json["color-mode"]] : GIMP_RGB;
         } catch (decltype(enums)::IdNotFound e) {
           GLib::CString result_text;
-          auto imessage = GLib::ref(message);
-          result_text = g_strdup_printf("{'error': color-mode '\"%s\" is invalid.' }", (const gchar*)e.identifier);
-          soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
-                                     result_text, strlen(result_text));
-          imessage.set("status-code", 400);
+          resource->make_error_response(400, "color-mode \"%s\" is invalid.", (const gchar*)e.identifier);
           return NULL;
         }
 
@@ -168,9 +165,11 @@ public:
 
     } catch (JSON::INode::InvalidType e) {
       g_print("Invalid type: assuming type is %d, where actual type is %d.\n", e.specified, e.actual);
+      resource->make_error_response(400, "invalid parameters");
       return NULL;
     } catch (JSON::INode::InvalidIndex e) {
       g_print("Boundary out of index\n");
+      resource->make_error_response(400, "boundary is invalid.");
       return NULL;
     }
   }
@@ -179,10 +178,11 @@ public:
 
 
 class DataConverter {
+  RESTResource* resource;
   Gimp* gimp;
   SoupMessage* message;
 public:
-  DataConverter(Gimp* g, SoupMessage* msg) : gimp(g), message(msg) { };
+  DataConverter(RESTResource* r, Gimp* g, SoupMessage* msg) : resource(r), gimp(g), message(msg) { };
 
   GimpImage* to_image(const gchar* mime_type, const guint8* data, gsize size)
   {
@@ -268,50 +268,45 @@ RESTImageTreeFactory::create(Gimp* gimp,
 void
 RESTImageTree::get_info(GLib::IObject<GimpItem> item) {
   auto imessage = GLib::ref(message);
-  GLib::CString result_text;
+
   if (!item) {
     auto container = GLib::ref( gimp->images );
+
     JSON::Builder builder;
     auto ibuilder = JSON::ref(builder);
     ibuilder = ibuilder.object([&](auto it){
       if (container) {
         gimp_container_foreach_ (container, function<void(GimpItem*)>([&](auto i){
-           GLib::IObject<GimpItem> item = i;
-           GLib::CString id = g_strdup_printf("%d", item [gimp_image_get_ID] ());
-           it[(const gchar*)id] = item [gimp_image_get_display_name] ();
-         }));
+          GLib::IObject<GimpItem> item = i;
+          GLib::CString id = g_strdup_printf("%d", item [gimp_image_get_ID] ());
+          it[(const gchar*)id] = item [gimp_image_get_display_name] ();
+        }));
       }
     });
-    result_text = json_to_string(ibuilder.get_root(), FALSE);
+    make_json_response(200, ibuilder.get_root());
 
   } else {
     if (GIMP_IS_IMAGE(item.ptr())) {
       gint                 w       = item [gimp_image_get_width] ();
       gint                 h       = item [gimp_image_get_height] ();
       const gchar*         type    = "image";
-      JSON::Builder builder;
-      auto ibuilder = JSON::ref(builder);
-      ibuilder = ibuilder.object([&](auto it){
-        it["name"] = item [gimp_image_get_display_name] ();
-        it["type"] = type;
-        it["boundary"] = it.array([&](auto it){
-          it = 0;
-          it = 0;
-          it = w;
-          it = h;
-        });
-        auto container = item [gimp_image_get_layers] ();
-        if (container) {
-          it["children"] = it.object([&](auto it){
-            gimp_container_foreach_ (container, function<void(GimpItem*)>([&](auto i){
-               GLib::IObject<GimpItem> item = i;
-               GLib::CString id = g_strdup_printf("%d", item [gimp_item_get_ID] ());
-               it[(const gchar*)id] = item [gimp_object_get_name] ();
-             }));
-          });
-        }
-      });
-      result_text = json_to_string(ibuilder.get_root(), FALSE);
+
+      make_json_response(200,
+          JSON::build_object([&](auto it){
+            it["name"] = item [gimp_image_get_display_name] ();
+            it["type"] = type;
+            it["boundary"] = it.array_with_values(0, 0, w, h);
+            auto container = item [gimp_image_get_layers] ();
+            if (container) {
+              it["children"] = it.object([&](auto it){
+                gimp_container_foreach_ (container, function<void(GimpItem*)>([&](auto i){
+                   GLib::IObject<GimpItem> item = i;
+                   GLib::CString id = g_strdup_printf("%d", item [gimp_item_get_ID] ());
+                   it[(const gchar*)id] = item [gimp_object_get_name] ();
+                 }));
+              });
+            }
+          }));
 
     } else if (GIMP_IS_LAYER(item.ptr())) {
       GimpLayerModeEffects mode    = item [gimp_layer_get_mode] ();
@@ -328,39 +323,31 @@ RESTImageTree::get_info(GLib::IObject<GimpItem> item) {
                                      GIMP_IS_FILTER_LAYER(item.ptr())? "filter":
                                      GIMP_IS_CLONE_LAYER(item.ptr())? "clone":
                                      "normal";
-      JSON::Builder builder;
       GLib::Enum<decltype(mode)> enum_modes;
-      auto ibuilder = JSON::ref(builder);
-      ibuilder = ibuilder.object([&](auto it){
-        it["name"] = item [gimp_object_get_name] ();
-        it["type"] = type;
-        it["mode"] = enum_modes[mode];//FIXME
-        it["opacity"] = opacity;
-        it["boundary"] = it.array([&](auto it){
-          it = x;
-          it = y;
-          it = x2;
-          it = y2;
-        });
-        it["visible"] = bool(visible);
-        it["alpha"] = bool(alpha);
-        auto container = item [gimp_viewable_get_children] ();
-        if (container) {
-          it["children"] = it.array([&](auto it){
-            gimp_container_foreach_ (container, function<void(GimpItem*)>([&](auto i){
-               GLib::IObject<GimpItem> item = i;
-               it = item [gimp_object_get_name] ();
-             }));
-          });
-        }
-      });
-      result_text = json_to_string(ibuilder.get_root(), FALSE);
+      auto container = item [gimp_viewable_get_children] ();
+      make_json_response(200,
+          JSON::build_object([&](auto it){
+            it["name"]     = item [gimp_object_get_name] ();
+            it["type"]     = type;
+            it["mode"]     = enum_modes[mode];//FIXME
+            it["opacity"]  = opacity;
+            it["boundary"] = it.array_with_values(x, y, x2, y2);
+            it["visible"]  = bool(visible);
+            it["alpha"]    = bool(alpha);
+
+            if (container) {
+              it["children"] = it.array([&](auto it){
+                gimp_container_foreach_ (container, function<void(GimpItem*)>([&](auto i){
+                   GLib::IObject<GimpItem> item = i;
+                   it = item [gimp_object_get_name] ();
+                 }));
+              });
+            }
+
+          }));
     }
   }
 
-  soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
-                             result_text, strlen(result_text));
-  imessage.set("status-code", 200);
 }
 
 
@@ -381,10 +368,7 @@ RESTImageTree::get_data(GLib::IObject<GimpItem> item, const gchar* format, gint 
       item [gimp_object_get_name] ();
   GdkPixbuf* pixbuf = NULL;
   if (!item) {
-    result_text = g_strdup_printf("{'error': '\"%s\" is not found.' }", item_name);
-    soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
-                               result_text, strlen(result_text));
-    imessage.set("status-code", 404);
+    make_error_response(404, "\"%s\" is not found.", item_name);
     return;
 
   } else {
@@ -434,17 +418,10 @@ RESTImageTree::get_data(GLib::IObject<GimpItem> item, const gchar* format, gint 
                                    g_memory_output_stream_get_data_size(ostream));
         imessage.set("status-code", 200);
       } else {
-        result_text = g_strdup_printf("{'error': 'Failed to convert image data of \"%s\".' }", item_name);
-        soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
-                                   result_text, strlen(result_text));
-        imessage.set("status-code", 500);
+        make_error_response(500, "Failed to convert image data of \"%s\".", item_name);
       }
     } else {
-      result_text = g_strdup_printf("{'error': 'Cannot convert item(%s) to image data.' }", item_name);
-      soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
-                                 result_text, strlen(result_text));
-      imessage.set("status-code", 403);
-
+      make_error_response(403, "Cannot convert item(%s) to image data.", item_name);
     }
   }
 }
@@ -454,9 +431,8 @@ template<typename Converter, typename... Args> void
 RESTImageTree::put_data(GLib::IObject<GimpItem> item, Args... args)
 {
   auto imessage = GLib::ref(message);
-  GLib::CString result_text;
   bool result = false;
-  Converter conv(gimp, message);
+  Converter conv(this, gimp, message);
 
   if (!item) {
 
@@ -468,18 +444,17 @@ RESTImageTree::put_data(GLib::IObject<GimpItem> item, Args... args)
       result = true;
     }
 
-    JSON::Builder builder;
-    auto ibuilder = JSON::ref(builder);
     auto active_layer = GLib::ref( image [gimp_image_get_active_layer] () );
-    ibuilder = ibuilder.object([&](auto it){
-      it["result"] = result;
-      it["image"]  = image [gimp_image_get_ID] ();
-      if (active_layer) {
-        it["layer"]    = active_layer [gimp_item_get_ID] ();
-        it["drawable"] = active_layer [gimp_item_get_ID] ();
-      }
-    });
-    result_text = json_to_string(ibuilder.get_root(), FALSE);
+    make_json_response(
+        201,
+        JSON::build_object([&](auto it) {
+          it["result"] = result;
+          it["image"]  = image [gimp_image_get_ID] ();
+          if (active_layer) {
+            it["layer"]    = active_layer [gimp_item_get_ID] ();
+            it["drawable"] = active_layer [gimp_item_get_ID] ();
+          }
+        }));
 
   } else {
     auto layer = GLib::ref(conv.to_layer(item, args...));
@@ -498,28 +473,24 @@ RESTImageTree::put_data(GLib::IObject<GimpItem> item, Args... args)
       result = true;
     }
 
-    JSON::Builder builder;
-    auto ibuilder = JSON::ref(builder);
-    ibuilder = ibuilder.object([&](auto it){
-      it["result"]    = result;
-      it["image"]     = image [gimp_image_get_ID] ();
-      it["layer"]     = layer [gimp_item_get_ID] ();
-      it["drawable"]  = layer [gimp_item_get_ID] ();
-    });
-    result_text = json_to_string(ibuilder.get_root(), FALSE);
+    make_json_response(
+        201,
+        JSON::build_object([&](auto it) {
+          it["result"]    = result;
+          if (image)
+            it["image"]     = image [gimp_image_get_ID] ();
+          if (layer) {
+            it["layer"]     = layer [gimp_item_get_ID] ();
+            it["drawable"]  = layer [gimp_item_get_ID] ();
+          }
+        }));
   }
-
-  soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
-                             result_text, strlen(result_text));
-  imessage.set("status-code", 200);
 }
 
 
 bool
 RESTImageTree::parse_path(const gchar* path, GLib::IObject<GimpItem>& item, EMethodId& method_id)
 {
-  GLib::CString result_text = g_strdup_printf("{'path': '%s.' }", (const gchar*)path);
-
   GLib::StringList        path_list  = g_strsplit(path, "/", -1);
 
   // Find item in image tree.
@@ -582,10 +553,7 @@ RESTImageTree::parse_path(const gchar* path, GLib::IObject<GimpItem>& item, EMet
     if (!next_item) {
       // Not matched to item tree.
       auto imessage = GLib::ref(message);
-      result_text = g_strdup_printf("{'error': '%s is not found.' }", item_name);
-      soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
-                                 result_text, strlen(result_text));
-      imessage.set("status-code", 404);
+      make_error_response(404, "\"%s\" is not found.", item_name);
       return false;
     }
 

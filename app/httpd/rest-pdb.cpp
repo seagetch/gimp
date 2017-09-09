@@ -262,13 +262,17 @@ public:
 
           });
 
+          it["400"] = it.object([&](auto it) {
+            it["description"] = "Bad request.";
+          });
+
           it["404"] = it.object([&](auto it) {
             it["description"] = "PDB function not found.";
             //
           });
 
           it["405"] = it.object([&](auto it) {
-            it["description"] = "Invalid Input.";
+            it["description"] = "Method not allowed.";
           });
 
           it["500"] = it.object([&](auto it) {
@@ -457,7 +461,7 @@ public:
   template<typename F>
   void publish_site(JSON::Builder& builder, F path_publisher) {
     auto ibuilder = ref(builder);
-    ibuilder = ibuilder.object([&](auto it){
+    ibuilder.with_object([&](auto it){
       it["openapi"] = "3.0.0";
 
       it["info"] = it.object([&](auto it){
@@ -485,17 +489,6 @@ public:
     GLib::CString path = g_strdup_printf("/%s", procedure->original_name);
     it[(const gchar*)path] = it.object([&](auto it){
       it["description"] = procedure->blurb;
-      /*
-      it["get"] = it.object([&](auto it){
-
-        it["responses"] = it.object([&](auto it) {
-          it["200"] = it.object([&](auto it) {
-            it["description"] = "Success.";
-          });
-        });
-
-      });
-      */
       it["post"] = it.object([&](auto it) {
         it["operationId"] = procedure->original_name;
         it["responses"]   = it.object([&](auto it) {
@@ -551,13 +544,18 @@ public:
 
           });
 
+          it["400"] = it.object([&](auto it) {
+            it["description"] = "Bad request parameter.";
+            //
+          });
+
           it["404"] = it.object([&](auto it) {
             it["description"] = "PDB function not found.";
             //
           });
 
           it["405"] = it.object([&](auto it) {
-            it["description"] = "Invalid Input.";
+            it["description"] = "Method not allowed.";
           });
 
           it["500"] = it.object([&](auto it) {
@@ -659,6 +657,7 @@ public:
 
 class JsonArgConfigurator {
 public:
+  RESTResource*  resource;
   SoupMessage*   message;
 
   GimpDrawable*  drawable;
@@ -739,10 +738,7 @@ public:
             } catch(JSON::INode::InvalidIndex e) {
               g_print("Index %u is out of range\n", i);
             } catch(JSON::INode::InvalidType e) {
-              GLib::CString result_text = g_strdup_printf("{'error': 'Argument %s is not valid.' }", (const gchar*)arg_name);
-              soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
-                                         result_text, strlen(result_text));
-              imessage.set("status-code", 405);
+              resource->make_error_response(400,"Argument %s is not valid.", (const gchar*)arg_name);
               return false;
             }
           } else if (type ==G_TYPE_ENUM) {
@@ -755,10 +751,7 @@ public:
             } catch(JSON::INode::InvalidIndex e) {
               g_print("Index %u is out of range\n", i);
             } catch(JSON::INode::InvalidType e) {
-              GLib::CString result_text = g_strdup_printf("{'error': 'Argument %s is not valid.' }", (const gchar*)arg_name);
-              soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
-                                         result_text, strlen(result_text));
-              imessage.set("status-code", 405);
+              resource->make_error_response(400,"Argument %s is not valid.", (const gchar*)arg_name);
               return false;
             }
           } else if (type ==G_TYPE_DOUBLE) {
@@ -769,11 +762,9 @@ public:
               }
             } catch(JSON::INode::InvalidIndex e) {
               g_print("Index %u is out of range\n", i);
+
             } catch(JSON::INode::InvalidType e) {
-              GLib::CString result_text = g_strdup_printf("{'error': 'Argument %s is not valid.' }", (const gchar*)arg_name);
-              soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
-                                         result_text, strlen(result_text));
-              imessage.set("status-code", 405);
+              resource->make_error_response(400,"Argument %s is not valid.", (const gchar*)arg_name);
               return false;
             }
           } else if (type ==G_TYPE_STRING) {
@@ -785,10 +776,7 @@ public:
             } catch(JSON::INode::InvalidIndex e) {
               g_print("Index %u is out of range\n", i);
             } catch(JSON::INode::InvalidType e) {
-              GLib::CString result_text = g_strdup_printf("{'error': 'Argument %s is not valid.' }", (const gchar*)arg_name);
-              soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
-                                         result_text, strlen(result_text));
-              imessage.set("status-code", 405);
+              resource->make_error_response(400,"Argument %s is not valid.", (const gchar*)arg_name);
               return false;
             }
           } else if (type ==GIMP_TYPE_RGB) {
@@ -903,27 +891,12 @@ public:
 
   JsonNode* get_context_json() {
     // Read variables from context information.
-    gint id;
-    JsonBuilder* builder = json_builder_new();
-    json_builder_begin_object(builder);
-
-    json_builder_set_member_name (builder, "image");
-    id   = gimp_image_get_ID(image);
-    json_builder_add_int_value(builder, id);
-
-    json_builder_set_member_name (builder, "drawable");
-    id   = gimp_item_get_ID(GIMP_ITEM(drawable));
-    json_builder_add_int_value(builder, id);
-
-    json_builder_set_member_name (builder, "item");
-    id   = gimp_item_get_ID(item);
-    json_builder_add_int_value(builder, id);
-
-    json_builder_end_object(builder);
-    JsonNode* result = json_builder_get_root(builder);
-    g_object_unref(G_OBJECT(builder));
-
-    return result;
+    return JSON::build_object([this](auto it){
+      gint id;
+      it["image"]    = gimp_image_get_ID(image);
+      it["drawable"] = gimp_item_get_ID(GIMP_ITEM(drawable));
+      it["item"]     = gimp_item_get_ID(item);
+    });
   }
 };
 
@@ -942,11 +915,8 @@ public:
     }
   };
 
-  void execute(GimpProcedure* procedure, Gimp* gimp, GimpContext* context,
-               GimpProgress* progress, GValueArray* args, GimpObject* display)
+  void serialize_values(GimpProcedure* procedure)
   {
-    PDBSyncExecutor::execute(procedure, gimp, context, progress, args, display);
-
     // Check whether argument ID is unique or not.
     bool use_object_based_values = ProcedurePublisher::use_named_values(procedure);;
 
@@ -987,7 +957,7 @@ public:
       } else if (type ==GIMP_TYPE_INT32_ARRAY) {
         const gint32* array  = gimp_value_get_int32array(&result->values[i + 1]);
         gsize   length = gimp_value_get_array_length(&result->values[i + 1]) / sizeof(gint32);
-        g_print("array_length=%d\n", length);
+        g_print("array_length=%lu\n", length);
         json_builder_begin_array(builder);
         for (int i = 0; i < length; i ++)
           json_builder_add_int_value(builder, array[i]);
@@ -1044,6 +1014,14 @@ public:
 
     result_json = json_builder_get_root(builder);
     g_object_unref(G_OBJECT(builder));
+
+  }
+
+  void execute(GimpProcedure* procedure, Gimp* gimp, GimpContext* context,
+               GimpProgress* progress, GValueArray* args, GimpObject* display)
+  {
+    PDBSyncExecutor::execute(procedure, gimp, context, progress, args, display);
+    serialize_values(procedure);
   }
 };
 
@@ -1071,11 +1049,11 @@ void RESTPDB::get()
     GLib::CString result_text = json_to_string(result_json, FALSE);
 //    g_print("result=%s\n", (const gchar*)result_text);
     soup_message_set_response (message,
-                               "application/json",
+                               "application/json; charset=utf-8",
                                SOUP_MEMORY_COPY,
                                result_text,
                                strlen(result_text));
-    g_object_set(message, "status-code", 200);
+    imessage.set("status-code", 200);
     soup_message_headers_append(message->response_headers, "Access-Control-Allow-Origin", "*");
 
 //    g_object_unref(G_OBJECT(builder));
@@ -1145,7 +1123,8 @@ void RESTPDB::post()
       auto arg_conf = runner.get_arg_configurator();
       auto executor = runner.get_executor();
 
-      arg_conf->message = message;
+      arg_conf->message  = message;
+      arg_conf->resource = this;
 
       if (!runner.run(gimp, ctx_node, arg_node))
         return;

@@ -142,3 +142,23 @@ RESTResource::req_body_json()
   g_print("req_body_json: json=%s\n", json_to_string(json, TRUE));
   return json;
 }
+
+
+void
+RESTResource::make_json_response(gint code, JSON::INode node)
+{
+  auto imessage = GLib::ref(message);
+  GLib::CString result_text = json_to_string(node, FALSE);
+  imessage [soup_message_set_response] ("application/json; charset=utf-8", SOUP_MEMORY_COPY,
+                                        (const gchar*)result_text, strlen(result_text));
+  imessage.set("status-code", code);
+}
+
+void
+RESTResource::make_error_response(gint code, const gchar* msg)
+{
+  auto root = JSON::build_object([&](auto it) {
+    it["error"] = msg;
+  });
+  make_json_response(code, root);
+}

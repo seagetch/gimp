@@ -21,6 +21,7 @@
 #ifndef __HTTPD_H__
 #define __HTTPD_H__
 
+#include "base/glib-cxx-utils.hpp"
 #include "core/core-types.h"
 #include "base/soup-cxx-utils.hpp"
 #include "base/json-cxx-utils.hpp"
@@ -89,9 +90,9 @@ protected:
 
   void handle();
 
-  GBytes* req_body_data();
-  SoupMessageBody* req_body();
-  JSON::INode   req_body_json();
+  GBytes*             req_body_data();
+  SoupMessageBody*    req_body();
+  JSON::INode         req_body_json();
   SoupMessageHeaders* req_headers();
 
 public:
@@ -110,6 +111,13 @@ public:
   virtual void post() { }
   virtual void del () { }
 
+  void make_json_response(gint code, JSON::INode node);
+  void make_error_response(gint code, const gchar* error_msg);
+  template<typename... Args>
+  void make_error_response(gint code, const gchar* error_msg, Args... args) {
+    GLib::CString msg = g_strdup_printf(error_msg, args...);
+    make_error_response(code, msg);
+  }
 };
 
 class RESTResourceFactory {
