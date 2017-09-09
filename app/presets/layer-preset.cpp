@@ -54,6 +54,10 @@ extern "C" {
 
 using namespace GLib;
 
+namespace GLib {
+template<> inline GType g_type<GimpLayerModeEffects>() { return GIMP_TYPE_LAYER_MODE_EFFECTS; }
+};
+
 ////////////////////////////////////////////////////////////////////////////
 // LayerPreset application model
 
@@ -241,13 +245,12 @@ protected:
       result = src [gimp_layer_get_mode] ();
 
     } else {
-      GEnumClass* enum_class = G_ENUM_CLASS(g_type_class_ref (GIMP_TYPE_LAYER_MODE_EFFECTS));
-      GEnumValue* enum_value = g_enum_get_value_by_nick (enum_class, source_text);
-      if (enum_value)
-        result = (GimpLayerModeEffects)enum_value->value;
-      else
+      GLib::Enum<GimpLayerModeEffects> enums;
+      try {
+        result = enums[source_text];
+      } catch(decltype(enums)::IdNotFound) {
         g_print("  value not found.\n");
-      g_type_class_unref(enum_class);
+      }
     }
 
     return result;
