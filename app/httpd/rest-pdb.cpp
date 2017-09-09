@@ -740,7 +740,7 @@ public:
               g_print("Index %u is out of range\n", i);
             } catch(JSON::INode::InvalidType e) {
               GLib::CString result_text = g_strdup_printf("{'error': 'Argument %s is not valid.' }", (const gchar*)arg_name);
-              soup_message_set_response (message, "application/json", SOUP_MEMORY_COPY,
+              soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
                                          result_text, strlen(result_text));
               imessage.set("status-code", 405);
               return false;
@@ -756,7 +756,7 @@ public:
               g_print("Index %u is out of range\n", i);
             } catch(JSON::INode::InvalidType e) {
               GLib::CString result_text = g_strdup_printf("{'error': 'Argument %s is not valid.' }", (const gchar*)arg_name);
-              soup_message_set_response (message, "application/json", SOUP_MEMORY_COPY,
+              soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
                                          result_text, strlen(result_text));
               imessage.set("status-code", 405);
               return false;
@@ -771,7 +771,7 @@ public:
               g_print("Index %u is out of range\n", i);
             } catch(JSON::INode::InvalidType e) {
               GLib::CString result_text = g_strdup_printf("{'error': 'Argument %s is not valid.' }", (const gchar*)arg_name);
-              soup_message_set_response (message, "application/json", SOUP_MEMORY_COPY,
+              soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
                                          result_text, strlen(result_text));
               imessage.set("status-code", 405);
               return false;
@@ -786,7 +786,7 @@ public:
               g_print("Index %u is out of range\n", i);
             } catch(JSON::INode::InvalidType e) {
               GLib::CString result_text = g_strdup_printf("{'error': 'Argument %s is not valid.' }", (const gchar*)arg_name);
-              soup_message_set_response (message, "application/json", SOUP_MEMORY_COPY,
+              soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
                                          result_text, strlen(result_text));
               imessage.set("status-code", 405);
               return false;
@@ -1100,7 +1100,7 @@ void RESTPDB::get()
       g_print("invalid procedure name.\n");
       imessage.set("status-code", 404);
       GLib::CString result_text = g_strdup_printf("{'error': '%s is not found.' }", (const gchar*)proc_name);
-      soup_message_set_response (message, "application/json", SOUP_MEMORY_COPY,
+      soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
                                  result_text, strlen(result_text));
     }
   }
@@ -1176,7 +1176,7 @@ void RESTPDB::post()
       auto imessage = GLib::ref(message);
       imessage.set("status-code", 404);
       GLib::CString result_text = g_strdup_printf("{'error': '%s is not found.' }", (const gchar*)proc_name);
-      soup_message_set_response (message, "application/json", SOUP_MEMORY_COPY,
+      soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
                                  result_text, strlen(result_text));
     }
 

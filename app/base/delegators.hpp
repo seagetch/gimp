@@ -7,8 +7,48 @@ extern "C" {
 #include <utility>
 #include <functional>
 
-namespace Delegators {
+namespace Function {
 
+template<typename F>
+struct FunctionBase { };
+
+template<typename Ret, typename... Args>
+struct FunctionBase<Ret(Args...)> {
+  template<typename F>
+  static Ret callback(Args... args, F* f) {
+    return (*f)(args...);
+  }
+};
+
+template<typename Decl, typename F>
+struct Function {
+  using Callback = decltype(&FunctionBase<Decl>::template callback<F>);
+  Callback callback;
+  F f;
+};
+
+template<typename F, typename Ret, typename... Args>
+struct Function<Ret(Args...), F> {
+  using Callback = decltype(&FunctionBase<Ret(Args...)>::template callback<F>);
+  Callback callback;
+  F f;
+  Ret operator() (Args... args) {
+    (*callback)(args..., &f);
+  }
+};
+
+template<typename Decl, typename F>
+auto function(F f) {
+  Function<Decl, F> holder = {
+      &FunctionBase<Decl>::template callback<F>,
+      f
+  };
+  return holder;
+};
+
+};
+
+namespace Delegators {
 template<typename T>
 void destroy_cxx_object_callback(gpointer ptr) {
   delete reinterpret_cast<T*>(ptr);

@@ -248,7 +248,6 @@ protected:
           const gchar* token = *tested_token;
           while (token && strlen(token) == 0)
             token = *(++tested_token);
-          g_print("Test '%s'\n", token);
 
           if (!token) { // Tested URI is short.
   //          g_print("tested URI is too short.\n");

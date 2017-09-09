@@ -641,8 +641,8 @@ public:
   GObject* as_object() { return G_OBJECT(super::obj); }
   const GObject* as_object() const { return G_OBJECT(super::obj); }
 
-  void incref() { g_object_ref(as_object()); };
-  void decref() { g_object_unref(as_object()); };
+  void incref() { if (super::obj) g_object_ref(as_object()); };
+  void decref() { if (super::obj) g_object_unref(as_object()); };
 
   void operator = (T* src) {
     if (super::obj == src)
