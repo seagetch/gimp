@@ -75,6 +75,43 @@ public:
 
 
 template<typename T>
+class Enum : public ScopedPointer<GEnumClass, decltype(g_type_class_unref), g_type_class_unref>{
+  using super = ScopedPointer<GEnumClass, decltype(g_type_class_unref), g_type_class_unref>;
+public:
+  Enum() : super(G_ENUM_CLASS(g_type_class_ref (g_type<T>()))) { };
+
+  struct IdNotFound {
+    CString identifier;
+    IdNotFound(const gchar* id) : identifier(g_strdup(id)) { };
+  };
+
+  struct ValueNotFound {
+    T value;
+    ValueNotFound(const T v) : value(v) { };
+  };
+
+  T get(const gchar* source_text) {
+    GEnumValue* enum_value = g_enum_get_value_by_nick (obj, source_text);
+    if (enum_value)
+      return (T)enum_value->value;
+    else
+      throw IdNotFound(source_text);
+  }
+
+  const gchar* get(const T source_value) {
+    GEnumValue* enum_value = g_enum_get_value (obj, source_value);
+    if (enum_value)
+      return enum_value->value_nick;
+    else
+      throw ValueNotFound(source_value);
+  }
+
+  T operator[](const gchar* source_text) { return get(source_text); }
+  const gchar* operator[](const T source) { return get(source); }
+};
+
+
+template<typename T>
 void g_string_free_all(T* str) { g_string_free((GString*)str, TRUE); }
 class String : public ScopedPointer<GString, void(GString*), g_string_free_all<GString> >
 {
@@ -656,7 +693,7 @@ public:
 
 
 template<class T>
-inline Object<T>&& hold(T* src) { return static_cast<Object<T>&&>(Object<T>(src)); }
+inline auto hold(T* src) { return static_cast<Object<T>&&>(Object<T>(src)); }
 
 
 template<typename T>
@@ -822,6 +859,12 @@ public:
 template<class T>
 inline IObject<T> ref(T* obj) {
   return IObject<T>(obj);
+}
+
+
+template<class T>
+inline IObject<T> ref(Object<T>& obj) {
+  return IObject<T>(obj.ptr());
 }
 
 
