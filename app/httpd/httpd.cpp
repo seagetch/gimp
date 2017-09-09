@@ -100,8 +100,9 @@ void RESTResource::handle() {
   delete this;
 }
 
+
 GBytes*
-RESTResource::req_body()
+RESTResource::req_body_data()
 {
   auto msg  = GLib::ref(message);
   GBytes* bytes;
@@ -110,11 +111,30 @@ RESTResource::req_body()
 }
 
 
+SoupMessageBody*
+RESTResource::req_body()
+{
+  auto msg  = GLib::ref(message);
+  SoupMessageBody* result;
+  g_object_get(msg, "request-body", &result, NULL);
+  return result;
+}
+
+
+SoupMessageHeaders*
+RESTResource::req_headers()
+{
+  SoupMessageHeaders* header;
+  g_object_get(message, "request-headers", &header, NULL);
+  return header;
+}
+
+
 JSON::INode
 RESTResource::req_body_json()
 {
   GLib::Object<JsonParser> parser      = json_parser_new();
-  GBytes*                  bytes       = req_body();
+  GBytes*                  bytes       = req_body_data();
   gsize                    size;
   gchar*                   content_str = (gchar*)g_bytes_get_data(bytes, &size);
   json_parser_load_from_data(parser, content_str, -1, NULL);

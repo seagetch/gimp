@@ -23,6 +23,8 @@
 #include "base/glib-cxx-utils.hpp"
 
 extern "C" {
+#include "config.h"
+
 #include <gegl.h>
 #include <gio/gio.h>
 
@@ -33,6 +35,7 @@ extern "C" {
 #include "pdb/pdb-types.h"
 
 #include "core/gimpimage.h"
+#include "core/gimpimage-new.h"
 #include "core/gimplayer.h"
 #include "core/gimpdrawable.h"
 #include "core/gimpitem.h"
@@ -45,6 +48,8 @@ extern "C" {
 #include "core/gimpfilterlayer.h"
 #include "core/gimpclonelayer.h"
 
+#include "gimp-intl.h"
+
 #include "rest-image-tree.h"
 //#include "pdb/pdb-cxx-utils.hpp"
 
@@ -53,6 +58,11 @@ using namespace Function;
 inline void gimp_container_foreach_(GimpContainer* container, auto f) {
   gimp_container_foreach(container, GFunc(f.callback), &f.f);
 }
+
+namespace GLib {
+template<> inline GType g_type<GimpLayerModeEffects>() { return GIMP_TYPE_LAYER_MODE_EFFECTS; }
+template<> inline GType g_type<GimpImageBaseType>() { return GIMP_TYPE_IMAGE_BASE_TYPE; }
+};
 
 enum EMethodId { none = 0, info, data, preview };
 struct MethodMap {
@@ -70,10 +80,169 @@ MethodMap method_map[] = {
 ///////////////////////////////////////////////////////////////////////
 // Image REST interface
 
+class JsonConverter {
+  Gimp* gimp;
+  SoupMessage* message;
+public:
+  JsonConverter(Gimp* g, SoupMessage* msg) : gimp(g), message(msg) { };
+
+  GimpImage* to_image(JSON::INode json) {
+    if (json.is_object()) {
+
+      try {
+        gint x1 = json["boundary"][(guint)0];
+        gint y1 = json["boundary"][(guint)1];
+        gint x2 = json["boundary"][(guint)2];
+        gint y2 = json["boundary"][(guint)3];
+        gint w  = x2 - x1;
+        gint h  = y2 - y1;
+        bool         alpha   = json.has("alpha")? json["alpha"]: true;
+        GLib::Enum<GimpImageBaseType> enums;
+        GimpImageBaseType image_type;
+        try {
+          image_type = json.has("color-mode")? enums[json["color-mode"]] : GIMP_RGB;
+        } catch (decltype(enums)::IdNotFound e) {
+          GLib::CString result_text;
+          auto imessage = GLib::ref(message);
+          result_text = g_strdup_printf("{'error': color-mode '\"%s\" is invalid.' }", (const gchar*)e.identifier);
+          soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
+                                     result_text, strlen(result_text));
+          imessage.set("status-code", 400);
+          return NULL;
+        }
+
+        GLib::IObject<GimpImage> image = NULL;
+        image = gimp_image_new (gimp, w, h, image_type);
+
+        return image;
+
+      } catch (JSON::INode::InvalidType e) {
+        return NULL;
+      } catch (JSON::INode::InvalidIndex e) {
+        return NULL;
+      }
+
+    } else
+      return NULL;
+  }
+
+
+  GimpLayer* to_layer(GLib::IObject<GimpItem> item, JSON::INode json)
+  {
+    try {
+      const gchar* name = json["name"];
+      const gchar* type = json["type"];
+      gint x1 = json["boundary"][(guint)0];
+      gint y1 = json["boundary"][(guint)1];
+      gint x2 = json["boundary"][(guint)2];
+      gint y2 = json["boundary"][(guint)3];
+      gint w  = x2 - x1;
+      gint h  = y2 - y1;
+      GLib::Enum<GimpLayerModeEffects> enum_modes;
+      GimpLayerModeEffects mode;
+      try {
+        mode = json.has("mode")? enum_modes[json["mode"]] : GIMP_NORMAL_MODE;
+      } catch(decltype(enum_modes)::IdNotFound e) {
+        return NULL;
+      }
+      double       opacity = json.has("opacity")? json["opacity"]: 1.0;
+      bool         visible = json.has("visible")? json["visible"] : true;
+      bool         alpha   = json.has("alpha")? json["alpha"]: true;
+
+      GimpLayer* layer = NULL;
+      GLib::IObject<GimpImage> image = NULL;
+
+      g_print("get image\n");
+      if (GIMP_IS_IMAGE(item.ptr()))
+        image = GIMP_IMAGE(item.ptr());
+      else if (GIMP_IS_LAYER(item.ptr()))
+        image = item [gimp_item_get_image] ();
+      g_print("image=%s", image [gimp_image_get_display_name] ());
+
+      g_print("create layer\n");
+      GimpImageType image_type = image [gimp_image_base_type_with_alpha] ();
+      layer = image [gimp_layer_new] (w, h, image_type, NULL, opacity, mode);
+
+      g_print("return layer\n");
+      return layer;
+
+    } catch (JSON::INode::InvalidType e) {
+      g_print("Invalid type: assuming type is %d, where actual type is %d.\n", e.specified, e.actual);
+      return NULL;
+    } catch (JSON::INode::InvalidIndex e) {
+      g_print("Boundary out of index\n");
+      return NULL;
+    }
+  }
+
+};
+
+
+class DataConverter {
+  Gimp* gimp;
+  SoupMessage* message;
+public:
+  DataConverter(Gimp* g, SoupMessage* msg) : gimp(g), message(msg) { };
+
+  GimpImage* to_image(const gchar* mime_type, const guint8* data, gsize size)
+  {
+    GError* error = NULL;
+    g_print("DataConverter#to_image:: mime=%s, data[%lu]\n", mime_type, size);
+    auto loader = GLib::ref( gdk_pixbuf_loader_new_with_mime_type (mime_type, &error) );
+    if (error)
+      return NULL;
+
+    g_print("read data to loader\n");
+
+    GdkPixbuf* pixbuf = NULL;
+    if ( loader [gdk_pixbuf_loader_write] (data, size, &error) ) {
+      g_print("load pixbuf\n");
+      pixbuf = loader [gdk_pixbuf_loader_get_pixbuf] ();
+    }
+
+    if (!pixbuf)
+      return NULL;
+
+    return gimp_image_new_from_pixbuf (gimp, pixbuf, _("Imported image"));
+  }
+
+
+  GimpLayer* to_layer(GLib::IObject<GimpItem> item, const gchar* mime_type, const guint8* data, gsize size)
+  {
+    GError* error = NULL;
+    g_print("DataConverter#to_image:: mime=%s, data[%lu]\n", mime_type, size);
+    auto loader = GLib::ref( gdk_pixbuf_loader_new_with_mime_type (mime_type, &error) );
+    if (error)
+      return NULL;
+
+    GdkPixbuf* pixbuf = NULL;
+    if ( loader [gdk_pixbuf_loader_write] (data, size, &error) ) {
+      pixbuf = loader [gdk_pixbuf_loader_get_pixbuf] ();
+    }
+
+    if (!pixbuf)
+      return NULL;
+
+    GimpImage* image;
+
+    if (GIMP_IS_IMAGE(item.ptr()))
+      image = GIMP_IMAGE(item.ptr());
+    else if (GIMP_IS_LAYER(item.ptr()))
+      image = item [gimp_item_get_image] ();
+
+    return gimp_layer_new_from_pixbuf (pixbuf, image, GIMP_RGBA_IMAGE, _("Imported layer"), 1.0, GIMP_NORMAL_MODE);
+  }
+
+};
+
 class RESTImageTree : public RESTResource {
 
+  GimpImage* data_to_image(const gchar* mime_type, const guint8* data, gsize size);
+  GimpLayer* data_to_layer(GLib::IObject<GimpItem> item, const gchar* mime_type, const guint8* data, gsize size);
+
   void get_info(GLib::IObject<GimpItem> item);
-  void get_data(GLib::IObject<GimpItem> item, const gchar* format);
+  void get_data(GLib::IObject<GimpItem> item, const gchar* format, gint max_size = 0);
+  template<typename Converter, typename... Args> void put_data(GLib::IObject<GimpItem> item, Args... args);
   bool parse_path(const gchar* path, GLib::IObject<GimpItem>& item, EMethodId& method_id);
 
 public:
@@ -154,16 +323,18 @@ RESTImageTree::get_info(GLib::IObject<GimpItem> item) {
       gint                 x2      = x + w;
       gint                 y2      = y + h;
       gboolean             visible = item [gimp_item_get_visible] ();
+      gboolean             alpha   = item [gimp_drawable_has_alpha] ();
       const gchar*         type    = GIMP_IS_GROUP_LAYER(item.ptr())? "group":
                                      GIMP_IS_FILTER_LAYER(item.ptr())? "filter":
                                      GIMP_IS_CLONE_LAYER(item.ptr())? "clone":
                                      "normal";
       JSON::Builder builder;
+      GLib::Enum<decltype(mode)> enum_modes;
       auto ibuilder = JSON::ref(builder);
       ibuilder = ibuilder.object([&](auto it){
         it["name"] = item [gimp_object_get_name] ();
         it["type"] = type;
-        it["mode"] = mode;//FIXME
+        it["mode"] = enum_modes[mode];//FIXME
         it["opacity"] = opacity;
         it["boundary"] = it.array([&](auto it){
           it = x;
@@ -172,6 +343,7 @@ RESTImageTree::get_info(GLib::IObject<GimpItem> item) {
           it = y2;
         });
         it["visible"] = bool(visible);
+        it["alpha"] = bool(alpha);
         auto container = item [gimp_viewable_get_children] ();
         if (container) {
           it["children"] = it.array([&](auto it){
@@ -198,8 +370,9 @@ ostream_close(GMemoryOutputStream* stream)
   return g_output_stream_close((GOutputStream*)stream, NULL, NULL);
 }
 
+
 void
-RESTImageTree::get_data(GLib::IObject<GimpItem> item, const gchar* format)
+RESTImageTree::get_data(GLib::IObject<GimpItem> item, const gchar* format, gint max_size)
 {
   auto imessage = GLib::ref(message);
   GLib::CString result_text;
@@ -219,11 +392,33 @@ RESTImageTree::get_data(GLib::IObject<GimpItem> item, const gchar* format)
     if (GIMP_IS_IMAGE(item.ptr())) {
       gint w = item [gimp_image_get_width] ();
       gint h = item [gimp_image_get_height] ();
+      if (max_size > 0) {
+        if (w > h) {
+          if (w > max_size)
+            h = h * max_size / w;
+          w = MIN(w, max_size);
+        } else {
+          if (h > max_size)
+            w = w * max_size / h;
+          h = MIN(h, max_size);
+        }
+      }
       pixbuf = item [gimp_viewable_get_pixbuf] (gimp_get_user_context(gimp), w, h);
 
     } else if (GIMP_IS_LAYER(item.ptr())) {
       gint w = item [gimp_item_get_width] ();
       gint h = item [gimp_item_get_height] ();
+      if (max_size > 0) {
+        if (w > h) {
+          if (w > max_size)
+            h = h * max_size / w;
+          w = MIN(w, max_size);
+        } else {
+          if (h > max_size)
+            w = w * max_size / h;
+          h = MIN(h, max_size);
+        }
+      }
       pixbuf = item [gimp_viewable_get_pixbuf] (gimp_get_user_context(gimp), w, h);
     }
 
@@ -255,6 +450,61 @@ RESTImageTree::get_data(GLib::IObject<GimpItem> item, const gchar* format)
 }
 
 
+template<typename Converter, typename... Args> void
+RESTImageTree::put_data(GLib::IObject<GimpItem> item, Args... args)
+{
+  auto imessage = GLib::ref(message);
+  GLib::CString result_text;
+  bool result = false;
+  Converter conv(gimp, message);
+
+  if (!item) {
+
+    GimpImage* image = conv.to_image(args...);
+    if (!image) {
+      result = false;
+    } else {
+      gimp_create_display (gimp, image, GIMP_UNIT_PIXEL, 1.0);
+      result = true;
+    }
+
+    JSON::Builder builder;
+    auto ibuilder = JSON::ref(builder);
+    ibuilder = ibuilder.object([&](auto it){
+      it["result"] = result;
+    });
+    result_text = json_to_string(ibuilder.get_root(), FALSE);
+
+  } else {
+    auto layer = GLib::ref(conv.to_layer(item, args...));
+
+    if (!layer) {
+      result = false;
+    } else {
+
+      GLib::IObject<GimpImage> image  = GIMP_IS_IMAGE(item.ptr())? GIMP_IMAGE(item.ptr()) : item [gimp_item_get_image] ();
+      GLib::IObject<GimpItem>  parent = GIMP_IS_IMAGE(item.ptr())? NULL: item[gimp_item_get_parent] ();
+      gint item_index = GIMP_IS_IMAGE(item.ptr())? 0: GLib::ref(parent [gimp_viewable_get_children] ()) [gimp_container_get_child_index] (item);
+      g_print("insert layer=%s to image=%s, with index=%d\n", layer [gimp_object_get_name] (), image [gimp_image_get_display_name] (), item_index);
+      image [gimp_image_add_layer] (layer, parent, item_index, FALSE );
+      image [gimp_image_flush] ();
+      result = true;
+    }
+
+    JSON::Builder builder;
+    auto ibuilder = JSON::ref(builder);
+    ibuilder = ibuilder.object([&](auto it){
+      it["result"] = result;
+    });
+    result_text = json_to_string(ibuilder.get_root(), FALSE);
+  }
+
+  soup_message_set_response (message, "application/json; charset=utf-8", SOUP_MEMORY_COPY,
+                             result_text, strlen(result_text));
+  imessage.set("status-code", 200);
+}
+
+
 bool
 RESTImageTree::parse_path(const gchar* path, GLib::IObject<GimpItem>& item, EMethodId& method_id)
 {
@@ -268,7 +518,7 @@ RESTImageTree::parse_path(const gchar* path, GLib::IObject<GimpItem>& item, EMet
     if (strlen(item_name) == 0)
       continue;
 
-    g_print("try to find %s\n", item_name);
+//    g_print("try to find %s\n", item_name);
 
     if (item_name[0] == '#') {
       const gchar* method_name = &item_name[1];
@@ -356,6 +606,7 @@ void RESTImageTree::get()
     get_data(item, "png");
     break;
   case preview:
+    get_data(item, "jpeg", 128);
     break;
   default:
     break;
@@ -366,7 +617,64 @@ void RESTImageTree::get()
 
 void RESTImageTree::put()
 {
+  const gchar*            path       = matched->data()["**"];
+  GLib::IObject<GimpItem> item;
+  EMethodId               method_id  = none;
 
+  if (!parse_path(path, item, method_id)) {
+    return;
+  }
+
+  // Dispatching based on path operation information.
+  switch (method_id) {
+  case none:
+  case info: {
+    JSON::INode json = req_body_json();
+    put_data<JsonConverter>(item, json);
+  }
+  break;
+  case data: {
+    SoupMessageHeaders* headers = req_headers();
+    SoupMessageBody*    body    = req_body();
+
+    using PSoupMultipart = ScopedPointer<SoupMultipart, decltype(soup_multipart_free), soup_multipart_free>;
+    PSoupMultipart multipart = soup_multipart_new_from_message(headers, body);
+
+    if (multipart) {
+      gint length      = soup_multipart_get_length (multipart);
+
+      for (int i = 0; i < length; i ++) {
+        SoupMessageHeaders* hdr = NULL;
+        SoupBuffer*         bdy = NULL;
+
+        if (! soup_multipart_get_part (multipart, i, &hdr, &bdy))
+          continue;
+
+        const gchar* mime_type = soup_message_headers_get_content_type(hdr, NULL);
+        if ( strncmp(mime_type, "image/", strlen("image/")) == 0 ) {
+          GBytes* bytes        = soup_buffer_get_as_bytes (bdy);
+          gsize   size         = 0;
+          guint8* content_data = (guint8*)g_bytes_get_data(bytes, &size);
+          put_data<DataConverter>(item, mime_type, content_data, size);
+          break;
+        }
+      }
+
+    } else {
+      const gchar* mime_type    = soup_message_headers_get_content_type(headers, NULL);
+      GBytes*      bytes        = req_body_data();
+      gsize        size;
+      guint8*      content_data = (guint8*)g_bytes_get_data(bytes, &size);
+      put_data<DataConverter>(item, mime_type, content_data, size);
+
+    }
+  }
+  break;
+  case preview:
+    break;
+  default:
+    break;
+  }
 }
 
 

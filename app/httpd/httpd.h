@@ -89,8 +89,10 @@ protected:
 
   void handle();
 
-  GBytes* req_body();
+  GBytes* req_body_data();
+  SoupMessageBody* req_body();
   JSON::INode   req_body_json();
+  SoupMessageHeaders* req_headers();
 
 public:
   ~RESTResource() {}
