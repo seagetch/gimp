@@ -39,7 +39,7 @@ public:
   auto operator []( Ret f(C*, Args...) ) { return (*(super*)this)[f]; };
   template<typename Ret, typename C, typename... Args>
   auto operator []( Ret f(const C*, Args...) ) { return (*(super*)this)[f]; };
-  Value operator[](const gchar* name) { return (*(super*)this)[name]; }
+  CopyValue operator[](const gchar* name) { return (*(super*)this)[name]; }
 
   // Helpers for easy GUI definition.
   struct Packer {

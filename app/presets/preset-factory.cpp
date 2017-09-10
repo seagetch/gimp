@@ -119,11 +119,11 @@ PresetConfig::extend (gpointer klass)
                            readonly_prop, NULL, NULL,
                            GIMP_CONFIG_PATH_DIR_LIST, readonly_path,
                            GParamFlags(GIMP_PARAM_STATIC_STRINGS |GIMP_CONFIG_PARAM_RESTART |GIMP_CONFIG_PARAM_FLAGS)),
-                       [this] (GObject* obj) -> Value { // getter
+                       [this] (GObject* obj) -> CopyValue { // getter
                          auto extender = this->get_extender_for(obj);
                          return extender->get_readonly_paths();
                        },
-                       [this] (GObject* obj, Value src) { // setter
+                       [this] (GObject* obj, IValue src) { // setter
                          auto extender = this->get_extender_for(obj);
                          extender->set_readonly_paths(src);
                        }
@@ -132,11 +132,11 @@ PresetConfig::extend (gpointer klass)
                            writable_prop, NULL, NULL,
                            GIMP_CONFIG_PATH_DIR_LIST, writable_path,
                            GParamFlags(GIMP_PARAM_STATIC_STRINGS |GIMP_CONFIG_PARAM_RESTART |GIMP_CONFIG_PARAM_FLAGS)),
-                       [this] (GObject* obj) -> Value { // getter
+                       [this] (GObject* obj) -> CopyValue { // getter
                          auto extender = this->get_extender_for(obj);
                          return extender->get_writable_paths();
                        },
-                       [this] (GObject* obj, Value src) { // setter
+                       [this] (GObject* obj, IValue src) { // setter
                          auto extender = this->get_extender_for(obj);
                          extender->set_writable_paths(src);
                        }

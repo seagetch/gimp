@@ -319,17 +319,17 @@ protected:
         const gchar* type = arg_json["type"];
         if (strcmp(type, "FLOAT") == 0) {
           float v = (float)(double)arg_json["value"];
-          Value value = v;
+          CopyValue value = v;
           args.append(value.ref());
 
         } else if (strcmp(type, "INT32") == 0) {
           gint v = arg_json["value"];
-          Value value = v;
+          CopyValue value = v;
           args.append(value.ref());
 
         } else if (strcmp(type, "INT8") == 0) {
           guint v = (guint)(int)arg_json["value"];
-          Value value = v;
+          CopyValue value = v;
           args.append(value.ref());
 
         } else if (strcmp(type, "INT8ARRAY") == 0) {
@@ -344,7 +344,7 @@ protected:
 
         } else if (strcmp(type, "STRING") == 0) {
           const gchar* v = arg_json["value"];
-          Value value = v;
+          CopyValue value = v;
           args.append(value.ref());
 
         } else {

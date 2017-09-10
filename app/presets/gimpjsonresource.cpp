@@ -104,11 +104,11 @@ void JsonResource::class_init(Traits<GimpJsonResource>::Class* klass)
       })->
       install_property(
           g_param_spec_boxed("root", NULL, NULL,JSON_TYPE_NODE , GParamFlags(GIMP_PARAM_READWRITE|G_PARAM_CONSTRUCT)),
-          [](GObject* obj)->Value {
+          [](GObject* obj)->CopyValue {
             auto resource = JsonResourceInterface::cast(obj);
             return resource->get_json();
           },
-          [](GObject* obj, Value src)->void {
+          [](GObject* obj, IValue src)->void {
             auto resource = JsonResourceInterface::cast(obj);
             resource->set_json((JsonNode*)((GObject*)src));
           }

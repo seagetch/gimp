@@ -21,6 +21,7 @@
 #include "base/glib-cxx-bridge.hpp"
 #include "base/glib-cxx-utils.hpp"
 #include "base/glib-cxx-impl.hpp"
+#include "base/selectcase-utils.hpp"
 #include <functional>
 
 extern "C" {
@@ -220,7 +221,7 @@ class PopupWindowDecorator {
       if (proc_args) {
         auto i_proc_args = ref<GValue>(proc_args);
         for (auto gvalue : i_proc_args) {
-          Value v = gvalue;
+          CopyValue v = gvalue;
           g_print("  type=%s\n", g_type_name(v.type()));
         }
       } else {
@@ -1126,13 +1127,13 @@ void CellRendererPopup::class_init(CStructs::Class *klass)
       install_property(
           Class::g_param_spec_new("active", false, (GParamFlags)(GIMP_PARAM_READWRITE|G_PARAM_CONSTRUCT) ),
           // getter
-          [](GObject* obj)->GLib::Value {
+          [](GObject* obj)->GLib::CopyValue {
             g_print("acive::getter\n");
             CellRendererPopup* popup = dynamic_cast<CellRendererPopup*>(CellRendererPopupInterface::cast(obj));
-            return Value(popup->active);
+            return CopyValue(popup->active);
           },
           // setter
-          [](GObject* obj, GLib::Value v)->void {
+          [](GObject* obj, GLib::IValue v)->void {
             g_print("acive::setter\n");
             CellRendererPopup* popup = dynamic_cast<CellRendererPopup*>(CellRendererPopupInterface::cast(obj));
             popup->active = v;

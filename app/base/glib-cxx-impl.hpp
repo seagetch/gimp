@@ -62,7 +62,7 @@ public:
       return this;
     }
 
-    virtual IWithClass* install_property(GParamSpec* spec, std::function<Value(GObject*)> getter, std::function<void(GObject*, Value)> setter) = 0;
+    virtual IWithClass* install_property(GParamSpec* spec, std::function<CopyValue(GObject*)> getter, std::function<void(GObject*, IValue)> setter) = 0;
 
     virtual IWithClass* install_signal_v(const gchar* name, GType R, size_t size, GType* args) = 0;
 
@@ -136,12 +136,12 @@ public:
 
   struct Property {
     guint prop_id;
-    std::function<Value(GObject*)> getter;
-    std::function<void(GObject*, Value)> setter;
+    std::function<CopyValue(GObject*)> getter;
+    std::function<void(GObject*, IValue)> setter;
 
     Property(guint id,
-        std::function<Value(GObject*)> g,
-        std::function<void(GObject*, Value)> s)
+        std::function<CopyValue(GObject*)> g,
+        std::function<void(GObject*, IValue)> s)
     : prop_id(id), getter(g), setter(s) { };
   };
 
@@ -204,7 +204,7 @@ public:
     if (property_id - GClassWrapper::properties_base < properties.size()) {
       Property prop = properties[property_id - GClassWrapper::properties_base];
       if (prop.getter) {
-        Value get_value = prop.getter(object);
+        CopyValue get_value = prop.getter(object);
         g_value_transform(get_value, value);
       } else if (prev_handlers.get_property)
         prev_handlers.get_property(object, property_id, value, pspec);
@@ -257,8 +257,8 @@ public:
 
     virtual IWithClass*
     install_property(GParamSpec* spec,
-                     std::function<Value(GObject*)> getter,
-                     std::function<void(GObject*, Value)> setter)
+                     std::function<CopyValue(GObject*)> getter,
+                     std::function<void(GObject*, IValue)> setter)
     {
       install_property_handlers(klass);
 

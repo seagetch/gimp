@@ -244,13 +244,28 @@ public:
   }
   int size() { return obj->len; }
   void append(Data data) { g_array_append_val(obj, data); };
+  template<typename... Datas>
+  void append(Data data, Datas... left) {
+    append(data);
+    append(left...);
+  }
   void prepend(Data data) { g_array_prepend_val(obj, data); };
   void insert(int index, Data data) { g_array_insert_val(obj, index, data); };
   void remove(int index) { g_array_remove_index(obj, index); };
   Data* begin() { return &(*this)[0]; }
   Data* end()   { return &(*this)[size()]; }
-};
 
+  static IArray _new() {
+    return IArray(g_array_new(FALSE, TRUE, sizeof(Data)));
+  }
+
+  template<typename... D>
+  static IArray _new(D... data) {
+    auto result = _new();
+    result.append(data...);
+    return result;
+  }
+};
 
 template<typename Data>
 inline auto ref(GArray* arr) { return static_cast<IArray<Data>&&>(IArray<Data>(arr)); }
@@ -416,29 +431,6 @@ public:
 
 };
 
-class regex_case {
-  CString str;
-  bool matched;
-
-public:
-  regex_case(const gchar* s) : str(g_strdup(s)), matched(false) { };
-  regex_case& when(Regex& regex, std::function<void(Regex::Matched&)> callback) {
-    if (!matched)
-      matched = (regex.match(str, callback));
-    return *this;
-  };
-
-  regex_case& when(const gchar* pattern, std::function<void(Regex::Matched&)> callback) {
-    auto regex = Regex(pattern);
-    return when(regex, callback);
-  };
-
-  void otherwise(std::function<void()> callback) {
-    if (!matched)
-      callback();
-  };
-};
-
 
 template<typename T> inline const T get_value(const GValue& src) {
   T::__this_should_generate_error_on_compilation;
@@ -546,11 +538,15 @@ inline void g_value_finalize(GValue* value) {
 
 
 template<bool IsOwner>
-class ValueRef : public ScopedPointer<GValue, void(GValue*), g_value_finalize<IsOwner>>
+class Value : public ScopedPointer<GValue, void(GValue*), g_value_finalize<IsOwner>>
 {
+  using super = ScopedPointer<GValue, void(GValue*), g_value_finalize<IsOwner>>;
 public:
-  ValueRef(GValue* src) : ScopedPointer<GValue, void(GValue*), g_value_finalize<IsOwner> >(src) { };
-  ValueRef(ValueRef&& src) : ScopedPointer<GValue, void(GValue*), g_value_finalize<IsOwner> >(src.obj) {
+  Value(GValue* src) : super(src) {
+  };
+  Value(GValue& src) : super(&src) {
+  };
+  Value(Value&& src) : super(src.obj) {
     src.obj = NULL;
   };
   GType type() { return G_VALUE_TYPE(this->obj); };
@@ -568,102 +564,160 @@ public:
     return FundamentalTraits<GObject*>::cast(*this->obj);
   };
 
+  GValue& ref() { return *super::obj; };
 };
 
 
-inline ValueRef<false> ref(GValue* src) { return ValueRef<false>(src); }
+using HoldValue = Value<true>;
 
-
-class Value : public ValueRef<true>
+class CopyValue : public HoldValue
 {
+  using super = HoldValue;
 public:
 
-  Value(const GValue& src) : ValueRef<true>(g_new0(GValue, 1)) {
-    GValue default_value = G_VALUE_INIT;
-    *obj = default_value;
-    g_value_init(obj, G_VALUE_TYPE(&src));
-    g_value_copy(&src, obj);
-  };
-
-  Value(const GValue* src) : ValueRef<true>(g_new0(GValue, 1)) {
+  CopyValue(const GValue* src) : super(g_new0(GValue, 1)) {
     GValue default_value = G_VALUE_INIT;
     *obj = default_value;
     g_value_init(obj, G_VALUE_TYPE(src));
     g_value_copy(src, obj);
   };
 
-  Value(GValue&& src) : ValueRef<true>(g_new0(GValue, 1)) {
+  CopyValue(const GValue& src) : super(g_new0(GValue, 1)) {
+    GValue default_value = G_VALUE_INIT;
+    *obj = default_value;
+    g_value_init(obj, G_VALUE_TYPE(&src));
+    g_value_copy(&src, obj);
+  };
+
+  CopyValue(GValue&& src) : super(g_new0(GValue, 1)) {
     *obj = src;
     GValue default_value = G_VALUE_INIT;
     src = default_value;
   };
 
-  Value(const Value& src) : ValueRef<true>(g_new0(GValue, 1)) {
-    *obj = *src.obj;
+  CopyValue(const HoldValue& src) : super(g_new0(GValue, 1)) {
+    if (src.ptr()) {
+      GValue default_value = G_VALUE_INIT;
+      *obj = default_value;
+      g_value_init(obj, G_VALUE_TYPE(src.ptr()));
+      g_value_copy(src.ptr(), obj);
+    }
   };
 
-  Value(Value&& src) : ValueRef<true>(g_new0(GValue, 1)) {
-    *obj = *src.obj;
+  CopyValue(const CopyValue& src) : super(g_new0(GValue, 1)) {
     GValue default_value = G_VALUE_INIT;
-    *src.obj = default_value;
+    *obj = default_value;
+    g_value_init(obj, G_VALUE_TYPE(src.ptr()));
+    g_value_copy(src.ptr(), obj);
   };
 
-  Value(const gchar src) : ValueRef<true>(g_new0(GValue, 1)) {
+  CopyValue(const gchar src) : super(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<gchar>::init(src);
   };
 
-  Value(const guchar src) : ValueRef<true>(g_new0(GValue, 1)) {
+  CopyValue(const guchar src) : super(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<guchar>::init(src);
   };
 
-  Value(const bool src) : ValueRef<true>(g_new0(GValue, 1)) {
+  CopyValue(const bool src) : super(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<bool>::init(src);
   };
 
-  Value(const gint32 src) : ValueRef<true>(g_new0(GValue, 1)) {
+  CopyValue(const gint32 src) : super(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<gint32>::init(src);
   };
 
-  Value(const guint32 src) : ValueRef<true>(g_new0(GValue, 1)) {
+  CopyValue(const guint32 src) : super(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<guint32>::init(src);
   };
 
-  Value(const glong src) : ValueRef<true>(g_new0(GValue, 1)) {
+  CopyValue(const glong src) : super(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<glong>::init(src);
   };
 
-  Value(const gulong src) : ValueRef<true>(g_new0(GValue, 1)) {
+  CopyValue(const gulong src) : super(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<gulong>::init(src);
   };
 
-  Value(const gfloat src) : ValueRef<true>(g_new0(GValue, 1)) {
+  CopyValue(const gfloat src) : super(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<gfloat>::init(src);
   };
 
-  Value(const gdouble src) : ValueRef<true>(g_new0(GValue, 1)) {
+  CopyValue(const gdouble src) : super(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<gdouble>::init(src);
   };
 
-  Value(const gpointer src) : ValueRef<true>(g_new0(GValue, 1)) {
+  CopyValue(const gpointer src) : super(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<gpointer>::init(src);
   };
 
-  Value(const gchar* src) : ValueRef<true>(g_new0(GValue, 1)) {
+  CopyValue(const gchar* src) : super(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<gchar*>::init(g_strdup(src));
   };
 
-  Value(GObject* src) : ValueRef<true>(g_new0(GValue, 1)) {
+  CopyValue(GObject* src) : super(g_new0(GValue, 1)) {
     *obj = FundamentalTraits<GObject*>::init(src);
   };
 
-  GValue& ref() { return *obj; };
+  void operator =(const CopyValue& src) {
+    GValue default_value = G_VALUE_INIT;
+    *obj = default_value;
+    g_value_init(obj, G_VALUE_TYPE(src.obj));
+    g_value_copy(src.obj, obj);
+  }
+
+  void operator =(CopyValue&& src) {
+    *obj = *src.obj;
+    src.obj = NULL;
+  }
 };
 
+template<typename T>
+CopyValue boxed_value(T* src) {
+    GValue value = G_VALUE_INIT;
+    g_value_init(&value, G_TYPE_BOXED);
+    g_value_set_boxed(&value, src);
+    return CopyValue(&value);
+};
 
-inline auto  move(GValue&& src) { return static_cast<Value&&>(Value(static_cast<GValue&&>(src))); }
+class IValue : public Value<false>
+{
+  using super = Value<false>;
+public:
 
-inline Value dup(const GValue& src) { return Value(src); }
+  IValue(GValue* src) : super(src) {
+  };
 
+  IValue(GValue& src) : super(&src) {
+  };
+
+  IValue(const GValue* src) : super(NULL) {
+    obj = (GValue*)src;
+  };
+
+  IValue(const GValue& src) : super(NULL) {
+    obj = (GValue*)&src;
+  };
+
+  IValue(const IValue& src) : super(src.obj) {
+  };
+
+  IValue(HoldValue& src) : super(src.ptr()) { };
+
+  template<typename T>
+  void operator =(const T& src) {
+    GValue tmp = FundamentalTraits<GObject*>::init(src);
+    g_value_copy(&tmp, obj);
+  }
+};
+
+inline auto hold(GValue* value) { return HoldValue(value); }
+inline auto hold(GValue& value) { return HoldValue(value); }
+inline auto move(GValue&& src) { return static_cast<CopyValue&&>(CopyValue(static_cast<GValue&&>(src))); }
+inline auto move(const HoldValue& src) { return static_cast<HoldValue&&>(*(HoldValue*)&src); }
+inline auto dup(const GValue& src) { return CopyValue(src); }
+inline auto ref(GValue* src) { return IValue(src); }
+inline auto ref(GValue& src) { return IValue(src); }
 
 template<class T>
 class Object : public ScopedPointer<T, void(gpointer), g_object_unref>
@@ -732,7 +786,7 @@ public:
     return move(static_cast<GValue&&>(result));
   };
 
-  void set(const gchar* prop_name, Value value) {
+  void set(const gchar* prop_name, CopyValue value) {
     GObject* object = super::as_object();
     g_object_set_property(object, prop_name, &value.ref());
   };
@@ -844,11 +898,11 @@ public:
     const gchar* name;
   public:
     GValueAssigner(IObject* o, const gchar* n) : owner(o), name(n) { };
-    void operator =(const Value&& value) { owner->set(name, value); }
+    void operator =(const CopyValue&& value) { owner->set(name, value); }
   };
 
   //  GValueAssigner operator [](const gchar* name) { return GValueAssigner(this); }
-  Value operator[] (const gchar* name) { return this->get(name); }
+  CopyValue operator[] (const gchar* name) { return this->get(name); }
   template<typename D>
   Delegators::Connection* connect(const gchar* signal_name, D d) {
     return g_signal_connect_delegator(G_OBJECT(super::obj), signal_name, d);
