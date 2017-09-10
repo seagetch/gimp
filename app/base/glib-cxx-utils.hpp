@@ -524,23 +524,32 @@ public:
     set_value<Instance>(value, src);
     return value;
   }
-};
 
+  static void set(GValue& value, Instance src) {
+    set_value<Instance>(value, src);
+  }
 
-template<bool IsOwner>
-inline void g_value_finalize(GValue* value) {
-  if (value) {
-    g_value_unset(value);
-    if (IsOwner)
-      g_free(value);
+  static Instance get(GValue& value) {
+    return get_value<Instance>(value);
   }
 };
 
 
-template<bool IsOwner>
-class Value : public ScopedPointer<GValue, void(GValue*), g_value_finalize<IsOwner>>
+template<bool IsOwner, bool IsManager>
+inline void g_value_finalize(GValue* value) {
+  if (IsManager || IsOwner) {
+    g_value_unset(value);
+  }
+  if (IsOwner) {
+    g_free(value);
+  }
+};
+
+
+template<bool IsOwner, bool IsManager>
+class Value : public ScopedPointer<GValue, void(GValue*), g_value_finalize<IsOwner, IsManager>>
 {
-  using super = ScopedPointer<GValue, void(GValue*), g_value_finalize<IsOwner>>;
+  using super = ScopedPointer<GValue, void(GValue*), g_value_finalize<IsOwner, IsManager>>;
 public:
   Value(GValue* src) : super(src) {
   };
@@ -568,7 +577,7 @@ public:
 };
 
 
-using HoldValue = Value<true>;
+using HoldValue = Value<true, true>;
 
 class CopyValue : public HoldValue
 {
@@ -680,36 +689,40 @@ CopyValue boxed_value(T* src) {
     return CopyValue(&value);
 };
 
-class IValue : public Value<false>
+template<bool IsManager>
+class ValueRef : public Value<false, IsManager>
 {
-  using super = Value<false>;
+  using super = Value<false, IsManager>;
 public:
 
-  IValue(GValue* src) : super(src) {
+  ValueRef(GValue* src) : super(src) {
   };
 
-  IValue(GValue& src) : super(&src) {
+  ValueRef(GValue& src) : super(&src) {
   };
 
-  IValue(const GValue* src) : super(NULL) {
-    obj = (GValue*)src;
+  ValueRef(const GValue* src) : super(NULL) {
+    super::obj = (GValue*)src;
   };
 
-  IValue(const GValue& src) : super(NULL) {
-    obj = (GValue*)&src;
+  ValueRef(const GValue& src) : super(NULL) {
+    super::obj = (GValue*)&src;
   };
 
-  IValue(const IValue& src) : super(src.obj) {
+  ValueRef(const ValueRef& src) : super(src.obj) {
   };
 
-  IValue(HoldValue& src) : super(src.ptr()) { };
+  ValueRef(HoldValue& src) : super(src.ptr()) { };
 
   template<typename T>
   void operator =(const T& src) {
-    GValue tmp = FundamentalTraits<GObject*>::init(src);
-    g_value_copy(&tmp, obj);
+    if (super::obj)
+      FundamentalTraits<GObject*>::set(*super::obj, src);
   }
 };
+
+using IValue = ValueRef<false>;
+using ManagedValue = ValueRef<true>;
 
 inline auto hold(GValue* value) { return HoldValue(value); }
 inline auto hold(GValue& value) { return HoldValue(value); }
@@ -718,6 +731,8 @@ inline auto move(const HoldValue& src) { return static_cast<HoldValue&&>(*(HoldV
 inline auto dup(const GValue& src) { return CopyValue(src); }
 inline auto ref(GValue* src) { return IValue(src); }
 inline auto ref(GValue& src) { return IValue(src); }
+inline auto manage(GValue* src) { return ManagedValue(src); }
+inline auto manage(GValue& src) { return ManagedValue(src); }
 
 template<class T>
 class Object : public ScopedPointer<T, void(gpointer), g_object_unref>
