@@ -439,9 +439,11 @@ protected:
         if (!name)    name = gettext("New Group Layer");
 
         layer = gimp_group_layer_new(context->image);
+        auto ilayer        = ref(layer);
+        if (name)
+          ilayer [gimp_object_set_name] (name);
         image [gimp_image_add_layer] (layer, parent, index, TRUE);
 
-        auto ilayer        = ref(layer);
         auto children_json = node_json["children"];
 
         if (children_json.is_array()) {
@@ -523,9 +525,6 @@ protected:
 
     if (opacity >= 0 && opacity <= 1.0)
       ilayer [gimp_layer_set_opacity] (opacity, TRUE);
-
-    if (name)
-      ilayer [gimp_object_set_name] (name);
 
     return layer;
   };
