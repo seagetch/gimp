@@ -39,6 +39,7 @@ extern "C" {
 
 #include "base/tile.h"
 #include "base/tile-manager.h"
+#include "base/tile-manager-private.h"
 #include "base/pixel-region.h"
 
 #include "gimp.h"
@@ -143,7 +144,7 @@ struct CloneLayer : virtual public ImplBase, virtual public CloneLayerInterface
                                         gint             y);
 
   virtual void            update       ();
-  virtual void            update_size  ();
+  virtual void            update_size  (gint w, gint h);
 
   virtual void            set_source   (GimpLayer* source);
   virtual GimpLayer*      get_source   ();
@@ -264,6 +265,7 @@ void GLib::CloneLayer::constructed ()
   on_parent_changed(GIMP_VIEWABLE(g_object), NULL);
 }
 
+
 void GLib::CloneLayer::set_source(GimpLayer* layer)
 {
   if (source_layer) {
@@ -278,12 +280,8 @@ void GLib::CloneLayer::set_source(GimpLayer* layer)
     gint w, h;
     w = src [gimp_item_get_width] ();
     h = src [gimp_item_get_height] ();
-    auto self = ref(g_object);
-    self [gimp_item_set_size] (w, h);
-    gint width  = self [gimp_item_get_width]  ();
-    gint height = self [gimp_item_get_height] ();
 
-    on_source_update(GIMP_DRAWABLE(layer), 0, 0, width, height);
+    gimp_drawable_update(GIMP_DRAWABLE(layer), 0, 0, w, h);
   }
 }
 
@@ -302,7 +300,7 @@ GLib::CloneLayer::get_source()
           return result;
         }
         GimpContainer* children = layer [gimp_viewable_get_children] ();
-        if (children) {
+        if (children && children != _container) {
           result = finder (children);
           if (result)
             return result;
@@ -325,7 +323,6 @@ void GLib::CloneLayer::set_source_by_name(const gchar* name)
 {
   g_print("CloneLayer::set_source_by_name(%s)\n", name);
   source_name = g_strdup(name);
-  get_source();
 }
 
 gint64 GLib::CloneLayer::get_memsize (gint64     *gui_size)
@@ -447,38 +444,16 @@ gint GLib::CloneLayer::get_opacity_at (gint          x,
 /*  priv functions  */
 
 void GLib::CloneLayer::update () {
-  update_size ();
 }
 
-void GLib::CloneLayer::update_size () {
+void GLib::CloneLayer::update_size (gint width, gint height) {
   if (!get_source())
     return;
-  auto self = ref(g_object);
-  auto src  = ref(get_source());
-  gint     old_width  = self [gimp_item_get_width]  ();
-  gint     old_height = self [gimp_item_get_height] ();
-  gint     x          = src [gimp_item_get_offset_x] ();
-  gint     y          = src [gimp_item_get_offset_y] ();
-  gint     width      = src [gimp_item_get_width] ();
-  gint     height     = src [gimp_item_get_height] ();
+  g_print ("%s (%s) %d, %d (%d, %d)\n",
+           G_STRFUNC, gimp_object_get_name (g_object),
+           0, 0, width, height);
 
-//  g_print ("%s (%s) %d, %d (%d, %d)\n",
-//           G_STRFUNC, gimp_object_get_name (g_object),
-//           x, y, width, height);
-
-  if (width  != old_width   ||
-      height != old_height) {
-
-    reallocate_width  = width;
-    reallocate_height = height;
-
-    g_print("set_size:%d,%d\n", width, height);
-    resize(NULL, width, height, x, y);
-    reallocate_width  = 0;
-    reallocate_height = 0;
-
-    self [gimp_pickable_flush] ();
-  }
+  resize(NULL, width, height, 0, 0);
 }
 
 gboolean GLib::CloneLayer::is_editable()
@@ -522,39 +497,68 @@ void GLib::CloneLayer::on_source_update (GimpDrawable* _source,
                                          gint            width,
                                          gint            height)
 {
-//  g_print ("%s (%s) %d, %d (%d, %d)\n",
-//           G_STRFUNC, gimp_object_get_name (g_object),
-//           x, y, width, height);
-
-  update_size();
+  g_print ("%s (%s) %d, %d (%d, %d)\n",
+           G_STRFUNC, gimp_object_get_name (g_object),
+           x, y, width, height);
 
   auto self   = ref(g_object);
   auto source = ref(_source);
+  gint src_width  = source [gimp_item_get_width]  ();
+  gint src_height = source [gimp_item_get_height] ();
+
+  update_size(src_width, src_height);
+
 
   /*  the projection speaks in image coordinates, transform to layer
    *  coordinates when emitting our own update signal.
    */
   gint offset_x = self [gimp_item_get_offset_x]();
   gint offset_y = self [gimp_item_get_offset_y]();
+  gint src_offset_x = 0; //source [gimp_item_get_offset_x]();
+  gint src_offset_y = 0; //source [gimp_item_get_offset_y]();
 
   source_layer = source;
 
   PixelRegion destPR;
-  TileManager* dest_tiles = self [gimp_drawable_get_tiles] ();
-  pixel_region_init (&destPR, dest_tiles, x, y, width, height, TRUE);
+  gint swidth, sheight;
+  swidth  = self [gimp_item_get_width] ();
+  sheight = self [gimp_item_get_height] ();
 
+  if (swidth < width || sheight < height) {
+    g_print("src(w,h)=%d,%d, self(w,h)=%d,%d\n", width, height, swidth, sheight);
+    width  = MIN(width,  swidth);
+    height = MIN(height, sheight);
+  }
+
+  TileManager* dest_tiles = self [gimp_drawable_get_tiles] ();
+  if (dest_tiles->width != swidth || dest_tiles->height != sheight) {
+    g_print("size is invalid. w,h should be %d, %d but is %d, %d.\n", swidth, sheight, dest_tiles->width, dest_tiles->height);
+    if (dest_tiles->width < width)
+      width = dest_tiles->width;
+    if (dest_tiles->height < height)
+      height = dest_tiles->height;
+    return;
+  }
+  g_print("Copy=%d,%d\n", width, height);
+  pixel_region_init (&destPR, dest_tiles, x - src_offset_x, y - src_offset_y, width, height, TRUE);
+/*
   GimpImageType self_type   = self [gimp_drawable_type] ();
   GimpImageType source_type = source [gimp_drawable_type] ();
 
   if (self_type == source_type) {
     PixelRegion srcPR;
     TileManager* src_tiles  = source [gimp_drawable_get_tiles] ();
-    pixel_region_init (&srcPR,  src_tiles,  x, y, width, height, FALSE);
+    g_print("x,y,w,h=%d,%d,%d,%d\n", x, y, width, height);
+    if (src_tiles && dest_tiles) {
+      pixel_region_init (&srcPR,  src_tiles,  x, y, width, height, FALSE);
+      copy_region_nocow(&srcPR, &destPR);
+    }
 
-    copy_region_nocow(&srcPR, &destPR);
   } else {
     source [gimp_drawable_project_region] (x, y, width, height, &destPR, FALSE);
   }
+*/
+  source [gimp_drawable_project_region] (x - src_offset_x, y - src_offset_y, width, height, &destPR, FALSE);
 
   self [gimp_drawable_update] (x, y, width, height);
 }

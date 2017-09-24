@@ -1098,6 +1098,7 @@ xcf_load_layer_props (XcfInfo    *info,
             if ( !xcf_load_clone_specs (info) )
               return FALSE;
             gimp_clone_layer_set_source_by_name (GIMP_CLONE_LAYER(cloned), target_name);
+            gimp_item_set_size(GIMP_ITEM(*layer), width, height);
           }
           break;
 
