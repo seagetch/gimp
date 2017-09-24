@@ -54,6 +54,7 @@
 #include "gimpviewrenderer.h"
 #include "gimpuimanager.h"
 #include "gimpwidgets-utils.h"
+#include "gimpeditor-cxx.h"
 
 #include "gimp-intl.h"
 
@@ -81,6 +82,8 @@ struct _GimpItemTreeViewPriv
   GtkWidget       *lower_button;
   GtkWidget       *duplicate_button;
   GtkWidget       *delete_button;
+  GtkWidget       *new_mode_select;
+  GtkWidget       *dup_mode_select;
 
   gint             model_column_visible;
   gint             model_column_viewable;
@@ -93,6 +96,9 @@ struct _GimpItemTreeViewPriv
   GimpTreeHandler *lock_content_changed_handler;
 
   gboolean         inserting_item; /* EEK */
+
+  const gchar*     new_mode;
+  const gchar*     dup_mode;
 };
 
 
@@ -408,13 +414,24 @@ gimp_item_tree_view_constructed (GObject *object)
   gimp_container_view_enable_dnd (GIMP_CONTAINER_VIEW (item_view),
                                   GTK_BUTTON (item_view->priv->edit_button),
                                   item_view_class->item_type);
-
+#if 0
   item_view->priv->new_button =
     gimp_editor_add_action_button (editor, item_view_class->action_group,
                                    item_view_class->new_action,
                                    item_view_class->new_default_action,
                                    GDK_SHIFT_MASK,
                                    NULL);
+#else
+  item_view->priv->new_button =
+    gimp_editor_add_action_dropdown (editor,
+                                     "gimp-layer-preset-list",
+                                     item_view_class->action_group,
+                                     item_view_class->new_action,
+                                     item_view_class->new_default_action,
+                                     GDK_SHIFT_MASK,
+                                     NULL);
+#endif
+  item_view->priv->new_mode_select = NULL;
   /*  connect "drop to new" manually as it makes a difference whether
    *  it was clicked or dropped
    */
@@ -436,10 +453,17 @@ gimp_item_tree_view_constructed (GObject *object)
                                    item_view_class->lower_bottom_action,
                                    GDK_SHIFT_MASK,
                                    NULL);
-
+#if 0
   item_view->priv->duplicate_button =
     gimp_editor_add_action_button (editor, item_view_class->action_group,
                                    item_view_class->duplicate_action, NULL);
+#else
+  item_view->priv->duplicate_button =
+    gimp_editor_add_action_dropdown (editor,
+                                     "gimp-layer-preset-list",
+                                     item_view_class->action_group,
+                                     item_view_class->duplicate_action, NULL);
+#endif
   gimp_container_view_enable_dnd (GIMP_CONTAINER_VIEW (item_view),
                                   GTK_BUTTON (item_view->priv->duplicate_button),
                                   item_view_class->item_type);
@@ -480,6 +504,8 @@ gimp_item_tree_view_constructed (GObject *object)
   gtk_container_add (GTK_CONTAINER (item_view->priv->lock_content_toggle),
                      image);
   gtk_widget_show (image);
+  item_view->priv->new_mode = NULL;
+  item_view->priv->dup_mode = NULL;
 }
 
 static void
@@ -489,6 +515,11 @@ gimp_item_tree_view_dispose (GObject *object)
 
   if (view->priv->image)
     gimp_item_tree_view_set_image (view, NULL);
+
+//  g_free(view->priv->new_mode);
+  view->priv->new_mode = NULL;
+//  g_free(view->priv->dup_mode);
+  view->priv->dup_mode = NULL;
 
   G_OBJECT_CLASS (parent_class)->dispose (object);
 }

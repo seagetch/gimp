@@ -35,7 +35,7 @@ namespace Soup {
 class ISoupServer : public GLib::IObject<SoupServer> {
   using super = GLib::IObject<SoupServer>;
 public:
-  using Handler = Delegators::Delegator<void, SoupServer*, SoupMessage*, const char*, GHashTable*, SoupClientContext*>;
+  using Handler = Delegators::Delegator<void(SoupServer*, SoupMessage*, const char*, GHashTable*, SoupClientContext*)>;
 
   ISoupServer() : super () { };
   ISoupServer(SoupServer* server) : super(server) { };
@@ -88,7 +88,7 @@ public:
   };
 
   typedef bool rule_handler(Matched*);
-  typedef Delegators::Delegator<Ret, Matched*, Args...> rule_delegator;
+  typedef Delegators::Delegator<Ret(Matched*, Args...)> rule_delegator;
 
 protected:
 
@@ -301,7 +301,7 @@ public:
       Matched matched = i->test(tested_path.ptr(), data);
       gchar* const* path = matched.get_path();
       if (matched.get_path()) {
-        return i->handler->emit(&matched, args...);
+        return (*i->handler)(&matched, args...);
       }
     }
     return Ret();

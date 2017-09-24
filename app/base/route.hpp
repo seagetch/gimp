@@ -158,12 +158,6 @@ public:
     rules.push_back(new Rule(route, handler));
     return rules.size() - 1;
   };
-  void block(const int id) {
-    rules.at(id)->handler->disable();
-  }
-  void unblock(const int id) {
-    rules.at(id)->handler->enable();
-  }
   Ret dispatch(const gchar* uri, const gchar* data, Ret default_value, Args... args);
 };
 

@@ -34,6 +34,7 @@
 #include "gimpwidgets-utils.h"
 
 #include "gimp-intl.h"
+#include "gimpeditor-private.h"
 
 
 #define DEFAULT_CONTENT_SPACING  2
@@ -52,21 +53,6 @@ enum
   PROP_SHOW_NAME,
   PROP_NAME
 };
-
-
-struct _GimpEditorPrivate
-{
-  GimpMenuFactory *menu_factory;
-  gchar           *menu_identifier;
-  GimpUIManager   *ui_manager;
-  gchar           *ui_path;
-  gpointer         popup_data;
-
-  gboolean         show_button_bar;
-  GtkWidget       *name_label;
-  GtkWidget       *button_box;
-};
-
 
 static void         gimp_editor_docked_iface_init (GimpDockedInterface *iface);
 
@@ -91,9 +77,6 @@ static gboolean        gimp_editor_has_button_bar      (GimpDocked     *docked);
 static void            gimp_editor_set_show_button_bar (GimpDocked     *docked,
                                                         gboolean        show);
 static gboolean        gimp_editor_get_show_button_bar (GimpDocked     *docked);
-
-static GtkIconSize     gimp_editor_ensure_button_box   (GimpEditor     *editor,
-                                                        GtkReliefStyle *button_relief);
 
 
 G_DEFINE_TYPE_WITH_CODE (GimpEditor, gimp_editor, GTK_TYPE_BOX,
@@ -570,13 +553,7 @@ gimp_editor_add_stock_box (GimpEditor  *editor,
 }
 
 
-typedef struct
-{
-  GdkModifierType  mod_mask;
-  GtkAction       *action;
-} ExtendedAction;
-
-static void
+void
 gimp_editor_button_extended_actions_free (GList *actions)
 {
   GList *list;
@@ -587,7 +564,7 @@ gimp_editor_button_extended_actions_free (GList *actions)
   g_list_free (actions);
 }
 
-static void
+void
 gimp_editor_button_extended_clicked (GtkWidget       *button,
                                      GdkModifierType  mask,
                                      gpointer         data)
@@ -841,7 +818,7 @@ gimp_editor_get_ui_path (GimpEditor *editor)
 
 /*  private functions  */
 
-static GtkIconSize
+GtkIconSize
 gimp_editor_ensure_button_box (GimpEditor     *editor,
                                GtkReliefStyle *button_relief)
 {
@@ -858,7 +835,7 @@ gimp_editor_ensure_button_box (GimpEditor     *editor,
     {
       editor->priv->button_box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL,
                                               button_spacing);
-      gtk_box_set_homogeneous (GTK_BOX (editor->priv->button_box), TRUE);
+      gtk_box_set_homogeneous (GTK_BOX (editor->priv->button_box), FALSE);
       gtk_box_pack_end (GTK_BOX (editor), editor->priv->button_box, FALSE, FALSE, 0);
       gtk_box_reorder_child (GTK_BOX (editor), editor->priv->button_box, 0);
 

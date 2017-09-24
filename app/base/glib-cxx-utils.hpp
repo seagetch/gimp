@@ -244,10 +244,10 @@ public:
   }
   int size() { return obj->len; }
   void append(Data data) { g_array_append_val(obj, data); };
-  template<typename... Datas>
-  void append(Data data, Datas... left) {
+  template<typename... Args>
+  void append(Data data, Args... rest) {
     append(data);
-    append(left...);
+    append(rest...);
   }
   void prepend(Data data) { g_array_prepend_val(obj, data); };
   void insert(int index, Data data) { g_array_insert_val(obj, index, data); };
@@ -434,13 +434,11 @@ public:
 
 template<typename T> inline const T get_value(const GValue& src) {
   T::__this_should_generate_error_on_compilation;
-  g_error("Fallback to get_value for %s\n", typeid(T).name());
   return T();
 }
 
 template<typename T> inline void set_value(GValue& src, T value) {
   T::__this_should_generate_error_on_compilation;
-  g_error("Fallback to set_value for %s\n", typeid(T).name());
 }
 
 //#define G_TYPE_INTERFACE
@@ -598,10 +596,8 @@ public:
     g_value_copy(&src, obj);
   };
 
-  CopyValue(GValue&& src) : super(g_new0(GValue, 1)) {
-    *obj = src;
-    GValue default_value = G_VALUE_INIT;
-    src = default_value;
+  CopyValue(CopyValue&& src) : super(src.obj) {
+    src.obj = NULL;
   };
 
   CopyValue(const HoldValue& src) : super(g_new0(GValue, 1)) {
@@ -726,7 +722,7 @@ using ManagedValue = ValueRef<true>;
 
 inline auto hold(GValue* value) { return HoldValue(value); }
 inline auto hold(GValue& value) { return HoldValue(value); }
-inline auto move(GValue&& src) { return static_cast<CopyValue&&>(CopyValue(static_cast<GValue&&>(src))); }
+inline auto move(GValue& src)  { return static_cast<CopyValue&&>(CopyValue(src)); }
 inline auto move(const HoldValue& src) { return static_cast<HoldValue&&>(*(HoldValue*)&src); }
 inline auto dup(const GValue& src) { return CopyValue(src); }
 inline auto ref(GValue* src) { return IValue(src); }
@@ -798,7 +794,7 @@ public:
     g_value_init(&result, pspec->value_type);
     g_object_get_property(object, prop_name, &result);
 
-    return move(static_cast<GValue&&>(result));
+    return move(result);
   };
 
   void set(const gchar* prop_name, CopyValue value) {
@@ -806,10 +802,15 @@ public:
     g_object_set_property(object, prop_name, &value.ref());
   };
 
+  void set(const gchar* prop_name, IValue& value) {
+    GObject* object = super::as_object();
+    g_object_set_property(object, prop_name, &value.ref());
+  };
+
   template<typename Ret, typename... Args>
   Delegators::Connection* connect(
       const gchar* event,
-      Delegators::Delegator<Ret, Args...>* delegator,
+      Delegators::Delegator<Ret(Args...)>* delegator,
       bool after=false) {
 
     return g_signal_connect_delegator (super::as_object(), event, delegator, after);

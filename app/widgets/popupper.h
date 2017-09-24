@@ -19,8 +19,8 @@ typedef void (*GimpPopupCreateViewCallbackExt) (GtkWidget *button, GtkWidget** r
 #ifdef __cplusplus
 }; //namespace
 
-typedef Delegators::Delegator<void, GtkWidget*, GtkWidget**, gpointer> CreateViewDelegator;
-void decorate_popupper(GtkObject* widget, CreateViewDelegator* delegator);
+typedef Delegators::Delegator<void(GtkWidget*, GtkWidget**, gpointer)> CreateViewDelegator;
+void decorate_popupper(GObject* widget, CreateViewDelegator* delegator);
 
 #endif
 

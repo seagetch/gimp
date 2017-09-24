@@ -161,5 +161,12 @@ void      gimp_container_view_get_property       (GObject      *object,
                                                   guint         property_id,
                                                   GValue       *value,
                                                   GParamSpec   *pspec);
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-types.hpp"
+__DECLARE_GIMP_INTERFACE__(GimpContainerView, GIMP_TYPE_CONTAINER_VIEW);
+};
+
+#endif
 
 #endif  /*  __GIMP_CONTAINER_VIEW_H__  */

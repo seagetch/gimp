@@ -92,4 +92,12 @@ GimpMenuFactory *
 gpointer *  gimp_editor_get_popup_data      (GimpEditor         *editor);
 gchar *     gimp_editor_get_ui_path         (GimpEditor         *editor);
 
+
+#ifdef __cplusplus
+extern "C++" {
+#include "base/glib-cxx-types.hpp"
+__DECLARE_GTK_CLASS__(GimpEditor, GIMP_TYPE_EDITOR);
+};
+
+#endif
 #endif  /*  __GIMP_EDITOR_H__  */

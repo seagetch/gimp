@@ -816,7 +816,9 @@ public:
   void create_view(GtkWidget* widget, GtkWidget** result, gpointer data) {
     PangoAttribute        *attr;
 
+    g_print("PopupWindowDecorator::create_view\n");
     layer = GIMP_LAYER(data);
+    g_print("layer=%p\n", layer);
     *result = with (gtk_box_new(GTK_ORIENTATION_VERTICAL, 0), [&](auto vbox) {
       vbox.pack_start (true, false, 0) (
         gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0), [&](auto hbox) {
@@ -904,7 +906,7 @@ public:
                     }
                     return FALSE;
                   })));
-              model [gtk_tree_model_foreach] (callback->_callback(), (gpointer)callback.ptr());
+              model [gtk_tree_model_foreach] (GLib::strip_ref<decltype(*callback)>::type::callback, (gpointer)callback.ptr());
 
             });
             GtkRequisition req;
@@ -1020,7 +1022,7 @@ public:
                     }
                     return FALSE;
                   })));
-              gtk_tree_model_foreach (model, callback->_callback(), (gpointer)callback.ptr());
+              gtk_tree_model_foreach (model, GLib::strip_ref<decltype(*callback)>::type::callback, (gpointer)callback.ptr());
             }
             if (strlen(proc_name)) {
               // FIXME: select filter_list
@@ -1046,6 +1048,8 @@ public:
 
   }
   void create_view(GtkWidget* widget, GtkWidget** result, gpointer data) {
+    g_print("PopupWindow::create_view\n");
+
     auto decor = new PopupWindowDecorator();
     decor->create_view(widget, result, data);
     decorator(*result, decor);
@@ -1148,7 +1152,7 @@ void GLib::CellRendererPopup::constructed ()
 {
   PopupWindow* window_decor = new PopupWindow;
   decorator(g_object, window_decor);
-  decorate_popupper(GTK_OBJECT(g_object), Delegators::delegator(window_decor, &PopupWindow::create_view));
+  decorate_popupper(g_object, Delegators::delegator(window_decor, &PopupWindow::create_view));
 }
 
 void

@@ -423,11 +423,14 @@ libappwidgets_a_sources = \
 	gtkwrapbox.c			\
 	gtkwrapbox.h			\
 	gtkhwrapbox.c			\
-	gtkhwrapbox.h		\
-	gimpmypaintbrusheditor.cpp		\
+	gtkhwrapbox.h			\
+	gimpmypaintbrusheditor.cpp	\
 	gimpmypaintbrusheditor.h	\
-	popupper.cpp				\
-	popupper.h
+	popupper.cpp			\
+	popupper.h			\
+	gimpeditor-private.h		\
+	gimpeditor-cxx.cpp		\
+	gimpeditor-cxx.h
 
 libappwidgets_a_built_sources = widgets-enums.c
 

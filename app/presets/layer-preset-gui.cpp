@@ -61,6 +61,7 @@ public:
 
   void select_item(GimpViewable* viewable) {
     g_print("LayerPresetFactoryView::select: %s\n", ref(viewable)[gimp_object_get_name]());
+
     auto self = ref(g_object);
     GObject* context = self["context"];
     if (context && GIMP_CONTEXT(context)->image) {
@@ -70,6 +71,13 @@ public:
   }
   void activate_item(GimpViewable* viewable) {
     g_print("LayerPresetFactoryView::activate: %s\n", ref(viewable)[gimp_object_get_name]());
+
+    auto self = ref(g_object);
+    GObject* context = self["context"];
+    if (context && GIMP_CONTEXT(context)->image) {
+      auto applier = ILayerPresetApplier::new_instance(GIMP_CONTEXT(context), GIMP_JSON_RESOURCE(viewable));
+      applier->apply_for_active_layer();
+    }
   }
 };
 

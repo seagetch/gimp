@@ -98,10 +98,11 @@ public:
   Popup(GObject* obj) : ImplBase(obj) {
     view_border_width = 1;
 
-    frame = gtk_frame_new (NULL);
-    ref(frame)[gtk_frame_set_shadow_type](GTK_SHADOW_OUT);
+    frame       = gtk_frame_new (NULL);
+    auto iframe = ref(frame);
+    iframe [gtk_frame_set_shadow_type](GTK_SHADOW_OUT);
     ref(g_object)[gtk_container_add] (frame);
-    ref(frame)[gtk_widget_show] ();
+    iframe [gtk_widget_show] ();
   };
 
   virtual ~Popup() { }
@@ -522,14 +523,16 @@ public:
     g_print("Popupper::create_view\n");
     GtkWidget *result = NULL;
     if (create_view_delegator)
-      create_view_delegator->emit(widget, &result, aux);
+      (*create_view_delegator)(widget, &result, aux);
+    else
+      g_print("Error: Popupper::create_view: create_view_delegator is NULL.\n");
 
     g_return_val_if_fail (GTK_IS_WIDGET (result), NULL);
 
     return result;
   }
 
-  Popupper(GtkObject* widget, CreateViewDelegator* delegator) {
+  Popupper(GObject* widget, CreateViewDelegator* delegator) {
     g_print("Popupper::Popupper\n");
     create_view_delegator = delegator;
     cancel_handler = NULL;
@@ -558,7 +561,7 @@ public:
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-void decorate_popupper(GtkObject* widget, CreateViewDelegator* delegator)
+void decorate_popupper(GObject* widget, CreateViewDelegator* delegator)
 {
   Popupper* popupper = new Popupper(widget, delegator);
   decorator(widget, popupper);

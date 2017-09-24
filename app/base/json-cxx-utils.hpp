@@ -6,7 +6,6 @@ extern "C" {
 }
 
 #include <iterator>
-#include <functional>
 
 #include "base/scopeguard.hpp"
 #include "base/glib-cxx-types.hpp"
@@ -111,24 +110,25 @@ public:
     data   = g_new0(T, length);
     int i = 0;
     each([&](auto it){
-      Nullable<T> value(data[i++]);
-      value = it;
+      nullable(data[i++]) = it;
     });
   }
 
+  template<typename F>
   static void foreach_callback(JsonArray*, guint, JsonNode* elem, gpointer data) {
     INode node = elem;
-    std::function<void(INode&)>* func = reinterpret_cast<std::function<void(INode&)>*>(data);
+    F* func = reinterpret_cast<F*>(data);
     (*func)(node);
   }
 
-  void each(std::function<void(INode&)> func) {
+  template<typename F>
+  void each(F func) {
     if (!is_array())
       return;
     
     JsonArray* jarr = json_node_get_array (obj);
     gpointer data = &func;
-    json_array_foreach_element (jarr, foreach_callback, data);
+    json_array_foreach_element (jarr, foreach_callback<F>, data);
   }
   
   operator JsonNode*() { return ptr(); };

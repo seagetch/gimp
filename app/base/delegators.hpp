@@ -7,47 +7,6 @@ extern "C" {
 #include <utility>
 #include <functional>
 
-namespace Function {
-
-template<typename F>
-struct FunctionBase { };
-
-template<typename Ret, typename... Args>
-struct FunctionBase<Ret(Args...)> {
-  template<typename F>
-  static Ret callback(Args... args, F* f) {
-    return (*f)(args...);
-  }
-};
-
-template<typename Decl, typename F>
-struct Function {
-  using Callback = decltype(&FunctionBase<Decl>::template callback<F>);
-  Callback callback;
-  F f;
-};
-
-template<typename F, typename Ret, typename... Args>
-struct Function<Ret(Args...), F> {
-  using Callback = decltype(&FunctionBase<Ret(Args...)>::template callback<F>);
-  Callback callback;
-  F f;
-  Ret operator() (Args... args) {
-    (*callback)(args..., &f);
-  }
-};
-
-template<typename Decl, typename F>
-auto function(F f) {
-  Function<Decl, F> holder = {
-      &FunctionBase<Decl>::template callback<F>,
-      f
-  };
-  return holder;
-};
-
-};
-
 namespace Delegators {
 template<typename T>
 void destroy_cxx_object_callback(gpointer ptr) {
@@ -55,110 +14,65 @@ void destroy_cxx_object_callback(gpointer ptr) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+template<typename Decl> class Delegator;
 template<typename Ret, typename... Args>
-class Delegator {
-  bool enabled;
-public:
-  Delegator() : enabled(true) {}
-  virtual ~Delegator() {}
-  virtual Ret emit(Args... args) = 0;
-
-  void enable() { enabled = true; }
-  void disable() { enabled = false; }
-  bool is_enabled() { return enabled; }
-  
-  static Ret callback(Args... args, gpointer ptr) {
-    Delegator* delegator = reinterpret_cast<Delegator*>(ptr);
-    if (delegator->is_enabled())
-      return delegator->emit(args...);
-    return Ret();
-  }
-
-  typedef Ret (*Callback)(Args..., gpointer);
-  Callback _callback() {
-    return &callback;
-  };
-
-};
-///////////////////////////////////////////////////////////////////////////////
-template<typename Type, typename Ret, typename... Args>
-class ObjectDelegator : public Delegator<Ret, Args...> 
-{
-public:
-  typedef Type type;
-  typedef Ret (Type::*Function)(Args...);
-
-private:  
-  Type*    obj;
-  Function   func_ptr;
-
-public:
-  ObjectDelegator(Type* o, Function f) : obj(o), func_ptr(f) {};
-  Ret emit(Args... args) {
-    if (obj)
-      return (obj->*func_ptr)(args...);
-    return Ret();
-  }
-};
-///////////////////////////////////////////////////////////////////////////////
-template<typename Ret, typename... Args>
-class FunctionDelegator :
-  public Delegator<Ret, Args...> 
-{
-public:
-  typedef Ret (*Function)(Args...);
-
-private:  
-  Function   func_ptr;
-
-public:
-  FunctionDelegator(Function f) : func_ptr(f) {};
-  Ret emit(Args... args) {
-    Ret result = Ret();
-    if (func_ptr)
-      result = (*func_ptr)(args...);
-    return result;
-  }
-};
-///////////////////////////////////////////////////////////////////////////////
-template<typename Ret, typename... Args>
-class CXXFunctionDelegator :
-  public Delegator<Ret, Args...> 
+class Delegator<Ret(Args...)>
 {
 public:
   typedef std::function<Ret (Args...)> Function;
 
-private:  
+protected:
   Function   func_ref;
-
+  Delegator() {};
 public:
-  CXXFunctionDelegator(Function f) : func_ref(f) {};
-  Ret emit(Args... args) {
-    if (func_ref)
-      return func_ref(args...);
-    return Ret();
+  template<typename F> Delegator(F f) : func_ref(f) {};
+  virtual ~Delegator() {};
+
+  static Ret callback(Args... args, gpointer ptr) {
+    Delegator* delegator = reinterpret_cast<Delegator*>(ptr);
+    return (*delegator)(args...);
+  }
+
+  Ret operator()(Args... args) {
+    return func_ref(args...);
+  }
+};
+
+///////////////////////////////////////////////////////////////////////////////
+template<typename Type, typename Decl> class ObjectDelegator;
+template<typename Type, typename Ret, typename... Args>
+class ObjectDelegator<Type, Ret(Args...)> : public Delegator<Ret(Args...)>
+{
+  Type* obj;
+  Ret (Type::*f)(Args...);
+public:
+  ObjectDelegator(Type* o, Ret (Type::*_f)(Args...)) : Delegator<Ret(Args...)>()
+  {
+    obj = o;
+    f = _f;
+    this->func_ref = [this](Args... args)->Ret { return (obj->*f)(args...); };
+//    this->func_ref = std::bind(std::mem_fn(f), obj);
   }
 };
 ///////////////////////////////////////////////////////////////////////////////
 template<typename Type, typename Ret, typename... Args>
-inline ObjectDelegator<Type, Ret, Args...>* 
+inline auto
 delegator(Type* obj, Ret (Type::*f)(Args...)) 
 {
-  return new ObjectDelegator<Type, Ret, Args...>(obj, f);
+  return new ObjectDelegator<Type, Ret(Args...)>(obj, f);
 }
 
 template<typename Ret, typename... Args>
-inline FunctionDelegator<Ret, Args...>* 
-delegator(Ret (*f)(Args...)) 
+inline auto
+delegator(std::function<Ret (Args...)> f)
 {
-  return new FunctionDelegator<Ret, Args...>(f);
+  return new Delegator<Ret(Args...)>(f);
 }
 
-template<typename Ret, typename... Args>
-inline CXXFunctionDelegator<Ret, Args...>* 
-delegator(std::function<Ret (Args...)>&& f)
-{
-  return new CXXFunctionDelegator<Ret, Args...>(std::move(f));
+template<typename Decl, typename F>
+inline auto
+delegator(F f) {
+  return new Delegator<Decl>(f);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -197,21 +111,11 @@ public:
   };
   
   void block() {
-    if (target && closure) {
-//      g_signal_handlers_block_matched (target,
-//                                       GSignalMatchType(G_SIGNAL_MATCH_DETAIL|G_SIGNAL_MATCH_CLOSURE),
-//                                       0, g_quark_from_static_string (signal), closure, NULL, NULL);
-    }
     if (target)
       g_signal_handler_block (target, handler_id);
   }
   
   void unblock() {
-    if (target && closure) {
-//      g_signal_handlers_unblock_matched (target,
-//                                       GSignalMatchType(G_SIGNAL_MATCH_DETAIL|G_SIGNAL_MATCH_CLOSURE),
-//                                       0, g_quark_from_static_string (signal), closure, NULL, NULL);
-    }
     if (target)
       g_signal_handler_unblock (target, handler_id);
   }
@@ -230,13 +134,13 @@ template<typename Ret, typename... Args>
 Delegators::Connection *
 g_signal_connect_delegator (GObject* target, 
                             const gchar* event, 
-                            Delegators::Delegator<Ret, Args...>* delegator, 
+                            Delegators::Delegator<Ret(Args...)>* delegator,
                             bool after=false)
 {
   GClosure *closure;  
-  closure = g_cclosure_new (G_CALLBACK (delegator->_callback()),
+  closure = g_cclosure_new (G_CALLBACK (Delegators::Delegator<Ret(Args...)>::callback),
                             (gpointer)delegator, 
-                            closure_destroy_notify<Delegators::Delegator<Ret, Args...> >);
+                            closure_destroy_notify<Delegators::Delegator<Ret(Args...)> >);
   gulong handler_id = g_signal_connect_closure (target, event, closure, after);
   return new Delegators::Connection(handler_id, target, event, closure);
 }

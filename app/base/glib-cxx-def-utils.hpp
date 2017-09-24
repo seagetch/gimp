@@ -15,6 +15,7 @@ extern "C" {
 #include <gtk/gtkscrolledwindow.h>
 }
 #include "base/glib-cxx-bridge.hpp"
+#include "base/glib-cxx-utils.hpp"
 #include <functional>
 
 namespace GLib {

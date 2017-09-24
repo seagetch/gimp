@@ -53,10 +53,15 @@ extern "C" {
 #include "rest-image-tree.h"
 //#include "pdb/pdb-cxx-utils.hpp"
 
-using namespace Function;
+template<typename F, typename Ret, typename... Args>
+static Ret callback(Args... args, gpointer p) {
+  F* f = (F*)p;
+  return (*f)(args...);
+}
 
-inline void gimp_container_foreach_(GimpContainer* container, auto f) {
-  gimp_container_foreach(container, GFunc(f.callback), &f.f);
+template<typename F>
+inline void gimp_container_foreach_(GimpContainer* container, F f) {
+  gimp_container_foreach(container, GFunc(callback<F, void, GimpItem*>), &f);
 }
 
 namespace GLib {
@@ -276,7 +281,7 @@ RESTImageTree::get_info(GLib::IObject<GimpItem> item) {
     auto ibuilder = JSON::ref(builder);
     ibuilder = ibuilder.object([&](auto it){
       if (container) {
-        gimp_container_foreach_ (container, function<void(GimpItem*)>([&](auto i){
+        gimp_container_foreach_ (container, std::function<void(GimpItem*)>([&](auto i){
           GLib::IObject<GimpItem> item = i;
           GLib::CString id = g_strdup_printf("%d", item [gimp_image_get_ID] ());
           it[(const gchar*)id] = item [gimp_image_get_display_name] ();
@@ -299,7 +304,7 @@ RESTImageTree::get_info(GLib::IObject<GimpItem> item) {
             auto container = item [gimp_image_get_layers] ();
             if (container) {
               it["children"] = it.object([&](auto it){
-                gimp_container_foreach_ (container, function<void(GimpItem*)>([&](auto i){
+                gimp_container_foreach_ (container, std::function<void(GimpItem*)>([&](auto i){
                    GLib::IObject<GimpItem> item = i;
                    GLib::CString id = g_strdup_printf("%d", item [gimp_item_get_ID] ());
                    it[(const gchar*)id] = item [gimp_object_get_name] ();
@@ -337,7 +342,7 @@ RESTImageTree::get_info(GLib::IObject<GimpItem> item) {
 
             if (container) {
               it["children"] = it.array([&](auto it){
-                gimp_container_foreach_ (container, function<void(GimpItem*)>([&](auto i){
+                gimp_container_foreach_ (container, std::function<void(GimpItem*)>([&](auto i){
                    GLib::IObject<GimpItem> item = i;
                    it = item [gimp_object_get_name] ();
                  }));
@@ -525,7 +530,7 @@ RESTImageTree::parse_path(const gchar* path, GLib::IObject<GimpItem>& item, EMet
     }
 
     GimpItem* next_item = NULL;
-    gimp_container_foreach_ (container, function<void(GimpItem*)>([&](GimpItem* it){
+    gimp_container_foreach_ (container, std::function<void(GimpItem*)>([&](GimpItem* it){
       auto this_item = GLib::ref(it);
       if (GIMP_IS_IMAGE(it)) {
         gchar* endptr;
