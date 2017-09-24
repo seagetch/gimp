@@ -102,7 +102,7 @@ gimp_paint_mode_menu_new (gboolean with_behind_mode,
   GtkWidget    *combo;
 
   store = gimp_enum_store_new_with_values (GIMP_TYPE_LAYER_MODE_EFFECTS,
-                                           25,
+                                           28,
                                            GIMP_NORMAL_MODE,
                                            GIMP_DISSOLVE_MODE,
 
