@@ -66,8 +66,9 @@ G_END_DECLS
 
 #ifdef __cplusplus
 extern "C++" {
-#include "base/glib-cxx-types.hpp"
+#ifdef __DECLARE_GTK_CLASS__
 __DECLARE_GTK_CLASS__(GimpFrame, GIMP_TYPE_FRAME);
+#endif
 };
 #endif
 

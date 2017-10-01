@@ -124,7 +124,8 @@ PDB_WRAPPERS_C = \
 	gimptransformtools_pdb.c	\
 	gimpundo_pdb.c			\
 	gimpunit_pdb.c			\
-	gimpvectors_pdb.c
+	gimpvectors_pdb.c		\
+	gimpmypaintbrushselect_pdb.c	
 
 PDB_WRAPPERS_H = \
 	gimp_pdb_headers.h		\
@@ -177,7 +178,8 @@ PDB_WRAPPERS_H = \
 	gimptransformtools_pdb.h	\
 	gimpundo_pdb.h			\
 	gimpunit_pdb.h			\
-	gimpvectors_pdb.h
+	gimpvectors_pdb.h		\
+	gimpmypaintbrushselect_pdb.h
 
 libgimp_2_0_la_sources = \
 	gimp.c			\
