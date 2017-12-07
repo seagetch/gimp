@@ -1056,6 +1056,7 @@ xcf_load_layer_props (XcfInfo    *info,
             gint                 x, y;
             gint                 width, height;
             gdouble              opacity;
+            gboolean             visibility;
             GimpLayerModeEffects mode;
 
             g_print("xcf_load_props: PROP_FILTER_SPEC\n");
@@ -1073,10 +1074,12 @@ xcf_load_layer_props (XcfInfo    *info,
             height     = gimp_item_get_height (GIMP_ITEM(*layer));
             opacity    = gimp_layer_get_opacity (GIMP_LAYER(*layer));
             mode       = gimp_layer_get_mode(GIMP_LAYER(*layer));
+            visibility = gimp_item_get_visible (GIMP_ITEM(*layer));
 
             cloned     = gimp_clone_layer_new (image, NULL, width, height, layer_name, opacity, mode);
 
             gimp_item_set_offset (GIMP_ITEM(cloned), x, y);
+            gimp_item_set_visible (GIMP_ITEM(cloned), visibility, FALSE);
 
             GIMP_DRAWABLE (cloned)->private->type = gimp_drawable_type (GIMP_DRAWABLE (*layer));
 
