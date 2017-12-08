@@ -996,6 +996,7 @@ xcf_load_layer_props (XcfInfo    *info,
             gint                 width, height;
             const gchar*         layer_name = gimp_object_get_name (*layer);
             gdouble              opacity;
+            gboolean             visibility;
             GimpLayerModeEffects mode;
 
             g_print("xcf_load_props: PROP_FILTER_SPEC\n");
@@ -1013,11 +1014,13 @@ xcf_load_layer_props (XcfInfo    *info,
             height     = gimp_item_get_height (GIMP_ITEM(*layer));
             opacity    = gimp_layer_get_opacity (GIMP_LAYER(*layer));
             mode       = gimp_layer_get_mode(GIMP_LAYER(*layer));
+            visibility = gimp_item_get_visible (GIMP_ITEM(*layer));
 
             filter     = gimp_filter_layer_new (image, width, height, layer_name, opacity, mode);
             gimp_filter_layer_mark_as_loaded(filter);
 
             gimp_item_set_offset (GIMP_ITEM(filter), x, y);
+            gimp_item_set_visible (GIMP_ITEM(filter), visibility, FALSE);
 
             GIMP_DRAWABLE (filter)->private->type =
               gimp_drawable_type (GIMP_DRAWABLE (*layer));
