@@ -84,6 +84,8 @@ struct CloneLayer : virtual public ImplBase, virtual public CloneLayerInterface
   /*  hackish temp states to make the projection/tiles stuff work  */
   gint             reallocate_width;
   gint             reallocate_height;
+  gint             prev_w, prev_h;
+  gint             prev_x, prev_y;
 
   CXXPointer<Delegators::Connection> parent_changed_conn;
   CXXPointer<Delegators::Connection> reorder_conn;
@@ -258,6 +260,10 @@ GLib::CloneLayer::CloneLayer(GObject* o) : ImplBase(o)
 //                                                    Delegators::delegator(this, &GLib::CloneLayer::on_parent_changed));
   reorder_conn        = NULL;
   update_conn         = NULL;
+  prev_x              = 0;
+  prev_y              = 0;
+  prev_w              = 0;
+  prev_h              = 0;
 }
 
 void GLib::CloneLayer::constructed ()
@@ -280,6 +286,10 @@ void GLib::CloneLayer::set_source(GimpLayer* layer)
     gint w, h;
     w = src [gimp_item_get_width] ();
     h = src [gimp_item_get_height] ();
+    prev_x = src [gimp_item_get_offset_x] ();
+    prev_y = src [gimp_item_get_offset_y] ();
+    prev_w = w;
+    prev_h = h;
 
     gimp_drawable_update(GIMP_DRAWABLE(layer), 0, 0, w, h);
   }
@@ -449,9 +459,6 @@ void GLib::CloneLayer::update () {
 void GLib::CloneLayer::update_size (gint width, gint height) {
   if (!get_source())
     return;
-  g_print ("%s (%s) %d, %d (%d, %d)\n",
-           G_STRFUNC, gimp_object_get_name (g_object),
-           0, 0, width, height);
 
   resize(NULL, width, height, 0, 0);
 }
@@ -514,10 +521,19 @@ void GLib::CloneLayer::on_source_update (GimpDrawable* _source,
    */
   gint offset_x = self [gimp_item_get_offset_x]();
   gint offset_y = self [gimp_item_get_offset_y]();
-  gint src_offset_x = 0; //source [gimp_item_get_offset_x]();
-  gint src_offset_y = 0; //source [gimp_item_get_offset_y]();
+  gint src_offset_x = source [gimp_item_get_offset_x]();
+  gint src_offset_y = source [gimp_item_get_offset_y]();
 
   source_layer = source;
+  if (prev_w != src_width || prev_h != src_height) {
+    gint src_offset_diff_x = src_offset_x - prev_x;
+    gint src_offset_diff_y = src_offset_y - prev_y;
+    self [gimp_item_set_offset] (offset_x + src_offset_diff_x, offset_y + src_offset_diff_y);
+    prev_w = src_width;
+    prev_h = src_height;
+  }
+  prev_x = src_offset_x;
+  prev_y = src_offset_y;
 
   PixelRegion destPR;
   gint swidth, sheight;
@@ -540,7 +556,7 @@ void GLib::CloneLayer::on_source_update (GimpDrawable* _source,
     return;
   }
   g_print("Copy=%d,%d\n", width, height);
-  pixel_region_init (&destPR, dest_tiles, x - src_offset_x, y - src_offset_y, width, height, TRUE);
+  pixel_region_init (&destPR, dest_tiles, x, y, width, height, TRUE);
 /*
   GimpImageType self_type   = self [gimp_drawable_type] ();
   GimpImageType source_type = source [gimp_drawable_type] ();
@@ -558,7 +574,7 @@ void GLib::CloneLayer::on_source_update (GimpDrawable* _source,
     source [gimp_drawable_project_region] (x, y, width, height, &destPR, FALSE);
   }
 */
-  source [gimp_drawable_project_region] (x - src_offset_x, y - src_offset_y, width, height, &destPR, FALSE);
+  source [gimp_drawable_project_region] (x, y, width, height, &destPR, FALSE);
 
   self [gimp_drawable_update] (x, y, width, height);
 }
