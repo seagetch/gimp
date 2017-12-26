@@ -593,7 +593,7 @@ gimp_toolbox_set_host_geometry_hints (GimpDock  *dock,
     {
       GdkGeometry geometry;
 
-      geometry.min_width   = 2 * button_width;
+      geometry.min_width   = 2 * button_width * 1.1;
       geometry.min_height  = -1;
       geometry.base_width  = button_width;
       geometry.base_height = 0;
