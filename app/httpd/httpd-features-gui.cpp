@@ -24,7 +24,7 @@ extern "C" {
 #include <glib/gprintf.h>
 };
 
-#include "httpd-features.h"
+#include "httpd-features-gui.h"
 #include "httpd.h"
 #include "rest-pdb.h"
 #include "rest-image-tree.h"
@@ -44,7 +44,7 @@ public:
 
 static HTTPDFeature* singleton = NULL;
 
-GIMP::Feature* httpd_get_factory()
+GIMP::Feature* httpd_get_gui_factory()
 {
   if (!singleton)
     singleton = new HTTPDFeature();
@@ -68,9 +68,11 @@ HTTPDFeature::initialize (Gimp* gimp, GimpInitStatusFunc callback)
   }));
   auto pdb_factory              = new RESTPDBFactory;
   auto image_tree_factory       = new RESTImageTreeFactory;
+  auto navigation_guide_factory = new NavigationGuideFactory;
   rest_daemon->route("/api/v1/pdb/", pdb_factory);
   rest_daemon->route("/api/v1/pdb/{name}", pdb_factory);
   rest_daemon->route("/api/v1/images/**", image_tree_factory);
+  rest_daemon->route("/api/v1/navigation", navigation_guide_factory);
   rest_daemon->run();
 }
 

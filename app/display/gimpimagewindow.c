@@ -98,6 +98,15 @@ enum
 };
 
 
+typedef struct _NavigationGuide NavigationGuide;
+struct _NavigationGuide {
+  GtkWidget* bar;
+  GtkWidget* success_button;
+  GtkWidget* label;
+  GCallback success_callback;
+  gpointer user_data;
+};
+
 typedef struct _GimpImageWindowPrivate GimpImageWindowPrivate;
 
 struct _GimpImageWindowPrivate
@@ -121,7 +130,7 @@ struct _GimpImageWindowPrivate
   GtkWidget         *toolbar; /* gimp-painter-2.7 */
   GtkWidget         *toolbar_container; /* gimp-painter-2.8 */
   GtkWidget         *flip_button; /* gimp-painter-2.8 */
-  GtkWidget         *guide_bar; /* gimp-painter-2.8 */
+  NavigationGuide    guide; /* gimp-painter-2.8 */
 
   GdkWindowState     window_state;
 
@@ -251,6 +260,7 @@ static void    gimp_image_window_configure_for_toolbar_window_mode(GimpImageWind
 static void    gimp_image_window_configure_for_non_toolbar_window_mode(GimpImageWindow* window);
 static void    gimp_image_window_switch_active_shell (GimpImageWindow* window,
                                                       GimpDisplayShell* shell);
+static void    navigation_bar_success_clicked (GtkWidget* widget, GimpImageWindow *window);
 
 G_DEFINE_TYPE_WITH_CODE (GimpImageWindow, gimp_image_window, GIMP_TYPE_WINDOW,
                          G_IMPLEMENT_INTERFACE (GIMP_TYPE_DOCK_CONTAINER,
@@ -497,8 +507,6 @@ gimp_image_window_constructed (GObject *object)
   /* Create notebook that contains images */
   {
     GtkWidget* notebook_vbox;
-    GtkWidget* press_button;
-    GtkWidget* label;
     GtkWidget* label_box;
     GdkColor   color;
 
@@ -507,30 +515,30 @@ gimp_image_window_constructed (GObject *object)
                      TRUE, FALSE);
     gtk_widget_show (notebook_vbox);
 
-    private->guide_bar = gtk_hbox_new (FALSE, 0);
-    gtk_widget_show(private->guide_bar);
-    gtk_box_pack_start (GTK_BOX (notebook_vbox), private->guide_bar,
+    private->guide.bar = gtk_hbox_new (FALSE, 0);
+    gtk_widget_hide(private->guide.bar);
+    gtk_box_pack_start (GTK_BOX (notebook_vbox), private->guide.bar,
                         FALSE, TRUE, 0);
     label_box = gtk_event_box_new();
-    gtk_box_pack_start (GTK_BOX (private->guide_bar), label_box,
+    gtk_box_pack_start (GTK_BOX (private->guide.bar), label_box,
                         TRUE, TRUE, 0);
     gdk_color_parse("#1787ff", &color);
     gtk_widget_modify_bg (label_box, GTK_STATE_NORMAL, &color);
     gtk_widget_show(label_box);
 
-    label = gtk_label_new("Test Label");
-    gtk_container_add (GTK_CONTAINER(label_box), label);
+    private->guide.label = gtk_label_new("Test Label");
+    gtk_container_add (GTK_CONTAINER(label_box), private->guide.label);
     gdk_color_parse("#ffffff", &color);
-    gtk_widget_modify_fg (label, GTK_STATE_NORMAL, &color);
-    gtk_widget_show(label);
-    press_button = gtk_button_new_with_label("OK");
-    gtk_box_pack_start (GTK_BOX (private->guide_bar), press_button,
+    gtk_widget_modify_fg (private->guide.label, GTK_STATE_NORMAL, &color);
+    gtk_widget_show(private->guide.label);
+    private->guide.success_button = gtk_button_new_with_label("OK");
+    gtk_box_pack_start (GTK_BOX (private->guide.bar), private->guide.success_button,
                         FALSE, FALSE, 0);
     gdk_color_parse("#002a92", &color);
-    gtk_widget_modify_bg (press_button, GTK_STATE_NORMAL, &color);
+    gtk_widget_modify_bg (private->guide.success_button, GTK_STATE_NORMAL, &color);
     gdk_color_parse("#ffffff", &color);
-    gtk_widget_modify_fg (press_button, GTK_STATE_NORMAL, &color);
-    gtk_widget_show(press_button);
+    gtk_widget_modify_fg (private->guide.success_button, GTK_STATE_NORMAL, &color);
+    gtk_widget_show(private->guide.success_button);
 
 
   private->notebook = gtk_notebook_new ();
@@ -2491,4 +2499,44 @@ GimpImageWindow*
 gimp_image_window_get_toolbar_window (void)
 {
   return toolbar_window;
+}
+
+void
+gimp_image_window_activate_navigation_bar (GimpImageWindow *window,
+                                           gchar* message_text,
+                                           gchar* detailed_message,
+                                           GCallback on_success_callback,
+                                           gpointer user_data)
+{
+  GimpImageWindowPrivate *private;
+  g_return_if_fail (GIMP_IS_IMAGE_WINDOW (window));
+  private = GIMP_IMAGE_WINDOW_GET_PRIVATE (window);
+
+  if (private->guide.user_data)
+    g_free(private->guide.user_data);
+  private->guide.success_callback = on_success_callback;
+  private->guide.user_data        = user_data;
+
+  gtk_label_set_text (GTK_LABEL(private->guide.label), message_text);
+  g_signal_connect (private->guide.success_button, "clicked", (GCallback)(navigation_bar_success_clicked), window);
+  gtk_widget_show (private->guide.bar);
+}
+
+void
+navigation_bar_success_clicked (GtkWidget* widget, GimpImageWindow* window)
+{
+  GimpImageWindowPrivate *private;
+  g_return_if_fail (GIMP_IS_IMAGE_WINDOW (window));
+  private = GIMP_IMAGE_WINDOW_GET_PRIVATE (window);
+
+  if (private->guide.success_callback) {
+    typedef void (*GCallback__void_ptr) (gpointer ptr);
+    GCallback__void_ptr success_callback =  (GCallback__void_ptr)private->guide.success_callback;
+    (*success_callback)(private->guide.user_data);
+     g_free(private->guide.user_data);
+    private->guide.user_data = NULL;
+    private->guide.success_callback  = NULL;
+  }
+
+  gtk_widget_hide (private->guide.bar);
 }

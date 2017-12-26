@@ -34,7 +34,11 @@ extern "C" {
 #endif
 
 #ifdef USE_HTTPD
+#ifdef GIMP_CONSOLE_COMPILATION
 #include "httpd/httpd-features.h"
+#else
+#include "httpd/httpd-features-gui.h"
+#endif
 #endif
 
 
@@ -51,7 +55,11 @@ feature_singleton_factory factory[] = {
 #endif
 
 #ifdef USE_HTTPD
+  #ifdef GIMP_CONSOLE_COMPILATION
     httpd_get_factory,
+  #else
+    httpd_get_gui_factory,
+  #endif
 #endif
   NULL
 };

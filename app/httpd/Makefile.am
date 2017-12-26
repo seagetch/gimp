@@ -32,6 +32,8 @@ libapphttpd_a_sources = \
 	rest-image-tree.h		\
 	httpd-features.cpp		\
 	httpd-features.h        \
+	httpd-features-gui.cpp		\
+	httpd-features-gui.h        \
 	navigation-guide.cpp    \
 	navigation-guide.h
 

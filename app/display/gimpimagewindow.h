@@ -100,4 +100,10 @@ void               gimp_image_window_link_foreign_active_shell (GimpImageWindow 
 GimpImageWindow*    gimp_image_window_get_toolbar_window (void);
 void               gimp_image_window_update_tabs          (GimpImageWindow  *window);
 
+void                gimp_image_window_activate_navigation_bar (GimpImageWindow *window,
+                                                               gchar* message_text,
+                                                               gchar* detailed_message,
+                                                               GCallback on_success_callback,
+                                                               gpointer user_data);
+
 #endif /* __GIMP_IMAGE_WINDOW_H__ */
