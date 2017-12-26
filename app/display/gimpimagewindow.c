@@ -499,6 +499,8 @@ gimp_image_window_constructed (GObject *object)
     GtkWidget* notebook_vbox;
     GtkWidget* press_button;
     GtkWidget* label;
+    GtkWidget* label_box;
+    GdkColor   color;
 
     notebook_vbox = gtk_vbox_new (FALSE, 0);
     gtk_paned_pack1 (GTK_PANED (private->right_hpane), notebook_vbox,
@@ -509,13 +511,25 @@ gimp_image_window_constructed (GObject *object)
     gtk_widget_show(private->guide_bar);
     gtk_box_pack_start (GTK_BOX (notebook_vbox), private->guide_bar,
                         FALSE, TRUE, 0);
-    label = gtk_label_new("Test Label");
-    gtk_box_pack_start (GTK_BOX (private->guide_bar), label,
+    label_box = gtk_event_box_new();
+    gtk_box_pack_start (GTK_BOX (private->guide_bar), label_box,
                         TRUE, TRUE, 0);
+    gdk_color_parse("#1787ff", &color);
+    gtk_widget_modify_bg (label_box, GTK_STATE_NORMAL, &color);
+    gtk_widget_show(label_box);
+
+    label = gtk_label_new("Test Label");
+    gtk_container_add (GTK_CONTAINER(label_box), label);
+    gdk_color_parse("#ffffff", &color);
+    gtk_widget_modify_fg (label, GTK_STATE_NORMAL, &color);
     gtk_widget_show(label);
     press_button = gtk_button_new_with_label("OK");
     gtk_box_pack_start (GTK_BOX (private->guide_bar), press_button,
                         FALSE, FALSE, 0);
+    gdk_color_parse("#002a92", &color);
+    gtk_widget_modify_bg (press_button, GTK_STATE_NORMAL, &color);
+    gdk_color_parse("#ffffff", &color);
+    gtk_widget_modify_fg (press_button, GTK_STATE_NORMAL, &color);
     gtk_widget_show(press_button);
 
 
