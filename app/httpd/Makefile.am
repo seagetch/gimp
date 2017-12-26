@@ -31,7 +31,9 @@ libapphttpd_a_sources = \
 	rest-image-tree.cpp		\
 	rest-image-tree.h		\
 	httpd-features.cpp		\
-	httpd-features.h
+	httpd-features.h        \
+	navigation-guide.cpp    \
+	navigation-guide.h
 
 libapphttpd_a_built_sources = httpd-enums.c
 

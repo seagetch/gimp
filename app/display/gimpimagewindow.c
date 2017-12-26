@@ -121,6 +121,7 @@ struct _GimpImageWindowPrivate
   GtkWidget         *toolbar; /* gimp-painter-2.7 */
   GtkWidget         *toolbar_container; /* gimp-painter-2.8 */
   GtkWidget         *flip_button; /* gimp-painter-2.8 */
+  GtkWidget         *guide_bar; /* gimp-painter-2.8 */
 
   GdkWindowState     window_state;
 
@@ -494,19 +495,46 @@ gimp_image_window_constructed (GObject *object)
   gtk_widget_show (private->right_hpane);
 
   /* Create notebook that contains images */
+  {
+    GtkWidget* notebook_vbox;
+    GtkWidget* press_button;
+    GtkWidget* label;
+
+    notebook_vbox = gtk_vbox_new (FALSE, 0);
+    gtk_paned_pack1 (GTK_PANED (private->right_hpane), notebook_vbox,
+                     TRUE, FALSE);
+    gtk_widget_show (notebook_vbox);
+
+    private->guide_bar = gtk_hbox_new (FALSE, 0);
+    gtk_widget_show(private->guide_bar);
+    gtk_box_pack_start (GTK_BOX (notebook_vbox), private->guide_bar,
+                        FALSE, TRUE, 0);
+    label = gtk_label_new("Test Label");
+    gtk_box_pack_start (GTK_BOX (private->guide_bar), label,
+                        TRUE, TRUE, 0);
+    gtk_widget_show(label);
+    press_button = gtk_button_new_with_label("OK");
+    gtk_box_pack_start (GTK_BOX (private->guide_bar), press_button,
+                        FALSE, FALSE, 0);
+    gtk_widget_show(press_button);
+
+
   private->notebook = gtk_notebook_new ();
   gtk_notebook_set_scrollable (GTK_NOTEBOOK (private->notebook), TRUE);
   gtk_notebook_set_show_border (GTK_NOTEBOOK (private->notebook), FALSE);
   gtk_notebook_set_show_tabs (GTK_NOTEBOOK (private->notebook), FALSE);
   gtk_notebook_set_tab_pos (GTK_NOTEBOOK (private->notebook), GTK_POS_LEFT);
-  gtk_paned_pack1 (GTK_PANED (private->right_hpane), private->notebook,
-                   TRUE, FALSE);
+//  gtk_paned_pack1 (GTK_PANED (private->right_hpane), private->notebook,
+//                   TRUE, FALSE);
+  gtk_box_pack_start (GTK_BOX (notebook_vbox), private->notebook,
+                      TRUE, TRUE, 0);
   g_signal_connect (private->notebook, "switch-page",
                     G_CALLBACK (gimp_image_window_switch_page),
                     window);
   g_signal_connect (private->notebook, "page-removed",
                     G_CALLBACK (gimp_image_window_page_removed),
                     window);
+  }
 
   /* Create the right dock columns widget */
   private->right_docks =
