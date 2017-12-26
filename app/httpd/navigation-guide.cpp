@@ -177,7 +177,7 @@ struct NavigationGuideContext {
 
 void on_guide_finished (NavigationGuideContext* navi_context)
 {
-  if (navi_context->arg_conf) {
+  if (navi_context->arg_conf && navi_context->arg_conf->webhook_uri) {
     JSON::INode new_root = JSON::build_object([&](auto it) {
       it["context"] = navi_context->arg_conf->get_context_json();
     });
@@ -255,9 +255,8 @@ void NavigationGuide::post()
     arg_conf->resource = this;
 
     g_print("do parse message\n");
-    if (ctx_node.is_object()) {
-      arg_conf->configure_args(gimp, ctx_node, args_node);
-    }
+    arg_conf->configure_args(gimp, ctx_node, args_node);
+
     g_print("done parse message\n");
     NavigationGuideContext* guide_context = g_new0(NavigationGuideContext,1);
     guide_context->arg_conf    = arg_conf;
