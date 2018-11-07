@@ -1579,7 +1579,7 @@ fi
 ###################
 # Check for libsoup
 ###################
-AC_ARG_ENABLE(httpd, [  --enable-httpd         build without httpd support(default=yes)])
+AC_ARG_ENABLE(httpd, [  --enable-httpd         build with httpd support(default=yes)])
 have_libsoup=no
 if test "x$enable_httpd" != xno; then
   enable_httpd=yes
