@@ -447,6 +447,13 @@ public:
     Parent::draw_dab(iter);
   }
 
+  void
+  copy_stroke(PixelRegion* src1PR, PixelRegion* destPR, 
+              PixelRegion* brushPR, PixelRegion* maskPR,
+              PixelRegion* texturePR) 
+  {
+    Parent::copy_stroke(src1PR, destPR, brushPR, maskPR, texturePR);
+  }
 
   void
   get_color(PixelRegion* src1PR, 
@@ -632,6 +639,14 @@ public:
                   1, srcPR->bytes, destPR->bytes);
 
     Parent::draw_dab(iter);        
+  }
+
+  void
+  copy_stroke(PixelRegion* src1PR, PixelRegion* destPR, 
+              PixelRegion* brushPR, PixelRegion* maskPR,
+              PixelRegion* texturePR) 
+  {
+    Parent::copy_stroke(src1PR, destPR, brushPR, maskPR, texturePR);
   }
 
   void

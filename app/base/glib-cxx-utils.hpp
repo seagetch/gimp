@@ -817,7 +817,7 @@ public:
 
   };
 
-  operator GObject* () { return super::as_object(); };
+  //operator GObject* () { return super::as_object(); };
   operator T*       () { return super::ptr(); };
   operator gpointer () { return super::ptr(); }
   template<typename G>

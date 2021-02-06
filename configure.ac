@@ -168,7 +168,7 @@ AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE, "$GETTEXT_PACKAGE",
 # Determine a CXX compiler to use
 AC_PROG_CXX
 AC_PROG_CXX_C_O
-AX_CXX_COMPILE_STDCXX_11
+AX_CXX_COMPILE_STDCXX_14
 # work around intltool-update issues during 'make distcheck'
 AS_IF([test "x$0" != "x./configure"], [
         AC_SUBST([INTLTOOL_UPDATE], [/bin/true])

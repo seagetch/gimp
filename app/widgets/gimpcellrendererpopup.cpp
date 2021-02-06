@@ -895,7 +895,7 @@ public:
 
               // initial cursor placement.
               auto callback = guard(delegator(std::function<gboolean(GtkTreeModel*, GtkTreePath*, GtkTreeIter*)>(
-                  [this, &it, &model, &selection](auto model, auto path, auto iter)->gboolean
+                  [this, &it, /*&model,*/ &selection](auto model, auto path, auto iter)->gboolean
                   {
                     GimpLayerModeEffects effect;
                     gtk_tree_model_get (model, iter, VALUE, &effect, -1);
