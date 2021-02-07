@@ -23,6 +23,7 @@
 #include "base/glib-cxx-utils.hpp"
 #include <stdarg.h>
 #include <functional>
+#include <execinfo.h>
 
 namespace GLib {
 
@@ -58,7 +59,12 @@ public:
     template<typename InstanceStruct>
     IWithClass* as_class(std::function<void (typename GLib::Traits<InstanceStruct>::Class*)> callback) {
       typename GLib::Traits<InstanceStruct>::Class* casted_class = GLib::Traits<InstanceStruct>::cast_class(klass);
-      callback(casted_class);
+      try {
+        callback(casted_class);
+      } catch(...) {
+        g_print("as_class::exception raised.\n");
+        exit(1);
+      }
       return this;
     }
 
@@ -71,6 +77,7 @@ public:
       size_t size = sizeof...(Args);
       GType array[size] = {args...};
       install_signal_v(name, R, size, array);
+      return this;
     }
   };
 
@@ -178,18 +185,27 @@ public:
                             GParamSpec   *pspec)
   {
 //    g_print("GClass:set_property: %u = %s(%s) <- (%s)\n", property_id, pspec->name, g_type_name(pspec->value_type), g_type_name(G_VALUE_TYPE(value))  );
-    auto properties = GClassWrapper::properties();
-    if (property_id - GClassWrapper::properties_base < properties.size()) {
-      Property prop = properties[property_id - GClassWrapper::properties_base];
-      if (prop.setter) {
-        prop.setter(object, value);
-      }
-      else if (prev_handlers.set_property)
+    try {
+      auto properties = GClassWrapper::properties();
+      if (property_id - GClassWrapper::properties_base < properties.size()) {
+        Property prop = properties[property_id - GClassWrapper::properties_base];
+        if (prop.setter) {
+          prop.setter(object, value);
+        }
+        else if (prev_handlers.set_property)
+          prev_handlers.set_property(object, property_id, value, pspec);
+      } else if (prev_handlers.set_property) {
         prev_handlers.set_property(object, property_id, value, pspec);
-    } else if (prev_handlers.set_property) {
-      prev_handlers.set_property(object, property_id, value, pspec);
-    } else {
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+      } else {
+        G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+      }
+    } catch (...) {
+        g_print("set_property: exception raised.\n");
+        const int trace_size = 10;
+        void* trace[trace_size];
+        int size = backtrace(trace, trace_size);
+        backtrace_symbols_fd(trace, size, 1);
+        exit(1);
     }
   }
 
@@ -200,18 +216,27 @@ public:
                             GParamSpec *pspec)
   {
 //    g_print("GClass:get_property: %u = %s(%s) <- (%s)\n", property_id, pspec->name, g_type_name(pspec->value_type), g_type_name(G_VALUE_TYPE(value))  );
-    auto properties = GClassWrapper::properties();
-    if (property_id - GClassWrapper::properties_base < properties.size()) {
-      Property prop = properties[property_id - GClassWrapper::properties_base];
-      if (prop.getter) {
-        CopyValue get_value = prop.getter(object);
-        g_value_transform(get_value, value);
-      } else if (prev_handlers.get_property)
+    try {
+      auto properties = GClassWrapper::properties();
+      if (property_id - GClassWrapper::properties_base < properties.size()) {
+        Property prop = properties[property_id - GClassWrapper::properties_base];
+        if (prop.getter) {
+          CopyValue get_value = prop.getter(object);
+          g_value_transform(get_value, value);
+        } else if (prev_handlers.get_property)
+          prev_handlers.get_property(object, property_id, value, pspec);
+      } else if (prev_handlers.get_property) {
         prev_handlers.get_property(object, property_id, value, pspec);
-    } else if (prev_handlers.get_property) {
-      prev_handlers.get_property(object, property_id, value, pspec);
-    } else {
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+      } else {
+        G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+      }
+    } catch (...) {
+        g_print("get_property: exception raised.\n");
+        const int trace_size = 10;
+        void* trace[trace_size];
+        int size = backtrace(trace, trace_size);
+        backtrace_symbols_fd(trace, size, 1);
+        exit(1);
     }
   }
 
@@ -261,7 +286,6 @@ public:
                      std::function<void(GObject*, IValue)> setter)
     {
       install_property_handlers(klass);
-
       as_class<GObject>([&](GObjectClass* klass) {
         auto properties = GClassWrapper::properties();
         guint index = properties.size() + GClassWrapper::properties_base;
@@ -269,7 +293,7 @@ public:
         g_print("Installed::%s-> prop=%s, id=%u\n", typeid(*this).name(), g_param_spec_get_name(spec), index);
 
         properties.append(Property(index, getter, setter));
-        Property prop = properties[properties.size() - 1];
+        //Property prop = properties[properties.size() - 1];
       });
       return this;
     }

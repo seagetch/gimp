@@ -14,6 +14,7 @@ void destroy_cxx_object_callback(gpointer ptr) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+#include <execinfo.h>
 template<typename Decl> class Delegator;
 template<typename Ret, typename... Args>
 class Delegator<Ret(Args...)>
@@ -29,12 +30,26 @@ public:
   virtual ~Delegator() {};
 
   static Ret callback(Args... args, gpointer ptr) {
-    Delegator* delegator = reinterpret_cast<Delegator*>(ptr);
-    return (*delegator)(args...);
+    try {
+      Delegator* delegator = reinterpret_cast<Delegator*>(ptr);
+      return (*delegator)(args...);
+    } catch(...) {
+      const int trace_size = 10;
+      void* trace[trace_size];
+      int size = backtrace(trace, trace_size);
+      backtrace_symbols_fd(trace, size, 1);
+    }
   }
 
   Ret operator()(Args... args) {
-    return func_ref(args...);
+    try {
+      return func_ref(args...);
+    } catch(...) {
+      const int trace_size = 10;
+      void* trace[trace_size];
+      int size = backtrace(trace, trace_size);
+      backtrace_symbols_fd(trace, size, 1);
+    }
   }
 };
 
@@ -50,7 +65,18 @@ public:
   {
     obj = o;
     f = _f;
-    this->func_ref = [this](Args... args)->Ret { return (obj->*f)(args...); };
+    this->func_ref = [this](Args... args)->Ret { 
+      try {
+        return (obj->*f)(args...); 
+      } catch(...) {
+        const int trace_size = 10;
+        void* trace[trace_size];
+        int size = backtrace(trace, trace_size);
+        char** symbols = backtrace_symbols(trace, size);
+        g_print("%s\n", symbols);
+        free(symbols);      
+      }
+    };
 //    this->func_ref = std::bind(std::mem_fn(f), obj);
   }
 };

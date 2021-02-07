@@ -86,6 +86,12 @@ gimp_sigfatal_handler (gint sig_num)
     case SIGQUIT:
     case SIGABRT:
     case SIGTERM:
+      {
+        const int trace_size = 10;
+        void* trace[trace_size];
+        int size = backtrace(trace, trace_size);
+        backtrace_symbols_fd(trace, size, 1);
+      }
       gimp_terminate (g_strsignal (sig_num));
       break;
 
