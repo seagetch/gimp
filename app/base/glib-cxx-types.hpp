@@ -55,7 +55,7 @@ class TraitsBase {
 public:
   typedef _Instance Instance;
   typedef _Class Class;
-  static GType get_type() { return (*g_type)(); };
+  static GType get_type() { g_print("g_type=%p\n", g_type); return (*g_type)(); };
   static Instance* cast(gpointer obj) { return G_TYPE_CHECK_INSTANCE_CAST(obj, get_type(), Instance); }
   static Class*    cast_class(gpointer klass) { return G_TYPE_CHECK_CLASS_CAST(klass, get_type(), Class); }
   static gboolean  is_instance(gpointer obj) { return G_TYPE_CHECK_INSTANCE_TYPE(obj, get_type()); }

@@ -450,7 +450,7 @@ public:
     template<Ret (Impl::*signature)(Args... args)>
     static Ret callback(G* obj, Args... args) {
       Impl* priv = get_private(obj);
-      (priv->*signature)(args...);
+      return (priv->*signature)(args...);
     };
 
     template<Ret (Impl::*signature)(Args... args)>
