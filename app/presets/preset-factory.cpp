@@ -166,14 +166,8 @@ GLib::IHashTable<gconstpointer, PresetConfig*> PresetFactory::registry()
 void
 PresetFactory::register_config (PresetConfig* config)
 {
-  g_print(">register_config\n");
   gconstpointer type_ptr = &typeid(config);
-  g_print(">get_ref\n");
-  auto reg = registry();
-  g_print("<get_ref\n");
-  reg.insert(type_ptr, config);
-  g_print("<register_config\n");
-  g_print("reg_ptr=%p", reg.ptr());
+  registry().insert(type_ptr, config);
 }
 
 

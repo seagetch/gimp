@@ -55,6 +55,8 @@ void
 HTTPDFeature::initialize (Gimp* gimp, GimpInitStatusFunc callback)
 {
   rest_daemon = new RESTD(gimp);
+
+  g_print("Adding route.\n");
   rest_daemon->route("/<name>", RESTD::delegator([&](auto matched, auto gimp, auto msg, auto context) {
     auto data = matched->data();
     const gchar* name = data.lookup("name");
@@ -66,14 +68,20 @@ HTTPDFeature::initialize (Gimp* gimp, GimpInitStatusFunc callback)
                                text,
                                strlen(text));
   }));
+  g_print("Getting PDB Factory\n");
   auto pdb_factory              = new RESTPDBFactory;
+  g_print("Getting Image Tree Factory\n");
   auto image_tree_factory       = new RESTImageTreeFactory;
+  g_print("Getting Navigation Guide Factory\n");
   auto navigation_guide_factory = new NavigationGuideFactory;
+  g_print("Adding routes for every factories\n");
   rest_daemon->route("/api/v1/pdb/", pdb_factory);
   rest_daemon->route("/api/v1/pdb/{name}", pdb_factory);
   rest_daemon->route("/api/v1/images/**", image_tree_factory);
   rest_daemon->route("/api/v1/navigation", navigation_guide_factory);
+  g_print("Running server\n");
   rest_daemon->run();
+  g_print("<HTTPDFeature::initialize(GUI)\n");
 }
 
 void

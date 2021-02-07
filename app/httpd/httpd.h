@@ -56,7 +56,7 @@ protected:
 public:
   enum { HTTP_PORT = 8920 }; // Mayoi is god ;)
 
-  RESTD(Gimp* gimp) : HTTPD(gimp) { };
+  RESTD(Gimp* gimp) : HTTPD(gimp), router() { };
   virtual ~RESTD() { };
 
   virtual gint port() { return HTTP_PORT; }

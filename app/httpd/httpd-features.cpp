@@ -54,6 +54,7 @@ GIMP::Feature* httpd_get_factory()
 void
 HTTPDFeature::initialize (Gimp* gimp, GimpInitStatusFunc callback)
 {
+  g_print(">HTTPDFeature::initialize\n");
   rest_daemon = new RESTD(gimp);
   rest_daemon->route("/<name>", RESTD::delegator([&](auto matched, auto gimp, auto msg, auto context) {
     auto data = matched->data();
@@ -72,6 +73,7 @@ HTTPDFeature::initialize (Gimp* gimp, GimpInitStatusFunc callback)
   rest_daemon->route("/api/v1/pdb/{name}", pdb_factory);
   rest_daemon->route("/api/v1/images/**", image_tree_factory);
   rest_daemon->run();
+  g_print("<HTTPDFeature::initialize\n");
 }
 
 void

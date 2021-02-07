@@ -238,6 +238,8 @@ class IArray : public Array
 public:
   IArray(GArray* arr) : Array(arr) { incref(); };
   IArray(const IArray& src) : Array(src.obj) { incref(); }
+  IArray(IArray&& src) : Array(src.obj) { src.obj = NULL; }
+
   Data& operator[](int index) {
     Data* array = (Data*)(obj->data);
     return array[index];

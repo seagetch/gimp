@@ -75,17 +75,25 @@ public:
   T* operator ->() { return super::ptr(); }
   T& operator *() { return *super::ptr(); }
   operator T*() { return super::ptr(); }
-  T& operator=(T* src) {
+  CXXPointer& operator=(T* src) {
+    if (super::obj == src)
+      return *this;
     if (!is_null(super::ptr()))
       destroy_instance(super::ptr());
     super::obj = src;
+    return *this;
   };
-  T& operator=(CXXPointer&& src) {
+  CXXPointer& operator=(CXXPointer&& src) {
+    if (this == &src)
+      return *this;
+    if (super::obj == src.obj)
+      return *this;
     g_print("steal assign %p from %p\n", src.obj, &src);
     if (!is_null(super::ptr()))
       destroy_instance(super::ptr());
     super::obj = src.obj;
     src.obj = NULL;
+    return *this;
   }
 };
 
