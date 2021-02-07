@@ -288,10 +288,11 @@ namespace GLib
 class HashTable : public ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>
 {
 public:
-  HashTable() : ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>(NULL) {};
-  HashTable(GHashTable* table) : ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>(table) {};
-  HashTable(HashTable&& src) : ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>(src.obj) { src.obj = NULL; }
-  HashTable(const HashTable& src) : ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref>(src.obj) { incref(); }
+  typedef ScopedPointer<GHashTable, void(GHashTable*), g_hash_table_unref> Parent;
+  HashTable() : Parent(NULL) {};
+  HashTable(GHashTable* table) : Parent(table) {};
+  HashTable(HashTable&& src) : Parent(src.obj) { src.obj = NULL; }
+  HashTable(const HashTable& src) : Parent(src.obj) { incref(); }
   void incref() {
     if (obj)
       g_hash_table_ref(obj);
@@ -324,6 +325,7 @@ class IHashTable : public HashTable
 public:
   IHashTable(GHashTable* table) : HashTable(table) { incref(); };
   IHashTable(const IHashTable& src)   : HashTable(src.obj) { incref(); };
+  IHashTable(IHashTable&& src) : HashTable(src.obj) { src.obj = NULL; }
 
   const Data lookup(const Key key) const {
     return (Data)(g_hash_table_lookup(obj, (gconstpointer) key));
@@ -332,7 +334,7 @@ public:
     return lookup(key);
   }
   bool insert(const Key key, Data value) {
-    g_hash_table_insert(ptr(), (gpointer)key, (gpointer)value);
+    return g_hash_table_insert(obj, (gpointer)key, (gpointer)value);
   }
   template<typename F>
   void each(F each_func) {
@@ -352,6 +354,10 @@ public:
 template<typename Key, typename Data>
 inline auto ref(GHashTable* hashtable) { return static_cast<IHashTable<Key, Data>&&>(IHashTable<Key, Data>(hashtable)); }
 
+template<typename Key, typename Data>
+inline auto ref(GLib::HashTable& hashtable) { 
+  return static_cast<IHashTable<Key, Data>&&>(IHashTable<Key, Data>(hashtable.ptr())); 
+}
 
 class synchronized : public ScopeGuard<GMutex*, void(GMutex*), g_mutex_unlock, is_null<GMutex*> >
 {

@@ -4,7 +4,10 @@
 template<class T>
 bool always_true(const T) { return true; }
 
-template<class T, typename Destructor, Destructor* Free, bool (*IsNull)(const T) = always_true<T> >
+template<class T>
+T default_value() { return T(); }
+
+template<class T, typename Destructor, Destructor* Free, bool (*IsNull)(const T) = always_true<T>, T (*Clear)() = default_value<T> >
 class ScopeGuard {
 protected:
   T obj;
@@ -14,6 +17,7 @@ public:
   ~ScopeGuard() {
     if (!IsNull(obj)) {
       Free(obj);
+      obj = Clear();
     }
   }
   T& ref() { return obj; }
@@ -23,16 +27,20 @@ public:
 
 
 template<class T>
-bool is_null(const T mem) { return !mem; };
+bool is_null(const T mem) { return mem == NULL; };
+
+
+template<class T>
+T zero() { return NULL; }
 
 
 template<class T, typename Destructor, Destructor* f>
-class ScopedPointer : public ScopeGuard<T*, Destructor, f, is_null<T*> > {
+class ScopedPointer : public ScopeGuard<T*, Destructor, f, is_null<T*>, zero<T*> > {
 public:
-  ScopedPointer() : ScopeGuard<T*, Destructor, f, is_null<T*> >(NULL) {};
-  ScopedPointer(T* ptr) : ScopeGuard<T*, Destructor, f, is_null<T*> >(ptr) {};
-  T* ptr() { return ScopeGuard<T*, Destructor, f, is_null<T*> >::ref(); };
-  T* const ptr() const { return ScopeGuard<T*, Destructor, f, is_null<T*> >::ref(); };
+  ScopedPointer() : ScopeGuard<T*, Destructor, f, is_null<T*>, zero<T*> >(NULL) {};
+  ScopedPointer(T* ptr) : ScopeGuard<T*, Destructor, f, is_null<T*>, zero<T*> >(ptr) {};
+  T* ptr() { return ScopeGuard<T*, Destructor, f, is_null<T*>, zero<T*> >::ref(); };
+  T* const ptr() const { return ScopeGuard<T*, Destructor, f, is_null<T*>, zero<T*> >::ref(); };
   T* operator ->() { return ptr(); };
   T& operator *() { return *ptr(); };
   operator T*() { return ptr(); };
