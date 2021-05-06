@@ -12,11 +12,11 @@ class ScopeGuard {
 protected:
   T obj;
 public:
-  ScopeGuard() {  };
+  ScopeGuard() : obj(Clear()) {  };
   ScopeGuard(T ptr) : obj(ptr) {  };
   ~ScopeGuard() {
-    if (!IsNull(obj)) {
-      Free(obj);
+    if (!IsNull(this->obj)) {
+      Free(this->obj);
       obj = Clear();
     }
   }

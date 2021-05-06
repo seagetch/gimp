@@ -54,6 +54,7 @@ public:
   StringList() : super(NULL) {};
   StringList(gchar** list) : super(list) {};
   StringList(StringList&& src) : super(src.obj) { src.obj = NULL; }
+  StringList(const StringList& src) : super(g_strdupv(src.obj)) { }
   gchar** begin() { return obj; }
   gchar** end() {
     for (gchar** str = obj; true; str++)
@@ -67,9 +68,11 @@ public:
   operator gchar**() { return obj; }
   operator gchar* const *() const { return obj; }
   StringList& operator = (gchar** str) {
-    if (obj)
-      g_strfreev(obj);
-    obj = str;
+    if (this->obj) {
+      g_strfreev(this->obj);
+    }
+    this->obj = g_strdupv(str);
+    return *this;
   }
 };
 

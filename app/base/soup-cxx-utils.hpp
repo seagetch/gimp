@@ -84,7 +84,13 @@ public:
 
     auto data() { return GLib::ref<const gchar*, gchar*>(_data); }
     gchar* const* get_path() const { return path; }
-    void set_path(gchar** path) { this->path = g_strdupv(path); }
+    void set_path(gchar** path) {
+      if (path) {
+        this->path = g_strdupv(path); 
+      } else {
+        this->path = (gchar**)NULL;
+      }
+    }
   };
 
   typedef bool rule_handler(Matched*);
@@ -238,7 +244,6 @@ protected:
 
     Matched test(gchar* const* uri, const gchar* data) {
       Matched result;
-      result.set_path(NULL);
       if (rules().size() == 0)
         return result;
 
@@ -248,7 +253,6 @@ protected:
           const gchar* token = *tested_token;
           while (token && strlen(token) == 0)
             token = *(++tested_token);
-
           if (!token) { // Tested URI is short.
   //          g_print("tested URI is too short.\n");
             if (i->loop()) // i is infinite loop rule. exit from loop.
@@ -300,8 +304,8 @@ public:
     for ( auto i: rules() ) {
       Matched matched = i->test(tested_path.ptr(), data);
       gchar* const* path = matched.get_path();
-      if (matched.get_path()) {
-        return (*i->handler)(&matched, args...);
+      if (matched.get_path() && i->handler) {
+        return (*(i->handler))(&matched, args...);
       }
     }
     return Ret();
